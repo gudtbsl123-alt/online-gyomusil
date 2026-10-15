@@ -263,7 +263,7 @@
       busy(btn, true, '확인하는 중');
       err.textContent = '';
       server('login', { password: pw }).then(function (r) {
-        stSet('gy.login', r.login, false);
+        stSet('gy.login', r.login, r.remember);
         stDel('gy.skipIdentity');
         showIdentity();
       }).catch(function (e) {
@@ -290,20 +290,26 @@
   }
 
   function drawIdentity(list, opts) {
-    var days = (S.start && S.start.rememberDays) || 30;
+    var days = (S.start && S.start.rememberDays) || 365;
+    var dayText = days % 365 === 0 ? (days / 365) + '년' : days + '일';
+    var pin = !!(S.start && S.start.pinMode);
     $app.innerHTML = gateWrap(
       '<form class="gate-card" id="id-form" novalidate><span class="glow" aria-hidden="true"></span>' +
       '<div><p class="kicker">본인 확인</p><h1>누구신가요?</h1>' +
-      '<p class="muted" style="margin:6px 0 0;font-size:16px">이름을 고르고 개인 번호 4자리를 넣어 주세요. 일정을 넣거나 조사에 답할 때 누가 했는지 남아요.</p></div>' +
+      '<p class="muted" style="margin:6px 0 0;font-size:16px">' + (pin
+        ? '이름을 고르고 개인 번호 4자리를 넣어 주세요. 일정을 넣거나 조사에 답할 때 누가 했는지 남아요.'
+        : '명단에서 내 이름을 골라 주세요. 일정을 넣거나 조사에 답하면 고른 이름으로 남아요.') + '</p></div>' +
       (list.length
         ? '<div class="field"><label class="search" for="id-find">' + icon('search', 20) +
           '<span class="sr-only">이름으로 찾기</span><input id="id-find" type="search" placeholder="이름으로 찾기" autocomplete="off"></label></div>' +
           '<div class="people" id="id-people" role="radiogroup" aria-label="교직원 명단"></div>'
         : '<div class="box muted">아직 교직원 명단이 비어 있어요. 연구부장·부담당이 관리자 화면에서 명단을 넣으면 고를 수 있어요.</div>') +
-      '<div class="field"><label class="label" for="id-pin">개인 번호 4자리</label>' +
-      '<input id="id-pin" class="input input-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"></div>' +
-      '<label class="check"><input type="checkbox" id="id-remember">이 기기에서 기억하기 (' + days + '일)</label>' +
-      '<p class="hint">' + icon('info', 16) + '<span>기억하기는 내 휴대폰에서만 켜 주세요. 교무실 공용 PC에서는 꺼 두세요. 번호를 잊었다면 연구부장·부담당에게 다시 받으세요.</span></p>' +
+      (pin ? '<div class="field"><label class="label" for="id-pin">개인 번호 4자리</label>' +
+        '<input id="id-pin" class="input input-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"></div>' : '') +
+      '<label class="check"><input type="checkbox" id="id-remember"' + (pin ? '' : ' checked') + '>이 기기에서 기억하기 (' + dayText + ')</label>' +
+      '<p class="hint">' + icon('info', 16) + '<span>' + (pin
+        ? '기억하기는 내 휴대폰에서만 켜 주세요. 교무실 공용 PC에서는 꺼 두세요. 번호를 잊었다면 연구부장·부담당에게 다시 받으세요.'
+        : '여러 사람이 함께 쓰는 교무실 PC에서는 기억하기를 꺼 주세요. 다른 분이 내 이름으로 기록하지 않게요.') + '</span></p>' +
       '<p class="err" id="id-err" role="alert"></p>' +
       '<button type="submit" class="btn btn-primary btn-block"' + (list.length ? '' : ' disabled') + '>확인</button>' +
       '<button type="button" class="btn btn-ghost" data-action="skip-identity">나중에 할게요 (보기만 하기)</button>' +
@@ -322,19 +328,19 @@
           '<span class="avatar" aria-hidden="true">' + esc(p.name.charAt(0)) + '</span>' +
           '<span class="person-lines"><span class="person-name">' + esc(p.name) + '</span>' +
           '<span class="person-sub">' + esc([p.position, p.group, p.dept].filter(Boolean).join(' · ')) + '</span></span>' +
-          (p.hasPin ? '' : '<span class="chip chip-warn">번호 없음</span>') + '</label>';
+          (p.hasPin || !pin ? '' : '<span class="chip chip-warn">번호 없음</span>') + '</label>';
       }).join('') : '<p class="empty">찾는 이름이 없어요.</p>';
     }
     drawPeople('');
     var find = qs('#id-find');
     if (find) find.addEventListener('input', function () { drawPeople(find.value); });
-    var pin = qs('#id-pin');
-    pin.addEventListener('input', function () { pin.value = pin.value.replace(/\D/g, '').slice(0, 4); });
+    var pinBox = qs('#id-pin');
+    if (pinBox) pinBox.addEventListener('input', function () { pinBox.value = pinBox.value.replace(/\D/g, '').slice(0, 4); });
     if ($people) $people.addEventListener('change', function () {
       qsa('.person', $people).forEach(function (l) { l.classList.toggle('on', l.querySelector('input').checked); });
       var p = list.filter(function (x) { return x.id === (qs('input[name=who]:checked') || {}).value; })[0];
-      qs('#id-err').textContent = p && !p.hasPin ? '아직 개인 번호가 없어요. 연구부장·부담당에게 받아 주세요.' : '';
-      if (p && p.hasPin) pin.focus();
+      qs('#id-err').textContent = pin && p && !p.hasPin ? '아직 개인 번호가 없어요. 연구부장·부담당에게 받아 주세요.' : '';
+      if (pin && p && p.hasPin) pinBox.focus();
     });
 
     qs('#id-form').addEventListener('submit', function (ev) {
@@ -342,12 +348,12 @@
       var who = (qs('input[name=who]:checked') || {}).value;
       var err = qs('#id-err');
       if (!who) { err.textContent = '명단에서 이름을 골라 주세요.'; return; }
-      if (!/^\d{4}$/.test(pin.value)) { err.textContent = '개인 번호 4자리를 숫자로 넣어 주세요.'; pin.focus(); return; }
+      if (pin && !/^\d{4}$/.test(pinBox.value)) { err.textContent = '개인 번호 4자리를 숫자로 넣어 주세요.'; pinBox.focus(); return; }
       var remember = qs('#id-remember').checked;
       var btn = ev.target.querySelector('[type=submit]');
       busy(btn, true, '확인하는 중');
       err.textContent = '';
-      server('verify', { staffId: who, pin: pin.value, remember: remember }).then(function (r) {
+      server('verify', { staffId: who, pin: pin ? pinBox.value : '', remember: remember }).then(function (r) {
         stSet('gy.identity', r.identity, remember);
         if (r.login) stSet('gy.login', r.login, true);
         stDel('gy.skipIdentity');
@@ -357,8 +363,7 @@
       }).catch(function (e) {
         busy(btn, false);
         err.textContent = e.message;
-        pin.value = '';
-        pin.focus();
+        if (pinBox) { pinBox.value = ''; pinBox.focus(); }
       });
     });
   }
@@ -1157,6 +1162,7 @@
     server('admin.staff.list').then(function (r) {
       S.cache.staff = r.staff;
       S.cache.depts = r.depts;
+      S.cache.pinMode = !!r.pinMode;
       drawStaff(panel);
     }).catch(function (e) { panel.innerHTML = failHtml(e); });
   }
@@ -1173,12 +1179,12 @@
     panel.innerHTML =
       '<div class="wrap" style="gap:16px">' +
       '<div class="counts"><span class="chip chip-ok">사용 ' + on.length + '명</span><span class="chip">사용 안 함 ' + (all.length - on.length) + '명</span>' +
-      (noPin.length ? '<span class="chip chip-warn">번호 없음 ' + noPin.length + '명</span>' : '<span class="chip">모두 번호 있음</span>') + '</div>' +
+      (!S.cache.pinMode ? '<span class="chip">본인 확인: 이름만</span>' : noPin.length ? '<span class="chip chip-warn">번호 없음 ' + noPin.length + '명</span>' : '<span class="chip">모두 번호 있음</span>') + '</div>' +
       '<div class="toolbar print-hide">' +
       '<label class="search" for="staff-find">' + icon('search', 20) + '<span class="sr-only">교직원 찾기</span>' +
       '<input id="staff-find" type="search" placeholder="이름·소속·업무로 찾기" value="' + esc(S.staffSearch) + '" autocomplete="off"></label>' +
       '<label class="check" style="padding:0 6px"><input type="checkbox" id="staff-off"' + (S.showOff ? ' checked' : '') + '>사용 안 함도 보기</label>' +
-      '<button type="button" class="btn btn-sm" data-action="staff-issue"' + (noPin.length ? '' : ' disabled') + '>' + icon('key', 18) + '번호 없는 분 번호 만들기</button>' +
+      (S.cache.pinMode ? '<button type="button" class="btn btn-sm" data-action="staff-issue"' + (noPin.length ? '' : ' disabled') + '>' + icon('key', 18) + '번호 없는 분 번호 만들기</button>' : '') +
       '<button type="button" class="btn btn-sm btn-primary" data-action="staff-add">' + icon('plus', 18) + '교직원 추가</button></div>' +
       (shown.length
         ? '<div class="rows" role="table" aria-label="교직원 표">' +
@@ -1201,9 +1207,10 @@
     var off = x['사용 여부'] === '사용 안 함';
     var chips = [];
     if (x['역할'] === '관리') chips.push('<span class="chip chip-accent">관리</span>');
+    var pinMode = !!S.cache.pinMode;
     if (off) chips.push('<span class="chip">사용 안 함</span>');
-    else if (!x.hasPin) chips.push('<span class="chip chip-warn">번호 없음</span>');
-    if (x.locked) chips.push('<span class="chip chip-warn">잠김</span>');
+    else if (pinMode && !x.hasPin) chips.push('<span class="chip chip-warn">번호 없음</span>');
+    if (pinMode && x.locked) chips.push('<span class="chip chip-warn">잠김</span>');
     var id = esc(x['교직원ID']);
     return '<div class="srow' + (off ? ' off' : '') + '" role="row">' +
       '<div role="cell"><div class="s-name">' + esc(x['이름']) + '</div><div class="s-sub">' + esc(x['직위'] || '') + '</div>' +
@@ -1213,7 +1220,7 @@
       '<div role="cell" class="s-col-tel">' + esc(x['내선'] || '') + '</div>' +
       '<div role="cell" class="s-btns print-hide">' +
       '<button type="button" class="btn btn-sm" data-action="staff-edit" data-id="' + id + '">고치기</button>' +
-      (off ? '' : x.locked
+      (off || !pinMode ? '' : x.locked
         ? '<button type="button" class="btn btn-sm" data-action="staff-unlock" data-id="' + id + '">잠금 풀기</button>'
         : '<button type="button" class="btn btn-sm" data-action="staff-pin" data-id="' + id + '">' + (x.hasPin ? '번호 새로' : '번호 만들기') + '</button>') +
       '<button type="button" class="btn btn-sm btn-ghost" data-action="staff-active" data-id="' + id + '">' + (off ? '다시 사용' : '사용 안 함') + '</button>' +
@@ -1451,6 +1458,12 @@
     function byKey(k) { return list.filter(function (x) { return x.key === k; })[0]; }
     function input(d) {
       var id = 'set-' + list.indexOf(d);
+      if (d.type === 'choice') {
+        return '<div class="field"><label class="label" for="' + id + '">' + esc(d.label) + '</label>' +
+          '<select id="' + id + '" class="input" data-set="' + esc(d.key) + '">' + d.options.map(function (o) {
+            return '<option' + (o === d.value ? ' selected' : '') + '>' + esc(o) + '</option>';
+          }).join('') + '</select>' + (d.note ? '<p class="hint">' + esc(d.note) + '</p>' : '') + '</div>';
+      }
       var type = d.type === 'date' ? 'date' : 'text';
       var extra = d.type === 'int' || d.type === 'year' ? ' inputmode="numeric"' : '';
       return '<div class="field"><label class="label" for="' + id + '">' + esc(d.label) + (d.unit ? ' (' + d.unit + ')' : '') + '</label>' +
@@ -1466,8 +1479,9 @@
       '<section class="card"><h2>학기 기간</h2><p class="faint">2단계 수업일수 계산에 써요. 학교 학사일정을 보고 넣어 주세요(확인 필요).</p>' +
       '<div class="form-grid">' + input(byKey('1학기 시작일')) + input(byKey('1학기 끝일')) + '</div>' +
       '<div class="form-grid">' + input(byKey('2학기 시작일')) + input(byKey('2학기 끝일')) + '</div></section>' +
-      '<section class="card"><h2>본인 확인·백업</h2><div class="form-grid">' + input(byKey('잠금 횟수')) + input(byKey('잠금 분')) + '</div>' +
-      '<div class="form-grid">' + input(byKey('기기 기억 일수')) + input(byKey('백업 남길 개수')) + '</div>' +
+      '<section class="card"><h2>본인 확인·백업</h2><div class="form-grid">' + input(byKey('본인 확인 방식')) + input(byKey('기기 기억 일수')) + '</div>' +
+      '<div class="form-grid">' + input(byKey('잠금 횟수')) + input(byKey('잠금 분')) + '</div>' +
+      '<div class="form-grid">' + input(byKey('백업 남길 개수')) + '</div>' +
       '<p class="faint">자동 백업: ' + (backup ? '켜져 있어요(백업 폴더가 만들어져 있어요).' : '아직 꺼져 있어요. 전용 시트 메뉴 "4. 매일 자동 백업 켜기"로 켜 주세요.') + '</p></section>' +
       '<section class="card"><div class="card-head"><h2>기존 시트 바로가기</h2><span class="chip">2단계 홈에 보여요</span></div>' +
       '<p class="faint">특별실 시간표·방학 근무·연수 이수 확인처럼 2차에 옮길 일의 바로가기예요. 주소는 https:// 로 시작해야 해요.</p>' +
@@ -1486,6 +1500,17 @@
       busy(btn, true, '저장하는 중');
       server('admin.settings.save', { values: values }).then(function (l2) {
         if (S.start) S.start.school = values['학교명'];
+        var newPin = values['본인 확인 방식'] === '이름+개인 번호';
+        if (S.start && S.start.pinMode !== newPin) {
+          // 확인 방식이 바뀌면 지금 기기의 본인 확인도 풀린다(서버도 같은 규칙)
+          S.start.pinMode = newPin;
+          stDel('gy.identity');
+          S.me = null;
+          renderApp();
+          toast('본인 확인 방식을 바꿨어요. 이름을 다시 골라 주세요');
+          return;
+        }
+        if (S.start) S.start.rememberDays = Number(values['기기 기억 일수']) || S.start.rememberDays;
         drawSettings(panel, l2);
         toast('설정을 저장했어요');
       }).catch(function (e) { busy(btn, false); qs('#set-err').textContent = e.message; });

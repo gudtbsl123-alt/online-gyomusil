@@ -26,8 +26,16 @@ function test(name, fn) {
 const COMMON = 'common-pass-1';
 const ADMIN = 'admin-pass-1';
 
-/** 처음 설정 + 비밀번호 + 가짜 교직원(번호 1111)까지 마친 환경 */
+/** 처음 설정 + 비밀번호 + 가짜 교직원(번호 1111)까지 마친 환경. 개인 번호 방식(기억 30일)으로 시험한다 */
 function fresh(withUi) {
+  const g = freshName(withUi);
+  g.putSetting_('본인 확인 방식', '이름+개인 번호', { id: '', name: '시험' });
+  g.putSetting_('기기 기억 일수', '30', { id: '', name: '시험' });
+  return g;
+}
+
+/** 기본값 그대로('이름만', 기억 365일) */
+function freshName(withUi) {
   const g = loadGas({ ui: withUi ? fakeUi() : null });
   g.setupAll_();
   g.setPassword_('common', COMMON);
@@ -78,7 +86,8 @@ test('처음 설정: 탭 11개와 머리글, 설정 기본값을 만든다', () 
   assert.deepStrictEqual(plain(g.headOf_('교직원')), plain(g.tabs_()['교직원']));
   assert.strictEqual(g.setting_('잠금 횟수'), '5');
   assert.strictEqual(g.setting_('잠금 분'), '10');
-  assert.strictEqual(g.setting_('기기 기억 일수'), '30');
+  assert.strictEqual(g.setting_('기기 기억 일수'), '365');
+  assert.strictEqual(g.setting_('본인 확인 방식'), '이름만');
   assert.strictEqual(g.setting_('백업 남길 개수'), '30');
 });
 
@@ -637,6 +646,73 @@ test('날짜 도구: 요일·월요일·말일', () => {
   assert.strictEqual(g.lastDayOfMonth_(2028, 2), '2028-02-29');
   assert.strictEqual(g.addDays_('2026-12-31', 1), '2027-01-01');
   assert.deepStrictEqual(plain(g.schoolYearRange_(2026)), { from: '2026-03-01', to: '2027-02-28' });
+});
+
+
+// ================================================================ 본인 확인 방식: 이름만 (기본값)
+
+test('이름만: 번호 없이 이름을 고르면 본인 확인이 되고, 기록에 고른 이름이 남는다', () => {
+  const g = freshName();
+  const { L, staff } = loginAll(g);
+  const start = call(g, 'start').data;
+  assert.strictEqual(start.pinMode, false);
+  assert.strictEqual(start.rememberDays, 365);
+  const r = call(g, 'verify', { staffId: staff[2].id, remember: true }, { login: L });
+  assert.strictEqual(r.ok, true, r.error);
+  assert.strictEqual(r.data.me.name, '이몽룡');
+  const t = { login: r.data.login, identity: r.data.identity };
+  const e = call(g, 'sched.save', { fields: { start: '2026-10-20', title: '이름만 행사' } }, t).data;
+  assert.strictEqual(e.by, '이몽룡');
+  assert.strictEqual(g.readRows_('기록').pop()['이름'], '이몽룡');
+});
+
+test('이름만: 공통 비밀번호는 기억하기 없이도 1년 유지된다', () => {
+  const g = freshName();
+  const L = call(g, 'login', { password: COMMON }).data.login;
+  g.__clock.offset = 364 * 24 * 3600 * 1000;
+  assert.strictEqual(call(g, 'staffPicker', {}, { login: L }).ok, true);
+  g.__clock.offset = 366 * 24 * 3600 * 1000;
+  assert.strictEqual(call(g, 'staffPicker', {}, { login: L }).code, 'LOGIN');
+});
+
+test('이름만: 기억하기를 켜면 고른 이름도 1년, 끄면 12시간', () => {
+  const g = freshName();
+  const { L, staff } = loginAll(g);
+  const long = call(g, 'verify', { staffId: staff[0].id, remember: true }, { login: L }).data;
+  const short = call(g, 'verify', { staffId: staff[1].id }, { login: L }).data;
+  g.__clock.offset = 13 * 3600 * 1000;
+  assert.strictEqual(call(g, 'session', {}, { login: long.login, identity: short.identity }).data.me, null);
+  assert.strictEqual(call(g, 'session', {}, { login: long.login, identity: long.identity }).data.me.name, '홍길동');
+  g.__clock.offset = 300 * 24 * 3600 * 1000;
+  assert.strictEqual(call(g, 'session', {}, { login: long.login, identity: long.identity }).data.me.name, '홍길동');
+});
+
+test('이름만: 사용 안 함인 분은 고를 수 없다', () => {
+  const g = freshName();
+  const { L, staff, t } = adminTokens(g);
+  call(g, 'admin.staff.setActive', { id: staff[6].id, active: false }, t);
+  assert.strictEqual(call(g, 'verify', { staffId: staff[6].id }, { login: L }).code, 'NOTFOUND');
+});
+
+test('확인 방식을 바꾸면 예전 본인 확인은 풀린다(양쪽 모두)', () => {
+  const g = freshName();
+  const { L, staff } = loginAll(g);
+  const nameId = call(g, 'verify', { staffId: staff[0].id, remember: true }, { login: L }).data.identity;
+  g.putSetting_('본인 확인 방식', '이름+개인 번호', { id: '', name: '시험' });
+  assert.strictEqual(call(g, 'session', {}, { login: L, identity: nameId }).data.me, null, '이름만 표로 번호 방식에 들어오면 안 됨');
+  assert.strictEqual(call(g, 'verify', { staffId: staff[0].id }, { login: L }).code, 'BADPIN', '번호 방식에서는 번호가 필요');
+  const pinId = call(g, 'verify', { staffId: staff[0].id, pin: '1111' }, { login: L }).data.identity;
+  g.putSetting_('본인 확인 방식', '이름만', { id: '', name: '시험' });
+  assert.strictEqual(call(g, 'session', {}, { login: L, identity: pinId }).data.me, null);
+});
+
+test('설정: 본인 확인 방식은 두 가지 중에서만, 기억 기간은 400일까지', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  assert.strictEqual(call(g, 'admin.settings.save', { values: { '본인 확인 방식': '아무거나' } }, t).ok, false);
+  assert.strictEqual(call(g, 'admin.settings.save', { values: { '기기 기억 일수': '500' } }, t).ok, false);
+  assert.strictEqual(call(g, 'admin.settings.save', { values: { '기기 기억 일수': '365' } }, t).ok, true);
+  assert.strictEqual(call(g, 'admin.staff.list', {}, t).data.pinMode, false);
 });
 
 console.log(results.join('\n'));

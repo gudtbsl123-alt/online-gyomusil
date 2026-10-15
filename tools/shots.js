@@ -121,7 +121,7 @@ async function login(page) {
 }
 async function verify(page, name, remember) {
   await page.locator('.person', { hasText: name }).first().click();
-  await page.fill('#id-pin', '1111');
+  if (await page.locator('#id-pin').count()) await page.fill('#id-pin', '1111');
   if (remember) await page.check('#id-remember');
   await page.click('#id-form [type=submit]');
   await page.locator('.main').waitFor();
@@ -147,12 +147,9 @@ async function flow(browser, kind, viewport) {
   await shot(page, kind + '_본인확인');
 
   await page.locator('.person', { hasText: '성춘향' }).click();
-  await page.fill('#id-pin', '9999');
-  await page.click('#id-form [type=submit]');
-  await waitText(page, '남은 기회는 4번');
-  await shot(page, kind + '_번호_틀림');
-
-  await page.fill('#id-pin', '1111');
+  if (await page.locator('#id-pin').count()) problems.push(kind + ': 이름만 방식인데 번호 칸이 보임');
+  if (!(await page.isChecked('#id-remember'))) problems.push(kind + ': 이름만 방식에서 기억하기가 기본으로 켜져 있지 않음');
+  await shot(page, kind + '_이름고르기');
   await page.click('#id-form [type=submit]');
   await waitText(page, '오늘도 반가워요');
   await page.locator('.today-card').waitFor();
@@ -181,11 +178,7 @@ async function flow(browser, kind, viewport) {
   await page.fill('#sf-내선', '0108');
   await page.click('#staff-form [type=submit]');
   await waitText(page, '전우치 선생님을 넣었어요');
-  await page.locator('.srow', { hasText: '전우치' }).locator('[data-action=staff-pin]').click();
-  await page.click('#cf-ok');
-  await page.locator('.pin-big').waitFor();
-  await shot(page, kind + '_개인번호_한번만');
-  await page.click('[data-action=close-pins]');
+  if (await page.locator('[data-action=staff-pin],[data-action=staff-issue]').count()) problems.push(kind + ': 이름만 방식인데 번호 단추가 보임');
 
   await page.click('[data-admin-tab=cat]');
   await page.locator('[data-cat-name]').first().waitFor();
@@ -227,6 +220,44 @@ async function flow(browser, kind, viewport) {
     await page.click('.side [data-go=schedule]');
   }
   await shot(page, kind + '_어둡게_준비중');
+  await ctx.close();
+}
+
+/** '이름+개인 번호'로 바꿨을 때: 번호 칸·번호 단추가 다시 나오고 1111로 들어가진다 */
+async function pinModeCheck(browser) {
+  const ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('번호 방식 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  await page.evaluate(() => window.__gy.go('admin'));
+  await page.fill('#admin-pw', 'admin1');
+  await page.click('#admin-form [type=submit]');
+  await page.locator('.srow').nth(3).waitFor();
+  await page.click('[data-admin-tab=settings]');
+  await page.locator('[data-set="본인 확인 방식"]').selectOption('이름+개인 번호');
+  await page.click('#set-form [type=submit]');
+  await waitText(page, '본인 확인 방식을 바꿨어요');
+  await page.click('[data-admin-tab=staff]');
+  await page.locator('[data-action=staff-pin]').first().waitFor();
+  await shot(page, '번호방식_교직원표');
+  await page.locator('.srow', { hasText: '심청' }).locator('[data-action=staff-pin]').click();
+  await page.click('#cf-ok');
+  await page.locator('.pin-big').waitFor();
+  await shot(page, '번호방식_개인번호_한번만');
+  await page.click('[data-action=close-pins]');
+  await page.click('.side [data-action=identity]');
+  await page.locator('#id-pin').waitFor();
+  await page.locator('.person', { hasText: '성춘향' }).click();
+  await page.fill('#id-pin', '9999');
+  await page.click('#id-form [type=submit]');
+  await waitText(page, '남은 기회는 4번');
+  await shot(page, '번호방식_번호_틀림');
+  await page.fill('#id-pin', '1111');
+  await page.click('#id-form [type=submit]');
+  await waitText(page, '성춘향 선생님, 본인 확인이 됐어요');
   await ctx.close();
 }
 
@@ -288,6 +319,7 @@ async function printCheck(browser) {
     }
     await ctx.close();
   }
+  await pinModeCheck(browser);
   await printCheck(browser);
   await browser.close();
   console.log('사진 ' + n + '장 → ' + OUT);

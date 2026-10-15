@@ -13,9 +13,10 @@ function settingDefs_() {
     { key: '1학기 끝일', def: '', type: 'date', label: '1학기 끝일', note: '확인 필요' },
     { key: '2학기 시작일', def: '', type: 'date', label: '2학기 시작일', note: '확인 필요' },
     { key: '2학기 끝일', def: '', type: 'date', label: '2학기 끝일', note: '확인 필요' },
-    { key: '잠금 횟수', def: '5', type: 'int', min: 3, max: 10, label: '개인 번호를 몇 번 틀리면 잠글까요', unit: '번' },
-    { key: '잠금 분', def: '10', type: 'int', min: 1, max: 120, label: '잠그는 시간', unit: '분' },
-    { key: '기기 기억 일수', def: '30', type: 'int', min: 1, max: 90, label: "'이 기기에서 기억하기' 기간", unit: '일' },
+    { key: '본인 확인 방식', def: '이름만', type: 'choice', options: ['이름만', '이름+개인 번호'], label: '본인 확인 방식', note: "'이름만'은 명단에서 이름만 골라요. 바꾸면 모든 기기에서 이름을 다시 골라야 해요" },
+    { key: '기기 기억 일수', def: '365', type: 'int', min: 1, max: 400, label: '로그인·이름을 기기에 기억하는 기간', unit: '일' },
+    { key: '잠금 횟수', def: '5', type: 'int', min: 3, max: 10, label: '개인 번호를 몇 번 틀리면 잠글까요', unit: '번', note: "'이름+개인 번호'일 때만 써요" },
+    { key: '잠금 분', def: '10', type: 'int', min: 1, max: 120, label: '잠그는 시간', unit: '분', note: "'이름+개인 번호'일 때만 써요" },
     { key: '백업 남길 개수', def: '30', type: 'int', min: 3, max: 365, label: '매일 백업을 몇 개까지 남길까요', unit: '개' },
     { key: '기존 시트 바로가기', def: '[]', type: 'links', label: "홈의 '아직 기존 시트에서 하는 일' 바로가기", note: '2단계 홈 화면에 보여요' },
     { key: '백업 폴더ID', def: '', type: 'readonly', label: '백업 폴더(자동)' },
@@ -66,7 +67,7 @@ function putSetting_(key, value, actor) {
 function adminSettingsGet_() {
   var m = settingsMap_();
   return settingDefs_().map(function (d) {
-    return { key: d.key, label: d.label, type: d.type, note: d.note || '', unit: d.unit || '', min: d.min, max: d.max, value: m[d.key] };
+    return { key: d.key, label: d.label, type: d.type, note: d.note || '', unit: d.unit || '', min: d.min, max: d.max, options: d.options, value: m[d.key] };
   });
 }
 
@@ -89,6 +90,7 @@ function adminSettingsSave_(args, actor) {
       }
     }
     if (d.type === 'links') v = JSON.stringify(cleanLinks_(v));
+    if (d.type === 'choice' && d.options.indexOf(v) < 0) throw userError_(d.label + josa_(d.label, '을', '를') + ' 다시 골라 주세요.');
     clean[d.key] = v;
   });
   var s1 = clean['1학기 시작일'] || setting_('1학기 시작일'), e1 = clean['1학기 끝일'] || setting_('1학기 끝일');

@@ -43,7 +43,7 @@ ${GAS_FILES.map((f) => '/* ===== ' + f + ' ===== */\n' + inScript(read(f))).join
     return new Promise(function (resolve) { setTimeout(function () { resolve(api(req)); }, 120); });
   };
   window.__previewNote = '미리보기예요. 가짜 데이터로 움직이고, 새로 고치면 처음으로 돌아가요. ' +
-    '공통 비밀번호 <b>preview1</b> · 관리자 비밀번호 <b>admin1</b> · 개인 번호는 모두 <b>1111</b> · 학기 기간과 일정도 가짜 값이에요';
+    '공통 비밀번호 <b>preview1</b> · 관리자 비밀번호 <b>admin1</b> · 이름만 고르면 돼요 · 학기 기간과 일정도 가짜 값이에요';
 })();
 </script>
 `;

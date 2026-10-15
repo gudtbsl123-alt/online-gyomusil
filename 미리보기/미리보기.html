@@ -728,7 +728,7 @@ function routes_() {
     'admin.cat.list': { need: 'admin', fn: function () { return adminCategoryList_(); } },
     'admin.cat.save': { need: 'admin', fn: adminCategorySave_ },
     'admin.cat.setActive': { need: 'admin', fn: adminCategorySetActive_ },
-    'admin.staff.list': { need: 'admin', fn: function () { return { staff: adminStaffList_(), depts: deptOptions_() }; } },
+    'admin.staff.list': { need: 'admin', fn: function () { return { staff: adminStaffList_(), depts: deptOptions_(), pinMode: pinMode_() }; } },
     'admin.staff.save': { need: 'admin', fn: adminStaffSave_ },
     'admin.staff.setActive': { need: 'admin', fn: adminStaffSetActive_ },
     'admin.staff.resetPin': { need: 'admin', fn: adminStaffResetPin_ },
@@ -784,7 +784,8 @@ function apiStart_() {
     school: ready ? setting_('학교명') : '인천장도초등학교',
     year: ready ? setting_('학년도') : '',
     ready: ready && hasPassword_('common'),
-    rememberDays: ready ? rememberDays_() : 30
+    rememberDays: ready ? rememberDays_() : 365,
+    pinMode: ready ? pinMode_() : false
   };
 }
 
@@ -1276,11 +1277,21 @@ function login_(args) {
     Utilities.sleep(1200); // 하나씩 맞춰 보는 것을 느리게
     throw userError_('비밀번호가 맞지 않아요. 다시 넣어 주세요.', 'BADPW');
   }
-  var remember = !!args.remember;
+  // '이름만' 방식에서는 공통 비밀번호를 기기에 기억해 둔다(기억 기간: 설정 '기기 기억 일수')
+  var remember = !!args.remember || !pinMode_();
   return {
     login: makeToken_({ k: 'L', v: pwVer_('common'), exp: expiry_(remember, AUTH_LOGIN_HOURS_) }),
     remember: remember
   };
+}
+
+/** 본인 확인 방식: '이름만'(이름 고르기) 또는 '이름+개인 번호' — 설정 탭에서 바꾼다 */
+function pinMode_() {
+  return setting_('본인 확인 방식') === '이름+개인 번호';
+}
+
+function identityModeCode_() {
+  return pinMode_() ? 'P' : 'N';
 }
 
 function checkLogin_(token) {
@@ -1319,6 +1330,7 @@ function pinHash_(pin, salt) {
 }
 
 function verifyPin_(args) {
+  if (!pinMode_()) return pickName_(args);
   var staffId = String(args.staffId || '');
   var pin = String(args.pin || '');
   if (!/^\d{4}$/.test(pin)) throw userError_('개인 번호 4자리를 숫자로 넣어 주세요.', 'BADPIN');
@@ -1359,7 +1371,7 @@ function verifyPin_(args) {
   }
   var row = result.row;
   var out = {
-    identity: makeToken_({ k: 'I', s: row['교직원ID'], p: row['번호 바꾼 날'], exp: expiry_(remember, AUTH_LOGIN_HOURS_) }),
+    identity: makeToken_({ k: 'I', m: 'P', s: row['교직원ID'], p: row['번호 바꾼 날'], exp: expiry_(remember, AUTH_LOGIN_HOURS_) }),
     me: meView_(row),
     remember: remember
   };
@@ -1368,10 +1380,27 @@ function verifyPin_(args) {
   return out;
 }
 
-/** 본인 확인 표를 확인하고 교직원 행을 돌려준다. 번호를 다시 정했거나 사용 안 함이면 풀린다. */
+/** '이름만' 방식: 명단에서 고른 이름으로 본인 확인(번호 없음). 기록에는 고른 이름으로 남는다. */
+function pickName_(args) {
+  var row = findRow_('교직원', String(args.staffId || ''));
+  if (!row || row['삭제 여부'] || row['사용 여부'] === '사용 안 함') {
+    throw userError_('명단에서 이름을 다시 골라 주세요.', 'NOTFOUND');
+  }
+  var remember = !!args.remember;
+  var out = {
+    identity: makeToken_({ k: 'I', m: 'N', s: row['교직원ID'], p: row['번호 바꾼 날'], exp: expiry_(remember, AUTH_LOGIN_HOURS_) }),
+    me: meView_(row),
+    remember: remember
+  };
+  if (remember) out.login = makeToken_({ k: 'L', v: pwVer_('common'), exp: expiry_(true, AUTH_LOGIN_HOURS_) });
+  return out;
+}
+
+/** 본인 확인 표를 확인하고 교직원 행을 돌려준다. 번호를 다시 정했거나 사용 안 함이거나 확인 방식이 바뀌면 풀린다. */
 function checkIdentity_(token) {
   var o = readToken_(token, 'I');
   if (!o) return null;
+  if ((o.m || 'P') !== identityModeCode_()) return null;
   var row = findRow_('교직원', o.s);
   if (!row || row['삭제 여부'] || row['사용 여부'] === '사용 안 함') return null;
   if (String(row['번호 바꾼 날']) !== String(o.p)) return null;
@@ -1476,9 +1505,10 @@ function settingDefs_() {
     { key: '1학기 끝일', def: '', type: 'date', label: '1학기 끝일', note: '확인 필요' },
     { key: '2학기 시작일', def: '', type: 'date', label: '2학기 시작일', note: '확인 필요' },
     { key: '2학기 끝일', def: '', type: 'date', label: '2학기 끝일', note: '확인 필요' },
-    { key: '잠금 횟수', def: '5', type: 'int', min: 3, max: 10, label: '개인 번호를 몇 번 틀리면 잠글까요', unit: '번' },
-    { key: '잠금 분', def: '10', type: 'int', min: 1, max: 120, label: '잠그는 시간', unit: '분' },
-    { key: '기기 기억 일수', def: '30', type: 'int', min: 1, max: 90, label: "'이 기기에서 기억하기' 기간", unit: '일' },
+    { key: '본인 확인 방식', def: '이름만', type: 'choice', options: ['이름만', '이름+개인 번호'], label: '본인 확인 방식', note: "'이름만'은 명단에서 이름만 골라요. 바꾸면 모든 기기에서 이름을 다시 골라야 해요" },
+    { key: '기기 기억 일수', def: '365', type: 'int', min: 1, max: 400, label: '로그인·이름을 기기에 기억하는 기간', unit: '일' },
+    { key: '잠금 횟수', def: '5', type: 'int', min: 3, max: 10, label: '개인 번호를 몇 번 틀리면 잠글까요', unit: '번', note: "'이름+개인 번호'일 때만 써요" },
+    { key: '잠금 분', def: '10', type: 'int', min: 1, max: 120, label: '잠그는 시간', unit: '분', note: "'이름+개인 번호'일 때만 써요" },
     { key: '백업 남길 개수', def: '30', type: 'int', min: 3, max: 365, label: '매일 백업을 몇 개까지 남길까요', unit: '개' },
     { key: '기존 시트 바로가기', def: '[]', type: 'links', label: "홈의 '아직 기존 시트에서 하는 일' 바로가기", note: '2단계 홈 화면에 보여요' },
     { key: '백업 폴더ID', def: '', type: 'readonly', label: '백업 폴더(자동)' },
@@ -1529,7 +1559,7 @@ function putSetting_(key, value, actor) {
 function adminSettingsGet_() {
   var m = settingsMap_();
   return settingDefs_().map(function (d) {
-    return { key: d.key, label: d.label, type: d.type, note: d.note || '', unit: d.unit || '', min: d.min, max: d.max, value: m[d.key] };
+    return { key: d.key, label: d.label, type: d.type, note: d.note || '', unit: d.unit || '', min: d.min, max: d.max, options: d.options, value: m[d.key] };
   });
 }
 
@@ -1552,6 +1582,7 @@ function adminSettingsSave_(args, actor) {
       }
     }
     if (d.type === 'links') v = JSON.stringify(cleanLinks_(v));
+    if (d.type === 'choice' && d.options.indexOf(v) < 0) throw userError_(d.label + josa_(d.label, '을', '를') + ' 다시 골라 주세요.');
     clean[d.key] = v;
   });
   var s1 = clean['1학기 시작일'] || setting_('1학기 시작일'), e1 = clean['1학기 끝일'] || setting_('1학기 끝일');
@@ -2395,10 +2426,14 @@ function backupFolder_() {
 function menuSeedTestData() {
   var ui = requireSheetUi_();
   var ok = ui.alert('테스트용 가짜 데이터',
-    '테스트용 시트에서만 쓰세요. 진짜 전용 시트에는 넣지 마세요.\n가짜 부서·분류와 가짜 교직원 8명(홍길동 등)을 넣고, 개인 번호를 만들어 보여 드려요.\n\n넣을까요?',
+    '테스트용 시트에서만 쓰세요. 진짜 전용 시트에는 넣지 마세요.\n가짜 부서·분류와 가짜 교직원 8명(홍길동 등)을 넣어요.\n\n넣을까요?',
     ui.ButtonSet.YES_NO);
   if (ok !== ui.Button.YES) return;
   var list = seedTestData_();
+  if (!pinMode_()) {
+    ui.alert('가짜 데이터를 넣었어요', '가짜 부서·분류와 교직원 8명(홍길동 등)을 넣었어요.\n지금은 본인 확인 방식이 \'이름만\'이라 개인 번호 없이 이름만 고르면 돼요.', ui.ButtonSet.OK);
+    return;
+  }
   var rows = list.map(function (x) {
     return '<tr><td style="padding:4px 12px 4px 0">' + x.name + '</td><td style="padding:4px 12px 4px 0;color:#4E5968">' + x.group +
       '</td><td style="font:700 18px/1 monospace;letter-spacing:.15em">' + x.pin + '</td></tr>';
@@ -2484,7 +2519,7 @@ function setPinForTest_(row, pin) {
     return new Promise(function (resolve) { setTimeout(function () { resolve(api(req)); }, 120); });
   };
   window.__previewNote = '미리보기예요. 가짜 데이터로 움직이고, 새로 고치면 처음으로 돌아가요. ' +
-    '공통 비밀번호 <b>preview1</b> · 관리자 비밀번호 <b>admin1</b> · 개인 번호는 모두 <b>1111</b> · 학기 기간과 일정도 가짜 값이에요';
+    '공통 비밀번호 <b>preview1</b> · 관리자 비밀번호 <b>admin1</b> · 이름만 고르면 돼요 · 학기 기간과 일정도 가짜 값이에요';
 })();
 </script>
 <script>
@@ -2752,7 +2787,7 @@ function setPinForTest_(row, pin) {
       busy(btn, true, '확인하는 중');
       err.textContent = '';
       server('login', { password: pw }).then(function (r) {
-        stSet('gy.login', r.login, false);
+        stSet('gy.login', r.login, r.remember);
         stDel('gy.skipIdentity');
         showIdentity();
       }).catch(function (e) {
@@ -2779,20 +2814,26 @@ function setPinForTest_(row, pin) {
   }
 
   function drawIdentity(list, opts) {
-    var days = (S.start && S.start.rememberDays) || 30;
+    var days = (S.start && S.start.rememberDays) || 365;
+    var dayText = days % 365 === 0 ? (days / 365) + '년' : days + '일';
+    var pin = !!(S.start && S.start.pinMode);
     $app.innerHTML = gateWrap(
       '<form class="gate-card" id="id-form" novalidate><span class="glow" aria-hidden="true"></span>' +
       '<div><p class="kicker">본인 확인</p><h1>누구신가요?</h1>' +
-      '<p class="muted" style="margin:6px 0 0;font-size:16px">이름을 고르고 개인 번호 4자리를 넣어 주세요. 일정을 넣거나 조사에 답할 때 누가 했는지 남아요.</p></div>' +
+      '<p class="muted" style="margin:6px 0 0;font-size:16px">' + (pin
+        ? '이름을 고르고 개인 번호 4자리를 넣어 주세요. 일정을 넣거나 조사에 답할 때 누가 했는지 남아요.'
+        : '명단에서 내 이름을 골라 주세요. 일정을 넣거나 조사에 답하면 고른 이름으로 남아요.') + '</p></div>' +
       (list.length
         ? '<div class="field"><label class="search" for="id-find">' + icon('search', 20) +
           '<span class="sr-only">이름으로 찾기</span><input id="id-find" type="search" placeholder="이름으로 찾기" autocomplete="off"></label></div>' +
           '<div class="people" id="id-people" role="radiogroup" aria-label="교직원 명단"></div>'
         : '<div class="box muted">아직 교직원 명단이 비어 있어요. 연구부장·부담당이 관리자 화면에서 명단을 넣으면 고를 수 있어요.</div>') +
-      '<div class="field"><label class="label" for="id-pin">개인 번호 4자리</label>' +
-      '<input id="id-pin" class="input input-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"></div>' +
-      '<label class="check"><input type="checkbox" id="id-remember">이 기기에서 기억하기 (' + days + '일)</label>' +
-      '<p class="hint">' + icon('info', 16) + '<span>기억하기는 내 휴대폰에서만 켜 주세요. 교무실 공용 PC에서는 꺼 두세요. 번호를 잊었다면 연구부장·부담당에게 다시 받으세요.</span></p>' +
+      (pin ? '<div class="field"><label class="label" for="id-pin">개인 번호 4자리</label>' +
+        '<input id="id-pin" class="input input-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"></div>' : '') +
+      '<label class="check"><input type="checkbox" id="id-remember"' + (pin ? '' : ' checked') + '>이 기기에서 기억하기 (' + dayText + ')</label>' +
+      '<p class="hint">' + icon('info', 16) + '<span>' + (pin
+        ? '기억하기는 내 휴대폰에서만 켜 주세요. 교무실 공용 PC에서는 꺼 두세요. 번호를 잊었다면 연구부장·부담당에게 다시 받으세요.'
+        : '여러 사람이 함께 쓰는 교무실 PC에서는 기억하기를 꺼 주세요. 다른 분이 내 이름으로 기록하지 않게요.') + '</span></p>' +
       '<p class="err" id="id-err" role="alert"></p>' +
       '<button type="submit" class="btn btn-primary btn-block"' + (list.length ? '' : ' disabled') + '>확인</button>' +
       '<button type="button" class="btn btn-ghost" data-action="skip-identity">나중에 할게요 (보기만 하기)</button>' +
@@ -2811,19 +2852,19 @@ function setPinForTest_(row, pin) {
           '<span class="avatar" aria-hidden="true">' + esc(p.name.charAt(0)) + '</span>' +
           '<span class="person-lines"><span class="person-name">' + esc(p.name) + '</span>' +
           '<span class="person-sub">' + esc([p.position, p.group, p.dept].filter(Boolean).join(' · ')) + '</span></span>' +
-          (p.hasPin ? '' : '<span class="chip chip-warn">번호 없음</span>') + '</label>';
+          (p.hasPin || !pin ? '' : '<span class="chip chip-warn">번호 없음</span>') + '</label>';
       }).join('') : '<p class="empty">찾는 이름이 없어요.</p>';
     }
     drawPeople('');
     var find = qs('#id-find');
     if (find) find.addEventListener('input', function () { drawPeople(find.value); });
-    var pin = qs('#id-pin');
-    pin.addEventListener('input', function () { pin.value = pin.value.replace(/\D/g, '').slice(0, 4); });
+    var pinBox = qs('#id-pin');
+    if (pinBox) pinBox.addEventListener('input', function () { pinBox.value = pinBox.value.replace(/\D/g, '').slice(0, 4); });
     if ($people) $people.addEventListener('change', function () {
       qsa('.person', $people).forEach(function (l) { l.classList.toggle('on', l.querySelector('input').checked); });
       var p = list.filter(function (x) { return x.id === (qs('input[name=who]:checked') || {}).value; })[0];
-      qs('#id-err').textContent = p && !p.hasPin ? '아직 개인 번호가 없어요. 연구부장·부담당에게 받아 주세요.' : '';
-      if (p && p.hasPin) pin.focus();
+      qs('#id-err').textContent = pin && p && !p.hasPin ? '아직 개인 번호가 없어요. 연구부장·부담당에게 받아 주세요.' : '';
+      if (pin && p && p.hasPin) pinBox.focus();
     });
 
     qs('#id-form').addEventListener('submit', function (ev) {
@@ -2831,12 +2872,12 @@ function setPinForTest_(row, pin) {
       var who = (qs('input[name=who]:checked') || {}).value;
       var err = qs('#id-err');
       if (!who) { err.textContent = '명단에서 이름을 골라 주세요.'; return; }
-      if (!/^\d{4}$/.test(pin.value)) { err.textContent = '개인 번호 4자리를 숫자로 넣어 주세요.'; pin.focus(); return; }
+      if (pin && !/^\d{4}$/.test(pinBox.value)) { err.textContent = '개인 번호 4자리를 숫자로 넣어 주세요.'; pinBox.focus(); return; }
       var remember = qs('#id-remember').checked;
       var btn = ev.target.querySelector('[type=submit]');
       busy(btn, true, '확인하는 중');
       err.textContent = '';
-      server('verify', { staffId: who, pin: pin.value, remember: remember }).then(function (r) {
+      server('verify', { staffId: who, pin: pin ? pinBox.value : '', remember: remember }).then(function (r) {
         stSet('gy.identity', r.identity, remember);
         if (r.login) stSet('gy.login', r.login, true);
         stDel('gy.skipIdentity');
@@ -2846,8 +2887,7 @@ function setPinForTest_(row, pin) {
       }).catch(function (e) {
         busy(btn, false);
         err.textContent = e.message;
-        pin.value = '';
-        pin.focus();
+        if (pinBox) { pinBox.value = ''; pinBox.focus(); }
       });
     });
   }
@@ -3646,6 +3686,7 @@ function setPinForTest_(row, pin) {
     server('admin.staff.list').then(function (r) {
       S.cache.staff = r.staff;
       S.cache.depts = r.depts;
+      S.cache.pinMode = !!r.pinMode;
       drawStaff(panel);
     }).catch(function (e) { panel.innerHTML = failHtml(e); });
   }
@@ -3662,12 +3703,12 @@ function setPinForTest_(row, pin) {
     panel.innerHTML =
       '<div class="wrap" style="gap:16px">' +
       '<div class="counts"><span class="chip chip-ok">사용 ' + on.length + '명</span><span class="chip">사용 안 함 ' + (all.length - on.length) + '명</span>' +
-      (noPin.length ? '<span class="chip chip-warn">번호 없음 ' + noPin.length + '명</span>' : '<span class="chip">모두 번호 있음</span>') + '</div>' +
+      (!S.cache.pinMode ? '<span class="chip">본인 확인: 이름만</span>' : noPin.length ? '<span class="chip chip-warn">번호 없음 ' + noPin.length + '명</span>' : '<span class="chip">모두 번호 있음</span>') + '</div>' +
       '<div class="toolbar print-hide">' +
       '<label class="search" for="staff-find">' + icon('search', 20) + '<span class="sr-only">교직원 찾기</span>' +
       '<input id="staff-find" type="search" placeholder="이름·소속·업무로 찾기" value="' + esc(S.staffSearch) + '" autocomplete="off"></label>' +
       '<label class="check" style="padding:0 6px"><input type="checkbox" id="staff-off"' + (S.showOff ? ' checked' : '') + '>사용 안 함도 보기</label>' +
-      '<button type="button" class="btn btn-sm" data-action="staff-issue"' + (noPin.length ? '' : ' disabled') + '>' + icon('key', 18) + '번호 없는 분 번호 만들기</button>' +
+      (S.cache.pinMode ? '<button type="button" class="btn btn-sm" data-action="staff-issue"' + (noPin.length ? '' : ' disabled') + '>' + icon('key', 18) + '번호 없는 분 번호 만들기</button>' : '') +
       '<button type="button" class="btn btn-sm btn-primary" data-action="staff-add">' + icon('plus', 18) + '교직원 추가</button></div>' +
       (shown.length
         ? '<div class="rows" role="table" aria-label="교직원 표">' +
@@ -3690,9 +3731,10 @@ function setPinForTest_(row, pin) {
     var off = x['사용 여부'] === '사용 안 함';
     var chips = [];
     if (x['역할'] === '관리') chips.push('<span class="chip chip-accent">관리</span>');
+    var pinMode = !!S.cache.pinMode;
     if (off) chips.push('<span class="chip">사용 안 함</span>');
-    else if (!x.hasPin) chips.push('<span class="chip chip-warn">번호 없음</span>');
-    if (x.locked) chips.push('<span class="chip chip-warn">잠김</span>');
+    else if (pinMode && !x.hasPin) chips.push('<span class="chip chip-warn">번호 없음</span>');
+    if (pinMode && x.locked) chips.push('<span class="chip chip-warn">잠김</span>');
     var id = esc(x['교직원ID']);
     return '<div class="srow' + (off ? ' off' : '') + '" role="row">' +
       '<div role="cell"><div class="s-name">' + esc(x['이름']) + '</div><div class="s-sub">' + esc(x['직위'] || '') + '</div>' +
@@ -3702,7 +3744,7 @@ function setPinForTest_(row, pin) {
       '<div role="cell" class="s-col-tel">' + esc(x['내선'] || '') + '</div>' +
       '<div role="cell" class="s-btns print-hide">' +
       '<button type="button" class="btn btn-sm" data-action="staff-edit" data-id="' + id + '">고치기</button>' +
-      (off ? '' : x.locked
+      (off || !pinMode ? '' : x.locked
         ? '<button type="button" class="btn btn-sm" data-action="staff-unlock" data-id="' + id + '">잠금 풀기</button>'
         : '<button type="button" class="btn btn-sm" data-action="staff-pin" data-id="' + id + '">' + (x.hasPin ? '번호 새로' : '번호 만들기') + '</button>') +
       '<button type="button" class="btn btn-sm btn-ghost" data-action="staff-active" data-id="' + id + '">' + (off ? '다시 사용' : '사용 안 함') + '</button>' +
@@ -3940,6 +3982,12 @@ function setPinForTest_(row, pin) {
     function byKey(k) { return list.filter(function (x) { return x.key === k; })[0]; }
     function input(d) {
       var id = 'set-' + list.indexOf(d);
+      if (d.type === 'choice') {
+        return '<div class="field"><label class="label" for="' + id + '">' + esc(d.label) + '</label>' +
+          '<select id="' + id + '" class="input" data-set="' + esc(d.key) + '">' + d.options.map(function (o) {
+            return '<option' + (o === d.value ? ' selected' : '') + '>' + esc(o) + '</option>';
+          }).join('') + '</select>' + (d.note ? '<p class="hint">' + esc(d.note) + '</p>' : '') + '</div>';
+      }
       var type = d.type === 'date' ? 'date' : 'text';
       var extra = d.type === 'int' || d.type === 'year' ? ' inputmode="numeric"' : '';
       return '<div class="field"><label class="label" for="' + id + '">' + esc(d.label) + (d.unit ? ' (' + d.unit + ')' : '') + '</label>' +
@@ -3955,8 +4003,9 @@ function setPinForTest_(row, pin) {
       '<section class="card"><h2>학기 기간</h2><p class="faint">2단계 수업일수 계산에 써요. 학교 학사일정을 보고 넣어 주세요(확인 필요).</p>' +
       '<div class="form-grid">' + input(byKey('1학기 시작일')) + input(byKey('1학기 끝일')) + '</div>' +
       '<div class="form-grid">' + input(byKey('2학기 시작일')) + input(byKey('2학기 끝일')) + '</div></section>' +
-      '<section class="card"><h2>본인 확인·백업</h2><div class="form-grid">' + input(byKey('잠금 횟수')) + input(byKey('잠금 분')) + '</div>' +
-      '<div class="form-grid">' + input(byKey('기기 기억 일수')) + input(byKey('백업 남길 개수')) + '</div>' +
+      '<section class="card"><h2>본인 확인·백업</h2><div class="form-grid">' + input(byKey('본인 확인 방식')) + input(byKey('기기 기억 일수')) + '</div>' +
+      '<div class="form-grid">' + input(byKey('잠금 횟수')) + input(byKey('잠금 분')) + '</div>' +
+      '<div class="form-grid">' + input(byKey('백업 남길 개수')) + '</div>' +
       '<p class="faint">자동 백업: ' + (backup ? '켜져 있어요(백업 폴더가 만들어져 있어요).' : '아직 꺼져 있어요. 전용 시트 메뉴 "4. 매일 자동 백업 켜기"로 켜 주세요.') + '</p></section>' +
       '<section class="card"><div class="card-head"><h2>기존 시트 바로가기</h2><span class="chip">2단계 홈에 보여요</span></div>' +
       '<p class="faint">특별실 시간표·방학 근무·연수 이수 확인처럼 2차에 옮길 일의 바로가기예요. 주소는 https:// 로 시작해야 해요.</p>' +
@@ -3975,6 +4024,17 @@ function setPinForTest_(row, pin) {
       busy(btn, true, '저장하는 중');
       server('admin.settings.save', { values: values }).then(function (l2) {
         if (S.start) S.start.school = values['학교명'];
+        var newPin = values['본인 확인 방식'] === '이름+개인 번호';
+        if (S.start && S.start.pinMode !== newPin) {
+          // 확인 방식이 바뀌면 지금 기기의 본인 확인도 풀린다(서버도 같은 규칙)
+          S.start.pinMode = newPin;
+          stDel('gy.identity');
+          S.me = null;
+          renderApp();
+          toast('본인 확인 방식을 바꿨어요. 이름을 다시 골라 주세요');
+          return;
+        }
+        if (S.start) S.start.rememberDays = Number(values['기기 기억 일수']) || S.start.rememberDays;
         drawSettings(panel, l2);
         toast('설정을 저장했어요');
       }).catch(function (e) { busy(btn, false); qs('#set-err').textContent = e.message; });

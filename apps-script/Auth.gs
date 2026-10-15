@@ -156,11 +156,21 @@ function login_(args) {
     Utilities.sleep(1200); // 하나씩 맞춰 보는 것을 느리게
     throw userError_('비밀번호가 맞지 않아요. 다시 넣어 주세요.', 'BADPW');
   }
-  var remember = !!args.remember;
+  // '이름만' 방식에서는 공통 비밀번호를 기기에 기억해 둔다(기억 기간: 설정 '기기 기억 일수')
+  var remember = !!args.remember || !pinMode_();
   return {
     login: makeToken_({ k: 'L', v: pwVer_('common'), exp: expiry_(remember, AUTH_LOGIN_HOURS_) }),
     remember: remember
   };
+}
+
+/** 본인 확인 방식: '이름만'(이름 고르기) 또는 '이름+개인 번호' — 설정 탭에서 바꾼다 */
+function pinMode_() {
+  return setting_('본인 확인 방식') === '이름+개인 번호';
+}
+
+function identityModeCode_() {
+  return pinMode_() ? 'P' : 'N';
 }
 
 function checkLogin_(token) {
@@ -199,6 +209,7 @@ function pinHash_(pin, salt) {
 }
 
 function verifyPin_(args) {
+  if (!pinMode_()) return pickName_(args);
   var staffId = String(args.staffId || '');
   var pin = String(args.pin || '');
   if (!/^\d{4}$/.test(pin)) throw userError_('개인 번호 4자리를 숫자로 넣어 주세요.', 'BADPIN');
@@ -239,7 +250,7 @@ function verifyPin_(args) {
   }
   var row = result.row;
   var out = {
-    identity: makeToken_({ k: 'I', s: row['교직원ID'], p: row['번호 바꾼 날'], exp: expiry_(remember, AUTH_LOGIN_HOURS_) }),
+    identity: makeToken_({ k: 'I', m: 'P', s: row['교직원ID'], p: row['번호 바꾼 날'], exp: expiry_(remember, AUTH_LOGIN_HOURS_) }),
     me: meView_(row),
     remember: remember
   };
@@ -248,10 +259,27 @@ function verifyPin_(args) {
   return out;
 }
 
-/** 본인 확인 표를 확인하고 교직원 행을 돌려준다. 번호를 다시 정했거나 사용 안 함이면 풀린다. */
+/** '이름만' 방식: 명단에서 고른 이름으로 본인 확인(번호 없음). 기록에는 고른 이름으로 남는다. */
+function pickName_(args) {
+  var row = findRow_('교직원', String(args.staffId || ''));
+  if (!row || row['삭제 여부'] || row['사용 여부'] === '사용 안 함') {
+    throw userError_('명단에서 이름을 다시 골라 주세요.', 'NOTFOUND');
+  }
+  var remember = !!args.remember;
+  var out = {
+    identity: makeToken_({ k: 'I', m: 'N', s: row['교직원ID'], p: row['번호 바꾼 날'], exp: expiry_(remember, AUTH_LOGIN_HOURS_) }),
+    me: meView_(row),
+    remember: remember
+  };
+  if (remember) out.login = makeToken_({ k: 'L', v: pwVer_('common'), exp: expiry_(true, AUTH_LOGIN_HOURS_) });
+  return out;
+}
+
+/** 본인 확인 표를 확인하고 교직원 행을 돌려준다. 번호를 다시 정했거나 사용 안 함이거나 확인 방식이 바뀌면 풀린다. */
 function checkIdentity_(token) {
   var o = readToken_(token, 'I');
   if (!o) return null;
+  if ((o.m || 'P') !== identityModeCode_()) return null;
   var row = findRow_('교직원', o.s);
   if (!row || row['삭제 여부'] || row['사용 여부'] === '사용 안 함') return null;
   if (String(row['번호 바꾼 날']) !== String(o.p)) return null;

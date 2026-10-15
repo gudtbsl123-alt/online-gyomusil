@@ -200,10 +200,14 @@ function backupFolder_() {
 function menuSeedTestData() {
   var ui = requireSheetUi_();
   var ok = ui.alert('테스트용 가짜 데이터',
-    '테스트용 시트에서만 쓰세요. 진짜 전용 시트에는 넣지 마세요.\n가짜 부서·분류와 가짜 교직원 8명(홍길동 등)을 넣고, 개인 번호를 만들어 보여 드려요.\n\n넣을까요?',
+    '테스트용 시트에서만 쓰세요. 진짜 전용 시트에는 넣지 마세요.\n가짜 부서·분류와 가짜 교직원 8명(홍길동 등)을 넣어요.\n\n넣을까요?',
     ui.ButtonSet.YES_NO);
   if (ok !== ui.Button.YES) return;
   var list = seedTestData_();
+  if (!pinMode_()) {
+    ui.alert('가짜 데이터를 넣었어요', '가짜 부서·분류와 교직원 8명(홍길동 등)을 넣었어요.\n지금은 본인 확인 방식이 \'이름만\'이라 개인 번호 없이 이름만 고르면 돼요.', ui.ButtonSet.OK);
+    return;
+  }
   var rows = list.map(function (x) {
     return '<tr><td style="padding:4px 12px 4px 0">' + x.name + '</td><td style="padding:4px 12px 4px 0;color:#4E5968">' + x.group +
       '</td><td style="font:700 18px/1 monospace;letter-spacing:.15em">' + x.pin + '</td></tr>';

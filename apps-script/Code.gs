@@ -50,7 +50,7 @@ function routes_() {
     'admin.cat.list': { need: 'admin', fn: function () { return adminCategoryList_(); } },
     'admin.cat.save': { need: 'admin', fn: adminCategorySave_ },
     'admin.cat.setActive': { need: 'admin', fn: adminCategorySetActive_ },
-    'admin.staff.list': { need: 'admin', fn: function () { return { staff: adminStaffList_(), depts: deptOptions_() }; } },
+    'admin.staff.list': { need: 'admin', fn: function () { return { staff: adminStaffList_(), depts: deptOptions_(), pinMode: pinMode_() }; } },
     'admin.staff.save': { need: 'admin', fn: adminStaffSave_ },
     'admin.staff.setActive': { need: 'admin', fn: adminStaffSetActive_ },
     'admin.staff.resetPin': { need: 'admin', fn: adminStaffResetPin_ },
@@ -106,7 +106,8 @@ function apiStart_() {
     school: ready ? setting_('학교명') : '인천장도초등학교',
     year: ready ? setting_('학년도') : '',
     ready: ready && hasPassword_('common'),
-    rememberDays: ready ? rememberDays_() : 30
+    rememberDays: ready ? rememberDays_() : 365,
+    pinMode: ready ? pinMode_() : false
   };
 }
 
