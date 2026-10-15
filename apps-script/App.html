@@ -507,6 +507,7 @@
       }
     }
     if (f.dept && e.deptId !== f.dept) return false;
+    if (f.imp && !e.important) return false;
     if (f.mine) {
       if (!S.me) return false;
       if (!(S.me.deptId && e.deptId === S.me.deptId) && e.byId !== S.me.id) return false;
@@ -516,16 +517,21 @@
 
   function evChip(e, opts) {
     opts = opts || {};
-    var cls = 'ev' + (isOff(e) ? ' ev-off' : e.kind === '교육활동' ? ' ev-act' : '');
+    var cls = 'ev' + (isOff(e) ? ' ev-off' : e.important ? ' ev-imp' : e.kind === '교육활동' ? ' ev-act' : '');
     return '<button type="button" class="' + cls + '" data-action="ev-open" data-ev="' + esc(e.id) + '">' +
-      (opts.prefix ? '<span class="ev-pre">' + opts.prefix + '</span>' : '') + esc(e.title) + '</button>';
+      (opts.prefix ? '<span class="ev-pre">' + opts.prefix + '</span>' : '') + (e.important ? starHtml() : '') + esc(e.title) + '</button>';
+  }
+
+  function starHtml() {
+    return '<span class="star" aria-label="중요">★</span>';
   }
 
   /** 오늘·하루 일정 한 줄(시간 | 이름 | 장소·부서) */
   function evRow(e) {
-    return '<button type="button" class="ev-row' + (isOff(e) ? ' off' : '') + '" data-action="ev-open" data-ev="' + esc(e.id) + '">' +
+    return '<button type="button" class="ev-row' + (isOff(e) ? ' off' : '') + (e.important ? ' imp' : '') + '" data-action="ev-open" data-ev="' + esc(e.id) + '">' +
       '<span class="ev-time">' + esc(timeText(e)) + '</span>' +
-      '<span class="ev-main"><span class="ev-title">' + esc(e.title) + '</span>' +
+      '<span class="ev-main"><span class="ev-title">' + (e.important ? starHtml() : '') + esc(e.title) + '</span>' +
+      (e.important ? '<span class="chip chip-accent">중요</span>' : '') +
       (metaText(e) ? '<span class="ev-meta">' + esc(metaText(e)) + '</span>' : '') +
       (e.target && e.target !== '전체' ? '<span class="chip">' + esc(targetText(e.target)) + '</span>' : '') + '</span></button>';
   }
@@ -591,8 +597,8 @@
         return '<div class="wday' + (isToday ? ' today' : '') + '"><div class="wday-head"><b>' + DOW.charAt(wd(d)) + ' ' + dayNum(d) + '</b>' +
           (isToday ? '<span class="chip chip-accent-solid">오늘</span>' : '') + '</div>' +
           (list.length ? list.map(function (e) {
-            return '<button type="button" class="wev' + (isOff(e) ? ' off' : '') + '" data-action="ev-open" data-ev="' + esc(e.id) + '">' +
-              '<span class="wev-title">' + esc(e.title) + '</span><span class="wev-meta">' + esc([e.time || (e.end !== e.start ? '여러 날' : ''), e.dept].filter(Boolean).join(' · ')) + '</span></button>';
+            return '<button type="button" class="wev' + (isOff(e) ? ' off' : '') + (e.important ? ' imp' : '') + '" data-action="ev-open" data-ev="' + esc(e.id) + '">' +
+              '<span class="wev-title">' + (e.important ? starHtml() : '') + esc(e.title) + '</span><span class="wev-meta">' + esc([e.time || (e.end !== e.start ? '여러 날' : ''), e.dept].filter(Boolean).join(' · ')) + '</span></button>';
           }).join('') : '<p class="faint">일정 없음</p>') + '</div>';
       }).join('') + '</div>' +
       (weekend.length ? '<p class="faint">주말: ' + weekend.map(function (e) { return esc(mdw(e.start) + ' ' + e.title); }).join(' · ') + '</p>' : '') +
@@ -607,7 +613,7 @@
   }
 
   // ============================================================ 일정
-  S.sched = { view: 'cal', y: 0, m: 0, data: null, yearData: null, filter: { grade: '', dept: '', mine: false }, week: '', day: '', phoneMonth: false, form: null };
+  S.sched = { view: 'cal', y: 0, m: 0, data: null, yearData: null, filter: { grade: '', dept: '', mine: false, imp: false }, week: '', day: '', phoneMonth: false, form: null };
 
   SCREENS.schedule = function ($s) {
     var sc = S.sched;
@@ -671,6 +677,7 @@
       '<label class="sr-only" for="f-dept">부서</label><select id="f-dept" class="input input-sm" data-filter="dept"><option value="">전체 부서</option>' +
       depts.map(function (d) { return '<option value="' + esc(d.id) + '"' + (f.dept === d.id ? ' selected' : '') + '>' + esc(d.name) + '</option>'; }).join('') + '</select>' +
       '<label class="check check-box"' + (S.me ? '' : ' title="본인 확인 뒤에 쓸 수 있어요"') + '><input type="checkbox" data-filter="mine"' + (f.mine ? ' checked' : '') + (S.me ? '' : ' disabled') + '>내 담당만</label>' +
+      '<label class="check check-box"><input type="checkbox" data-filter="imp"' + (f.imp ? ' checked' : '') + '>' + starHtml() + '중요만</label>' +
       '</div>';
   }
 
@@ -765,8 +772,9 @@
       '<div class="pdays" role="tablist">' + days.map(function (day) {
         var n = shown.filter(function (e) { return onDay(e, day); }).length;
         var off = shown.some(function (e) { return onDay(e, day) && isOff(e); });
-        return '<button type="button" role="tab" class="pday' + (day === sel ? ' on' : '') + (off ? ' off' : '') + '" data-action="pick-day" data-day="' + day + '" aria-selected="' + (day === sel) + '">' +
-          '<span>' + DOW.charAt(wd(day)) + '</span><b>' + dayNum(day) + '</b><span class="dots">' + (day === d.today ? '오늘' : new Array(Math.min(n, 3) + 1).join('•')) + '</span></button>';
+        var imp = shown.some(function (e) { return onDay(e, day) && e.important; });
+        return '<button type="button" role="tab" class="pday' + (imp ? ' has-imp' : '') + '' + (day === sel ? ' on' : '') + (off ? ' off' : '') + '" data-action="pick-day" data-day="' + day + '" aria-selected="' + (day === sel) + '">' +
+          '<span>' + DOW.charAt(wd(day)) + '</span><b>' + dayNum(day) + '</b><span class="dots">' + (day === d.today ? '오늘' : (imp ? '★' : '') + new Array(Math.min(n, 3) + 1 - (imp ? 1 : 0)).join('•')) + '</span></button>';
       }).join('') + '</div>' +
       '<div class="card-head"><h2 style="margin:0;font-size:18px">' + md(sel) + ' ' + DOW.charAt(wd(sel)) + '요일</h2><span class="faint">일정 ' + list.length + '개</span></div>' +
       (list.length ? '<div class="ev-rows">' + list.map(evRow).join('') + '</div>' : '<div class="card"><p class="empty" style="padding:12px">일정이 없어요</p></div>') +
@@ -790,8 +798,8 @@
       var off = list.some(isOff);
       var depts = list.map(function (e) { return e.dept; }).filter(function (x, k, a) { return x && a.indexOf(x) === k; });
       var name = function (e) {
-        return '<button type="button" class="plan-ev' + (isOff(e) ? ' off' : '') + '" data-action="ev-open" data-ev="' + esc(e.id) + '">' +
-          esc(e.title) + (e.time && e.time !== '종일' ? ' <span class="faint">' + esc(e.time) + '</span>' : '') +
+        return '<button type="button" class="plan-ev' + (isOff(e) ? ' off' : '') + (e.important ? ' imp' : '') + '" data-action="ev-open" data-ev="' + esc(e.id) + '">' +
+          (e.important ? starHtml() : '') + esc(e.title) + (e.time && e.time !== '종일' ? ' <span class="faint">' + esc(e.time) + '</span>' : '') +
           (e.start !== e.end && e.start === day ? ' <span class="faint">(~' + esc(md(e.end)) + ')</span>' : '') + '</button>';
       };
       rows += '<tr class="' + (w === 0 || w === 6 ? 'we' : '') + (off ? ' off' : '') + '">' +
@@ -839,7 +847,7 @@
         return '<section class="card ymonth"><h3>' + m + '월</h3>' + (list.length ? '<ul class="ylist">' + list.map(function (e) {
           var s = e.start.slice(0, 7) < ym ? ym + '-01' : e.start;
           return '<li class="' + (isOff(e) ? 'off' : '') + '"><span class="yd">' + dayNum(s) + ' ' + DOW.charAt(wd(s)) + '</span>' +
-            '<button type="button" class="plan-ev' + (isOff(e) ? ' off' : '') + '" data-action="ev-open" data-ev="' + esc(e.id) + '">' + esc(e.title) +
+            '<button type="button" class="plan-ev' + (isOff(e) ? ' off' : '') + (e.important ? ' imp' : '') + '" data-action="ev-open" data-ev="' + esc(e.id) + '">' + (e.important ? starHtml() : '') + esc(e.title) +
             (e.end !== e.start ? ' <span class="faint">~' + esc(md(e.end)) + '</span>' : '') + '</button></li>';
         }).join('') + '</ul>' : '<p class="faint">일정이 없어요</p>') + '</section>';
       }).join('') + '</div>';
@@ -858,7 +866,8 @@
       ['메모', e.memo],
       ['넣은 사람', (e.by || '') + (e.at ? ' · ' + e.at.slice(0, 16) : '') + (e.editedAt ? ' (고침 ' + e.editedAt.slice(0, 16) + ')' : '')]
     ].filter(function (r) { return r[1]; });
-    openModal('<div class="row-btns"><span class="chip' + (isOff(e) ? ' chip-red' : e.kind === '교육활동' ? ' chip-ok' : '') + '">' + esc(e.kind) + '</span></div>' +
+    openModal('<div class="row-btns"><span class="chip' + (isOff(e) ? ' chip-red' : e.kind === '교육활동' ? ' chip-ok' : '') + '">' + esc(e.kind) + '</span>' +
+      (e.important ? '<span class="chip chip-accent-solid">★ 중요</span>' : '') + '</div>' +
       '<h2 id="m-title">' + esc(e.title) + '</h2>' +
       '<dl class="ev-dl">' + rows.map(function (r) { return '<dt>' + r[0] + '</dt><dd>' + esc(r[1]).replace(/\n/g, '<br>') + '</dd>'; }).join('') + '</dl>' +
       (e.canEdit ? '' : S.me ? '<p class="hint">' + icon('info', 16) + '<span>처음 넣은 분과 연구부장·부담당만 고칠 수 있어요.</span></p>' : '') +
@@ -922,6 +931,7 @@
       '<label class="check"><input type="checkbox" id="ef-multi"' + (multi ? ' checked' : '') + '>여러 날 이어지는 행사예요</label>' +
       '<div class="field" id="ef-end-box"' + (multi ? '' : ' hidden') + '><label class="label" for="ef-end">끝나는 날</label><input id="ef-end" class="input" type="date" value="' + esc(multi ? e.end : '') + '"></div>' +
       '<div class="field"><label class="label" for="ef-title">행사 이름 <span class="req">*</span></label><input id="ef-title" class="input" maxlength="60" value="' + esc(e.title || '') + '" autocomplete="off"></div>' +
+      '<label class="check imp-check"><input type="checkbox" id="ef-imp"' + (e.important ? ' checked' : '') + '>' + starHtml() + '중요 일정이에요 <span class="faint">(달력·홈에 눈에 띄게 보여요)</span></label>' +
       '<div class="field"><span class="label">구분</span><div class="seg" role="group" aria-label="구분">' +
       ['행사', '교육활동', '휴업일', '공휴일'].map(function (k) {
         var lock = (k === '휴업일' || k === '공휴일') && !canOff;
@@ -952,7 +962,8 @@
       qs('#ef-preview', form).innerHTML = '<p class="faint" style="margin-bottom:6px">저장하면 이렇게 들어가요</p>' +
         '<p class="ok-line">' + icon('check', 16) + '연간 학사일정 · ' + esc(mdw(s)) + '</p>' +
         '<p class="ok-line">' + icon('check', 16) + Number(s.slice(5, 7)) + '월 월별 계획 · ' + dayNum(s) + '일 ' + col + '</p>' +
-        (k === '휴업일' || k === '공휴일' ? '<p class="ok-line">' + icon('check', 16) + '이날은 수업일수에서 빠져요</p>' : '');
+        (k === '휴업일' || k === '공휴일' ? '<p class="ok-line">' + icon('check', 16) + '이날은 수업일수에서 빠져요</p>' : '') +
+        (qs('#ef-imp', form).checked ? '<p class="ok-line">' + icon('check', 16) + '★ 중요 일정으로 눈에 띄게 보여요</p>' : '');
     }
     qsa('[data-kind]', form).forEach(function (b) {
       b.addEventListener('click', function () {
@@ -974,6 +985,7 @@
       if (ev.target.checked && !qs('#ef-end', form).value) qs('#ef-end', form).value = qs('#ef-start', form).value;
     });
     qs('#ef-start', form).addEventListener('change', preview);
+    qs('#ef-imp', form).addEventListener('change', preview);
     preview();
     setTimeout(function () { var t = qs('#ef-title', form); if (t && !init.id) t.focus(); }, 30);
 
@@ -990,7 +1002,8 @@
         target: target,
         deptId: qs('#ef-dept', form).value,
         place: qs('#ef-place', form).value,
-        memo: qs('#ef-memo', form).value
+        memo: qs('#ef-memo', form).value,
+        important: qs('#ef-imp', form).checked
       };
       if (!fields.start) { err.textContent = '날짜를 골라 주세요.'; return; }
       if (!fields.title.trim()) { err.textContent = '행사 이름을 적어 주세요.'; qs('#ef-title', form).focus(); return; }

@@ -22,7 +22,7 @@ function tabs_() {
     '교직원': ['교직원ID', '이름', '직위', '소속', '부서ID', '담당 업무', '내선', '역할', '사용 여부', '순서',
       '개인번호해시', '솔트', '틀린 횟수', '잠금 해제 시각', '번호 바꾼 날'].concat(A),
     '일정': ['일정ID', '시작일', '끝일', '시간', '행사명', '대상 학년', '담당 부서ID', '장소', '구분', '메모',
-      '올린 묶음ID'].concat(A),
+      '올린 묶음ID'].concat(A).concat(['중요']),
     '월별중점': ['중점ID', '학년도', '월', '중점지도 내용'].concat(A),
     '조사': ['조사ID', '제목', '부서ID', '대상', '마감 일시', '상태', '질문', '메신저 문구'].concat(A),
     '응답': ['응답ID', '조사ID', '교직원ID', '답', '하고 싶은 말', '낸 시각', '고친 시각'].concat(A),
@@ -167,6 +167,16 @@ function withLock_(fn) {
 function headOf_(tab) {
   var sh = sheet_(tab);
   return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(cellText_);
+}
+
+/** 나중에 더한 칸이 시트에 없으면 머리글 끝에 붙인다(있는 데이터는 그대로) */
+function ensureCols_(tab) {
+  withLock_(function () {
+    var head = headOf_(tab);
+    var missing = tabs_()[tab].filter(function (h) { return head.indexOf(h) < 0; });
+    if (!missing.length) return;
+    sheet_(tab).getRange(1, head.length + 1, 1, missing.length).setValues([missing]);
+  });
 }
 
 function newId_(tab) {

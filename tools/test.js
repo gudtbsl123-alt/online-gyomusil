@@ -715,5 +715,34 @@ test('설정: 본인 확인 방식은 두 가지 중에서만, 기억 기간은 
   assert.strictEqual(call(g, 'admin.staff.list', {}, t).data.pinMode, false);
 });
 
+
+test('중요 일정: 누구나 표시하고, 모든 화면 데이터에 important로 온다', () => {
+  const g = freshName();
+  const { L, staff } = loginAll(g);
+  const I = call(g, 'verify', { staffId: staff[2].id }, { login: L }).data.identity;
+  const t = { login: L, identity: I };
+  const e = call(g, 'sched.save', { fields: { start: '2026-10-20', title: '중요 행사', important: true } }, t).data;
+  assert.strictEqual(e.important, true);
+  assert.strictEqual(g.findRow_('일정', e.id)['중요'], '예');
+  assert.strictEqual(call(g, 'sched.month', { year: 2026, month: 10 }, t).data.events.find((x) => x.id === e.id).important, true);
+  assert.strictEqual(call(g, 'sched.year', { year: 2026 }, t).data.events.find((x) => x.id === e.id).important, true);
+  const off = call(g, 'sched.save', { id: e.id, fields: { start: '2026-10-20', title: '중요 행사' } }, t).data;
+  assert.strictEqual(off.important, false);
+  const log = g.readRows_('기록').pop();
+  assert.deepStrictEqual(JSON.parse(log['바뀌기 전']), { '중요': '예' });
+});
+
+test('중요 칸이 없는 예전 시트도 저장할 때 칸이 자동으로 생긴다', () => {
+  const g = freshName();
+  const sh = g._ss.getSheetByName('일정');
+  const idx = sh.data[0].indexOf('중요');
+  sh.data[0].splice(idx, 1); // 예전 시트처럼 '중요' 칸 없앰
+  const { L, staff } = loginAll(g);
+  const I = call(g, 'verify', { staffId: staff[0].id }, { login: L }).data.identity;
+  const e = call(g, 'sched.save', { fields: { start: '2026-10-21', title: '예전 시트', important: true } }, { login: L, identity: I }).data;
+  assert.strictEqual(e.important, true);
+  assert.ok(g.headOf_('일정').includes('중요'));
+});
+
 console.log(results.join('\n'));
 console.log('\n' + passed + '/' + results.length + ' 통과');

@@ -88,6 +88,7 @@ async function scheduleFlow(page, kind) {
   await page.click('[data-tg="3"]');
   await page.click('[data-tg="4"]');
   await page.fill('#ef-place', '강당');
+  await page.check('#ef-imp');
   await shot(page, kind + '_행사추가', !phone);
   await page.click('#ev-form [type=submit]');
   await waitText(page, '전교 다모임을 넣었어요');

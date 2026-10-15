@@ -370,6 +370,18 @@ select.input{appearance:auto}
 .yd{flex:none;width:44px;font-size:14px;font-weight:700;color:var(--c-t3);font-variant-numeric:tabular-nums}
 .ylist li.off .yd{color:var(--c-red)}
 
+/* 중요 일정 */
+.star{margin-right:3px;color:var(--accent);font-weight:800}
+.ev-imp{background:var(--accent);color:var(--c-onAccent);font-weight:800}
+.ev-imp .star{color:var(--c-onAccent)}
+.ev-row.imp{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
+.ev-row.imp .ev-title{font-weight:800}
+.wev.imp .wev-title{font-weight:800;color:var(--accent)}
+.plan-ev.imp{font-weight:800}
+.pday.has-imp:not(.on) .dots{color:var(--accent)}
+.imp-check{flex-wrap:wrap;gap:4px 10px}
+.imp-check .faint{font-weight:500}
+
 @media (hover:hover){
   .ev-row:hover,.wev:hover .wev-title,.plan-ev:hover{text-decoration:underline}
   .ev:hover{filter:brightness(.96)}
@@ -407,6 +419,7 @@ select.input{appearance:auto}
 }
 @media print{
   .fab,.filters,.cal-more{display:none!important}
+  .ev-imp,.plan-ev.imp,.wev.imp .wev-title{font-weight:800!important}
   .table-wrap{overflow:visible;border:0}
   .plan{min-width:0;font-size:12px}
   .plan td,.plan th{padding:4px 6px}
