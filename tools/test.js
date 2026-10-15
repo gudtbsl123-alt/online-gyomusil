@@ -744,5 +744,226 @@ test('중요 칸이 없는 예전 시트도 저장할 때 칸이 자동으로 �
   assert.ok(g.headOf_('일정').includes('중요'));
 });
 
+
+// ================================================================ 3단계: 조사·신청
+
+function sv(g, extra) {
+  return Object.assign({
+    title: '체육대회 참가 신청',
+    deadline: g.addDays_(g.todayYmd_(), 3) + ' 17:00',
+    target: { type: 'all' },
+    questions: [
+      { type: 'one', title: '종목', required: true, options: ['피구', '배드민턴', '응원'] },
+      { type: 'many', title: '도울 일', options: '사진\n정리\n준비물' },
+      { type: 'short', title: '하고 싶은 말' },
+      { type: 'number', title: '인원', required: false },
+      { type: 'date', title: '희망 날짜' }
+    ]
+  }, extra || {});
+}
+
+function ids(g) {
+  const { L, staff } = loginAll(g);
+  const who = (name) => ({ login: L, identity: call(g, 'verify', { staffId: staff.find((x) => x.name === name).id }, { login: L }).data.identity });
+  return { L, staff, who };
+}
+
+test('조사 만들기 → 응답하면 제출 현황 숫자가 바로 바뀐다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('이몽룡');
+  const made = call(g, 'survey.save', { fields: sv(g) }, owner);
+  assert.strictEqual(made.ok, true, made.error);
+  const id = made.data.id;
+  let d = call(g, 'survey.get', { id }, owner).data;
+  assert.strictEqual(d.card.targetCount, 8);
+  assert.strictEqual(d.card.doneCount, 0);
+  assert.strictEqual(d.notDone.length, 8);
+  assert.ok(d.messenger.includes('체육대회 참가 신청을'));
+  const r = call(g, 'survey.respond', { id, answers: { [d.questions[0].id]: '피구', [d.questions[1].id]: ['정리', '사진'], [d.questions[3].id]: '3' } }, who('심청'));
+  assert.strictEqual(r.ok, true, r.error);
+  d = call(g, 'survey.get', { id }, owner).data;
+  assert.strictEqual(d.card.doneCount, 1);
+  assert.strictEqual(d.notDone.length, 7);
+  assert.ok(!d.notDone.some((p) => p.name === '심청'));
+  const one = d.summary[0].counts.find((c) => c.option === '피구');
+  assert.strictEqual(one.count, 1);
+  assert.deepStrictEqual(plain(d.responses[0].answers[d.questions[1].id]), ['사진', '정리'], '보기 순서대로 정리');
+  assert.strictEqual(d.summary[3].sum, 3);
+});
+
+test('같은 사람이 두 번 내면 새 응답이 아니라 고치기가 된다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const id = call(g, 'survey.save', { fields: sv(g) }, who('홍길동')).data.id;
+  const q = call(g, 'survey.get', { id }, who('홍길동')).data.questions[0].id;
+  const me = who('흥부');
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [q]: '피구' } }, me).data.edited, false);
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [q]: '응원' }, note: '고쳤어요' }, me).data.edited, true);
+  assert.strictEqual(g.liveRows_('응답').length, 1);
+  const mine = call(g, 'survey.get', { id }, me).data.myAnswer;
+  assert.strictEqual(mine.answers[q], '응원');
+  assert.strictEqual(mine.note, '고쳤어요');
+  assert.ok(g.readRows_('기록').some((r) => r['요약'].includes('응답 고침')));
+});
+
+test('응답 확인: 꼭 답할 질문·보기·숫자·날짜를 지킨다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const id = call(g, 'survey.save', { fields: sv(g) }, who('홍길동')).data.id;
+  const qs = call(g, 'survey.get', { id }, who('홍길동')).data.questions;
+  const me = who('놀부');
+  assert.ok(call(g, 'survey.respond', { id, answers: {} }, me).error.includes('1번 질문에 답해'));
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [qs[0].id]: '축구' } }, me).ok, false);
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [qs[0].id]: '피구', [qs[1].id]: ['없는 보기'] } }, me).ok, false);
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [qs[0].id]: '피구', [qs[3].id]: '세 명' } }, me).ok, false);
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [qs[0].id]: '피구', [qs[4].id]: '2026-02-30' } }, me).ok, false);
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [qs[0].id]: '피구', [qs[3].id]: '1,200' } }, me).ok, true);
+});
+
+test('응답은 본인 확인이 있어야 하고, 대상이 아니면 낼 수 없다', () => {
+  const g = freshName();
+  const { L, who } = ids(g);
+  const dept = call(g, 'admin.cat.list', {}, adminTokens(g).t).data.find((c) => c.kind === '부서').items.find((x) => x['이름'] === '연구부');
+  const id = call(g, 'survey.save', { fields: sv(g, { target: { type: 'dept', ids: [dept['분류ID']] } }) }, who('홍길동')).data.id;
+  const d = call(g, 'survey.get', { id }, who('홍길동')).data;
+  assert.strictEqual(d.card.targetCount, 2, '연구부 2명');
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: {} }, { login: L }).code, 'IDENTITY');
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [d.questions[0].id]: '피구' } }, who('심청')).code, 'FORBIDDEN');
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [d.questions[0].id]: '피구' } }, who('성춘향')).ok, true);
+});
+
+test('대상: 학년(소속의 n학년)·직접 고르기', () => {
+  const g = freshName();
+  const { staff, who } = ids(g);
+  const a = call(g, 'survey.save', { fields: sv(g, { target: { type: 'grade', grades: ['3'] } }) }, who('홍길동')).data.id;
+  assert.strictEqual(call(g, 'survey.get', { id: a }, who('홍길동')).data.card.targetCount, 2, '3학년 1반·2반');
+  const pick = staff.filter((x) => ['심청', '놀부', '흥부'].includes(x.name)).map((x) => x.id);
+  const b = call(g, 'survey.save', { fields: sv(g, { target: { type: 'people', ids: pick.concat(['T없는사람']) } }) }, who('홍길동')).data.id;
+  assert.strictEqual(call(g, 'survey.get', { id: b }, who('홍길동')).data.card.targetCount, 3);
+  assert.strictEqual(call(g, 'survey.save', { fields: sv(g, { target: { type: 'grade', grades: [] } }) }, who('홍길동')).ok, false);
+});
+
+test('다시 알리기: 안 낸 분 홈의 내가 할 일 맨 위에 올라간다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('홍길동');
+  const early = call(g, 'survey.save', { fields: sv(g, { title: '먼저 마감', deadline: g.addDays_(g.todayYmd_(), 1) + ' 09:00' }) }, owner).data.id;
+  const late = call(g, 'survey.save', { fields: sv(g, { title: '나중 마감', deadline: g.addDays_(g.todayYmd_(), 9) + ' 09:00' }) }, owner).data.id;
+  const q = call(g, 'survey.get', { id: late }, owner).data.questions[0].id;
+  call(g, 'survey.respond', { id: late, answers: { [q]: '피구' } }, who('심청'));
+  let home = call(g, 'home', {}, who('이몽룡')).data;
+  assert.deepStrictEqual(plain(home.todos.map((x) => x.title)), ['먼저 마감', '나중 마감'], '처음엔 마감 순');
+  const r = call(g, 'survey.remind', { id: late }, owner);
+  assert.strictEqual(r.data.count, 7, '안 낸 7명');
+  home = call(g, 'home', {}, who('이몽룡')).data;
+  assert.strictEqual(home.todos[0].title, '나중 마감');
+  assert.strictEqual(home.todos[0].reminded, true);
+  // 이미 낸 사람에게는 할 일로 남지 않는다
+  assert.ok(!call(g, 'home', {}, who('심청')).data.todos.some((x) => x.id === late));
+  assert.strictEqual(call(g, 'session', {}, who('이몽룡')).data.todoCount, 2);
+  // 남이 만든 조사는 알릴 수 없다
+  assert.strictEqual(call(g, 'survey.remind', { id: early }, who('이몽룡')).code, 'FORBIDDEN');
+  assert.strictEqual(g.liveRows_('알림').length, 7);
+});
+
+test('결과 보기: 기본은 만든 사람·관리 역할만, 결과 공개를 켜면 대상 모두', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const closedId = call(g, 'survey.save', { fields: sv(g) }, who('이몽룡')).data.id;
+  const other = call(g, 'survey.get', { id: closedId }, who('심청')).data;
+  assert.strictEqual(other.canSeeResults, false);
+  assert.strictEqual(other.responses, undefined, '남의 답이 나가면 안 됨');
+  assert.strictEqual(call(g, 'survey.csv', { id: closedId }, who('심청')).code, 'FORBIDDEN');
+  assert.strictEqual(call(g, 'survey.get', { id: closedId }, who('홍길동')).data.canSeeResults, true, '관리 역할');
+  const openId = call(g, 'survey.save', { fields: sv(g, { showResults: true }) }, who('이몽룡')).data.id;
+  const seen = call(g, 'survey.get', { id: openId }, who('심청')).data;
+  assert.strictEqual(seen.canSeeResults, true);
+  assert.strictEqual(seen.notDone.length, 0, '안 낸 사람 명단은 만든 사람만');
+});
+
+test('마감이 지나거나 끝내면 응답을 받지 않고, 다시 열 수 있다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('이몽룡');
+  const id = call(g, 'survey.save', { fields: sv(g) }, owner).data.id;
+  const q = call(g, 'survey.get', { id }, owner).data.questions[0].id;
+  call(g, 'survey.setOpen', { id, open: false }, owner);
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [q]: '피구' } }, who('심청')).code, 'CLOSED');
+  assert.ok(call(g, 'survey.list', {}, owner).data.past.some((c) => c.id === id));
+  call(g, 'survey.setOpen', { id, open: true }, owner);
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [q]: '피구' } }, who('심청')).ok, true);
+  g.__clock.offset = 5 * 24 * 3600 * 1000; // 마감(3일 뒤) 지남
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [q]: '응원' } }, who('심청')).code, 'CLOSED');
+  assert.strictEqual(call(g, 'survey.setOpen', { id, open: true }, owner).ok, false, '마감이 지나면 마감을 늦춰야 함');
+});
+
+test('응답이 있으면 질문은 못 고치고 제목·마감은 고칠 수 있다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('이몽룡');
+  const id = call(g, 'survey.save', { fields: sv(g) }, owner).data.id;
+  const d = call(g, 'survey.get', { id }, owner).data;
+  call(g, 'survey.respond', { id, answers: { [d.questions[0].id]: '피구' } }, who('심청'));
+  const keep = { title: '새 제목', deadline: g.addDays_(g.todayYmd_(), 5) + ' 12:00', target: d.target, questions: d.questions };
+  assert.strictEqual(call(g, 'survey.save', { id, fields: keep }, owner).ok, true);
+  const changed = JSON.parse(JSON.stringify(d.questions));
+  changed[0].options = ['축구', '야구'];
+  assert.strictEqual(call(g, 'survey.save', { id, fields: Object.assign({}, keep, { questions: changed }) }, owner).code, 'LOCKED');
+  assert.strictEqual(call(g, 'survey.save', { id, fields: keep }, who('심청')).code, 'FORBIDDEN');
+});
+
+test('조사 만들기 값 확인', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('이몽룡');
+  assert.strictEqual(call(g, 'survey.save', { fields: sv(g, { title: '' }) }, me).ok, false);
+  assert.strictEqual(call(g, 'survey.save', { fields: sv(g, { questions: [] }) }, me).ok, false);
+  assert.strictEqual(call(g, 'survey.save', { fields: sv(g, { questions: [{ type: 'one', title: '보기 하나', options: ['하나'] }] }) }, me).ok, false);
+  assert.strictEqual(call(g, 'survey.save', { fields: sv(g, { questions: [{ type: 'xx', title: 'x' }] }) }, me).ok, false);
+  assert.strictEqual(call(g, 'survey.save', { fields: sv(g, { deadline: g.addDays_(g.todayYmd_(), -1) + ' 10:00' }) }, me).ok, false);
+  assert.strictEqual(call(g, 'survey.save', { fields: sv(g, { deadline: '내일' }) }, me).ok, false);
+});
+
+test('CSV: 머리글·답·엑셀 수식 막기', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('이몽룡');
+  const id = call(g, 'survey.save', { fields: sv(g) }, owner).data.id;
+  const qs = call(g, 'survey.get', { id }, owner).data.questions;
+  call(g, 'survey.respond', { id, answers: { [qs[0].id]: '피구', [qs[2].id]: '=1+1' } }, who('심청'));
+  const c = call(g, 'survey.csv', { id }, owner).data;
+  assert.ok(c.filename.endsWith('응답.csv'));
+  const lines = c.csv.split('\r\n');
+  assert.ok(lines[0].startsWith('"이름","소속","낸 시각","1. 종목"'));
+  assert.ok(lines[1].includes('"심청"') && lines[1].includes('"\'=1+1"'));
+});
+
+test('조사 지우기·휴지통 되살리기', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const { who } = ids(g);
+  const id = call(g, 'survey.save', { fields: sv(g) }, who('이몽룡')).data.id;
+  assert.strictEqual(call(g, 'survey.delete', { id }, who('심청')).code, 'FORBIDDEN');
+  call(g, 'survey.delete', { id }, who('이몽룡'));
+  assert.ok(!call(g, 'survey.list', {}, who('이몽룡')).data.mine.some((c) => c.id === id));
+  assert.strictEqual(call(g, 'admin.trash.surveys', {}, t).data[0].id, id);
+  call(g, 'admin.trash.restoreSurvey', { id }, t);
+  assert.ok(call(g, 'survey.list', {}, who('이몽룡')).data.mine.some((c) => c.id === id));
+});
+
+test('목록: 응답할 것·내가 만든 조사·지난 조사', () => {
+  const g = freshName();
+  const { L, who } = ids(g);
+  g.seedTestSurveys_();
+  const list = call(g, 'survey.list', {}, who('이몽룡')).data;
+  assert.strictEqual(list.toAnswer.length, 2);
+  assert.ok(list.toAnswer.every((c) => c.qCount > 0));
+  const mineOwner = call(g, 'survey.list', {}, who('홍길동')).data.mine;
+  assert.strictEqual(mineOwner.length, 2);
+  assert.strictEqual(call(g, 'survey.list', {}, { login: L }).data.needIdentity, true);
+  assert.throws(() => g.seedTestSurveys_(), /이미 조사가/);
+});
+
 console.log(results.join('\n'));
 console.log('\n' + passed + '/' + results.length + ' 통과');

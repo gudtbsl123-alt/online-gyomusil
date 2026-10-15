@@ -24,7 +24,7 @@ function tabs_() {
     '일정': ['일정ID', '시작일', '끝일', '시간', '행사명', '대상 학년', '담당 부서ID', '장소', '구분', '메모',
       '올린 묶음ID'].concat(A).concat(['중요']),
     '월별중점': ['중점ID', '학년도', '월', '중점지도 내용'].concat(A),
-    '조사': ['조사ID', '제목', '부서ID', '대상', '마감 일시', '상태', '질문', '메신저 문구'].concat(A),
+    '조사': ['조사ID', '제목', '부서ID', '대상', '마감 일시', '상태', '질문', '메신저 문구'].concat(A).concat(['설명', '결과 공개']),
     '응답': ['응답ID', '조사ID', '교직원ID', '답', '하고 싶은 말', '낸 시각', '고친 시각'].concat(A),
     '알림': ['알림ID', '조사ID', '대상 교직원ID', '알린 시각'].concat(A),
     '자료': ['자료ID', '학년도', '분류ID', '부서ID', '제목', '설명', '링크', '파일ID', '담당', '보관 여부'].concat(A),
@@ -209,6 +209,39 @@ function insertRow_(tab, obj, actor, summary) {
     sheet_(tab).appendRow(head.map(function (h) { return cellWrite_(rec[h]); }));
     writeLog_(actor, tab, rec[key], '추가', summary || '', null, auditView_(rec));
     return publicRow_(rec);
+  });
+}
+
+/**
+ * 여러 줄을 한 번에 넣기(다시 알리기처럼 수십 줄을 쓸 때). 기록은 한 줄로 남긴다.
+ */
+function insertRows_(tab, list, actor, summary) {
+  if (!list.length) return [];
+  return withLock_(function () {
+    var head = headOf_(tab);
+    var key = head[0];
+    var used = {};
+    readRows_(tab).forEach(function (r) { used[r[key]] = true; });
+    var now = nowText_();
+    var recs = list.map(function (obj) {
+      var rec = {};
+      head.forEach(function (h) { if (obj[h] !== undefined) rec[h] = String(obj[h]); });
+      var id;
+      do { id = idPrefix_(tab) + Utilities.getUuid().replace(/-/g, '').slice(0, 8).toUpperCase(); } while (used[id]);
+      used[id] = true;
+      rec[key] = id;
+      rec['입력자ID'] = actor.id || '';
+      rec['입력 시각'] = now;
+      rec['수정자ID'] = '';
+      rec['수정 시각'] = '';
+      rec['삭제 여부'] = '';
+      return rec;
+    });
+    var sh = sheet_(tab);
+    sh.getRange(sh.getLastRow() + 1, 1, recs.length, head.length)
+      .setValues(recs.map(function (rec) { return head.map(function (h) { return cellWrite_(rec[h]); }); }));
+    writeLog_(actor, tab, '', '추가', summary || (recs.length + '줄 추가'), null, { '줄 수': String(recs.length) });
+    return recs.map(publicRow_);
   });
 }
 

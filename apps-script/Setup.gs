@@ -14,6 +14,7 @@ function onOpen() {
     .addItem('지금 백업 한 번 하기', 'menuBackupNow')
     .addItem('테스트용 가짜 데이터 넣기 (테스트 시트에서만)', 'menuSeedTestData')
     .addItem('테스트용 가짜 일정 넣기 (테스트 시트에서만)', 'menuSeedTestSchedule')
+    .addItem('테스트용 가짜 조사 넣기 (테스트 시트에서만)', 'menuSeedTestSurveys')
     .addToUi();
 }
 
@@ -226,6 +227,14 @@ function menuSeedTestSchedule() {
   if (ok !== ui.Button.YES) return;
   var n = seedTestSchedule_();
   ui.alert('가짜 일정을 넣었어요', '일정 ' + n + '개와 이달 중점지도를 넣었어요. 웹앱의 홈과 일정 화면에서 확인해 보세요.\n수업일수를 보려면 설정 탭(또는 관리자 화면 > 설정)에 학기 기간을 넣어 주세요.', ui.ButtonSet.OK);
+}
+
+function menuSeedTestSurveys() {
+  var ui = requireSheetUi_();
+  var ok = ui.alert('테스트용 가짜 조사', '테스트용 시트에서만 쓰세요. 가짜 조사 2개(체육대회 참가 신청, 물품 구입 희망)와 가짜 응답 몇 개를 넣어요.\n\n넣을까요?', ui.ButtonSet.YES_NO);
+  if (ok !== ui.Button.YES) return;
+  seedTestSurveys_();
+  ui.alert('가짜 조사를 넣었어요', '웹앱의 조사·신청 화면과 홈 \'내가 할 일\'에서 확인해 보세요.', ui.ButtonSet.OK);
 }
 
 /** 가짜 데이터. 실제 교직원 이름은 쓰지 않는다. */

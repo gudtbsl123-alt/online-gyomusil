@@ -189,7 +189,8 @@ function apiHome_(args, actor, ctx) {
     events: eventsBetween_(mon < today ? mon : today, to, ctx),
     links: links,
     focus: focusOf_(m >= 3 ? y : y - 1, m),
-    canManage: canManage_(ctx)
+    canManage: canManage_(ctx),
+    todos: todoList_(ctx)
   };
 }
 

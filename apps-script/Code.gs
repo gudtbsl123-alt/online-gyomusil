@@ -10,6 +10,7 @@
  *   Auth.gs   비밀번호, 개인 번호, 로그인 표
  *   Admin.gs  설정, 분류, 교직원 표, 수정 기록
  *   Schedule.gs  일정(달력·연간 학사일정·월별 계획·홈), 수업일수, 휴지통
+ *   Survey.gs  조사·신청(만들기, 응답, 제출 현황, 다시 알리기, 요약, CSV)
  *   Setup.gs  시트 메뉴, 처음 설정, 매일 백업, 테스트 데이터
  *   Index.html / Styles.html / App.html  화면
  */
@@ -45,6 +46,15 @@ function routes_() {
     'sched.delete': { need: 'identity', fn: apiSchedDelete_ },
     'focus.save': { need: 'identity', fn: apiFocusSave_ },
 
+    'survey.list': { need: 'login', fn: apiSurveyList_ },
+    'survey.get': { need: 'login', fn: apiSurveyGet_ },
+    'survey.save': { need: 'identity', fn: apiSurveySave_ },
+    'survey.setOpen': { need: 'identity', fn: apiSurveySetOpen_ },
+    'survey.delete': { need: 'identity', fn: apiSurveyDelete_ },
+    'survey.respond': { need: 'identity', fn: apiSurveyRespond_ },
+    'survey.remind': { need: 'identity', fn: apiSurveyRemind_ },
+    'survey.csv': { need: 'login', fn: apiSurveyCsv_ },
+
     'admin.settings.get': { need: 'admin', fn: function () { return adminSettingsGet_(); } },
     'admin.settings.save': { need: 'admin', fn: adminSettingsSave_ },
     'admin.cat.list': { need: 'admin', fn: function () { return adminCategoryList_(); } },
@@ -59,6 +69,8 @@ function routes_() {
     'admin.log.list': { need: 'admin', fn: adminLogList_ },
     'admin.trash.list': { need: 'admin', fn: function () { return adminTrashList_(); } },
     'admin.trash.restore': { need: 'admin', fn: adminTrashRestore_ },
+    'admin.trash.surveys': { need: 'admin', fn: function () { return adminSurveyTrash_(); } },
+    'admin.trash.restoreSurvey': { need: 'admin', fn: adminSurveyRestore_ },
     'admin.pw.common': { need: 'admin', fn: adminChangeCommonPw_ },
     'admin.pw.admin': { need: 'admin', fn: adminChangeAdminPw_ }
   };
@@ -114,6 +126,7 @@ function apiStart_() {
 function apiSession_(args, actor, ctx) {
   return {
     me: ctx.identity ? meView_(ctx.identity) : null,
+    todoCount: ctx.identity ? todoList_(ctx).length : 0,
     admin: !!(ctx.tokens.admin && checkAdmin_(ctx.tokens.admin))
   };
 }

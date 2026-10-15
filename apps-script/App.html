@@ -139,6 +139,11 @@
     out: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10"></path>',
     textsize: '<path d="M4 18 8.5 6h1L14 18M5.6 14h6.8M15 18l2.6-7h.8L21 18M15.8 16h4.4"></path>',
     chev: '<path d="m9 6 6 6-6 6"></path>',
+    up: '<path d="m6 15 6-6 6 6"></path>',
+    chevd: '<path d="m6 9 6 6 6-6"></path>',
+    down: '<path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"></path>',
+    copy: '<rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a1 1 0 0 1 1-1h9"></path>',
+    send: '<path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"></path>',
     chevl: '<path d="m15 6-6 6 6 6"></path>',
     ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path>',
     shield: '<path d="M12 3.5 19 6v5.5c0 4.2-3 7.7-7 9-4-1.3-7-4.8-7-9V6z"></path><path d="m9 12 2 2 4-4"></path>'
@@ -163,7 +168,7 @@
   var MENU = [
     { id: 'home', label: '홈', icon: 'home' },
     { id: 'schedule', label: '일정', icon: 'calendar' },
-    { id: 'survey', label: '조사·신청', icon: 'survey', stage: 3 },
+    { id: 'survey', label: '조사·신청', icon: 'survey' },
     { id: 'library', label: '자료실', icon: 'folder', stage: 4 },
     { id: 'staff', label: '교직원', icon: 'people', stage: 4 },
     { id: 'help', label: '도움말', icon: 'help', stage: 4 }
@@ -207,6 +212,7 @@
       return server('session').then(function (s) {
         S.me = s.me;
         S.admin = s.admin;
+        S.todoCount = s.todoCount || 0;
         if (!s.me) stDel('gy.identity');
         if (!s.admin) stDel('gy.admin');
         if (!S.me && stGet('gy.skipIdentity') !== '1') return showIdentity();
@@ -358,8 +364,11 @@
         if (r.login) stSet('gy.login', r.login, true);
         stDel('gy.skipIdentity');
         S.me = r.me;
+        S.todoCount = 0;
+        if (S.survey) S.survey.list = null;
         renderApp();
         toast(r.me.name + ' 선생님, 본인 확인이 됐어요');
+        server('session').then(function (s2) { setTodoCount(s2.todoCount || 0); }).catch(function () {});
       }).catch(function (e) {
         busy(btn, false);
         err.textContent = e.message;
@@ -381,7 +390,8 @@
   function navButton(m, small) {
     var cur = S.screen === m.id;
     return '<button type="button" class="nav-item' + (small || m.small ? ' small' : '') + '" data-go="' + m.id + '"' + (cur ? ' aria-current="page"' : '') + '>' +
-      icon(m.icon, m.small ? 20 : 22) + m.label + (m.stage ? '<span class="nav-soon">' + m.stage + '단계</span>' : '') + '</button>';
+      icon(m.icon, m.small ? 20 : 22) + m.label + (m.stage ? '<span class="nav-soon">' + m.stage + '단계</span>' : '') +
+      (m.id === 'survey' ? '<span class="nav-badge" data-badge="survey"' + (S.todoCount ? '' : ' hidden') + '>' + (S.todoCount || 0) + '</span>' : '') + '</button>';
   }
 
   function meCard() {
@@ -421,7 +431,8 @@
       '<nav class="bottom-nav print-hide" aria-label="주 메뉴">' +
       ['home', 'schedule', 'survey', 'library'].map(function (id) {
         var x = menuItem(id);
-        return '<button type="button" data-go="' + id + '"' + (S.screen === id ? ' aria-current="page"' : '') + '>' + icon(x.icon, 24) + x.label + '</button>';
+        return '<button type="button" data-go="' + id + '"' + (S.screen === id ? ' aria-current="page"' : '') + '>' + icon(x.icon, 24) + x.label +
+          (id === 'survey' ? '<span class="bn-badge" data-badge="survey"' + (S.todoCount ? '' : ' hidden') + '>' + (S.todoCount || 0) + '</span>' : '') + '</button>';
       }).join('') +
       '<button type="button" data-action="sheet"' + (['staff', 'help', 'admin', 'guide'].indexOf(S.screen) >= 0 ? ' aria-current="page"' : '') + '>' + icon('menu', 24) + '전체</button>' +
       '</nav></div>';
@@ -577,14 +588,7 @@
       '<p class="tomorrow"><b>내일 미리 보기</b> ' + (tomorrow.length
         ? tomorrow.map(function (e) { return esc(e.title) + (e.time ? ' ' + esc(e.time) : ''); }).join(' · ')
         : '일정이 없어요') + '</p></section>' +
-      '<section class="card"><div class="card-head"><h2>' + (h.focus && h.focus.text ? h.focus.month + '월 중점지도' : '내 상태') + '</h2></div>' +
-      (h.focus && h.focus.text ? '<p class="focus-text">' + esc(h.focus.text) + '</p>' : '') +
-      (S.me
-        ? '<div class="box"><p style="font-weight:800">' + esc(S.me.name) + ' 선생님</p><p class="faint">' + esc([S.me.position, S.me.group, S.me.dept].filter(Boolean).join(' · ')) + '</p>' +
-          '<p class="ok-text" style="margin-top:6px">' + icon('check', 14, ' stroke-width="2.4"') + '본인 확인됨</p></div>'
-        : '<div class="box"><p style="font-weight:800">본인 확인 전이에요</p><p class="faint">보기만 할 수 있어요. 일정을 넣으려면 본인 확인이 필요해요.</p></div>' +
-          '<button type="button" class="btn btn-primary" data-action="identity">본인 확인하기</button>') +
-      '</section></div>' +
+      todoCard(h) + '</div>' +
 
       '<section class="card"><div class="card-head"><h2>이번 주 일정 <span class="faint" style="font-weight:600">' + md(h.monday) + ' – ' + md(addD(h.monday, 4)) + '</span></h2>' +
       '<div class="seg print-hide" role="group" aria-label="이번 주 일정 보기">' +
@@ -604,12 +608,38 @@
       (weekend.length ? '<p class="faint">주말: ' + weekend.map(function (e) { return esc(mdw(e.start) + ' ' + e.title); }).join(' · ') + '</p>' : '') +
       '</section>' +
 
+      (h.focus && h.focus.text ? '<section class="card"><div class="card-head"><h2>' + h.focus.month + '월 중점지도</h2></div><p class="focus-text">' + esc(h.focus.text) + '</p></section>' : '') +
       (links.length ? '<section class="card dashed"><div class="card-head"><div><h2>아직 기존 시트에서 하는 일</h2>' +
         '<p class="faint" style="margin-top:4px">2차에 온라인 교무실로 옮겨 와요. 그 전까지는 바로가기로 들어가세요.</p></div>' +
         '<div class="row-btns">' + links.map(function (l) {
           return '<a class="btn btn-sm" href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.name) + icon('ext', 16) + '</a>';
         }).join('') + '</div></div></section>' : '') +
       '</div>';
+  }
+
+  /** 홈 '내가 할 일': 아직 안 낸 조사(다시 알림 받은 것이 맨 위) */
+  function todoCard(h) {
+    if (!S.me) {
+      return '<section class="card"><h2>내가 할 일</h2><div class="box"><p style="font-weight:800">이름을 고르면 보여요</p>' +
+        '<p class="faint">내가 낼 조사가 여기에 모여요.</p></div>' +
+        '<button type="button" class="btn btn-primary" data-action="identity">이름 고르기</button></section>';
+    }
+    var list = h.todos || [];
+    setTodoCount(list.length);
+    var first = list[0];
+    return '<section class="card todo-card"><div class="card-head"><h2>내가 할 일 <span class="accent-num">' + list.length + '</span></h2>' +
+      '<button type="button" class="linkish" data-go="survey">전체 보기</button></div>' +
+      (first ? '<div class="todo-first"><div class="sv-chips">' + daysLeftChip(first, h.today) + (first.reminded ? '<span class="chip chip-warn">다시 알림</span>' : '') +
+        (first.dept ? '<span class="faint">' + esc(first.dept) + '</span>' : '') + '</div>' +
+        '<p class="todo-title">' + esc(first.title) + '</p><p class="faint">질문 ' + first.qCount + '개 · ' + esc(first.deadlineText) + '까지</p>' +
+        '<button type="button" class="btn btn-primary btn-block" data-action="todo-open" data-id="' + esc(first.id) + '">지금 응답하기</button></div>' +
+        list.slice(1, 4).map(function (c) {
+          return '<div class="todo-row"><div style="min-width:0"><div class="sv-chips">' + daysLeftChip(c, h.today) + (c.reminded ? '<span class="chip chip-warn">다시 알림</span>' : '') + '</div>' +
+            '<p class="todo-title sm">' + esc(c.title) + '</p></div>' +
+            '<button type="button" class="btn btn-sm" data-action="todo-open" data-id="' + esc(c.id) + '">응답하기</button></div>';
+        }).join('') + (list.length > 4 ? '<p class="faint">' + (list.length - 4) + '개 더 있어요</p>' : '')
+        : '<div class="box"><p style="font-weight:800">낼 조사가 없어요</p><p class="faint">새 조사가 오면 여기에 보여요.</p></div>') +
+      '</section>';
   }
 
   // ============================================================ 일정
@@ -1083,14 +1113,20 @@
   // 관리자 · 휴지통
   function adminTrash(panel) {
     panel.innerHTML = loadingHtml('휴지통을 불러오는 중이에요');
-    server('admin.trash.list').then(function (list) {
+    Promise.all([server('admin.trash.list'), server('admin.trash.surveys')]).then(function (res) {
+      var list = res[0], surveys = res[1];
       panel.innerHTML = '<div class="wrap" style="gap:16px"><p class="hint">' + icon('info', 16) + '<span>지운 일정은 시트에서 실제로 지워지지 않고 여기 남아요. 되살리면 달력·학사일정·월별 계획에 다시 보여요.</span></p>' +
-        '<section class="card">' + (list.length ? list.map(function (e) {
+        '<section class="card"><h2>지운 일정</h2>' + (list.length ? list.map(function (e) {
           return '<div class="log-item"><div class="log-top"><span class="chip">' + esc(e.kind) + '</span><b>' + esc(e.title) + '</b>' +
             '<span class="faint">' + esc(e.start === e.end ? e.start : e.start + '~' + e.end) + '</span>' +
             '<button type="button" class="btn btn-sm print-hide" style="margin-left:auto" data-action="trash-restore" data-id="' + esc(e.id) + '">되살리기</button></div>' +
             '<p class="faint" style="margin-top:4px">지운 사람 ' + esc(e.deletedBy || '알 수 없음') + ' · ' + esc(e.deletedAt || '') + (e.by ? ' · 처음 넣은 사람 ' + esc(e.by) : '') + '</p></div>';
-        }).join('') : '<p class="empty">휴지통이 비어 있어요.</p>') + '</section></div>';
+        }).join('') : '<p class="empty">지운 일정이 없어요.</p>') + '</section>' +
+        '<section class="card"><h2>지운 조사</h2>' + (surveys.length ? surveys.map(function (sv2) {
+          return '<div class="log-item"><div class="log-top"><b>' + esc(sv2.title) + '</b><span class="faint">마감 ' + esc(sv2.deadline) + '</span>' +
+            '<button type="button" class="btn btn-sm print-hide" style="margin-left:auto" data-action="trash-restore-sv" data-id="' + esc(sv2.id) + '">되살리기</button></div>' +
+            '<p class="faint" style="margin-top:4px">지운 사람 ' + esc(sv2.deletedBy || '알 수 없음') + ' · ' + esc(sv2.deletedAt || '') + (sv2.by ? ' · 만든 사람 ' + esc(sv2.by) : '') + '</p></div>';
+        }).join('') : '<p class="empty">지운 조사가 없어요.</p>') + '</section></div>';
     }).catch(function (e) { panel.innerHTML = failHtml(e); });
   }
 
@@ -1100,6 +1136,489 @@
       S.sched.data = null; S.sched.yearData = null;
       adminTrash(qs('#admin-panel'));
     }).catch(function (e) { toast(e.message); });
+  }
+
+  // ============================================================ 조사·신청
+  S.survey = { tab: 'answer', list: null, sel: '', detail: null, showResults: false };
+
+  function needMe(what) {
+    if (S.me) return true;
+    confirmBox('이름을 먼저 골라 주세요', what + ' 누가 했는지 남아요. 명단에서 이름을 골라 주세요.', '이름 고르기', function () {
+      closeModal();
+      showIdentity();
+      return Promise.resolve();
+    });
+    return false;
+  }
+
+  /** '2026-10-15 16:37:05' → '10월 15일 16:37' */
+  function atText(at) {
+    if (!at) return '';
+    return Number(at.slice(5, 7)) + '월 ' + Number(at.slice(8, 10)) + '일 ' + at.slice(11, 16);
+  }
+
+  function daysLeftChip(c, today) {
+    if (c.closed) return '<span class="chip">끝남</span>';
+    var n = Math.round((ymdUtc(c.deadline.slice(0, 10)) - ymdUtc(today)) / 86400000);
+    if (n <= 0) return '<span class="chip chip-warn">오늘 마감</span>';
+    if (n === 1) return '<span class="chip chip-warn">내일 마감</span>';
+    return '<span class="chip">' + n + '일 남음</span>';
+  }
+
+  function svCard(c, tab, today) {
+    var pct = c.targetCount ? Math.round(c.doneCount / c.targetCount * 100) : 0;
+    return '<button type="button" class="sv-card' + (S.survey.sel === c.id ? ' on' : '') + '" data-action="sv-open" data-id="' + esc(c.id) + '">' +
+      '<span class="sv-chips">' + (c.closed ? '<span class="chip">끝남</span>' : '<span class="chip chip-ok">진행 중</span>') +
+      (c.closed ? '<span class="faint">' + esc(c.deadlineText) + ' 마감</span>' : daysLeftChip(c, today)) +
+      (c.dept ? '<span class="faint">' + esc(c.dept) + '</span>' : '') +
+      (tab === 'answer' && c.answered ? '<span class="chip chip-ok">냈어요</span>' : '') +
+      (tab === 'answer' && !c.answered && c.reminded ? '<span class="chip chip-warn">다시 알림</span>' : '') + '</span>' +
+      '<span class="sv-title">' + esc(c.title) + '</span>' +
+      (tab === 'answer'
+        ? '<span class="faint">질문 ' + c.qCount + '개 · ' + esc(c.deadlineText) + '까지</span>'
+        : '<span class="sv-prog"><span class="progress"><span style="width:' + pct + '%"></span></span><b>' + c.doneCount + '/' + c.targetCount + '명</b></span>') +
+      '</button>';
+  }
+
+  SCREENS.survey = function ($s) {
+    var sv = S.survey;
+    $s.innerHTML = pageHead('', '조사·신청', '', S.me ? '<button type="button" class="btn print-hide" data-action="sv-new">' + icon('plus', 18) + '새 조사 만들기</button>' : '') +
+      '<div id="sv-body">' + loadingHtml('조사를 불러오는 중이에요') + '</div>';
+    server('survey.list').then(function (l) {
+      sv.list = l;
+      setTodoCount(l.todoCount);
+      drawSurvey();
+    }).catch(function (e) { var b = qs('#sv-body'); if (b) b.innerHTML = failHtml(e); });
+  };
+
+  function setTodoCount(n) {
+    if (S.todoCount === n) return;
+    S.todoCount = n;
+    qsa('[data-badge="survey"]').forEach(function (b) { b.textContent = n; b.hidden = !n; });
+  }
+
+  function drawSurvey() {
+    var sv = S.survey, l = sv.list, body = qs('#sv-body');
+    if (!body || !l) return;
+    if (l.needIdentity) {
+      body.innerHTML = '<section class="card" style="align-items:flex-start"><h2>이름을 먼저 골라 주세요</h2>' +
+        '<p class="muted">이름을 고르면 내가 낼 조사와 내가 만든 조사가 보여요.</p>' +
+        '<button type="button" class="btn btn-primary" data-action="identity">이름 고르기</button></section>';
+      return;
+    }
+    var tabs = [['answer', '응답할 것', l.todoCount], ['mine', l.canManage ? '진행 중인 조사' : '내가 만든 조사', l.mine.length], ['past', '지난 조사', 0]];
+    var list = { answer: l.toAnswer, mine: l.mine, past: l.past }[sv.tab] || [];
+    var phone = isPhone();
+    if (sv.sel && !list.some(function (c) { return c.id === sv.sel; })) sv.sel = '';
+    if (!sv.sel && list.length && !phone) sv.sel = list[0].id;
+    var showList = !phone || !sv.sel;
+    body.innerHTML = '<div class="tabs print-hide" role="tablist">' + tabs.map(function (t) {
+      return '<button type="button" class="tab" role="tab" data-sv-tab="' + t[0] + '" aria-selected="' + (sv.tab === t[0]) + '">' + t[1] +
+        (t[2] ? ' <b class="tab-n">' + t[2] + '</b>' : '') + '</button>';
+    }).join('') + '</div>' +
+      '<div class="sv-layout">' +
+      (showList ? '<div class="sv-list">' + (list.length ? list.map(function (c) { return svCard(c, sv.tab, l.today); }).join('') :
+        '<div class="card"><p class="empty">' + { answer: '지금 낼 조사가 없어요.', mine: '진행 중인 조사가 없어요. "새 조사 만들기"로 만들어 보세요.', past: '지난 조사가 없어요.' }[sv.tab] + '</p></div>') +
+        (sv.tab === 'answer' && l.past.length ? '<p class="faint">끝난 조사는 \'지난 조사\'에서 다시 볼 수 있어요.</p>' : '') + '</div>' : '') +
+      (sv.sel ? '<div class="sv-detail" id="sv-detail">' + loadingHtml() + '</div>' : '') +
+      '</div>';
+    if (sv.sel) loadSurveyDetail();
+  }
+
+  function loadSurveyDetail() {
+    var sv = S.survey, id = sv.sel;
+    server('survey.get', { id: id }).then(function (d) {
+      if (S.survey.sel !== id) return;
+      sv.detail = d;
+      drawSurveyDetail();
+    }).catch(function (e) { var b = qs('#sv-detail'); if (b) b.innerHTML = failHtml(e); });
+  }
+
+  function drawSurveyDetail() {
+    var sv = S.survey, d = sv.detail, box = qs('#sv-detail');
+    if (!box || !d) return;
+    var back = isPhone() ? '<button type="button" class="btn btn-sm btn-ghost print-hide" data-action="sv-back" style="align-self:flex-start">' + icon('chevl', 18) + '목록으로</button>' : '';
+    var asOwner = d.owner && sv.tab !== 'answer';
+    box.innerHTML = back + (asOwner ? ownerView(d) : respondView(d));
+    if (!asOwner) bindRespond(box, d);
+  }
+
+  // ------------------------------------------------------------ 응답 화면
+  function questionInput(q, i, value, disabled) {
+    var name = 'ans-' + q.id;
+    var dis = disabled ? ' disabled' : '';
+    var head = '<div class="q-head"><b>' + (i + 1) + '. ' + esc(q.title) + (q.required ? ' <span class="req">*</span>' : '') + '</b>' +
+      '<span class="faint">' + { one: '하나만 골라요', many: '여러 개 고를 수 있어요', short: '짧게 적어요', long: '자유롭게 적어요', number: '숫자로 적어요', date: '날짜를 골라요' }[q.type] + '</span></div>';
+    var body;
+    if (q.type === 'one' || q.type === 'many') {
+      var vals = [].concat(value || []);
+      body = '<div class="opts">' + q.options.map(function (o) {
+        var on = vals.indexOf(o) >= 0;
+        return '<label class="opt' + (on ? ' on' : '') + '"><input type="' + (q.type === 'one' ? 'radio' : 'checkbox') + '" name="' + name + '" value="' + esc(o) + '"' + (on ? ' checked' : '') + dis + '>' +
+          '<span>' + esc(o) + '</span><span class="opt-mark" aria-hidden="true">' + icon('check', 16, ' stroke-width="2.6"') + '</span></label>';
+      }).join('') + '</div>';
+    } else if (q.type === 'long') {
+      body = '<textarea class="input" name="' + name + '" rows="4" maxlength="2000"' + dis + '>' + esc(value || '') + '</textarea>';
+    } else {
+      var type = q.type === 'date' ? 'date' : 'text';
+      body = '<input class="input" name="' + name + '" type="' + type + '" value="' + esc(value || '') + '"' +
+        (q.type === 'number' ? ' inputmode="decimal" maxlength="15"' : ' maxlength="200"') + dis + '>';
+    }
+    return '<fieldset class="q-block" data-q="' + esc(q.id) + '"><legend class="sr-only">' + esc(q.title) + '</legend>' + head + body + '</fieldset>';
+  }
+
+  function respondView(d) {
+    var c = d.card, l = S.survey.list || {};
+    var mine = d.myAnswer || { answers: {} };
+    var closed = c.closed;
+    var cannot = !c.inTarget;
+    return '<section class="card sv-respond">' +
+      '<div class="sv-chips">' + (c.dept ? '<span class="chip">' + esc(c.dept) + '</span>' : '') + daysLeftChip(c, l.today || localToday()) +
+      (c.showResults ? '<span class="chip chip-accent">결과 공개</span>' : '') + '</div>' +
+      '<h2 class="sv-h">' + esc(c.title) + '</h2>' +
+      '<p class="faint">질문 ' + c.qCount + '개 · ' + esc(c.deadlineText) + '까지' + (c.by ? ' · ' + esc(c.by) + ' 선생님이 만들었어요' : '') + '</p>' +
+      (d.description ? '<p class="sv-desc">' + esc(d.description) + '</p>' : '') +
+      (d.myAnswer ? '<p class="note">' + icon('check', 18) + '<span>' + esc(atText(d.myAnswer.at)) + '에 냈어요. ' + (closed ? '마감돼서 더 고칠 수 없어요.' : '고쳐서 다시 낼 수 있어요.') + '</span></p>' : '') +
+      (closed ? '<p class="note warn">' + icon('info', 18) + '<span>마감된 조사예요.</span></p>' : '') +
+      (cannot ? '<p class="note warn">' + icon('info', 18) + '<span>이 조사의 대상이 아니에요(' + esc(c.targetText) + ').</span></p>' : '') +
+      '<div class="who-card"><span class="avatar" aria-hidden="true">' + esc(S.me.name.charAt(0)) + '</span>' +
+      '<span class="me-lines"><span class="faint">응답하는 사람</span><b>' + esc(S.me.name) + '</b><span class="faint">' + esc(S.me.group || '') + '</span></span>' +
+      '<button type="button" class="linkish" data-action="switch" style="margin-left:auto">바꾸기</button></div>' +
+      '<form id="sv-form" class="form" novalidate>' +
+      d.questions.map(function (q, i) { return questionInput(q, i, mine.answers[q.id], closed || cannot); }).join('') +
+      '<div class="field"><label class="label" for="sv-note">하고 싶은 말 (선택)</label><textarea id="sv-note" class="input" rows="2" maxlength="500"' + (closed || cannot ? ' disabled' : '') + '>' + esc(mine.note || '') + '</textarea></div>' +
+      '<p class="err" id="sv-err" role="alert"></p>' +
+      (closed || cannot ? '' : '<div class="sv-submit"><button type="submit" class="btn btn-primary">' + (d.myAnswer ? '고쳐서 내기' : '제출하기') + '</button>' +
+        '<span class="faint">마감 전까지는 언제든 고칠 수 있어요</span></div>') +
+      '</form>' +
+      (d.canSeeResults && !d.owner ? '<button type="button" class="btn btn-sm" data-action="sv-results" style="align-self:flex-start">' + (S.survey.showResults ? '다른 분들의 답 접기' : '다른 분들의 답 보기') + '</button>' +
+        (S.survey.showResults ? resultsHtml(d) : '') : '') +
+      (d.owner ? '<button type="button" class="btn btn-sm" data-action="sv-as-owner" style="align-self:flex-start">' + icon('chev', 18) + '제출 현황 보기</button>' : '') +
+      '</section>';
+  }
+
+  function bindRespond(box, d) {
+    var form = qs('#sv-form', box);
+    if (!form) return;
+    form.addEventListener('change', function (e) {
+      if (e.target.closest('.opts')) qsa('.opt', e.target.closest('.opts')).forEach(function (o) { o.classList.toggle('on', o.querySelector('input').checked); });
+    });
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var answers = {};
+      d.questions.forEach(function (q) {
+        if (q.type === 'one') { var c = qs('input[name="ans-' + q.id + '"]:checked', form); if (c) answers[q.id] = c.value; }
+        else if (q.type === 'many') answers[q.id] = qsa('input[name="ans-' + q.id + '"]:checked', form).map(function (c) { return c.value; });
+        else { var el = qs('[name="ans-' + q.id + '"]', form); if (el && el.value.trim()) answers[q.id] = el.value.trim(); }
+      });
+      var err = qs('#sv-err', form);
+      var miss = d.questions.filter(function (q) { var v = answers[q.id]; return q.required && (!v || (Array.isArray(v) && !v.length)); })[0];
+      if (miss) { err.textContent = (d.questions.indexOf(miss) + 1) + '번 질문에 답해 주세요.'; qs('[data-q="' + miss.id + '"]', form).scrollIntoView({ block: 'center' }); return; }
+      var btn = form.querySelector('[type=submit]');
+      busy(btn, true, '내는 중');
+      err.textContent = '';
+      server('survey.respond', { id: d.card.id, answers: answers, note: qs('#sv-note', form).value }).then(function (r) {
+        toast(r.edited ? '고친 답을 냈어요' : '냈어요. 고맙습니다');
+        S.survey.list = null;
+        refreshSurveyList();
+      }).catch(function (e) { busy(btn, false); err.textContent = e.message; });
+    });
+  }
+
+  function refreshSurveyList() {
+    server('survey.list').then(function (l) {
+      S.survey.list = l;
+      setTodoCount(l.todoCount);
+      if (S.screen === 'survey') drawSurvey();
+    }).catch(function (e) { toast(e.message); });
+  }
+
+  // ------------------------------------------------------------ 만든 사람 화면(제출 현황)
+  function ownerView(d) {
+    var c = d.card;
+    var pct = c.targetCount ? Math.round(c.doneCount / c.targetCount * 100) : 0;
+    var notDone = d.notDone || [];
+    return '<section class="card sv-owner">' +
+      '<div class="sv-top"><div style="min-width:0"><div class="sv-chips">' + (c.closed ? '<span class="chip">끝남</span>' : '<span class="chip chip-ok">진행 중</span>') +
+      '<span class="chip chip-warn">마감 ' + esc(c.deadlineText) + '</span>' + (c.showResults ? '<span class="chip chip-accent">결과 공개</span>' : '') + '</div>' +
+      '<h2 class="sv-h">' + esc(c.title) + '</h2>' +
+      '<p class="faint">' + esc([c.dept, c.by ? c.by + ' 선생님이 ' + c.createdAt.slice(5, 10).replace('-', '월 ') + '일에 만들었어요' : '', '대상 ' + c.targetText + ' ' + c.targetCount + '명'].filter(Boolean).join(' · ')) + '</p></div>' +
+      '<div class="row-btns print-hide sv-actions">' +
+      '<button type="button" class="btn btn-sm" data-action="sv-edit">고치기·마감 연장</button>' +
+      '<button type="button" class="btn btn-sm" data-action="sv-close" data-open="' + (c.closed ? '1' : '0') + '">' + (c.closed ? '다시 열기' : '지금 끝내기') + '</button>' +
+      '<button type="button" class="btn btn-sm" data-action="sv-csv">' + icon('down', 18) + '엑셀로 받기</button>' +
+      '<button type="button" class="btn btn-sm btn-ghost btn-danger" data-action="sv-del">지우기</button></div></div>' +
+      '<div class="sv-stats">' +
+      '<div class="box"><p class="faint">낸 사람</p><p class="stat-num">' + c.doneCount + '명</p></div>' +
+      '<div class="box"><p class="faint">아직 안 낸 사람</p><p class="stat-num warn-num">' + (c.targetCount - c.doneCount) + '명</p></div>' +
+      '<div class="box"><p class="faint">응답률</p><p class="stat-num">' + pct + '%</p><span class="progress"><span style="width:' + pct + '%"></span></span></div></div>' +
+      (notDone.length ? '<div class="card inner"><h3>아직 안 낸 분 ' + notDone.length + '명</h3>' +
+        '<div class="people-chips">' + notDone.map(function (p) { return '<span class="chip">' + esc(p.name) + (p.group ? ' <span class="faint">' + esc(p.group) + '</span>' : '') + '</span>'; }).join('') + '</div>' +
+        '<div class="msg-box"><div class="card-head"><span class="faint">메신저에 붙일 안내 문구</span>' +
+        '<button type="button" class="btn btn-sm print-hide" data-action="sv-copy">' + icon('copy', 18) + '문구 복사</button></div>' +
+        '<p id="sv-msg" class="msg-text">' + esc(d.messenger) + '</p></div>' +
+        (c.closed ? '' : '<div class="sv-submit print-hide"><button type="button" class="btn btn-primary" data-action="sv-remind">' + icon('send', 18) + '안 낸 분께 다시 알리기</button>' +
+          '<span class="faint">누르면 그분들 홈 화면의 \'내가 할 일\' 맨 위에 다시 보여요.' + (d.remindedCount ? ' (지금까지 ' + d.remindedCount + '번 알림)' : '') + '</span></div>') +
+        '</div>' : '<p class="note">' + icon('check', 18) + '<span>대상 교직원이 모두 냈어요.</span></p>') +
+      resultsHtml(d) +
+      '</section>';
+  }
+
+  function resultsHtml(d) {
+    var sum = d.summary || [];
+    var resp = d.responses || [];
+    return '<div class="sv-results"><h3>응답 요약 <span class="faint" style="font-weight:600">' + resp.length + '명이 냈어요</span></h3>' +
+      sum.map(function (q, i) {
+        var inner;
+        if (q.counts) {
+          var max = Math.max.apply(null, q.counts.map(function (c) { return c.count; }).concat([1]));
+          inner = '<div class="bars">' + q.counts.map(function (c) {
+            return '<div class="bar-row"><span class="bar-label">' + esc(c.option) + '</span><span class="progress"><span style="width:' + Math.round(c.count / max * 100) + '%"></span></span><b>' + c.count + '명</b></div>';
+          }).join('') + '</div>';
+        } else if (q.type === 'number') {
+          inner = '<p class="muted">' + q.answered + '명 · 합계 ' + q.sum + (q.avg !== null ? ' · 평균 ' + q.avg : '') + '</p>';
+        } else {
+          inner = q.texts.length ? '<ul class="texts">' + q.texts.slice(0, 30).map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>' +
+            (q.texts.length > 30 ? '<p class="faint">나머지 ' + (q.texts.length - 30) + '개는 엑셀로 받아 보세요.</p>' : '') : '<p class="faint">아직 답이 없어요.</p>';
+        }
+        return '<div class="q-sum"><p class="q-sum-t">' + (i + 1) + '. ' + esc(q.title) + '</p>' + inner + '</div>';
+      }).join('') +
+      (resp.length ? '<details class="resp-list"><summary>낸 분들의 답 ' + resp.length + '개 보기</summary><div class="table-wrap"><table class="plan resp"><thead><tr><th>이름</th><th>낸 시각</th>' +
+        d.questions.map(function (q, i) { return '<th>' + (i + 1) + '. ' + esc(q.title) + '</th>'; }).join('') + '<th>하고 싶은 말</th></tr></thead><tbody>' +
+        resp.map(function (r) {
+          return '<tr><td><b>' + esc(r.name) + '</b><br><span class="faint">' + esc(r.group) + '</span></td><td class="faint">' + esc(atText(r.at)) + (r.edited ? ' (고침)' : '') + '</td>' +
+            d.questions.map(function (q) { var v = r.answers[q.id]; return '<td>' + esc(Array.isArray(v) ? v.join(', ') : v || '') + '</td>'; }).join('') +
+            '<td>' + esc(r.note || '') + '</td></tr>';
+        }).join('') + '</tbody></table></div></details>' : '') +
+      '</div>';
+  }
+
+  function copyText(text) {
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed'; ta.style.top = '-1000px';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      return ok;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return fallback(); });
+    }
+    return Promise.resolve(fallback());
+  }
+
+  function surveyCsv() {
+    var d = S.survey.detail;
+    server('survey.csv', { id: d.card.id }).then(function (r) {
+      var tsv = r.csv.split('\r\n').map(function (line) {
+        return line.replace(/^"|"$/g, '').split('","').map(function (c) { return c.replace(/""/g, '"').replace(/\t/g, ' '); }).join('\t');
+      }).join('\n');
+      openModal('<h2 id="m-title">엑셀로 받기</h2>' +
+        '<p class="muted" style="margin:0">' + esc(r.filename) + ' · ' + (d.responses || []).length + '명의 답</p>' +
+        '<p class="hint">' + icon('info', 16) + '<span>파일이 내려받아지지 않으면 "표 복사"를 누른 뒤 엑셀이나 구글 시트에 붙여 넣으세요.</span></p>' +
+        '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
+        '<button type="button" class="btn" id="csv-copy">' + icon('copy', 18) + '표 복사</button>' +
+        '<button type="button" class="btn btn-primary" id="csv-dl">' + icon('down', 18) + '파일 내려받기</button></div>');
+      qs('#csv-dl').addEventListener('click', function () {
+        try {
+          var blob = new Blob(['﻿' + r.csv], { type: 'text/csv;charset=utf-8' });
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = r.filename;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+          toast('파일을 내려받았어요');
+        } catch (e) { toast('내려받지 못했어요. "표 복사"를 써 주세요'); }
+      });
+      qs('#csv-copy').addEventListener('click', function () {
+        copyText(tsv).then(function (ok) { toast(ok ? '표를 복사했어요. 엑셀에 붙여 넣으세요' : '복사하지 못했어요'); });
+      });
+    }).catch(function (e) { toast(e.message); });
+  }
+
+  // ------------------------------------------------------------ 새 조사 만들기·고치기
+  var Q_TYPES = [['one', '하나 고르기'], ['many', '여러 개 고르기'], ['short', '짧은 글'], ['long', '긴 글'], ['number', '숫자'], ['date', '날짜']];
+
+  function openSurveyForm(edit) {
+    if (!needMe('조사를 만들면')) return;
+    var start = function (depts, people) { drawSurveyForm(edit, depts, people); };
+    if (edit) return start(edit.depts || [], null);
+    // 부서 목록은 일정 화면과 같은 곳에서 받아 온다
+    server('sched.month', { year: +localToday().slice(0, 4), month: +localToday().slice(5, 7) }).then(function (m) { start(m.depts || [], null); })
+      .catch(function (e) { toast(e.message); });
+  }
+
+  function drawSurveyForm(edit, depts, people) {
+    var d = edit || {};
+    var c = d.card || {};
+    var tg = d.target || { type: 'all' };
+    var locked = !!(edit && d.hasResponses);
+    var def = addD(localToday(), 3) + ' 17:00';
+    var dl = (c.deadline || def);
+    var deptId = edit ? d.deptId : (S.me && S.me.deptId) || '';
+    var qsList = (d.questions && d.questions.length ? d.questions : [{ type: 'one', title: '', required: true, options: [] }]);
+    openModal('<form class="form" id="svf" novalidate>' +
+      '<div class="card-head"><h2 id="m-title">' + (edit ? '조사 고치기' : '새 조사 만들기') + '</h2>' +
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="닫기">' + icon('x') + '</button></div>' +
+      '<div class="field"><label class="label" for="svf-title">제목 <span class="req">*</span></label><input id="svf-title" class="input" maxlength="80" value="' + esc(c.title || '') + '" placeholder="예: 교직원 체육대회 참가 신청"></div>' +
+      '<div class="field"><label class="label" for="svf-desc">설명 (선택)</label><textarea id="svf-desc" class="input" rows="2" maxlength="1000">' + esc(d.description || '') + '</textarea></div>' +
+      '<div class="form-grid2"><div class="field"><label class="label" for="svf-dept">담당 부서</label><select id="svf-dept" class="input"><option value="">(없음)</option>' +
+      depts.filter(function (x) { return x.active || x.id === deptId; }).map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === deptId ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><span class="label">마감</span><div class="form-grid2" style="gap:8px"><input id="svf-date" class="input" type="date" value="' + esc(dl.slice(0, 10)) + '" aria-label="마감 날짜">' +
+      '<input id="svf-time" class="input" type="time" step="600" value="' + esc(dl.slice(11, 16)) + '" aria-label="마감 시각"></div></div></div>' +
+      '<div class="field"><span class="label">대상</span><div class="seg" role="group" aria-label="대상" id="svf-tt">' +
+      [['all', '전체'], ['dept', '부서'], ['grade', '학년'], ['people', '직접 고르기']].map(function (o) {
+        return '<button type="button" data-tt="' + o[0] + '" aria-pressed="' + (tg.type === o[0]) + '">' + o[1] + '</button>';
+      }).join('') + '</div><div id="svf-tbox"></div></div>' +
+      '<div class="field"><span class="label">질문</span>' +
+      (locked ? '<p class="note warn">' + icon('info', 18) + '<span>이미 낸 답이 있어서 질문은 고칠 수 없어요. 제목·마감·대상·안내 문구는 고칠 수 있어요.</span></p>' : '') +
+      '<div id="svf-qs" class="qs-edit"></div>' +
+      (locked ? '' : '<button type="button" class="btn btn-sm" id="svf-addq" style="align-self:flex-start">' + icon('plus', 18) + '질문 더하기</button>') + '</div>' +
+      '<label class="check"><input type="checkbox" id="svf-public"' + (c.showResults ? ' checked' : '') + '>답을 대상 교직원 모두에게 보여 주기 <span class="faint">(참석 여부처럼 함께 봐야 할 때)</span></label>' +
+      '<div class="field"><label class="label" for="svf-msg">메신저 안내 문구 (선택)</label><textarea id="svf-msg" class="input" rows="2" maxlength="500" placeholder="비워 두면 제목과 마감으로 알아서 만들어요">' + esc(edit ? d.messenger : '') + '</textarea></div>' +
+      '<p class="err" id="svf-err" role="alert"></p>' +
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">취소</button><button type="submit" class="btn btn-primary">' + (edit ? '저장' : '만들기') + '</button></div>' +
+      '</form>', { wide: true, noBackdropClose: true });
+
+    var form = qs('#svf');
+    var qbox = qs('#svf-qs');
+    var state = { tt: tg.type, ids: (tg.ids || []).slice(), grades: (tg.grades || []).slice() };
+
+    function drawTarget() {
+      var tbox = qs('#svf-tbox');
+      if (state.tt === 'dept') {
+        tbox.innerHTML = '<div class="tgs" style="margin-top:8px">' + depts.filter(function (x) { return x.active; }).map(function (x) {
+          return '<button type="button" class="tg" data-tid="' + esc(x.id) + '" aria-pressed="' + (state.ids.indexOf(x.id) >= 0) + '">' + esc(x.name) + '</button>';
+        }).join('') + '</div>';
+      } else if (state.tt === 'grade') {
+        tbox.innerHTML = '<div class="tgs" style="margin-top:8px">' + ['1', '2', '3', '4', '5', '6'].map(function (g) {
+          return '<button type="button" class="tg" data-tg2="' + g + '" aria-pressed="' + (state.grades.indexOf(g) >= 0) + '">' + g + '학년</button>';
+        }).join('') + '</div><p class="hint">교직원 명단의 \'소속\'에 있는 학년으로 골라요(예: 3학년 1반).</p>';
+      } else if (state.tt === 'people') {
+        tbox.innerHTML = loadingHtml('명단을 불러오는 중이에요');
+        server('staffPicker').then(function (list) {
+          tbox.innerHTML = '<div class="people pick" style="margin-top:8px">' + list.map(function (p) {
+            var on = state.ids.indexOf(p.id) >= 0;
+            return '<label class="opt' + (on ? ' on' : '') + '"><input type="checkbox" data-pid="' + esc(p.id) + '"' + (on ? ' checked' : '') + '><span>' + esc(p.name) +
+              ' <span class="faint">' + esc([p.group, p.dept].filter(Boolean).join(' · ')) + '</span></span><span class="opt-mark" aria-hidden="true">' + icon('check', 16, ' stroke-width="2.6"') + '</span></label>';
+          }).join('') + '</div>';
+        }).catch(function (e) { tbox.innerHTML = '<p class="err">' + esc(e.message) + '</p>'; });
+      } else {
+        tbox.innerHTML = '<p class="hint">사용 중인 교직원 모두에게 보여요.</p>';
+      }
+    }
+
+    function qCard(q, i) {
+      var opts = (q.options || []).join('\n');
+      var dis = locked ? ' disabled' : '';
+      return '<div class="q-edit" data-qid="' + esc(q.id || '') + '">' +
+        '<div class="q-edit-top"><b>' + (i + 1) + '</b><select class="input input-sm" data-qf="type" aria-label="질문 종류"' + dis + '>' +
+        Q_TYPES.map(function (t) { return '<option value="' + t[0] + '"' + (q.type === t[0] ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') + '</select>' +
+        '<label class="check" style="min-height:40px"><input type="checkbox" data-qf="req"' + (q.required ? ' checked' : '') + dis + '>꼭 답하기</label>' +
+        (locked ? '' : '<span class="q-edit-btns"><button type="button" class="icon-btn" data-qmove="-1" aria-label="위로">' + icon('up', 18) + '</button>' +
+          '<button type="button" class="icon-btn" data-qmove="1" aria-label="아래로">' + icon('chevd', 18) + '</button>' +
+          '<button type="button" class="icon-btn" data-qdel aria-label="질문 빼기">' + icon('x', 18) + '</button></span>') + '</div>' +
+        '<input class="input" data-qf="title" maxlength="200" placeholder="질문을 적어 주세요" value="' + esc(q.title || '') + '" aria-label="질문"' + dis + '>' +
+        '<textarea class="input" data-qf="opts" rows="3" placeholder="보기를 한 줄에 하나씩 적어 주세요"' + (q.type === 'one' || q.type === 'many' ? '' : ' hidden') + dis + ' aria-label="보기">' + esc(opts) + '</textarea>' +
+        '</div>';
+    }
+
+    function readQs() {
+      return qsa('.q-edit', qbox).map(function (el) {
+        return {
+          id: el.getAttribute('data-qid') || '',
+          type: qs('[data-qf=type]', el).value,
+          title: qs('[data-qf=title]', el).value,
+          required: qs('[data-qf=req]', el).checked,
+          options: qs('[data-qf=opts]', el).value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean)
+        };
+      });
+    }
+    function drawQs(list) { qbox.innerHTML = list.map(qCard).join(''); }
+
+    drawTarget();
+    drawQs(qsList);
+    qs('#svf-tt').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-tt]');
+      if (!b) return;
+      state.tt = b.getAttribute('data-tt');
+      if (state.tt !== tg.type) { state.ids = []; }
+      qsa('[data-tt]', form).forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+      drawTarget();
+    });
+    qs('#svf-tbox').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-tid],[data-tg2]');
+      if (!b) return;
+      var on = b.getAttribute('aria-pressed') !== 'true';
+      b.setAttribute('aria-pressed', on);
+      var arr = b.hasAttribute('data-tid') ? state.ids : state.grades, v = b.getAttribute('data-tid') || b.getAttribute('data-tg2');
+      var k = arr.indexOf(v);
+      if (on && k < 0) arr.push(v); else if (!on && k >= 0) arr.splice(k, 1);
+    });
+    qs('#svf-tbox').addEventListener('change', function (e) {
+      var p = e.target.getAttribute('data-pid');
+      if (!p) return;
+      e.target.closest('.opt').classList.toggle('on', e.target.checked);
+      var k = state.ids.indexOf(p);
+      if (e.target.checked && k < 0) state.ids.push(p); else if (!e.target.checked && k >= 0) state.ids.splice(k, 1);
+    });
+    qbox.addEventListener('change', function (e) {
+      if (e.target.getAttribute('data-qf') === 'type') {
+        var t = e.target.value, ta = qs('[data-qf=opts]', e.target.closest('.q-edit'));
+        ta.hidden = !(t === 'one' || t === 'many');
+      }
+    });
+    qbox.addEventListener('click', function (e) {
+      var mv = e.target.closest('[data-qmove]'), del = e.target.closest('[data-qdel]');
+      if (!mv && !del) return;
+      var list = readQs();
+      var idx = qsa('.q-edit', qbox).indexOf(e.target.closest('.q-edit'));
+      if (del) { if (list.length > 1) list.splice(idx, 1); else toast('질문은 하나 이상 있어야 해요'); }
+      else { var to = idx + Number(mv.getAttribute('data-qmove')); if (to >= 0 && to < list.length) list.splice(to, 0, list.splice(idx, 1)[0]); }
+      drawQs(list);
+    });
+    var addq = qs('#svf-addq');
+    if (addq) addq.addEventListener('click', function () {
+      var list = readQs();
+      if (list.length >= 30) return toast('질문은 30개까지 넣을 수 있어요');
+      list.push({ type: 'one', title: '', required: false, options: [] });
+      drawQs(list);
+      var last = qsa('.q-edit', qbox).pop();
+      qs('[data-qf=title]', last).focus();
+    });
+    setTimeout(function () { qs('#svf-title').focus(); }, 30);
+
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var err = qs('#svf-err');
+      var fields = {
+        title: qs('#svf-title').value,
+        description: qs('#svf-desc').value,
+        deptId: qs('#svf-dept').value,
+        deadline: qs('#svf-date').value + ' ' + qs('#svf-time').value,
+        target: state.tt === 'dept' ? { type: 'dept', ids: state.ids } : state.tt === 'grade' ? { type: 'grade', grades: state.grades } : state.tt === 'people' ? { type: 'people', ids: state.ids } : { type: 'all' },
+        questions: locked ? d.questions : readQs().map(function (q) { if (!q.id) delete q.id; return q; }),
+        showResults: qs('#svf-public').checked,
+        messenger: qs('#svf-msg').value,
+        reopen: true
+      };
+      if (!fields.title.trim()) { err.textContent = '제목을 적어 주세요.'; qs('#svf-title').focus(); return; }
+      var btn = form.querySelector('[type=submit]');
+      busy(btn, true, '저장하는 중');
+      server('survey.save', { id: edit ? c.id : '', fields: fields }).then(function (r) {
+        closeModal();
+        toast(edit ? '조사를 고쳤어요' : '조사를 만들었어요. 메신저 문구를 복사해 알려 주세요');
+        S.survey.tab = 'mine';
+        S.survey.sel = r.id;
+        if (S.screen !== 'survey') go('survey'); else SCREENS.survey(qs('#screen'));
+      }).catch(function (e) { busy(btn, false); err.textContent = e.message; });
+    });
   }
 
   function soonScreen($s, m) {
@@ -1629,7 +2148,7 @@
   function openModal(html, opts) {
     opts = opts || {};
     lastFocus = document.activeElement;
-    $modal.innerHTML = '<div class="modal-back" id="modal-back"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">' + html + '</div></div>';
+    $modal.innerHTML = '<div class="modal-back" id="modal-back"><div class="modal' + (opts.wide ? ' wide' : '') + '" role="dialog" aria-modal="true" aria-labelledby="m-title">' + html + '</div></div>';
     var back = qs('#modal-back');
     if (!opts.noBackdropClose) back.addEventListener('click', function (e) { if (e.target === back) closeModal(); });
     var first = qs('.modal button, .modal input, .modal select', $modal);
@@ -1645,7 +2164,7 @@
 
   // ============================================================ 누르기 처리 (한곳에서)
   document.addEventListener('click', function (e) {
-    var t = e.target.closest('[data-go],[data-action],[data-theme-btn],[data-admin-tab],[data-sched-view],[data-home-f]');
+    var t = e.target.closest('[data-go],[data-action],[data-theme-btn],[data-admin-tab],[data-sched-view],[data-home-f],[data-sv-tab]');
     if (!t) return;
     if (t.hasAttribute('data-go')) {
       if (t.getAttribute('data-go') === 'schedule' && S.screen === 'home') S.sched.view = 'cal';
@@ -1654,6 +2173,7 @@
     }
     if (t.hasAttribute('data-sched-view')) { S.sched.view = t.getAttribute('data-sched-view'); S.sched.form = null; renderApp(); return; }
     if (t.hasAttribute('data-home-f')) { S.homeFilter = t.getAttribute('data-home-f'); drawHome(); return; }
+    if (t.hasAttribute('data-sv-tab')) { S.survey.tab = t.getAttribute('data-sv-tab'); S.survey.sel = ''; S.survey.showResults = false; drawSurvey(); return; }
     if (t.hasAttribute('data-theme-btn')) { setTheme(t.getAttribute('data-theme-btn')); return; }
     if (t.hasAttribute('data-admin-tab')) { S.adminTab = t.getAttribute('data-admin-tab'); renderApp(); return; }
     var a = t.getAttribute('data-action');
@@ -1739,7 +2259,42 @@
       case 'phone-week': S.sched.phoneMonth = false; drawCal(); break;
       case 'print': window.print(); break;
       case 'focus-edit': editFocus(); break;
+      case 'sv-open': S.survey.sel = id; S.survey.showResults = false; drawSurvey(); if (isPhone()) window.scrollTo(0, 0); break;
+      case 'sv-back': S.survey.sel = ''; drawSurvey(); break;
+      case 'sv-new': openSurveyForm(null); break;
+      case 'sv-edit': openSurveyForm(S.survey.detail); break;
+      case 'sv-csv': surveyCsv(); break;
+      case 'sv-results': S.survey.showResults = !S.survey.showResults; drawSurveyDetail(); break;
+      case 'sv-as-owner': S.survey.tab = 'mine'; drawSurvey(); break;
+      case 'sv-copy':
+        copyText(S.survey.detail.messenger).then(function (ok) { toast(ok ? '안내 문구를 복사했어요. 메신저에 붙여 넣으세요' : '복사하지 못했어요. 글을 길게 눌러 복사해 주세요'); });
+        break;
+      case 'sv-close':
+        var reopen = t.getAttribute('data-open') === '1';
+        confirmBox(reopen ? '조사 다시 열기' : '조사 지금 끝내기', reopen ? '다시 열면 마감 전까지 다시 낼 수 있어요.' : '끝내면 더 이상 내거나 고칠 수 없어요. 나중에 다시 열 수 있어요.', reopen ? '다시 열기' : '끝내기', function () {
+          return server('survey.setOpen', { id: S.survey.sel, open: reopen }).then(function () {
+            closeModal(); toast(reopen ? '조사를 다시 열었어요' : '조사를 끝냈어요');
+            if (!reopen) S.survey.tab = 'past';
+            refreshSurveyList();
+          });
+        });
+        break;
+      case 'sv-del':
+        confirmBox('조사 지우기', '"' + esc(S.survey.detail.card.title) + '" 조사를 지울까요? 낸 답도 함께 숨겨져요. 연구부장·부담당이 휴지통에서 되살릴 수 있어요.', '지우기', function () {
+          return server('survey.delete', { id: S.survey.sel }).then(function () { closeModal(); toast('조사를 지웠어요'); S.survey.sel = ''; refreshSurveyList(); });
+        }, true);
+        break;
+      case 'sv-remind':
+        var nd = (S.survey.detail.notDone || []).length;
+        confirmBox('안 낸 분께 다시 알리기', '안 낸 ' + nd + '명의 홈 화면 \'내가 할 일\' 맨 위에 이 조사가 다시 보여요. 메신저로도 알리려면 위의 안내 문구를 복사해 보내 주세요.', nd + '명에게 알리기', function () {
+          return server('survey.remind', { id: S.survey.sel }).then(function (r) { closeModal(); toast(r.count + '명에게 다시 알렸어요'); loadSurveyDetail(); });
+        });
+        break;
+      case 'todo-open': S.survey.tab = 'answer'; S.survey.sel = id; go('survey'); break;
       case 'trash-restore': trashRestore(id); break;
+      case 'trash-restore-sv':
+        server('admin.trash.restoreSurvey', { id: id }).then(function () { toast('조사를 되살렸어요'); S.survey.list = null; adminTrash(qs('#admin-panel')); }).catch(function (e2) { toast(e2.message); });
+        break;
       case 'link-add': readLinks(); S.cache.links.push({ name: '', url: '' }); drawLinks(); break;
       case 'link-del': readLinks(); S.cache.links.splice(Number(t.getAttribute('data-i')), 1); drawLinks(); break;
     }

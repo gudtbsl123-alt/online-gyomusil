@@ -115,6 +115,51 @@ async function scheduleFlow(page, kind) {
   await page.locator('.today-card').waitFor();
 }
 
+/** 3단계: 조사·신청 */
+async function surveyFlow(page, kind) {
+  const phone = kind === '휴대폰';
+  if (phone) await page.click('.bottom-nav [data-go=survey]');
+  else await page.click('.side [data-go=survey]');
+  await page.locator('.sv-card').first().waitFor();
+  if (phone) {
+    await shot(page, kind + '_조사_목록', true);
+    await page.locator('.sv-card').first().click();
+  }
+  await page.locator('#sv-form, .sv-owner').first().waitFor();
+  await shot(page, kind + '_조사_응답', true);
+  // 새 조사 만들기
+  await page.click('[data-action=sv-new]');
+  await page.locator('#svf').waitFor();
+  await page.fill('#svf-title', '학년 협의회 참석 여부');
+  await page.fill('.q-edit [data-qf=title]', '참석할 수 있나요?');
+  await page.fill('.q-edit [data-qf=opts]', '참석\n불참');
+  await page.check('.q-edit [data-qf=req]');
+  await page.click('#svf-addq');
+  await page.locator('.q-edit').nth(1).locator('[data-qf=type]').selectOption('long');
+  await page.locator('.q-edit').nth(1).locator('[data-qf=title]').fill('하고 싶은 말');
+  await page.click('[data-tt=grade]');
+  await page.click('[data-tg2="3"]');
+  await shot(page, kind + '_조사_만들기');
+  await page.click('#svf [type=submit]');
+  await waitText(page, '조사를 만들었어요');
+  await page.locator('.sv-owner').waitFor();
+  await shot(page, kind + '_조사_제출현황', true);
+  await page.click('[data-action=sv-copy]');
+  await waitText(page, '복사');
+  await page.click('[data-action=sv-remind]');
+  await page.click('#cf-ok');
+  await waitText(page, '다시 알렸어요');
+  await page.click('[data-action=sv-csv]');
+  await page.locator('#csv-dl').waitFor();
+  await shot(page, kind + '_조사_엑셀');
+  await page.click('[data-action=close-modal]');
+  // 홈의 내가 할 일
+  await page.click(phone ? '.bottom-nav [data-go=home]' : '.side [data-go=home]');
+  await page.locator('.todo-card').waitFor();
+  if (!(await page.locator('.todo-first').count())) problems.push(kind + ': 홈 내가 할 일에 새 조사가 안 보임');
+  await shot(page, kind + '_홈_내가할일');
+}
+
 async function login(page) {
   await page.fill('#login-pw', 'preview1');
   await page.click('#login-form [type=submit]');
@@ -156,6 +201,7 @@ async function flow(browser, kind, viewport) {
   await page.locator('.today-card').waitFor();
   await shot(page, kind + '_홈', true);
   await scheduleFlow(page, kind);
+  await surveyFlow(page, kind);
 
   if (kind === '휴대폰') {
     await page.click('.bottom-nav [data-action=sheet]');
@@ -307,6 +353,10 @@ async function printCheck(browser) {
       await page.waitForTimeout(500);
       await check(page, vp.width + ' 일정 ' + v);
     }
+    await page.evaluate(() => window.__gy.go('survey'));
+    await page.locator('.sv-card').first().waitFor();
+    await page.waitForTimeout(500);
+    await check(page, vp.width + ' 조사');
     await page.evaluate(() => window.__gy.go('admin'));
     await page.fill('#admin-pw', 'admin1');
     await page.click('#admin-form [type=submit]');

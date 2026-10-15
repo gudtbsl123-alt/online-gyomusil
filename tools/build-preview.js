@@ -29,6 +29,7 @@ ${GAS_FILES.map((f) => '/* ===== ' + f + ' ===== */\n' + inScript(read(f))).join
   setPassword_('admin', 'admin1');
   seedTestData_('1111');
   seedTestSchedule_();
+  seedTestSurveys_();
   // 미리보기용 가짜 학기 기간(오늘이 들어가게): 수업일수 계산을 보여 주려는 값이에요
   (function () {
     var t = todayYmd_(), y = Number(t.slice(0, 4)), m = Number(t.slice(5, 7));
