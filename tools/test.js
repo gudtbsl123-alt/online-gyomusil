@@ -91,6 +91,16 @@ test('처음 설정: 탭 12개와 머리글, 설정 기본값을 만든다', () 
   assert.strictEqual(g.setting_('백업 남길 개수'), '30');
 });
 
+test('처음 설정을 다시 누르면 설정 값은 그대로, 설명 칸만 지금 안내로 바뀐다', () => {
+  const g = fresh();
+  const sh = g._ss.getSheetByName('설정');
+  const row = sh.data.findIndex((l) => l[0] === '기존 시트 바로가기');
+  sh.data[row][2] = '2단계 홈 화면에 보여요';
+  g.setupAll_();
+  assert.strictEqual(sh.data[row][2], '홈 화면 아래에 보여요');
+  assert.strictEqual(g.setting_('기기 기억 일수'), '30', '값은 그대로');
+});
+
 test('처음 설정을 두 번 눌러도 데이터와 칸이 그대로다', () => {
   const g = fresh();
   const before = g.readRows_('교직원').length;

@@ -1921,7 +1921,7 @@ function settingDefs_() {
   return [
     { key: '학교명', def: '인천장도초등학교', type: 'text', label: '학교 이름' },
     { key: '학년도', def: '2026', type: 'year', label: '지금 학년도' },
-    { key: '1학기 시작일', def: '', type: 'date', label: '1학기 시작일', note: '확인 필요 · 수업일수 계산에 써요(2단계)' },
+    { key: '1학기 시작일', def: '', type: 'date', label: '1학기 시작일', note: '확인 필요 · 수업일수 계산에 써요' },
     { key: '1학기 끝일', def: '', type: 'date', label: '1학기 끝일', note: '확인 필요' },
     { key: '2학기 시작일', def: '', type: 'date', label: '2학기 시작일', note: '확인 필요' },
     { key: '2학기 끝일', def: '', type: 'date', label: '2학기 끝일', note: '확인 필요' },
@@ -1930,7 +1930,7 @@ function settingDefs_() {
     { key: '잠금 횟수', def: '5', type: 'int', min: 3, max: 10, label: '개인 번호를 몇 번 틀리면 잠글까요', unit: '번', note: "'이름+개인 번호'일 때만 써요" },
     { key: '잠금 분', def: '10', type: 'int', min: 1, max: 120, label: '잠그는 시간', unit: '분', note: "'이름+개인 번호'일 때만 써요" },
     { key: '백업 남길 개수', def: '30', type: 'int', min: 3, max: 365, label: '매일 백업을 몇 개까지 남길까요', unit: '개' },
-    { key: '기존 시트 바로가기', def: '[]', type: 'links', label: "홈의 '아직 기존 시트에서 하는 일' 바로가기", note: '2단계 홈 화면에 보여요' },
+    { key: '기존 시트 바로가기', def: '[]', type: 'links', label: "홈의 '아직 기존 시트에서 하는 일' 바로가기", note: '홈 화면 아래에 보여요' },
     { key: '파일 크기 한도', def: '10', type: 'int', min: 1, max: 50, label: '자료실에 올릴 수 있는 파일 크기', unit: 'MB', note: '확인 필요: 학교 PC·휴대폰에서 실제로 올려 보고 정해요. 더 큰 파일은 드라이브 링크로 넣어요' },
     { key: '백업 폴더ID', def: '', type: 'readonly', label: '백업 폴더(자동)' },
     { key: '자료 폴더ID', def: '', type: 'readonly', label: '자료실 파일 폴더(자동, 공유하지 않음)' }
@@ -4180,10 +4180,15 @@ function setupAll_() {
     sh.getRange(1, 1, 1, sh.getLastColumn()).setFontWeight('bold').setBackground('#F2F4F6');
   });
 
-  // 설정 기본값(없는 키만)
+  // 설정 기본값(없는 키만). 있는 키는 값은 그대로 두고 '설명' 칸만 지금 안내로 바꾼다
   var have = {};
-  readRows_('설정').forEach(function (r) { have[r['키']] = true; });
   var sheet = sheet_('설정');
+  var notes = {};
+  settingDefs_().forEach(function (d) { notes[d.key] = d.note || d.label; });
+  readRows_('설정').forEach(function (r) {
+    have[r['키']] = true;
+    if (notes[r['키']] !== undefined && r['설명'] !== notes[r['키']]) sheet.getRange(r._row, 3).setValue(cellWrite_(notes[r['키']]));
+  });
   settingDefs_().forEach(function (d) {
     if (!have[d.key]) sheet.appendRow([d.key, d.def, d.note || d.label].map(cellWrite_));
   });
@@ -7567,8 +7572,8 @@ function setPinForTest_(row, pin) {
   function drawCat(panel) {
     var notes = {
       '부서': '교직원 표·일정·자료에 쓰는 부서 이름이에요.',
-      '자료 분류': '자료실 카드를 나누는 이름이에요(4단계).',
-      '도움말 분류': '도움말을 나누는 이름이에요(4단계).'
+      '자료 분류': '자료실 카드를 나누는 이름이에요.',
+      '도움말 분류': '도움말을 나누는 이름이에요.'
     };
     panel.innerHTML = '<div class="wrap" style="gap:16px">' +
       '<p class="hint">' + icon('info', 16) + '<span>이름을 바꾸면 그 분류를 쓰는 모든 화면에 함께 바뀌어요. 안 쓰는 분류는 지우지 말고 "사용 안 함"으로 바꿔 주세요. 예전 자료에는 이름이 그대로 보여요.</span></p>' +
@@ -7642,14 +7647,14 @@ function setPinForTest_(row, pin) {
     var backup = byKey('백업 폴더ID').value;
     panel.innerHTML = '<form class="wrap" id="set-form" style="gap:24px" novalidate>' +
       '<section class="card"><h2>학교·학년도</h2><div class="form-grid">' + input(byKey('학교명')) + input(byKey('학년도')) + '</div></section>' +
-      '<section class="card"><h2>학기 기간</h2><p class="faint">2단계 수업일수 계산에 써요. 학교 학사일정을 보고 넣어 주세요(확인 필요).</p>' +
+      '<section class="card"><h2>학기 기간</h2><p class="faint">수업일수 계산에 써요. 학교 학사일정을 보고 넣어 주세요(확인 필요).</p>' +
       '<div class="form-grid">' + input(byKey('1학기 시작일')) + input(byKey('1학기 끝일')) + '</div>' +
       '<div class="form-grid">' + input(byKey('2학기 시작일')) + input(byKey('2학기 끝일')) + '</div></section>' +
       '<section class="card"><h2>본인 확인·백업</h2><div class="form-grid">' + input(byKey('본인 확인 방식')) + input(byKey('기기 기억 일수')) + '</div>' +
       '<div class="form-grid">' + input(byKey('잠금 횟수')) + input(byKey('잠금 분')) + '</div>' +
       '<div class="form-grid">' + input(byKey('백업 남길 개수')) + '</div>' +
       '<p class="faint">자동 백업: ' + (backup ? '켜져 있어요(백업 폴더가 만들어져 있어요).' : '아직 꺼져 있어요. 전용 시트 메뉴 "4. 매일 자동 백업 켜기"로 켜 주세요.') + '</p></section>' +
-      '<section class="card"><div class="card-head"><h2>기존 시트 바로가기</h2><span class="chip">2단계 홈에 보여요</span></div>' +
+      '<section class="card"><div class="card-head"><h2>기존 시트 바로가기</h2><span class="chip">홈 아래에 보여요</span></div>' +
       '<p class="faint">특별실 시간표·방학 근무·연수 이수 확인처럼 2차에 옮길 일의 바로가기예요. 주소는 https:// 로 시작해야 해요.</p>' +
       '<div class="form" id="links" style="gap:8px"></div>' +
       '<div><button type="button" class="btn btn-sm" data-action="link-add">' + icon('plus', 18) + '바로가기 추가</button></div></section>' +

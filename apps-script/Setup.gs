@@ -72,10 +72,15 @@ function setupAll_() {
     sh.getRange(1, 1, 1, sh.getLastColumn()).setFontWeight('bold').setBackground('#F2F4F6');
   });
 
-  // 설정 기본값(없는 키만)
+  // 설정 기본값(없는 키만). 있는 키는 값은 그대로 두고 '설명' 칸만 지금 안내로 바꾼다
   var have = {};
-  readRows_('설정').forEach(function (r) { have[r['키']] = true; });
   var sheet = sheet_('설정');
+  var notes = {};
+  settingDefs_().forEach(function (d) { notes[d.key] = d.note || d.label; });
+  readRows_('설정').forEach(function (r) {
+    have[r['키']] = true;
+    if (notes[r['키']] !== undefined && r['설명'] !== notes[r['키']]) sheet.getRange(r._row, 3).setValue(cellWrite_(notes[r['키']]));
+  });
   settingDefs_().forEach(function (d) {
     if (!have[d.key]) sheet.appendRow([d.key, d.def, d.note || d.label].map(cellWrite_));
   });
