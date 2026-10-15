@@ -1286,7 +1286,6 @@
       '<button type="button" class="linkish" data-action="switch" style="margin-left:auto">바꾸기</button></div>' +
       '<form id="sv-form" class="form" novalidate>' +
       d.questions.map(function (q, i) { return questionInput(q, i, mine.answers[q.id], closed || cannot); }).join('') +
-      '<div class="field"><label class="label" for="sv-note">하고 싶은 말 (선택)</label><textarea id="sv-note" class="input" rows="2" maxlength="500"' + (closed || cannot ? ' disabled' : '') + '>' + esc(mine.note || '') + '</textarea></div>' +
       '<p class="err" id="sv-err" role="alert"></p>' +
       (closed || cannot ? '' : '<div class="sv-submit"><button type="submit" class="btn btn-primary">' + (d.myAnswer ? '고쳐서 내기' : '제출하기') + '</button>' +
         '<span class="faint">마감 전까지는 언제든 고칠 수 있어요</span></div>') +
@@ -1317,7 +1316,7 @@
       var btn = form.querySelector('[type=submit]');
       busy(btn, true, '내는 중');
       err.textContent = '';
-      server('survey.respond', { id: d.card.id, answers: answers, note: qs('#sv-note', form).value }).then(function (r) {
+      server('survey.respond', { id: d.card.id, answers: answers }).then(function (r) {
         toast(r.edited ? '고친 답을 냈어요' : '냈어요. 고맙습니다');
         S.survey.list = null;
         refreshSurveyList();
@@ -1367,6 +1366,7 @@
   function resultsHtml(d) {
     var sum = d.summary || [];
     var resp = d.responses || [];
+    var hasNote = resp.some(function (r) { return r.note; }); // 예전에 따로 받던 '하고 싶은 말'이 있을 때만 칸을 보인다
     return '<div class="sv-results"><h3>응답 요약 <span class="faint" style="font-weight:600">' + resp.length + '명이 냈어요</span></h3>' +
       sum.map(function (q, i) {
         var inner;
@@ -1384,11 +1384,11 @@
         return '<div class="q-sum"><p class="q-sum-t">' + (i + 1) + '. ' + esc(q.title) + '</p>' + inner + '</div>';
       }).join('') +
       (resp.length ? '<details class="resp-list"><summary>낸 분들의 답 ' + resp.length + '개 보기</summary><div class="table-wrap"><table class="plan resp"><thead><tr><th>이름</th><th>낸 시각</th>' +
-        d.questions.map(function (q, i) { return '<th>' + (i + 1) + '. ' + esc(q.title) + '</th>'; }).join('') + '<th>하고 싶은 말</th></tr></thead><tbody>' +
+        d.questions.map(function (q, i) { return '<th>' + (i + 1) + '. ' + esc(q.title) + '</th>'; }).join('') + (hasNote ? '<th>하고 싶은 말</th>' : '') + '</tr></thead><tbody>' +
         resp.map(function (r) {
           return '<tr><td><b>' + esc(r.name) + '</b><br><span class="faint">' + esc(r.group) + '</span></td><td class="faint">' + esc(atText(r.at)) + (r.edited ? ' (고침)' : '') + '</td>' +
             d.questions.map(function (q) { var v = r.answers[q.id]; return '<td>' + esc(Array.isArray(v) ? v.join(', ') : v || '') + '</td>'; }).join('') +
-            '<td>' + esc(r.note || '') + '</td></tr>';
+            (hasNote ? '<td>' + esc(r.note || '') + '</td>' : '') + '</tr>';
         }).join('') + '</tbody></table></div></details>' : '') +
       '</div>';
   }

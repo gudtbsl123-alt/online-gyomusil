@@ -398,11 +398,15 @@ function apiSurveyRespond_(args, actor, ctx) {
       throw userError_('이 조사의 대상이 아니에요. 만든 분께 여쭤봐 주세요.', 'FORBIDDEN');
     }
     var answers = cleanAnswers_(safeParse_(s['질문'], []), args.answers);
-    var note = cleanText_(args.note, 500, '하고 싶은 말');
+    // 조사마다 '긴 글' 질문으로 받으므로 화면에는 따로 칸이 없다. 예전 값은 그대로 둔다.
+    var noteSent = args.note !== undefined && args.note !== null;
+    var note = noteSent ? cleanText_(args.note, 500, '하고 싶은 말') : '';
     var now = nowText_();
     var old = liveResponses_(s['조사ID']).filter(function (r) { return r['교직원ID'] === me; })[0];
     if (old) {
-      updateRow_('응답', old['응답ID'], { '답': JSON.stringify(answers), '하고 싶은 말': note, '고친 시각': now }, actor, s['제목'] + ' 응답 고침');
+      var patch = { '답': JSON.stringify(answers), '고친 시각': now };
+      if (noteSent) patch['하고 싶은 말'] = note;
+      updateRow_('응답', old['응답ID'], patch, actor, s['제목'] + ' 응답 고침');
       return { edited: true, at: now };
     }
     insertRow_('응답', { '조사ID': s['조사ID'], '교직원ID': me, '답': JSON.stringify(answers), '하고 싶은 말': note, '낸 시각': now }, actor, s['제목'] + ' 응답 냄');
@@ -437,10 +441,11 @@ function apiSurveyCsv_(args, actor, ctx) {
     if (/^[=+\-@]/.test(t)) t = "'" + t; // 엑셀 수식으로 읽히지 않게
     return '"' + t.replace(/"/g, '""') + '"';
   };
-  var head = ['이름', '소속', '낸 시각'].concat(d.questions.map(function (q, i) { return (i + 1) + '. ' + q.title; })).concat(['하고 싶은 말']);
+  var hasNote = d.responses.some(function (r) { return r.note; });
+  var head = ['이름', '소속', '낸 시각'].concat(d.questions.map(function (q, i) { return (i + 1) + '. ' + q.title; })).concat(hasNote ? ['하고 싶은 말'] : []);
   var lines = [head.map(cell).join(',')];
   d.responses.forEach(function (r) {
-    lines.push([r.name, r.group, r.at].concat(d.questions.map(function (q) { return r.answers[q.id]; })).concat([r.note]).map(cell).join(','));
+    lines.push([r.name, r.group, r.at].concat(d.questions.map(function (q) { return r.answers[q.id]; })).concat(hasNote ? [r.note] : []).map(cell).join(','));
   });
   return { filename: d.card.title.replace(/[\\\/:*?"<>|]/g, '_') + ' 응답.csv', csv: lines.join('\r\n') };
 }
@@ -488,7 +493,7 @@ function seedTestSurveys_() {
       { id: 'q1', type: 'short', title: '필요한 물품', required: true },
       { id: 'q2', type: 'number', title: '수량', required: true },
       { id: 'q3', type: 'date', title: '받고 싶은 날', required: false },
-      { id: 'q4', type: 'long', title: '그 밖에 하고 싶은 말', required: false }
+      { id: 'q4', type: 'long', title: '하고 싶은 말', required: false }
     ]),
     '메신저 문구': '', '결과 공개': ''
   }, owner, '가짜 조사');
