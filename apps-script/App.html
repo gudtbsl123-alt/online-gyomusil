@@ -795,19 +795,20 @@
     };
     panel.innerHTML = '<div class="wrap" style="gap:16px">' +
       '<p class="hint">' + icon('info', 16) + '<span>이름을 바꾸면 그 분류를 쓰는 모든 화면에 함께 바뀌어요. 안 쓰는 분류는 지우지 말고 "사용 안 함"으로 바꿔 주세요. 예전 자료에는 이름이 그대로 보여요.</span></p>' +
-      '<div class="grid2">' + S.cache.cats.map(function (g) {
+      '<div class="cat-grid">' + S.cache.cats.map(function (g) {
         return '<section class="card"><div class="card-head"><h2>' + esc(g.kind) + '</h2><span class="faint">' + g.items.length + '개</span></div>' +
           '<p class="faint">' + notes[g.kind] + '</p>' +
-          '<div class="form" style="gap:8px">' + (g.items.length ? g.items.map(function (c) {
+          (g.items.length ? '<div class="cat-cols" aria-hidden="true"><span>이름</span><span>순서</span><span></span></div>' : '') +
+          '<div class="cat-list">' + (g.items.length ? g.items.map(function (c) {
             var off = c['사용 여부'] === '사용 안 함';
             var id = esc(c['분류ID']);
             return '<div class="cat-row' + (off ? ' off' : '') + '">' +
               '<input class="input" aria-label="' + esc(g.kind) + ' 이름" value="' + esc(c['이름']) + '" data-cat-name="' + id + '" maxlength="20">' +
-              '<input class="input" aria-label="순서" value="' + esc(c['순서']) + '" data-cat-order="' + id + '" inputmode="numeric" maxlength="3" placeholder="순서">' +
+              '<input class="input cat-order" aria-label="순서" value="' + esc(c['순서']) + '" data-cat-order="' + id + '" inputmode="numeric" maxlength="3" placeholder="-">' +
               '<div class="row-btns"><button type="button" class="btn btn-sm" data-action="cat-save" data-id="' + id + '">저장</button>' +
               '<button type="button" class="btn btn-sm btn-ghost" data-action="cat-active" data-id="' + id + '" data-on="' + (off ? '1' : '0') + '">' + (off ? '다시 사용' : '사용 안 함') + '</button></div></div>';
           }).join('') : '<p class="faint">아직 없어요.</p>') + '</div>' +
-          '<div class="cat-row" style="grid-template-columns:1fr auto"><input class="input" placeholder="새 ' + esc(g.kind) + ' 이름" data-cat-new="' + esc(g.kind) + '" maxlength="20" aria-label="새 ' + esc(g.kind) + ' 이름">' +
+          '<div class="cat-new"><input class="input" placeholder="새 ' + esc(g.kind) + ' 이름" data-cat-new="' + esc(g.kind) + '" maxlength="20" aria-label="새 ' + esc(g.kind) + ' 이름">' +
           '<button type="button" class="btn btn-sm" data-action="cat-add" data-kind="' + esc(g.kind) + '">' + icon('plus', 18) + '추가</button></div>' +
           '</section>';
       }).join('') + '</div></div>';

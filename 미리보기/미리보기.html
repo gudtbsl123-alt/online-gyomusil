@@ -164,8 +164,17 @@ select.input{appearance:auto}
 .s-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
 .s-btns{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
 .empty{padding:32px 16px;text-align:center;color:var(--c-t3)}
-.cat-row{display:grid;grid-template-columns:1fr 84px auto;gap:8px;align-items:center}
+/* 분류: 이름 칸은 6글자 이상이 한 번에 보이게(최소 156px), 순서 칸은 숫자 3자리만큼 */
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));gap:24px;align-items:start}
+.cat-list{display:flex;flex-direction:column;gap:8px}
+.cat-row{display:grid;grid-template-columns:minmax(156px,1fr) 68px 172px;gap:8px;align-items:center}
+.cat-row .input{min-width:0}
+.cat-row .cat-order{padding:0 8px;text-align:center}
+.cat-row .row-btns{flex-wrap:nowrap;justify-content:flex-end;gap:4px}
 .cat-row.off .input{color:var(--c-t3)}
+.cat-cols{display:grid;grid-template-columns:minmax(156px,1fr) 68px 172px;gap:8px;font-size:13px;font-weight:700;color:var(--c-t3)}
+.cat-cols span:nth-child(2){text-align:center}
+.cat-new{display:grid;grid-template-columns:minmax(156px,1fr) auto;gap:8px;align-items:center;padding-top:12px;border-top:1px solid var(--c-line)}
 .link-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(160px,2fr) auto;gap:8px;align-items:center}
 .log-item{padding:14px 0;border-top:1px solid var(--c-line)}
 .log-item:first-child{border-top:0}
@@ -240,6 +249,9 @@ select.input{appearance:auto}
   .modal{padding:20px}
   .pin-big{font-size:44px}
   .link-row{grid-template-columns:1fr auto}
+  .cat-row,.cat-cols{grid-template-columns:minmax(0,1fr) 68px}
+  .cat-row .row-btns{grid-column:1 / -1;justify-content:flex-start}
+  .cat-cols span:nth-child(3){display:none}
   .link-row .input:nth-child(2){grid-column:1 / 2}
 }
 @media (max-width:899px) and (min-width:600px){ .main{padding-left:24px;padding-right:24px} }
@@ -2665,19 +2677,20 @@ function setPinForTest_(row, pin) {
     };
     panel.innerHTML = '<div class="wrap" style="gap:16px">' +
       '<p class="hint">' + icon('info', 16) + '<span>이름을 바꾸면 그 분류를 쓰는 모든 화면에 함께 바뀌어요. 안 쓰는 분류는 지우지 말고 "사용 안 함"으로 바꿔 주세요. 예전 자료에는 이름이 그대로 보여요.</span></p>' +
-      '<div class="grid2">' + S.cache.cats.map(function (g) {
+      '<div class="cat-grid">' + S.cache.cats.map(function (g) {
         return '<section class="card"><div class="card-head"><h2>' + esc(g.kind) + '</h2><span class="faint">' + g.items.length + '개</span></div>' +
           '<p class="faint">' + notes[g.kind] + '</p>' +
-          '<div class="form" style="gap:8px">' + (g.items.length ? g.items.map(function (c) {
+          (g.items.length ? '<div class="cat-cols" aria-hidden="true"><span>이름</span><span>순서</span><span></span></div>' : '') +
+          '<div class="cat-list">' + (g.items.length ? g.items.map(function (c) {
             var off = c['사용 여부'] === '사용 안 함';
             var id = esc(c['분류ID']);
             return '<div class="cat-row' + (off ? ' off' : '') + '">' +
               '<input class="input" aria-label="' + esc(g.kind) + ' 이름" value="' + esc(c['이름']) + '" data-cat-name="' + id + '" maxlength="20">' +
-              '<input class="input" aria-label="순서" value="' + esc(c['순서']) + '" data-cat-order="' + id + '" inputmode="numeric" maxlength="3" placeholder="순서">' +
+              '<input class="input cat-order" aria-label="순서" value="' + esc(c['순서']) + '" data-cat-order="' + id + '" inputmode="numeric" maxlength="3" placeholder="-">' +
               '<div class="row-btns"><button type="button" class="btn btn-sm" data-action="cat-save" data-id="' + id + '">저장</button>' +
               '<button type="button" class="btn btn-sm btn-ghost" data-action="cat-active" data-id="' + id + '" data-on="' + (off ? '1' : '0') + '">' + (off ? '다시 사용' : '사용 안 함') + '</button></div></div>';
           }).join('') : '<p class="faint">아직 없어요.</p>') + '</div>' +
-          '<div class="cat-row" style="grid-template-columns:1fr auto"><input class="input" placeholder="새 ' + esc(g.kind) + ' 이름" data-cat-new="' + esc(g.kind) + '" maxlength="20" aria-label="새 ' + esc(g.kind) + ' 이름">' +
+          '<div class="cat-new"><input class="input" placeholder="새 ' + esc(g.kind) + ' 이름" data-cat-new="' + esc(g.kind) + '" maxlength="20" aria-label="새 ' + esc(g.kind) + ' 이름">' +
           '<button type="button" class="btn btn-sm" data-action="cat-add" data-kind="' + esc(g.kind) + '">' + icon('plus', 18) + '추가</button></div>' +
           '</section>';
       }).join('') + '</div></div>';

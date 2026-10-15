@@ -42,6 +42,29 @@ async function shot(page, name, full) {
 }
 async function waitText(page, t) { await page.getByText(t, { exact: false }).first().waitFor({ timeout: 5000 }); }
 
+/** 분류 이름 칸: 6글자가 잘리지 않고, 단추가 카드 밖으로 나가지 않는지 */
+async function checkCatFields(page, label) {
+  const r = await page.evaluate(() => {
+    const out = [];
+    document.querySelectorAll('[data-cat-name],[data-cat-new]').forEach((i) => {
+      const old = i.value;
+      i.value = '인성안전부장';
+      if (i.scrollWidth > i.clientWidth) out.push('이름 칸이 6글자보다 좁음(' + i.clientWidth + 'px)');
+      i.value = old;
+    });
+    document.querySelectorAll('.cat-row').forEach((row) => {
+      const card = row.closest('.card').getBoundingClientRect();
+      row.querySelectorAll('button,input').forEach((b) => {
+        const r2 = b.getBoundingClientRect();
+        if (r2.right > card.right - 8 || r2.left < card.left) out.push('칸·단추가 카드 밖으로 나감');
+        if (b.tagName === 'BUTTON' && b.scrollWidth > b.clientWidth + 1) out.push('단추 글자가 잘림: ' + b.textContent);
+      });
+    });
+    return Array.from(new Set(out));
+  });
+  r.forEach((m) => problems.push(label + ' 분류: ' + m));
+}
+
 async function login(page) {
   await page.fill('#login-pw', 'preview1');
   await page.click('#login-form [type=submit]');
@@ -119,6 +142,7 @@ async function flow(browser, kind, viewport) {
   await first.fill('정보과학부');
   await page.locator('[data-action=cat-save]').nth(2).click();
   await waitText(page, '저장했어요');
+  await checkCatFields(page, kind);
   await shot(page, kind + '_분류', true);
 
   await page.click('[data-admin-tab=settings]');
@@ -171,7 +195,7 @@ async function printCheck(browser) {
   await flow(browser, 'PC', { width: 1440, height: 900 });
   await flow(browser, '휴대폰', { width: 390, height: 844 });
   // 좁은 휴대폰·태블릿·구형 PC 폭에서도 넘치지 않는지
-  for (const vp of [{ width: 360, height: 740 }, { width: 768, height: 1024 }, { width: 1024, height: 768 }, { width: 1280, height: 720 }]) {
+  for (const vp of [{ width: 360, height: 740 }, { width: 768, height: 1024 }, { width: 900, height: 700 }, { width: 1024, height: 768 }, { width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
     const ctx = await newCtx(browser, { viewport: vp });
     const page = await ctx.newPage();
     await page.goto(FILE);
@@ -190,6 +214,7 @@ async function printCheck(browser) {
       await page.click('[data-admin-tab=' + t + ']');
       await page.waitForTimeout(400);
       await check(page, vp.width + ' 관리자 ' + t);
+      if (t === 'cat') await checkCatFields(page, vp.width);
     }
     await ctx.close();
   }

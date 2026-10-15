@@ -155,8 +155,17 @@ select.input{appearance:auto}
 .s-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
 .s-btns{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
 .empty{padding:32px 16px;text-align:center;color:var(--c-t3)}
-.cat-row{display:grid;grid-template-columns:1fr 84px auto;gap:8px;align-items:center}
+/* 분류: 이름 칸은 6글자 이상이 한 번에 보이게(최소 156px), 순서 칸은 숫자 3자리만큼 */
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));gap:24px;align-items:start}
+.cat-list{display:flex;flex-direction:column;gap:8px}
+.cat-row{display:grid;grid-template-columns:minmax(156px,1fr) 68px 172px;gap:8px;align-items:center}
+.cat-row .input{min-width:0}
+.cat-row .cat-order{padding:0 8px;text-align:center}
+.cat-row .row-btns{flex-wrap:nowrap;justify-content:flex-end;gap:4px}
 .cat-row.off .input{color:var(--c-t3)}
+.cat-cols{display:grid;grid-template-columns:minmax(156px,1fr) 68px 172px;gap:8px;font-size:13px;font-weight:700;color:var(--c-t3)}
+.cat-cols span:nth-child(2){text-align:center}
+.cat-new{display:grid;grid-template-columns:minmax(156px,1fr) auto;gap:8px;align-items:center;padding-top:12px;border-top:1px solid var(--c-line)}
 .link-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(160px,2fr) auto;gap:8px;align-items:center}
 .log-item{padding:14px 0;border-top:1px solid var(--c-line)}
 .log-item:first-child{border-top:0}
@@ -231,6 +240,9 @@ select.input{appearance:auto}
   .modal{padding:20px}
   .pin-big{font-size:44px}
   .link-row{grid-template-columns:1fr auto}
+  .cat-row,.cat-cols{grid-template-columns:minmax(0,1fr) 68px}
+  .cat-row .row-btns{grid-column:1 / -1;justify-content:flex-start}
+  .cat-cols span:nth-child(3){display:none}
   .link-row .input:nth-child(2){grid-column:1 / 2}
 }
 @media (max-width:899px) and (min-width:600px){ .main{padding-left:24px;padding-right:24px} }
