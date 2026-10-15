@@ -2225,7 +2225,7 @@ function seedTestSchedule_() {
     [1, '', '종일', '3·4학년 현장체험학습', '3,4', '연구부', '', '행사'],
     [1, '', '', '학생자치회의', '5,6', '인성안전부', '', '교육활동'],
     [2, '', '5교시', '동료장학 수업 공개', '교직원', '연구부', '', '행사'],
-    [3, '', '16:00', '학교운영위원회', '교직원', '행정실', '행정실', '행사'],
+    [3, '', '16:00', '학교운영위원회', '교직원', '교무부', '회의실', '행사'],
     [4, '', '15:00', '교직원 체육대회', '교직원', '교무부', '체육관', '행사'],
     [7, '', '', '테스트 공휴일', '전체', '', '', '공휴일'],
     [8, '', '', '독서 골든벨', '3,4,5,6', '교무부', '도서실', '교육활동'],
@@ -2486,7 +2486,7 @@ function seedTestData_(fixedPin) {
   if (liveRows_('교직원').length) throw userError_('교직원 탭에 이미 사람이 있어요. 가짜 데이터는 빈 테스트 시트에만 넣을 수 있어요.');
   var actor = { id: '', name: '테스트 데이터' };
   var dept = {};
-  ['교무부', '연구부', '정보부', '인성안전부', '행정실'].forEach(function (n, i) {
+  ['교무부', '연구부', '정보부', '인성안전부'].forEach(function (n, i) {
     dept[n] = insertRow_('분류', { '종류': '부서', '이름': n, '순서': String(i + 1), '사용 여부': '사용' }, actor, '가짜 부서')['분류ID'];
   });
   ['업무 자료', '양식', '연수 자료'].forEach(function (n, i) {
@@ -2502,7 +2502,7 @@ function seedTestData_(fixedPin) {
     ['심청', '교사', '5학년 1반', '정보부', '정보부장 · 태블릿', '104', '일반'],
     ['흥부', '교사', '6학년 2반', '인성안전부', '인성안전부장 · 학교폭력 예방', '105', '일반'],
     ['놀부', '교사', '과학 전담', '정보부', '정보화기기', '106', '일반'],
-    ['장화', '주무관', '행정실', '행정실', '시설 · 물품', '201', '일반'],
+    ['장화', '교사', '2학년 1반', '교무부', '2학년 부장', '108', '일반'],
     ['홍련', '교사', '1학년 1반', '교무부', '방과후', '107', '일반']
   ];
   var out = [];
@@ -3813,7 +3813,7 @@ function setPinForTest_(row, pin) {
         '<input id="sf-' + key + '" class="input" data-k="' + key + '" value="' + esc(x[key] || '') + '"' + (opts.attr || '') + ' placeholder="' + (opts.ph || '') + '"></div>';
     }
     return '<form class="form" id="staff-form" novalidate>' +
-      '<div class="form-grid">' + f('이름', '이름', { req: true, attr: ' maxlength="20" autocomplete="off"' }) + f('직위', '직위', { ph: '예: 교사, 주무관', attr: ' maxlength="20"' }) + '</div>' +
+      '<div class="form-grid">' + f('이름', '이름', { req: true, attr: ' maxlength="20" autocomplete="off"' }) + f('직위', '직위', { ph: '예: 교사, 수석교사', attr: ' maxlength="20"' }) + '</div>' +
       '<div class="form-grid">' + f('소속', '소속', { ph: '예: 3학년 1반, 과학 전담', attr: ' maxlength="30"' }) +
       '<div class="field"><label class="label" for="sf-부서ID">부서</label><select id="sf-부서ID" class="input" data-k="부서ID">' + deptOpts + '</select></div></div>' +
       f('담당 업무', '담당 업무', { ph: '예: 교육과정, 전문적학습공동체', attr: ' maxlength="200"' }) +

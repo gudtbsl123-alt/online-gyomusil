@@ -1262,7 +1262,7 @@
         '<input id="sf-' + key + '" class="input" data-k="' + key + '" value="' + esc(x[key] || '') + '"' + (opts.attr || '') + ' placeholder="' + (opts.ph || '') + '"></div>';
     }
     return '<form class="form" id="staff-form" novalidate>' +
-      '<div class="form-grid">' + f('이름', '이름', { req: true, attr: ' maxlength="20" autocomplete="off"' }) + f('직위', '직위', { ph: '예: 교사, 주무관', attr: ' maxlength="20"' }) + '</div>' +
+      '<div class="form-grid">' + f('이름', '이름', { req: true, attr: ' maxlength="20" autocomplete="off"' }) + f('직위', '직위', { ph: '예: 교사, 수석교사', attr: ' maxlength="20"' }) + '</div>' +
       '<div class="form-grid">' + f('소속', '소속', { ph: '예: 3학년 1반, 과학 전담', attr: ' maxlength="30"' }) +
       '<div class="field"><label class="label" for="sf-부서ID">부서</label><select id="sf-부서ID" class="input" data-k="부서ID">' + deptOpts + '</select></div></div>' +
       f('담당 업무', '담당 업무', { ph: '예: 교육과정, 전문적학습공동체', attr: ' maxlength="200"' }) +

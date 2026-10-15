@@ -232,7 +232,7 @@ test('관리자: 공통 로그인 + 관리자 비밀번호가 있어야 들어�
   const list = call(g, 'admin.staff.list', {}, { login: L, admin: A });
   assert.strictEqual(list.ok, true);
   assert.strictEqual(list.data.staff.length, 8);
-  assert.strictEqual(list.data.depts.length, 5);
+  assert.strictEqual(list.data.depts.length, 4);
   // 관리자 표를 로그인 표로 쓸 수 없다
   assert.strictEqual(call(g, 'staffPicker', {}, { login: A }).code, 'LOGIN');
 });
