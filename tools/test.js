@@ -1403,5 +1403,55 @@ test('공지: 누구나 쓰고, 쓴 분·관리만 고치고, 고정은 관리�
   assert.strictEqual(g.seedTestNotices_ && 1, 1);
 });
 
+
+// ================================================================ 마지막 점검에서 고친 것
+
+test('매일 백업: 진짜 시간 트리거만 백업하고, 웹앱에서 부르면 아무것도 하지 않는다', () => {
+  const g = freshName();
+  let made = 0;
+  g.backupNow_ = () => { made++; return {}; };
+  g.ScriptApp = { getProjectTriggers: () => [{ getHandlerFunction: () => 'dailyBackup', getUniqueId: () => '777' }] };
+  g.dailyBackup();
+  g.dailyBackup({});
+  g.dailyBackup({ triggerUid: '123' });
+  assert.strictEqual(made, 0, '트리거가 아니면 백업하지 않음');
+  g.dailyBackup({ triggerUid: '777' });
+  assert.strictEqual(made, 1);
+});
+
+test('시트에 쓰는 글자는 모두 앞에 \' 를 붙여 날짜·숫자로 바뀌지 않는다', () => {
+  const g = freshName();
+  for (const v of ['3-1', '1e3', '0101', '=1+1', '홍길동', '₩1,000']) assert.strictEqual(g.cellWrite_(v), "'" + v);
+  assert.strictEqual(g.cellWrite_(''), '');
+  const { who } = ids(g);
+  const e = call(g, 'sched.save', { fields: { start: '2026-11-03', title: '반 모임', place: '3-1' } }, who('심청')).data;
+  assert.strictEqual(e.place, '3-1');
+});
+
+test('학사일정 바꾸기·되돌리기로 숨긴 일정도 휴지통에 누가 숨겼는지 보인다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const grid = [HEAD, ['2026-11-09', '', '', '학예회', '전체', '', '강당', '행사']];
+  const rows = call(g, 'sched.upload.check', { grid }, t).data.rows.map((r) => r.raw);
+  const s = call(g, 'sched.upload.save', { rows, mode: 'skip' }, t).data;
+  call(g, 'sched.upload.undo', { batch: s.batch }, t);
+  const tr = call(g, 'admin.trash.list', {}, t).data.find((e) => e.title === '학예회');
+  assert.ok(tr.deletedBy, '숨긴 사람이 남음');
+  assert.ok(tr.deletedAt);
+});
+
+test('머리글 없는 칸에 선생님이 적어 둔 글은 고칠 때 지워지지 않는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const e = call(g, 'sched.save', { fields: { start: '2026-11-03', title: '반 모임' } }, who('심청')).data;
+  const sh = g._ss.getSheetByName('일정');
+  const r = sh.data.findIndex((l) => l[0] === e.id);
+  const col = sh.data[0].length + 1; // 머리글 없는 칸
+  sh.put(r + 1, col, '손으로 적은 메모');
+  sh.put(1, col, ''); // 머리글은 비어 있음
+  call(g, 'sched.save', { id: e.id, fields: { start: '2026-11-03', title: '반 모임(고침)' } }, who('심청'));
+  assert.strictEqual(sh.data[r][col - 1], '손으로 적은 메모');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + passed + '/' + results.length + ' 통과');

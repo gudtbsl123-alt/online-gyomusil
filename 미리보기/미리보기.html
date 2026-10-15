@@ -1232,15 +1232,14 @@ function cellText_(v) {
 
 /**
  * 시트에 쓸 값. 모두 글자로 남긴다.
- * 수식(=, +, -, @로 시작)이나 숫자·날짜처럼 보이는 글자(0101, 2026-03-02, TRUE)는
- * 앞에 ' 를 붙여 시트가 바꾸지 못하게 한다. 시트에서 ' 는 보이지 않고, 읽을 때도 빠진다.
+ * 빈칸이 아니면 늘 앞에 ' 를 붙여, 시트가 수식(=…)·숫자(0101, 1e3)·날짜(2026-03-02, 3-1)로 바꾸지 못하게 한다.
+ * 시트에서 ' 는 보이지 않고, 읽을 때도 빠진다.
  */
 function cellWrite_(v) {
   if (v === null || v === undefined) return '';
   var s = String(v);
   if (s === '') return '';
-  if (/^[=+\-@']/.test(s) || /^[\d\s.,:\/%]+$/.test(s) || /^\d{4}-\d{2}-\d{2}/.test(s) || /^(true|false)$/i.test(s)) s = "'" + s;
-  return s;
+  return "'" + s;
 }
 
 function tz_() {
@@ -1405,6 +1404,7 @@ function updateRow_(tab, id, patch, actor, summary, action) {
     var row = findRow_(tab, id);
     if (!row) throw userError_('고칠 항목을 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
     var head = headOf_(tab);
+    var raw = sheet_(tab).getRange(row._row, 1, 1, head.length).getValues()[0]; // 머리글 없는 칸은 손대지 않으려고
     var locked = [head[0], '입력자ID', '입력 시각', '수정자ID', '수정 시각'];
     var before = {}, after = {}, changed = false;
     var next = {};
@@ -1423,7 +1423,7 @@ function updateRow_(tab, id, patch, actor, summary, action) {
     next['수정자ID'] = actor.id || '';
     next['수정 시각'] = nowText_();
     sheet_(tab).getRange(row._row, 1, 1, head.length)
-      .setValues([head.map(function (h) { return cellWrite_(next[h]); })]);
+      .setValues([head.map(function (h, j) { return h ? cellWrite_(next[h]) : raw[j]; })]);
     writeLog_(actor, tab, id, action || '수정', summary || '', auditView_(before), auditView_(after));
     next._row = row._row;
     return publicRow_(next);
@@ -1431,8 +1431,9 @@ function updateRow_(tab, id, patch, actor, summary, action) {
 }
 
 /**
- * 여러 줄에 같은 값을 한 번에 쓰기(새 학년도에 지난 자료를 보관함으로 보낼 때). 기록은 한 줄로 남긴다.
- * 바뀌기 전 값과 ID 목록을 기록에 남겨 되돌릴 수 있게 한다. 수정일은 그대로 둔다(내용을 고친 것이 아니라서).
+ * 여러 줄에 같은 값을 한 번에 쓰기(새 학년도 보관, 학사일정 올리기의 바꾸기·되돌리기). 기록은 한 줄로 남긴다.
+ * 바뀌기 전 값과 ID 목록을 기록에 남겨 되돌릴 수 있게 한다.
+ * 보관처럼 내용을 고친 것이 아니면 수정일은 그대로 두고, 숨기기·되살리기('삭제 여부')면 수정자·수정 시각을 남긴다.
  */
 function updateRowsSame_(tab, ids, patch, actor, summary, action) {
   if (!ids.length) return 0;
@@ -1443,6 +1444,8 @@ function updateRowsSame_(tab, ids, patch, actor, summary, action) {
     ids.forEach(function (id) { want[id] = true; });
     var sh = sheet_(tab);
     var n = 0, before = {};
+    var deleting = '삭제 여부' in patch; // 숨기기·되살리기는 누가 했는지 수정자 칸에 남긴다(휴지통에 보이게)
+    var now = nowText_();
     readRows_(tab).forEach(function (row) {
       if (!want[row[key]]) return;
       var next = {};
@@ -1450,7 +1453,9 @@ function updateRowsSame_(tab, ids, patch, actor, summary, action) {
       Object.keys(patch).forEach(function (h) {
         if (head.indexOf(h) >= 0) { before[h] = before[h] || {}; before[h][row[key]] = next[h]; next[h] = String(patch[h]); }
       });
-      sh.getRange(row._row, 1, 1, head.length).setValues([head.map(function (h) { return cellWrite_(next[h]); })]);
+      if (deleting) { next['수정자ID'] = actor.id || ''; next['수정 시각'] = now; }
+      var raw = sh.getRange(row._row, 1, 1, head.length).getValues()[0];
+      sh.getRange(row._row, 1, 1, head.length).setValues([head.map(function (h, j) { return h ? cellWrite_(next[h]) : raw[j]; })]);
       n++;
     });
     var after = {};
@@ -4269,10 +4274,19 @@ function menuBackupNow() {
 }
 
 /** 시간 트리거가 부른다. 너무 자주 불리면(1시간 안) 건너뛴다. */
-function dailyBackup() {
+/**
+ * 매일 자동 백업(시간 트리거 전용). 이름이 _로 끝나지 않아 웹앱에서도 부를 수 있으므로,
+ * 이 프로젝트의 진짜 dailyBackup 트리거가 부른 것(e.triggerUid가 맞을 때)만 백업한다.
+ */
+function dailyBackup(e) {
+  var uid = e && e.triggerUid;
+  var mine = uid && ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'dailyBackup' && String(t.getUniqueId()) === String(uid);
+  });
+  if (!mine) return;
   var p = PropertiesService.getScriptProperties();
   var last = Number(p.getProperty('LAST_BACKUP_AT') || 0);
-  if (Date.now() - last < 3600 * 1000) return;
+  if (Date.now() - last < 20 * 3600 * 1000) return;
   backupNow_('매일 백업');
 }
 

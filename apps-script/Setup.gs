@@ -161,10 +161,19 @@ function menuBackupNow() {
 }
 
 /** 시간 트리거가 부른다. 너무 자주 불리면(1시간 안) 건너뛴다. */
-function dailyBackup() {
+/**
+ * 매일 자동 백업(시간 트리거 전용). 이름이 _로 끝나지 않아 웹앱에서도 부를 수 있으므로,
+ * 이 프로젝트의 진짜 dailyBackup 트리거가 부른 것(e.triggerUid가 맞을 때)만 백업한다.
+ */
+function dailyBackup(e) {
+  var uid = e && e.triggerUid;
+  var mine = uid && ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'dailyBackup' && String(t.getUniqueId()) === String(uid);
+  });
+  if (!mine) return;
   var p = PropertiesService.getScriptProperties();
   var last = Number(p.getProperty('LAST_BACKUP_AT') || 0);
-  if (Date.now() - last < 3600 * 1000) return;
+  if (Date.now() - last < 20 * 3600 * 1000) return;
   backupNow_('매일 백업');
 }
 
