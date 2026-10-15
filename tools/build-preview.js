@@ -28,12 +28,22 @@ ${GAS_FILES.map((f) => '/* ===== ' + f + ' ===== */\n' + inScript(read(f))).join
   setPassword_('common', 'preview1');
   setPassword_('admin', 'admin1');
   seedTestData_('1111');
+  seedTestSchedule_();
+  // 미리보기용 가짜 학기 기간(오늘이 들어가게): 수업일수 계산을 보여 주려는 값이에요
+  (function () {
+    var t = todayYmd_(), y = Number(t.slice(0, 4)), m = Number(t.slice(5, 7));
+    var sy = m >= 3 ? y : y - 1, a = { id: '', name: '미리보기' };
+    putSetting_('1학기 시작일', sy + '-03-02', a);
+    putSetting_('1학기 끝일', sy + '-07-24', a);
+    putSetting_('2학기 시작일', sy + '-08-17', a);
+    putSetting_('2학기 끝일', (sy + 1) + '-01-08', a);
+  })();
   window.__previewSheet = env._ss;
   window.__previewServer = function (req) {
     return new Promise(function (resolve) { setTimeout(function () { resolve(api(req)); }, 120); });
   };
   window.__previewNote = '미리보기예요. 가짜 데이터로 움직이고, 새로 고치면 처음으로 돌아가요. ' +
-    '공통 비밀번호 <b>preview1</b> · 관리자 비밀번호 <b>admin1</b> · 개인 번호는 모두 <b>1111</b>';
+    '공통 비밀번호 <b>preview1</b> · 관리자 비밀번호 <b>admin1</b> · 개인 번호는 모두 <b>1111</b> · 학기 기간과 일정도 가짜 값이에요';
 })();
 </script>
 `;

@@ -266,6 +266,7 @@ function meView_(row) {
     position: row['직위'],
     group: row['소속'],
     dept: depts[row['부서ID']] || '',
+    deptId: row['부서ID'] || '',
     role: row['역할'] || '일반'
   };
 }

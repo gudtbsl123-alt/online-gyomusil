@@ -65,6 +65,55 @@ async function checkCatFields(page, label) {
   r.forEach((m) => problems.push(label + ' 분류: ' + m));
 }
 
+/** 2단계: 일정 화면 */
+async function scheduleFlow(page, kind) {
+  const phone = kind === '휴대폰';
+  await page.click(phone ? '.bottom-nav [data-go=schedule]' : '.side [data-go=schedule]');
+  if (phone) {
+    await page.locator('.pweek').waitFor();
+    await shot(page, kind + '_일정_이번주', true);
+    await page.click('[data-action=phone-month]');
+    await page.locator('.cal').waitFor();
+    await shot(page, kind + '_일정_한달', true);
+    await page.click('[data-action=phone-week]');
+    await page.click('.fab');
+  } else {
+    await page.locator('.cal').waitFor();
+    await shot(page, kind + '_일정_달력', true);
+    await page.click('.bar [data-action=ev-add]');
+  }
+  await page.locator('#ev-form').waitFor();
+  await page.fill('#ef-title', '전교 다모임');
+  await page.fill('#ef-time', '5교시');
+  await page.click('[data-tg="3"]');
+  await page.click('[data-tg="4"]');
+  await page.fill('#ef-place', '강당');
+  await shot(page, kind + '_행사추가', !phone);
+  await page.click('#ev-form [type=submit]');
+  await waitText(page, '전교 다모임을 넣었어요');
+  await page.waitForTimeout(400);
+  // 넣은 행사 열어 보기 → 고치기 → 지우기
+  await page.locator('[data-action=ev-open]', { hasText: '전교 다모임' }).first().click();
+  await page.locator('.ev-dl').waitFor();
+  await shot(page, kind + '_행사보기');
+  await page.click('[data-action=ev-edit]');
+  await page.locator('#ev-form').waitFor();
+  await page.click('#ev-form [data-action=ev-del]');
+  await page.click('#cf-ok');
+  await waitText(page, '일정을 지웠어요');
+  // 월별 계획·연간 학사일정
+  await page.click('[data-sched-view=plan]');
+  await page.locator('table.plan').waitFor();
+  await shot(page, kind + '_월별계획', true);
+  await page.click('[data-sched-view=year]');
+  await page.locator('.year-grid').waitFor();
+  await shot(page, kind + '_연간학사일정', true);
+  await page.click('[data-sched-view=cal]');
+  await page.locator(phone ? '.pweek' : '.cal').waitFor();
+  await page.click(phone ? '.bottom-nav [data-go=home]' : '.side [data-go=home]');
+  await page.locator('.today-card').waitFor();
+}
+
 async function login(page) {
   await page.fill('#login-pw', 'preview1');
   await page.click('#login-form [type=submit]');
@@ -106,7 +155,9 @@ async function flow(browser, kind, viewport) {
   await page.fill('#id-pin', '1111');
   await page.click('#id-form [type=submit]');
   await waitText(page, '오늘도 반가워요');
+  await page.locator('.today-card').waitFor();
   await shot(page, kind + '_홈', true);
+  await scheduleFlow(page, kind);
 
   if (kind === '휴대폰') {
     await page.click('.bottom-nav [data-action=sheet]');
@@ -155,6 +206,12 @@ async function flow(browser, kind, viewport) {
   if (await det.count()) await det.locator('summary').click();
   await shot(page, kind + '_수정기록', true);
 
+  await page.click('[data-admin-tab=trash]');
+  await page.locator('[data-action=trash-restore]').first().waitFor();
+  await shot(page, kind + '_휴지통');
+  await page.locator('[data-action=trash-restore]').first().click();
+  await waitText(page, '일정을 되살렸어요');
+
   await page.click('[data-admin-tab=pw]');
   await shot(page, kind + '_비밀번호');
 
@@ -187,6 +244,13 @@ async function printCheck(browser) {
   if (bg !== 'rgb(255, 255, 255)') problems.push('인쇄: 바탕이 흰색이 아님 ' + bg);
   if (sideShown !== 'none') problems.push('인쇄: 메뉴가 숨겨지지 않음');
   await page.pdf({ path: path.join(OUT, '인쇄_홈.pdf'), format: 'A4' });
+  await page.emulateMedia({ media: 'screen' });
+  await page.evaluate(() => { window.__gy.S.sched.view = 'plan'; window.__gy.go('schedule'); });
+  await page.locator('table.plan').waitFor();
+  await page.emulateMedia({ media: 'print' });
+  const planBg = await page.evaluate(() => getComputedStyle(document.querySelector('.plan-card')).backgroundColor);
+  if (!/rgba?\(255, 255, 255|rgba\(0, 0, 0, 0\)/.test(planBg)) problems.push('인쇄: 월별 계획 바탕이 흰색이 아님 ' + planBg);
+  await page.pdf({ path: path.join(OUT, '인쇄_월별계획.pdf'), format: 'A4' });
   await ctx.close();
 }
 
@@ -205,6 +269,12 @@ async function printCheck(browser) {
     await check(page, vp.width + ' 본인확인');
     await verify(page, '홍길동');
     await check(page, vp.width + ' 홈');
+    await page.evaluate(() => window.__gy.go('schedule'));
+    for (const v of ['cal', 'plan', 'year']) {
+      await page.click('[data-sched-view=' + v + ']');
+      await page.waitForTimeout(500);
+      await check(page, vp.width + ' 일정 ' + v);
+    }
     await page.evaluate(() => window.__gy.go('admin'));
     await page.fill('#admin-pw', 'admin1');
     await page.click('#admin-form [type=submit]');

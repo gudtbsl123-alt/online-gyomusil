@@ -9,6 +9,7 @@
  *   Db.gs     시트 읽기·쓰기, 기록, 잠금
  *   Auth.gs   비밀번호, 개인 번호, 로그인 표
  *   Admin.gs  설정, 분류, 교직원 표, 수정 기록
+ *   Schedule.gs  일정(달력·연간 학사일정·월별 계획·홈), 수업일수, 휴지통
  *   Setup.gs  시트 메뉴, 처음 설정, 매일 백업, 테스트 데이터
  *   Index.html / Styles.html / App.html  화면
  */
@@ -37,6 +38,13 @@ function routes_() {
     'verify': { need: 'login', fn: function (a) { return verifyPin_(a); } },
     'adminLogin': { need: 'login', fn: function (a) { return adminLogin_(a); } },
 
+    'home': { need: 'login', fn: apiHome_ },
+    'sched.month': { need: 'login', fn: apiSchedMonth_ },
+    'sched.year': { need: 'login', fn: apiSchedYear_ },
+    'sched.save': { need: 'identity', fn: apiSchedSave_ },
+    'sched.delete': { need: 'identity', fn: apiSchedDelete_ },
+    'focus.save': { need: 'identity', fn: apiFocusSave_ },
+
     'admin.settings.get': { need: 'admin', fn: function () { return adminSettingsGet_(); } },
     'admin.settings.save': { need: 'admin', fn: adminSettingsSave_ },
     'admin.cat.list': { need: 'admin', fn: function () { return adminCategoryList_(); } },
@@ -49,6 +57,8 @@ function routes_() {
     'admin.staff.issueMissing': { need: 'admin', fn: adminStaffIssueMissing_ },
     'admin.staff.unlock': { need: 'admin', fn: adminStaffUnlock_ },
     'admin.log.list': { need: 'admin', fn: adminLogList_ },
+    'admin.trash.list': { need: 'admin', fn: function () { return adminTrashList_(); } },
+    'admin.trash.restore': { need: 'admin', fn: adminTrashRestore_ },
     'admin.pw.common': { need: 'admin', fn: adminChangeCommonPw_ },
     'admin.pw.admin': { need: 'admin', fn: adminChangeAdminPw_ }
   };

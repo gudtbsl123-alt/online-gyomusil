@@ -13,6 +13,7 @@ function onOpen() {
     .addSeparator()
     .addItem('지금 백업 한 번 하기', 'menuBackupNow')
     .addItem('테스트용 가짜 데이터 넣기 (테스트 시트에서만)', 'menuSeedTestData')
+    .addItem('테스트용 가짜 일정 넣기 (테스트 시트에서만)', 'menuSeedTestSchedule')
     .addToUi();
 }
 
@@ -211,6 +212,16 @@ function menuSeedTestData() {
     '<p style="margin:0 0 8px">가짜 교직원의 개인 번호예요. 이 창을 닫으면 다시 볼 수 없어요(필요하면 관리자 화면에서 새로 만들 수 있어요).</p>' +
     '<table style="border-collapse:collapse">' + rows + '</table></div>';
   ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(380).setHeight(420), '가짜 교직원 개인 번호');
+}
+
+function menuSeedTestSchedule() {
+  var ui = requireSheetUi_();
+  var ok = ui.alert('테스트용 가짜 일정',
+    '테스트용 시트에서만 쓰세요. 이번 주부터 한 달 동안 가짜 일정 16개와 이달 중점지도를 넣어요.\n("테스트 공휴일", "테스트 재량휴업일"도 들어가요.)\n\n넣을까요?',
+    ui.ButtonSet.YES_NO);
+  if (ok !== ui.Button.YES) return;
+  var n = seedTestSchedule_();
+  ui.alert('가짜 일정을 넣었어요', '일정 ' + n + '개와 이달 중점지도를 넣었어요. 웹앱의 홈과 일정 화면에서 확인해 보세요.\n수업일수를 보려면 설정 탭(또는 관리자 화면 > 설정)에 학기 기간을 넣어 주세요.', ui.ButtonSet.OK);
 }
 
 /** 가짜 데이터. 실제 교직원 이름은 쓰지 않는다. */

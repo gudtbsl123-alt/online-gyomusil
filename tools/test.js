@@ -461,5 +461,183 @@ test('알 수 없는 요청·이상한 값에도 서버가 멈추지 않는다',
   assert.strictEqual(call(g, 'verify', { staffId: 'T0000', pin: '1234' }, { login: L }).code, 'NOTFOUND');
 });
 
+
+// ================================================================ 2단계: 일정과 홈
+
+/** 이름으로 본인 확인 표 받기 */
+function idOf(g, L, staff, name) {
+  const p = staff.find((x) => x.name === name);
+  return call(g, 'verify', { staffId: p.id, pin: '1111' }, { login: L }).data.identity;
+}
+
+function ev(fields) {
+  return Object.assign({ start: '2026-10-20', title: '시험 행사', kind: '행사', target: ['3', '4'] }, fields);
+}
+
+test('일정 넣기: 한 번 넣으면 달력·연간 학사일정·홈에 함께 보인다', () => {
+  const g = fresh();
+  const { L, staff } = loginAll(g);
+  const I = idOf(g, L, staff, '이몽룡');
+  const today = g.todayYmd_();
+  const r = call(g, 'sched.save', { fields: ev({ start: today, title: '오늘 협의회', time: '15:00' }) }, { login: L, identity: I });
+  assert.strictEqual(r.ok, true, r.error);
+  const y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7));
+  const month = call(g, 'sched.month', { year: y, month: m }, { login: L }).data;
+  assert.ok(month.events.some((e) => e.title === '오늘 협의회'));
+  const year = call(g, 'sched.year', { year: m >= 3 ? y : y - 1 }, { login: L }).data;
+  assert.ok(year.events.some((e) => e.title === '오늘 협의회'));
+  const home = call(g, 'home', {}, { login: L }).data;
+  assert.ok(home.events.some((e) => e.title === '오늘 협의회' && e.start === home.today));
+  assert.strictEqual(home.events.find((e) => e.title === '오늘 협의회').by, '이몽룡');
+});
+
+test('일정 넣기는 본인 확인이 있어야 한다', () => {
+  const g = fresh();
+  const { L } = loginAll(g);
+  assert.strictEqual(call(g, 'sched.save', { fields: ev() }, { login: L }).code, 'IDENTITY');
+});
+
+test('고치기·지우기: 처음 넣은 사람과 관리 역할만', () => {
+  const g = fresh();
+  const { L, staff } = loginAll(g);
+  const mine = idOf(g, L, staff, '이몽룡');
+  const other = idOf(g, L, staff, '심청');
+  const boss = idOf(g, L, staff, '홍길동');
+  const e = call(g, 'sched.save', { fields: ev() }, { login: L, identity: mine }).data;
+  assert.strictEqual(e.canEdit, true);
+  const seenByOther = call(g, 'sched.month', { year: 2026, month: 10 }, { login: L, identity: other }).data.events.find((x) => x.id === e.id);
+  assert.strictEqual(seenByOther.canEdit, false);
+  assert.strictEqual(call(g, 'sched.save', { id: e.id, fields: ev({ title: '남이 고침' }) }, { login: L, identity: other }).code, 'FORBIDDEN');
+  assert.strictEqual(call(g, 'sched.delete', { id: e.id }, { login: L, identity: other }).code, 'FORBIDDEN');
+  assert.strictEqual(call(g, 'sched.save', { id: e.id, fields: ev({ title: '내가 고침' }) }, { login: L, identity: mine }).data.title, '내가 고침');
+  assert.strictEqual(call(g, 'sched.save', { id: e.id, fields: ev({ title: '부장이 고침' }) }, { login: L, identity: boss }).data.title, '부장이 고침');
+  // 관리자 화면을 연 사람도 된다
+  const A = call(g, 'adminLogin', { password: ADMIN }, { login: L }).data.admin;
+  assert.strictEqual(call(g, 'sched.delete', { id: e.id }, { login: L, identity: other, admin: A }).ok, true);
+});
+
+test('휴업일·공휴일은 관리 역할(또는 관리자)만 넣을 수 있다', () => {
+  const g = fresh();
+  const { L, staff } = loginAll(g);
+  const plain = idOf(g, L, staff, '이몽룡');
+  const boss = idOf(g, L, staff, '홍길동');
+  assert.strictEqual(call(g, 'sched.save', { fields: ev({ kind: '공휴일' }) }, { login: L, identity: plain }).ok, false);
+  assert.strictEqual(call(g, 'sched.save', { fields: ev({ kind: '휴업일' }) }, { login: L, identity: boss }).ok, true);
+});
+
+test('일정 값 확인: 날짜·이름·끝나는 날·학년', () => {
+  const g = fresh();
+  const { L, staff } = loginAll(g);
+  const t = { login: L, identity: idOf(g, L, staff, '홍길동') };
+  assert.strictEqual(call(g, 'sched.save', { fields: ev({ start: '2026-02-30' }) }, t).ok, false);
+  assert.strictEqual(call(g, 'sched.save', { fields: ev({ title: '' }) }, t).ok, false);
+  assert.strictEqual(call(g, 'sched.save', { fields: ev({ end: '2026-10-01' }) }, t).ok, false);
+  assert.strictEqual(call(g, 'sched.save', { fields: ev({ kind: '아무거나' }) }, t).ok, false);
+  assert.strictEqual(call(g, 'sched.save', { fields: ev({ target: ['1', '2', '3', '4', '5', '6'] }) }, t).data.target, '전체');
+  assert.strictEqual(call(g, 'sched.save', { fields: ev({ target: ['전체', '3'] }) }, t).data.target, '전체');
+  assert.strictEqual(call(g, 'sched.save', { fields: ev({ target: ['2', '교직원', '9', 'x'] }) }, t).data.target, '2,교직원');
+  const multi = call(g, 'sched.save', { fields: ev({ start: '2026-10-19', end: '2026-10-23' }) }, t).data;
+  assert.strictEqual(multi.end, '2026-10-23');
+  // 여러 날 일정은 겹치는 달에 모두 보인다
+  const nov = call(g, 'sched.save', { fields: ev({ start: '2026-10-29', end: '2026-11-03', title: '걸친 행사' }) }, t).data;
+  assert.ok(call(g, 'sched.month', { year: 2026, month: 11 }, t).data.events.some((e) => e.id === nov.id));
+  // 날짜가 시트에 글자 그대로 남는다
+  assert.strictEqual(g.findRow_('일정', multi.id)['시작일'], '2026-10-19');
+});
+
+test('수업일수: 학기 평일 − 휴업일·공휴일(평일만, 겹치면 한 번)', () => {
+  const g = fresh();
+  g.putSetting_('1학기 시작일', '2026-03-02', { id: '', name: '시험' }); // 시험용 값
+  g.putSetting_('1학기 끝일', '2026-03-31', { id: '', name: '시험' });
+  const { L, staff } = loginAll(g);
+  const t = { login: L, identity: idOf(g, L, staff, '홍길동') };
+  call(g, 'sched.save', { fields: ev({ start: '2026-03-03', kind: '공휴일', title: '화요일 공휴일' }) }, t);
+  call(g, 'sched.save', { fields: ev({ start: '2026-03-07', kind: '공휴일', title: '토요일 공휴일' }) }, t);
+  call(g, 'sched.save', { fields: ev({ start: '2026-03-05', end: '2026-03-09', kind: '휴업일', title: '재량휴업' }) }, t);
+  call(g, 'sched.save', { fields: ev({ start: '2026-03-05', kind: '공휴일', title: '겹친 날' }) }, t);
+  call(g, 'sched.save', { fields: ev({ start: '2026-03-10', kind: '행사', title: '보통 행사' }) }, t);
+  const y = call(g, 'sched.year', { year: 2026 }, t).data.days;
+  const s1 = y.semesters[0];
+  assert.strictEqual(s1.weekdays, 22, '3/2~3/31 평일 22일');
+  assert.deepStrictEqual(plain(s1.removed.map((x) => x.date)), ['2026-03-03', '2026-03-05', '2026-03-06', '2026-03-09']);
+  assert.strictEqual(s1.days, 18);
+  assert.strictEqual(y.missing, true, '2학기 기간이 없음을 알려야 함');
+  const march = call(g, 'sched.month', { year: 2026, month: 3 }, t).data.monthDays;
+  assert.strictEqual(march.days, 18);
+  // 지운 휴업일은 수업일수에서 다시 돌아온다
+  const holiday = call(g, 'sched.year', { year: 2026 }, t).data.events.find((e) => e.title === '화요일 공휴일');
+  call(g, 'sched.delete', { id: holiday.id }, t);
+  assert.strictEqual(call(g, 'sched.year', { year: 2026 }, t).data.days.semesters[0].days, 19);
+});
+
+test('학기 기간이 없으면 수업일수는 비워 둔다(지어내지 않음)', () => {
+  const g = fresh();
+  const { L } = loginAll(g);
+  assert.strictEqual(call(g, 'sched.month', { year: 2026, month: 10 }, { login: L }).data.monthDays, null);
+  assert.strictEqual(call(g, 'sched.year', { year: 2026 }, { login: L }).data.days.semesters.length, 0);
+});
+
+test('지운 일정은 휴지통에 남고 되살릴 수 있다(기록 포함)', () => {
+  const g = fresh();
+  const { L, staff, t } = adminTokens(g);
+  const e = call(g, 'sched.save', { fields: ev({ title: '지울 행사' }) }, t).data;
+  call(g, 'sched.delete', { id: e.id }, t);
+  assert.ok(!call(g, 'sched.month', { year: 2026, month: 10 }, t).data.events.some((x) => x.id === e.id));
+  const trash = call(g, 'admin.trash.list', {}, t).data;
+  assert.strictEqual(trash[0].title, '지울 행사');
+  assert.strictEqual(trash[0].deletedBy, '홍길동');
+  assert.strictEqual(call(g, 'admin.trash.restore', { id: e.id }, t).ok, true);
+  assert.ok(call(g, 'sched.month', { year: 2026, month: 10 }, t).data.events.some((x) => x.id === e.id));
+  const acts = plain(g.readRows_('기록').filter((r) => r['대상ID'] === e.id).map((r) => r['동작']));
+  assert.deepStrictEqual(acts, ['추가', '삭제', '되살리기']);
+  assert.strictEqual(call(g, 'admin.trash.list', {}, { login: L }).code, 'ADMIN');
+  void staff;
+});
+
+test('월별 중점지도: 관리 역할만 넣고, 그 달에 보인다', () => {
+  const g = fresh();
+  const { L, staff } = loginAll(g);
+  const plainI = idOf(g, L, staff, '이몽룡');
+  const boss = idOf(g, L, staff, '홍길동');
+  assert.strictEqual(call(g, 'focus.save', { year: 2026, month: 10, text: 'x' }, { login: L, identity: plainI }).code, 'FORBIDDEN');
+  call(g, 'focus.save', { year: 2026, month: 10, text: '안전 지도' }, { login: L, identity: boss });
+  call(g, 'focus.save', { year: 2026, month: 10, text: '안전 지도\n헬멧 쓰기' }, { login: L, identity: boss });
+  assert.strictEqual(call(g, 'sched.month', { year: 2026, month: 10 }, { login: L }).data.focus.text, '안전 지도\n헬멧 쓰기');
+  assert.strictEqual(g.liveRows_('월별중점').length, 1, '고치면 줄이 늘지 않음');
+  // 2027년 1월은 2026학년도
+  call(g, 'focus.save', { year: 2026, month: 1, text: '겨울방학 안전' }, { login: L, identity: boss });
+  assert.strictEqual(call(g, 'sched.month', { year: 2027, month: 1 }, { login: L }).data.focus.text, '겨울방학 안전');
+});
+
+test('홈: 기존 시트 바로가기와 이번 주 월요일을 준다', () => {
+  const g = fresh();
+  g.putSetting_('기존 시트 바로가기', JSON.stringify([{ name: '특별실 시간표', url: 'https://docs.google.com/x' }]), { id: '', name: '시험' });
+  const { L } = loginAll(g);
+  const h = call(g, 'home', {}, { login: L }).data;
+  assert.strictEqual(h.links[0].name, '특별실 시간표');
+  assert.strictEqual(g.weekday_(h.monday), 1);
+  assert.ok(h.monday <= h.today);
+});
+
+test('테스트용 가짜 일정: 빈 시트에만, 홈·달력에 보인다', () => {
+  const g = fresh();
+  assert.strictEqual(g.seedTestSchedule_(), 16);
+  assert.throws(() => g.seedTestSchedule_(), /이미 일정이/);
+  const { L } = loginAll(g);
+  const h = call(g, 'home', {}, { login: L }).data;
+  assert.ok(h.events.length >= 8);
+  assert.ok(h.focus.text.includes('헬멧'));
+});
+
+test('날짜 도구: 요일·월요일·말일', () => {
+  const g = loadGas();
+  assert.strictEqual(g.weekday_('2026-10-15'), 4);
+  assert.strictEqual(g.mondayOf_('2026-10-18'), '2026-10-12');
+  assert.strictEqual(g.mondayOf_('2026-10-12'), '2026-10-12');
+  assert.strictEqual(g.lastDayOfMonth_(2028, 2), '2028-02-29');
+  assert.strictEqual(g.addDays_('2026-12-31', 1), '2027-01-01');
+  assert.deepStrictEqual(plain(g.schoolYearRange_(2026)), { from: '2026-03-01', to: '2027-02-28' });
+});
+
 console.log(results.join('\n'));
 console.log('\n' + passed + '/' + results.length + ' 통과');
