@@ -2152,7 +2152,8 @@
       '<h2 class="guide-h">연구부장·부담당</h2>' +
       sec(6, '관리자 화면', [
         '<b>관리자</b> 메뉴에서 관리자 비밀번호를 넣어요. 2시간 동안 열려 있고 기기에 기억하지 않아요.',
-        '교직원 표: 전입·전출·휴직은 지우지 말고 "사용 안 함"으로 바꿔요. 역할 "관리"는 일정·조사·자료를 모두 고칠 수 있어요.',
+        '교직원 표: 전입·전출·휴직은 지우지 말고 "사용 안 함"으로 바꿔요.',
+        '다른 분의 일정·조사·자료를 고치거나 비공개 조사 결과를 볼 때, 학사일정을 올릴 때는 먼저 <b>관리자 화면</b>을 열어 두세요. 이름만 고르는 방식이라 관리자 비밀번호가 있어야 관리 일을 할 수 있어요.',
         '분류: 부서·자료 분류·도움말 분류 이름을 한곳에서 바꿔요.'
       ]) +
       sec(7, '학기 초에 할 일', [
@@ -2510,7 +2511,8 @@
   // ============================================================ 학사일정 한 번에 올리기 (연구부장·부담당)
   S.up = { input: 'file', res: null, filter: 'all', mode: 'skip', last: null, depts: [], year: '', pasteGrid: null, more: false, done: null };
 
-  function canManageMe() { return S.admin || (S.me && S.me.role === '관리'); }
+  /** 관리 권한: 관리자 화면이 열렸거나, '이름+개인 번호' 방식에서 역할 '관리'인 분(서버 canManage_와 같은 규칙) */
+  function canManageMe() { return S.admin || !!(S.me && S.me.role === '관리' && S.start && S.start.pinMode); }
 
   SCREENS.upload = function ($s) {
     $s.innerHTML = pageHead('관리 · 연구부장·부담당만 써요', '학사일정 한 번에 올리기', '목록 양식으로 올리면 달력·홈·월별 계획에 한 번에 들어가요.',
@@ -2518,7 +2520,7 @@
       '<div id="up-body" class="stack">' + loadingHtml('불러오는 중이에요') + '</div>';
     if (!canManageMe()) {
       qs('#up-body').innerHTML = '<section class="card" style="align-items:flex-start"><h2>연구부장·부담당만 쓸 수 있어요</h2>' +
-        '<p class="muted">역할이 \'관리\'인 분이 이름을 고르거나, 관리자 화면을 연 뒤에 쓸 수 있어요.</p>' +
+        '<p class="muted">관리자 비밀번호로 관리자 화면을 연 뒤에 쓸 수 있어요. 2시간 동안 열려 있어요.</p>' +
         '<button type="button" class="btn" data-go="admin">관리자 화면 열기</button></section>';
       return;
     }

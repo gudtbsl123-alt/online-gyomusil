@@ -81,10 +81,15 @@ function sortEvents_(list) {
 
 // ---------------------------------------------------------------- 권한
 
-/** 일정을 고치거나 지울 수 있는지: 처음 넣은 사람 / 역할 '관리' / 관리자 화면 열림 */
+/**
+ * 관리 권한(다른 분 것 고치기·지우기, 결과 보기, 학사일정 올리기 등)
+ * - 관리자 화면이 열린 기기(관리자 비밀번호)는 늘 관리
+ * - 역할 '관리'는 '이름+개인 번호' 방식일 때만 관리. '이름만' 방식에서는 누구나 그 이름을 고를 수 있어서
+ *   관리자 비밀번호 없이는 관리 권한을 주지 않는다(2026-10-15 교사 결정)
+ */
 function canManage_(ctx) {
   if (ctx.tokens && ctx.tokens.admin && checkAdmin_(ctx.tokens.admin)) return true;
-  return !!(ctx.identity && ctx.identity['역할'] === '관리');
+  return !!(ctx.identity && ctx.identity['역할'] === '관리' && pinMode_());
 }
 
 function canEditEvent_(e, ctx) {

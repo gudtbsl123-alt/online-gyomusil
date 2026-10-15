@@ -775,7 +775,9 @@ function sv(g, extra) {
 function ids(g) {
   const { L, staff } = loginAll(g);
   const who = (name) => ({ login: L, identity: call(g, 'verify', { staffId: staff.find((x) => x.name === name).id }, { login: L }).data.identity });
-  return { L, staff, who };
+  /** 이름만 방식에서 관리 일을 하려면 관리자 화면(관리자 비밀번호)이 열려 있어야 한다 */
+  const boss = (name) => Object.assign(who(name || '홍길동'), { admin: call(g, 'adminLogin', { password: ADMIN }, { login: L }).data.admin });
+  return { L, staff, who, boss };
 }
 
 test('조사 만들기 → 응답하면 제출 현황 숫자가 바로 바뀐다', () => {
@@ -879,13 +881,13 @@ test('다시 알리기: 안 낸 분 홈의 내가 할 일 맨 위에 올라간�
 
 test('결과 보기: 기본은 만든 사람·관리 역할만, 결과 공개를 켜면 대상 모두', () => {
   const g = freshName();
-  const { who } = ids(g);
+  const { who, boss } = ids(g);
   const closedId = call(g, 'survey.save', { fields: sv(g) }, who('이몽룡')).data.id;
   const other = call(g, 'survey.get', { id: closedId }, who('심청')).data;
   assert.strictEqual(other.canSeeResults, false);
   assert.strictEqual(other.responses, undefined, '남의 답이 나가면 안 됨');
   assert.strictEqual(call(g, 'survey.csv', { id: closedId }, who('심청')).code, 'FORBIDDEN');
-  assert.strictEqual(call(g, 'survey.get', { id: closedId }, who('홍길동')).data.canSeeResults, true, '관리 역할');
+  assert.strictEqual(call(g, 'survey.get', { id: closedId }, boss('홍길동')).data.canSeeResults, true, '관리 역할');
   const openId = call(g, 'survey.save', { fields: sv(g, { showResults: true }) }, who('이몽룡')).data.id;
   const seen = call(g, 'survey.get', { id: openId }, who('심청')).data;
   assert.strictEqual(seen.canSeeResults, true);
@@ -987,7 +989,7 @@ function libFields(g, extra) {
 
 test('자료: 누구나 넣고, 처음 넣은 분·관리만 고치고 지운다', () => {
   const g = freshName();
-  const { L, who } = ids(g);
+  const { L, who, boss } = ids(g);
   assert.strictEqual(call(g, 'lib.save', { fields: libFields(g) }, { login: L }).code, 'IDENTITY');
   const r = call(g, 'lib.save', { fields: libFields(g) }, who('심청'));
   assert.strictEqual(r.ok, true, r.error);
@@ -998,7 +1000,7 @@ test('자료: 누구나 넣고, 처음 넣은 분·관리만 고치고 지운다
   assert.strictEqual(it.canEdit, true);
   assert.strictEqual(call(g, 'lib.save', { id: it.id, fields: libFields(g, { '제목': '남이 고침' }) }, who('흥부')).code, 'FORBIDDEN');
   assert.strictEqual(call(g, 'lib.delete', { id: it.id }, who('흥부')).code, 'FORBIDDEN');
-  assert.strictEqual(call(g, 'lib.save', { id: it.id, fields: libFields(g, { '제목': '관리가 고침' }) }, who('홍길동')).ok, true, '역할 관리');
+  assert.strictEqual(call(g, 'lib.save', { id: it.id, fields: libFields(g, { '제목': '관리가 고침' }) }, boss('홍길동')).ok, true, '역할 관리');
   const list = call(g, 'lib.list', {}, who('흥부')).data;
   assert.strictEqual(list.items[0].title, '관리가 고침');
   assert.strictEqual(list.items[0].canEdit, false);
@@ -1060,10 +1062,10 @@ test('파일 크기 한도: 설정값(MB)을 넘으면 받지 않는다', () => 
 
 test('홈 자주 찾는 자료: 관리가 고른 것만, 일반 교직원의 표시는 무시', () => {
   const g = freshName();
-  const { who } = ids(g);
+  const { who, boss } = ids(g);
   const a = call(g, 'lib.save', { fields: libFields(g, { '제목': '가', home: true }) }, who('심청')).data;
   assert.strictEqual(a.home, false);
-  const b = call(g, 'lib.save', { fields: libFields(g, { '제목': '나', home: true }) }, who('홍길동')).data;
+  const b = call(g, 'lib.save', { fields: libFields(g, { '제목': '나', home: true }) }, boss('홍길동')).data;
   assert.strictEqual(b.home, true);
   const home = call(g, 'home', {}, who('심청')).data;
   assert.deepStrictEqual(plain(home.library.map((x) => x.title)), ['나']);
@@ -1138,11 +1140,11 @@ test('새 학년도 넘기기: 지난 자료는 보관함으로, 고른 자료�
 test('보관함에서 꺼내기: 관리만, 지금 학년도로 옮겨 적는다', () => {
   const g = freshName();
   const { t } = adminTokens(g);
-  const { who } = ids(g);
+  const { who, boss } = ids(g);
   const a = call(g, 'lib.save', { fields: libFields(g, { '제목': '작년 자료' }) }, who('심청')).data;
   call(g, 'admin.year.start', { year: '2027', keep: [] }, t);
   assert.strictEqual(call(g, 'lib.unarchive', { id: a.id }, who('심청')).code, 'FORBIDDEN');
-  const r = call(g, 'lib.unarchive', { id: a.id }, who('홍길동'));
+  const r = call(g, 'lib.unarchive', { id: a.id }, boss('홍길동'));
   assert.strictEqual(r.ok, true, r.error);
   assert.strictEqual(r.data.year, '2027');
   assert.strictEqual(r.data.archived, false);
@@ -1167,7 +1169,7 @@ test('자료·도움말 휴지통: 지운 것을 되살린다', () => {
 
 test('도움말: 누구나 쓰고, 처음 쓴 분·관리만 고친다. 파일도 붙인다', () => {
   const g = freshName();
-  const { L, who } = ids(g);
+  const { L, who, boss } = ids(g);
   const k = cats(g, '도움말 분류');
   assert.match(call(g, 'help.save', { fields: { '제목': '분류 없음', '내용': 'x' } }, who('심청')).error, /분류를/);
   assert.match(call(g, 'help.save', { fields: { '분류ID': k[0].id, '제목': '빈 글' } }, who('심청')).error, /내용을 적거나/);
@@ -1182,7 +1184,7 @@ test('도움말: 누구나 쓰고, 처음 쓴 분·관리만 고친다. 파일�
   const list = call(g, 'help.list', {}, { login: L }).data;
   assert.deepStrictEqual(plain(list.items.map((x) => x.title)), ['먼저 글', '나중 글', '학교 규칙'], '분류 순서 → 순서 → 제목');
   // 파일 빼기
-  const r = call(g, 'help.save', { id: h.data.id, fields: { '분류ID': k[1].id, '제목': '학교 규칙', '내용': '파일은 뺐어요', removeFile: true } }, who('홍길동'));
+  const r = call(g, 'help.save', { id: h.data.id, fields: { '분류ID': k[1].id, '제목': '학교 규칙', '내용': '파일은 뺐어요', removeFile: true } }, boss('홍길동'));
   assert.strictEqual(r.data.hasFile, false);
 });
 
@@ -1312,10 +1314,10 @@ test('올리기: 머리글을 찾아 줄을 읽고, 확인 필요·오류를 표
 
 test('올리기: 연구부장·부담당만, 머리글 없는 표는 양식 순서로 읽는다', () => {
   const g = freshName();
-  const { who } = ids(g);
+  const { who, boss } = ids(g);
   const grid = [['2026-11-02', '', '5교시', '동아리 발표회', '전체', '연구부', '강당', '행사', '', '']];
   assert.strictEqual(call(g, 'sched.upload.check', { grid }, who('심청')).code, 'FORBIDDEN');
-  const r = call(g, 'sched.upload.check', { grid }, who('홍길동')).data;
+  const r = call(g, 'sched.upload.check', { grid }, boss('홍길동')).data;
   assert.strictEqual(r.rows[0].title, '동아리 발표회');
   assert.strictEqual(r.rows[0].time, '5교시');
   assert.strictEqual(r.rows[0].status, 'ok');
@@ -1375,14 +1377,14 @@ test('올리기: 미리보기에서 뺀 줄은 올리지 않는다', () => {
 
 test('공지: 누구나 쓰고, 쓴 분·관리만 고치고, 고정은 관리만, 끝일이 지나면 홈에서 내려간다', () => {
   const g = freshName();
-  const { L, who } = ids(g);
+  const { L, who, boss } = ids(g);
   const today = g.todayYmd_();
   assert.strictEqual(call(g, 'notice.save', { fields: { '제목': 'x' } }, { login: L }).code, 'IDENTITY');
   const a = call(g, 'notice.save', { fields: { '제목': '체육대회 안내', '내용': '금요일 5교시', '게시 끝일': g.addDays_(today, 3), pinned: true } }, who('심청'));
   assert.strictEqual(a.ok, true, a.error);
   assert.strictEqual(a.data.pinned, false, '일반 교직원은 고정 못 함');
   assert.strictEqual(a.data.active, true);
-  const b = call(g, 'notice.save', { fields: { '제목': '연수 안내', pinned: true } }, who('홍길동')).data;
+  const b = call(g, 'notice.save', { fields: { '제목': '연수 안내', pinned: true } }, boss('홍길동')).data;
   assert.strictEqual(b.pinned, true);
   const old = call(g, 'notice.save', { fields: { '제목': '지난 안내', '게시 끝일': g.addDays_(today, -1) } }, who('심청')).data;
   assert.strictEqual(old.active, false);
@@ -1451,6 +1453,22 @@ test('머리글 없는 칸에 선생님이 적어 둔 글은 고칠 때 지워�
   sh.put(1, col, ''); // 머리글은 비어 있음
   call(g, 'sched.save', { id: e.id, fields: { start: '2026-11-03', title: '반 모임(고침)' } }, who('심청'));
   assert.strictEqual(sh.data[r][col - 1], '손으로 적은 메모');
+});
+
+test("관리 권한: 이름만 방식에서는 역할 '관리'라도 관리자 화면이 열려야 하고, 개인 번호 방식에서는 역할만으로 된다", () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const id = call(g, 'survey.save', { fields: sv(g) }, who('심청')).data.id;
+  assert.strictEqual(call(g, 'survey.get', { id }, who('홍길동')).data.canSeeResults, false, '이름만 고른 관리 역할은 결과 못 봄');
+  assert.strictEqual(call(g, 'survey.delete', { id }, who('홍길동')).code, 'FORBIDDEN');
+  assert.strictEqual(call(g, 'sched.upload.check', { grid: [] }, who('홍길동')).code, 'FORBIDDEN');
+  assert.strictEqual(call(g, 'survey.get', { id }, boss('홍길동')).data.canSeeResults, true, '관리자 화면을 열면 됨');
+  const p = fresh();
+  const pi = adminTokens(p);
+  const hong = call(p, 'verify', { staffId: pi.staff.find((x) => x.name === '홍길동').id, pin: '1111' }, { login: pi.L }).data.identity;
+  const sim = call(p, 'verify', { staffId: pi.staff.find((x) => x.name === '심청').id, pin: '1111' }, { login: pi.L }).data.identity;
+  const id2 = call(p, 'survey.save', { fields: sv(p) }, { login: pi.L, identity: sim }).data.id;
+  assert.strictEqual(call(p, 'survey.get', { id: id2 }, { login: pi.L, identity: hong }).data.canSeeResults, true, '개인 번호 방식에서는 역할만으로 관리');
 });
 
 console.log(results.join('\n'));

@@ -242,6 +242,13 @@ const SAMPLE_XLSX = process.env.SAMPLE_XLSX;
 const TEMPLATE_OUT = process.env.TEMPLATE_OUT;
 async function uploadFlow(page, kind) {
   const nav = (id) => page.evaluate((x) => window.__gy.go(x), id);
+  // 이름만 방식이라 역할 '관리'라도 관리자 화면을 열어야 학사일정 올리기 단추가 보인다
+  await nav('schedule');
+  if (await page.locator('[data-go=upload]').count()) problems.push(kind + ': 관리자 화면을 열기 전인데 학사일정 올리기 단추가 보임');
+  await nav('admin');
+  await page.fill('#admin-pw', 'admin1');
+  await page.click('#admin-form [type=submit]');
+  await page.locator('.srow').nth(3).waitFor();
   await nav('schedule');
   await page.locator('[data-go=upload]').click();
   await page.locator('.up-steps').waitFor();
@@ -294,6 +301,9 @@ async function uploadFlow(page, kind) {
   await page.locator('.up-table').waitFor();
   if ((await page.locator('#up-count').textContent()).trim() !== '2개') problems.push(kind + ': 붙여 넣은 표를 못 읽음');
   await shot(page, kind + '_학사일정_붙여넣기', true);
+  await nav('admin');
+  await page.click('[data-action=admin-out]');
+  await page.locator('#admin-form').waitFor();
 }
 
 /** 5단계: 공지 */
@@ -546,7 +556,7 @@ async function printCheck(browser) {
     await page.press('#home-q', 'Enter');
     await page.locator('.search-res').waitFor();
     await check(page, vp.width + ' 홈 검색');
-    for (const [scr, sel] of [['notice', '.notice-item'], ['upload', '.up-steps'], ['library', '.lib-card'], ['staff', '.dir-row:not(.head)'], ['help', '.help-item'], ['guide', '.guide-card']]) {
+    for (const [scr, sel] of [['notice', '.notice-item'], ['upload', '#up-body section, #up-body .up-steps'], ['library', '.lib-card'], ['staff', '.dir-row:not(.head)'], ['help', '.help-item'], ['guide', '.guide-card']]) {
       await page.evaluate((x) => window.__gy.go(x), scr);
       await page.locator(sel).first().waitFor();
       if (scr === 'help') await page.locator('.help-item summary').first().click();
