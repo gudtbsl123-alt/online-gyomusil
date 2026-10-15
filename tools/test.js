@@ -1059,6 +1059,35 @@ test('홈 자주 찾는 자료: 관리가 고른 것만, 일반 교직원의 표
   assert.deepStrictEqual(plain(home.library.map((x) => x.title)), ['나']);
 });
 
+test('공통 자료: 누구나 표시하고 순서 번호를 정한다. 새 학년도로 옮겨도 그대로', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const { who } = ids(g);
+  const me = who('심청');
+  const a = call(g, 'lib.save', { fields: libFields(g, { '제목': '가정통신문 양식', common: true, commonOrder: '2' }) }, me);
+  assert.strictEqual(a.ok, true, a.error);
+  assert.strictEqual(a.data.common, true, '일반 교직원도 공통 표시');
+  assert.strictEqual(a.data.commonOrder, '2');
+  assert.strictEqual(a.data.dept, '연구부', '담당 부서는 그대로');
+  assert.match(call(g, 'lib.save', { fields: libFields(g, { common: true, commonOrder: '첫째' }) }, me).error, /숫자로/);
+  const b = call(g, 'lib.save', { fields: libFields(g, { '제목': '그냥 자료', common: false, commonOrder: '1' }) }, me).data;
+  assert.strictEqual(b.common, false);
+  assert.strictEqual(b.commonOrder, '', '공통이 아니면 순서는 비움');
+  // 공통 표시를 빼면 순서도 비운다
+  const c = call(g, 'lib.save', { id: a.data.id, fields: libFields(g, { '제목': '가정통신문 양식', common: false }) }, me).data;
+  assert.strictEqual(c.common, false);
+  assert.strictEqual(g.findRow_('자료', a.data.id)['공통 순서'], '');
+  // 예전 화면처럼 공통 칸을 안 보내면 그대로 둔다
+  call(g, 'lib.save', { id: a.data.id, fields: libFields(g, { '제목': '가정통신문 양식', common: true, commonOrder: '1' }) }, me);
+  const kept = call(g, 'lib.save', { id: a.data.id, fields: libFields(g, { '제목': '가정통신문 양식(고침)' }) }, me).data;
+  assert.strictEqual(kept.common, true);
+  call(g, 'admin.year.start', { year: '2027', keep: [a.data.id] }, t);
+  const moved = call(g, 'lib.list', {}, me).data.items.filter((x) => !x.archived);
+  assert.strictEqual(moved.length, 1);
+  assert.strictEqual(moved[0].common, true);
+  assert.strictEqual(moved[0].commonOrder, '1');
+});
+
 test('새 학년도 넘기기: 지난 자료는 보관함으로, 고른 자료만 새 학년도로', () => {
   const g = freshName();
   const { t } = adminTokens(g);
@@ -1188,12 +1217,13 @@ test('홈 검색: 자료·일정·교직원·도움말·조사를 한 번에 찾
   assert.strictEqual(who('심청').login, L);
 });
 
-test('가짜 자료·도움말: 빈 시트에만, 파일 2개와 보관함 1개', () => {
+test('가짜 자료·도움말: 빈 시트에만, 파일 3개·공통 3개·보관함 1개', () => {
   const g = freshName();
   const n = g.seedTestLibrary_();
-  assert.strictEqual(n, 7);
+  assert.strictEqual(n, 10);
   const items = plain(g.apiLibList_({}, {}, { identity: null, tokens: {} }).items);
-  assert.strictEqual(items.filter((x) => x.hasFile).length, 2);
+  assert.strictEqual(items.filter((x) => x.hasFile).length, 3);
+  assert.deepStrictEqual(items.filter((x) => x.common).map((x) => x.commonOrder).sort(), ['1', '2', '3']);
   assert.strictEqual(items.filter((x) => x.archived).length, 1);
   assert.throws(() => g.seedTestLibrary_(), /이미 내용이/);
   const help = g.readRows_('도움말');

@@ -240,7 +240,7 @@ function menuSeedTestSurveys() {
 
 function menuSeedTestLibrary() {
   var ui = requireSheetUi_();
-  var ok = ui.alert('테스트용 가짜 자료·도움말', '테스트용 시트에서만 쓰세요. 가짜 자료 7개(파일 2개는 "온라인 교무실 자료" 드라이브 폴더에 만들어요)와 예시 도움말 3개를 넣어요.\n\n넣을까요?', ui.ButtonSet.YES_NO);
+  var ok = ui.alert('테스트용 가짜 자료·도움말', '테스트용 시트에서만 쓰세요. 가짜 자료 10개(공통 자료 3개, 파일 3개는 "온라인 교무실 자료" 드라이브 폴더에 만들어요)와 예시 도움말 3개를 넣어요.\n\n넣을까요?', ui.ButtonSet.YES_NO);
   if (ok !== ui.Button.YES) return;
   seedTestLibrary_();
   ui.alert('가짜 자료를 넣었어요', '웹앱의 자료실·도움말과 홈 검색창에서 확인해 보세요.', ui.ButtonSet.OK);

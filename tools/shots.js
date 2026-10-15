@@ -180,11 +180,18 @@ async function libraryFlow(page, kind) {
   await page.click('.modal [data-action=close-modal]');
   await page.locator('.lib-card').first().waitFor();
   await shot(page, kind + '_자료실', true);
+  const firstGroup = await page.locator('.lib-group').first().evaluate((el) => ({ common: el.classList.contains('common'), n: el.querySelectorAll('.lib-card').length, first: el.querySelector('.lib-title').textContent }));
+  if (!firstGroup.common || firstGroup.n !== 3 || firstGroup.first !== '가정통신문 양식(가짜)') problems.push(kind + ': 공통 자료가 맨 위에 순서대로 안 보임 ' + JSON.stringify(firstGroup));
+  await page.selectOption('#lib-dept', { label: '정보부' });
+  if ((await page.locator('.lib-group.common .lib-card').count()) !== 3) problems.push(kind + ': 부서로 거르면 공통 자료가 사라짐');
+  await page.selectOption('#lib-dept', '');
   // 파일 올리기
   await page.click('[data-action=lib-new]');
   await page.locator('#lib-form').waitFor();
   await page.fill('#lf-title', '학급 운영 계획 양식');
   await page.fill('#lf-desc', '새 학년 학급 운영 계획을 적는 양식이에요.');
+  await page.check('#lf-common');
+  await page.fill('#lf-corder', '4');
   await page.click('#lib-form [data-mode=file]');
   await page.setInputFiles('#lf-file', { name: '학급운영계획.hwp', mimeType: 'application/x-hwp', buffer: Buffer.from('가짜 한글 파일') });
   await shot(page, kind + '_자료_넣기');
