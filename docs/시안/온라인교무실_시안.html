@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>온라인 교무실 시안</title>
+<!-- 인천장도초 온라인 교무실 시안 · 2026-10-15 · 화면 속 이름·일정·숫자는 모두 예시입니다. -->
+<!-- 글꼴: Pretendard (SIL Open Font License 1.1, https://github.com/orioncactus/pretendard). 인터넷이 안 되면 기기 기본 글꼴로 보입니다. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard-dynamic-subset.css">
+<style>
+:root,:root[data-theme="light"]{--c-bg:#F2F4F6;--c-sub:#FFFFFF;--c-card:#FFFFFF;--c-card2:#F2F4F6;--c-pill:#F2F4F6;--c-line:#E5E8EB;--c-line2:#D1D6DB;--c-seg:#F2F4F6;--c-avatar:#E5E8EB;--c-t0:#191F28;--c-t1:#191F28;--c-t2:#4E5968;--c-t3:#606B78;--c-dot:#B0B8C1;--c-radio:#B0B8C1;--c-warnBg:#FFF4E5;--c-warnFg:#9A5200;--c-okBg:#E8F7EE;--c-okFg:#12784A;--c-red:#D92D20;--c-onAccent:#FFFFFF;--accent:#1B64DA;--accent-soft:rgba(27, 100, 218, 0.1);--accent-ring:rgba(27, 100, 218, 0.35);--accent-glow:rgba(27, 100, 218, 0.22);--hero-a:rgba(27, 100, 218, 0.14);--hero-b:rgba(27, 100, 218, 0.05);--scheme:light;--seg-light-bg:#FFFFFF;--seg-light-fg:#191F28;--seg-dark-bg:transparent;--seg-dark-fg:#606B78;--sun-display:none;--moon-display:block;--stage:#E5E8EB}
+:root[data-theme="dark"]{--c-bg:#0F1115;--c-sub:#15171C;--c-card:#1A1D24;--c-card2:#1F222A;--c-pill:#21232A;--c-line:#21232A;--c-line2:#2C2F37;--c-seg:#2C2F37;--c-avatar:#2C2F37;--c-t0:#F9FAFB;--c-t1:#F2F4F6;--c-t2:#B0B8C1;--c-t3:#8B95A1;--c-dot:#8B95A1;--c-radio:#4E5968;--c-warnBg:#2E1F00;--c-warnFg:#FFB547;--c-okBg:#0F2E1C;--c-okFg:#4ADE80;--c-red:#FF6B6B;--c-onAccent:#0F1115;--accent:#4795FF;--accent-soft:rgba(71, 149, 255, 0.14);--accent-ring:rgba(71, 149, 255, 0.32);--accent-glow:rgba(71, 149, 255, 0.18);--hero-a:rgba(71, 149, 255, 0.32);--hero-b:rgba(71, 149, 255, 0.14);--scheme:dark;--seg-light-bg:transparent;--seg-light-fg:#8B95A1;--seg-dark-bg:#2C2F37;--seg-dark-fg:#F2F4F6;--sun-display:block;--moon-display:none;--stage:#08090B}
+html{background:var(--c-bg)}
+body{margin:0;word-break:keep-all;background:var(--c-bg);color:var(--c-t1);font-family:Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+input::placeholder,textarea::placeholder{color:currentColor;opacity:.7}
+button,input,select,textarea{font-family:inherit;letter-spacing:inherit}
+.screen[hidden]{display:none!important}
+.screen[data-kind="mobile"]{display:flex;flex-direction:column;align-items:center;gap:12px;min-height:100vh;box-sizing:border-box;padding:20px 16px 48px;background:var(--stage)}
+.stage-bar{width:390px;max-width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;font:600 14px/1.4 Pretendard,-apple-system,'Malgun Gothic',sans-serif;color:var(--c-t2)}
+.stage-link{display:inline-flex;align-items:center;gap:4px;min-height:40px;font-weight:700;color:var(--c-t1);text-decoration:none}
+@media (max-width:440px){.screen[data-kind="mobile"]{padding:0 0 0;gap:0;background:var(--c-bg)}.stage-bar{width:100%;box-sizing:border-box;padding:0 16px;background:var(--c-sub);border-bottom:1px solid var(--c-line)}.screen[data-kind="mobile"]>.print-root{width:100%!important;height:calc(100vh - 41px)!important;height:calc(100dvh - 41px)!important;border-radius:0!important;box-shadow:none!important}}
+.screen[data-kind="mobile"]>.print-root{border-radius:28px;box-shadow:0 0 0 1px var(--c-line2),0 24px 60px rgba(0,0,0,.18);max-width:100%}
+.screen-nav{position:fixed;right:16px;bottom:16px;z-index:50;display:inline-flex;align-items:center;gap:6px;min-height:44px;box-sizing:border-box;padding:0 16px;border-radius:9999px;background:var(--c-t1);color:var(--c-bg);font:700 14px/1 Pretendard,-apple-system,'Malgun Gothic',sans-serif;text-decoration:none;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.screen-nav[hidden]{display:none}
+.toast{position:fixed;left:50%;bottom:76px;z-index:60;transform:translateX(-50%);max-width:calc(100% - 32px);box-sizing:border-box;padding:12px 16px;border-radius:12px;background:var(--c-t1);color:var(--c-bg);font:600 14px/1.4 Pretendard,-apple-system,'Malgun Gothic',sans-serif;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+.ix{max-width:1080px;margin:0 auto;box-sizing:border-box;padding:48px 24px 96px;font-family:Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;letter-spacing:-0.02em;line-height:1.5}
+.ix-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px}
+.ix-kicker{margin:0;font-size:15px;font-weight:700;color:var(--accent)}
+.ix h1{margin:4px 0 0;font-size:36px;line-height:1.2;font-weight:800;letter-spacing:-0.03em}
+.ix-lead{margin:8px 0 0;font-size:17px;color:var(--c-t2)}
+.ix-theme{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--c-card2);border:1px solid var(--c-line)}
+.ix-theme button{min-height:40px;padding:0 16px;border:0;border-radius:9px;background:transparent;color:var(--c-t3);font-size:15px;font-weight:700;cursor:pointer}
+.ix-theme button[aria-pressed="true"]{background:var(--c-card);color:var(--c-t1);box-shadow:0 0 0 1px var(--c-line)}
+.ix-tips{margin:24px 0 8px;padding:16px 20px 16px 36px;border-radius:16px;background:var(--c-sub);border:1px solid var(--c-line);color:var(--c-t2);font-size:15px}
+.ix-tips li+li{margin-top:4px}
+.ix-group{margin-top:28px}
+.ix-group h2{margin:0 0 12px;font-size:20px;font-weight:800}
+.ix-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.ix-card{display:flex;flex-direction:column;gap:6px;min-height:132px;box-sizing:border-box;padding:18px;border-radius:16px;background:var(--c-card);border:1px solid var(--c-line);color:var(--c-t1);text-decoration:none}
+.ix-card:hover,.ix-card:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);outline:none}
+.ix-dev{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--c-t3)}
+.ix-title{font-size:18px;font-weight:800}
+.ix-desc{font-size:14px;color:var(--c-t2)}
+.ix-foot{margin:32px 0 0;font-size:13px;color:var(--c-t3)}
+@media print{.print-root{background:#FFFFFF!important;min-height:0!important}.print-root *{color:#191F28!important;background-color:transparent!important;border-color:#D1D6DB!important;box-shadow:none!important}.print-root .print-keep{background-color:#606B78!important}.print-hide,.screen-nav,.toast,.stage-bar{display:none!important}.screen[data-kind="mobile"]{background:#FFFFFF!important;padding:0!important}.screen[data-kind="mobile"]>.print-root{box-shadow:none!important;border-radius:0!important}}
+</style>
+</head>
+<body>
+<section class="screen" id="index" data-kind="index" data-title="화면 목록" hidden>
+<div class="ix">
+<header class="ix-head">
+<div>
+<p class="ix-kicker">인천장도초 · 온라인 교무실</p>
+<h1>온라인 교무실 시안</h1>
+<p class="ix-lead">화면 8장을 눌러 보며 확인하는 시안이에요. 화면 속 이름·일정·숫자는 모두 예시예요.</p>
+</div>
+<div role="group" aria-label="화면 밝기" class="ix-theme">
+<button type="button" data-action="theme-light" data-pressed-when="light" aria-pressed="true">밝게</button>
+<button type="button" data-action="theme-dark" data-pressed-when="dark" aria-pressed="false">어둡게</button>
+</div>
+</header>
+<ul class="ix-tips">
+<li>카드를 누르면 화면이 열려요. 화면 안의 메뉴와 버튼으로 다른 화면으로 이동할 수 있어요.</li>
+<li>오른쪽 아래 ‘화면 목록’을 누르면 여기로 돌아와요. 아직 연결되지 않은 메뉴는 눌러도 머물러요.</li>
+<li>인쇄하면 흰 바탕에 메뉴 없이 나와요.</li>
+</ul>
+<section class="ix-group" aria-label="홈"><h2>홈</h2><div class="ix-grid"><a class="ix-card" href="#Main"><span class="ix-dev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16.5V20"></path></svg>PC</span><span class="ix-title">홈</span><span class="ix-desc">오늘 일정, 내가 할 일, 이번 주 일정, 공지와 자주 찾는 자료를 한 화면에서 봐요.</span></a><a class="ix-card" href="#MobileHome"><span class="ix-dev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg>휴대폰</span><span class="ix-title">홈</span><span class="ix-desc">휴대폰에서 오늘 일정과 낼 조사를 바로 확인해요.</span></a></div></section><section class="ix-group" aria-label="일정"><h2>일정</h2><div class="ix-grid"><a class="ix-card" href="#Schedule"><span class="ix-dev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16.5V20"></path></svg>PC</span><span class="ix-title">일정</span><span class="ix-desc">월별 달력과 행사 추가. 한 번 입력하면 학사일정과 월별 계획에 함께 들어가요.</span></a><a class="ix-card" href="#MobileSchedule"><span class="ix-dev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg>휴대폰</span><span class="ix-title">일정</span><span class="ix-desc">이번 주 일정을 요일별로 보고, 휴대폰에서도 행사를 추가해요.</span></a><a class="ix-card" href="#ScheduleUpload"><span class="ix-dev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16.5V20"></path></svg>PC</span><span class="ix-title">학사일정 엑셀로 올리기</span><span class="ix-desc">관리 화면. 목록 양식 엑셀을 올리고 미리보기로 확인한 뒤 한 번에 반영해요.</span></a></div></section><section class="ix-group" aria-label="조사·신청"><h2>조사·신청</h2><div class="ix-grid"><a class="ix-card" href="#SurveyRespond"><span class="ix-dev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16.5V20"></path></svg>PC</span><span class="ix-title">조사 응답</span><span class="ix-desc">낼 조사 목록과 응답 화면. 이름과 개인 번호 4자리로 본인 확인을 해요.</span></a><a class="ix-card" href="#MobileSurvey"><span class="ix-dev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"></rect><path d="M11 18.5h2"></path></svg>휴대폰</span><span class="ix-title">조사 응답</span><span class="ix-desc">휴대폰에서 이름과 개인 번호로 확인하고 바로 응답해요.</span></a><a class="ix-card" href="#Survey"><span class="ix-dev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16.5V20"></path></svg>PC</span><span class="ix-title">내가 만든 조사</span><span class="ix-desc">만든 조사의 제출 현황, 안 낸 분 다시 알리기, 메신저 안내 문구 복사.</span></a></div></section>
+<p class="ix-foot">2026년 10월 15일 기준 시안 · 실제 교직원·학생 정보는 넣지 않았어요.</p>
+</div>
+</section>
+<section class="screen" id="Main" data-kind="pc" data-title="홈 (PC)" hidden>
+<div class="print-root" style="box-sizing: border-box; min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--c-bg); color: var(--c-t1); font-family: Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 17px; line-height: 1.5; letter-spacing: -0.02em">
+<nav aria-label="주 메뉴" class="print-hide" style="flex: 1 1 248px; box-sizing: border-box; padding: 28px 16px 24px; background: var(--c-sub); border-right: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 28px">
+<a href="#Main" style="display: flex; align-items: center; gap: 12px; padding: 0 8px; color: var(--c-t1); text-decoration: none">
+<span style="width: 40px; height: 40px; flex: none; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5c2.5-1 5-1 8 1 3-2 5.5-2 8-1V18c-2.5-1-5-1-8 1-3-2-5.5-2-8-1z"></path><path d="M12 7.5V19"></path></svg></span>
+<span style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">인천장도초등학교</span><span style="font-size: 18px; font-weight: 800; letter-spacing: -0.03em">온라인 교무실</span></span>
+</a>
+<div style="display: flex; flex-wrap: wrap; gap: 4px">
+<a href="#Main" aria-current="page" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; background: var(--c-card2); color: var(--c-t1); font-size: 17px; font-weight: 700; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent)"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"></path></svg>홈</a>
+<a href="#Schedule" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16"></path></svg>일정</a>
+<a href="#SurveyRespond" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 3.5h6v3H9zM9 13l2 2 4-4"></path></svg>조사·신청<span style="margin-left: auto; min-width: 24px; height: 24px; box-sizing: border-box; padding: 0 8px; border-radius: 9999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 800; display: grid; place-items: center">2</span></a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path></svg>자료실</a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="9" r="3"></circle><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 6.5a3 3 0 0 1 0 6M17.5 19a4.5 4.5 0 0 0-2.5-4"></path></svg>교직원</a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4M12 16.8v.2"></path></svg>도움말</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding-top: 20px; border-top: 1px solid var(--c-line)">
+<span style="padding: 0 14px; font-size: 13px; font-weight: 700; color: var(--c-t3)">관리 · 연구부장·부담당</span>
+<a href="#" style="box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>관리자</a>
+<a href="#" style="box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 15px; font-weight: 600; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M14 3v5h5M9 13h6M9 17h4"></path></svg>운영 안내서</a>
+</div>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 12px">
+<div role="group" aria-label="화면 밝기" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--c-card2); border: 1px solid var(--c-line)">
+<button type="button" aria-pressed="true" data-pressed-when="light" data-action="theme-light" style="flex: 1 1 0; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 9px; background: var(--seg-light-bg); color: var(--seg-light-fg); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg>밝게</button>
+<button type="button" aria-pressed="false" data-pressed-when="dark" data-action="theme-dark" style="flex: 1 1 0; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 9px; background: var(--seg-dark-bg); color: var(--seg-dark-fg); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg>어둡게</button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span aria-hidden="true" style="width: 40px; height: 40px; flex: none; border-radius: 50%; background: var(--c-avatar); color: var(--c-t1); display: grid; place-items: center; font-size: 16px; font-weight: 800">홍</span>
+<span style="display: flex; flex-direction: column; min-width: 0; line-height: 1.4"><span style="font-size: 16px; font-weight: 700">홍길동 선생님</span><span style="font-size: 14px; color: var(--c-t3)">3학년 1반 · <a href="#" aria-label="다른 선생님으로 바꾸기" style="color: var(--c-t2); font-weight: 600">바꾸기</a></span><span style="display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: var(--c-okFg)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>본인 확인됨</span></span>
+</div>
+</div>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 36px 40px 56px">
+<div style="max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px">
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 15px; font-weight: 600; color: var(--c-t3)">10월 12일 월요일</p>
+<h1 style="margin: 0; font-size: 32px; line-height: 1.2; font-weight: 800; letter-spacing: -0.03em">홍길동 선생님, 오늘도 반가워요</h1>
+</div>
+<div class="print-hide" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<label for="Main-home-search" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap">일정·자료·선생님 검색</label>
+<div style="width: 340px; max-width: 100%; height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 16px; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; color: var(--c-t3)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+<input id="Main-home-search" type="search" placeholder="일정·자료·선생님 찾기" style="flex: 1 1 auto; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; color: var(--c-t1); font-size: 16px">
+</div>
+<button type="button" style="height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 4px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-t2); font-size: 15px; font-weight: 700; cursor: pointer"><span aria-hidden="true" style="font-size: 13px">가</span><span aria-hidden="true" style="font-size: 19px; margin-right: 4px">가</span>글자 크게</button>
+<button type="button" aria-label="알림 2개" style="position: relative; width: 48px; height: 48px; box-sizing: border-box; display: grid; place-items: center; border-radius: 12px; border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-t2); cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"></path><path d="M10 20.5a2 2 0 0 0 4 0"></path></svg><span aria-hidden="true" style="position: absolute; top: 11px; right: 12px; width: 8px; height: 8px; border-radius: 50%; background: var(--c-red)"></span></button>
+</div>
+</header>
+<section aria-label="처음 쓰는 분을 위한 안내" class="print-hide" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 16px 20px; background: var(--c-sub); border: 1px solid var(--c-line); border-radius: 14px">
+<p style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent); flex: none"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 11v5M12 8v.2"></path></svg>처음이세요? 세 가지만 알면 돼요</p>
+<ol style="flex: 1 1 480px; margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px">
+<li style="padding: 6px 12px; border-radius: 9999px; background: var(--c-pill); color: var(--c-t2); font-size: 15px; font-weight: 600">① 오늘 일정은 여기 홈에서</li>
+<li style="padding: 6px 12px; border-radius: 9999px; background: var(--c-pill); color: var(--c-t2); font-size: 15px; font-weight: 600">② 낼 조사는 ‘내가 할 일’에서</li>
+<li style="padding: 6px 12px; border-radius: 9999px; background: var(--c-pill); color: var(--c-t2); font-size: 15px; font-weight: 600">③ 자료는 위 검색창에서</li>
+</ol>
+<div style="display: flex; align-items: center; gap: 4px">
+<button type="button" style="height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: var(--accent); font-size: 15px; font-weight: 700; cursor: pointer">운영 안내서 보기</button>
+<button type="button" aria-label="안내 닫기" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--c-t3); cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+</section>
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<section aria-labelledby="Main-today-title" style="flex: 2 1 560px; min-width: 0; position: relative; overflow: hidden; box-sizing: border-box; padding: 28px; border-radius: 20px; background: var(--c-sub); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 20px">
+<div aria-hidden="true" class="print-hide" style="position: absolute; right: -90px; top: -110px; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(circle, var(--hero-a) 0%, var(--hero-b) 40%, transparent 70%); pointer-events: none"></div>
+<div style="position: relative; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px">
+<div>
+<h2 id="Main-today-title" style="margin: 0; font-size: 17px; font-weight: 700; color: var(--c-t2)">오늘 학교 일정</h2>
+<p style="margin: 6px 0 0; font-size: 44px; line-height: 1.1; font-weight: 800; letter-spacing: -0.04em; color: var(--c-t0)">3개 있어요</p>
+</div>
+<a href="#Schedule" style="display: inline-flex; align-items: center; gap: 6px; min-height: 48px; box-sizing: border-box; padding: 0 16px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line2); color: var(--c-t1); font-size: 16px; font-weight: 700; text-decoration: none">이번 주 전체 보기<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+</div>
+<ul style="position: relative; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px">
+<li style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 14px 18px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span style="flex: none; width: 64px; font-size: 16px; font-weight: 800; color: var(--accent)">08:40</span>
+<span style="flex: 1 1 200px; min-width: 0; font-size: 17px; font-weight: 700">교직원 협의회</span>
+<span style="flex: none; font-size: 15px; color: var(--c-t3)">교무실 · 교무부</span>
+</li>
+<li style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 14px 18px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span style="flex: none; width: 64px; font-size: 16px; font-weight: 800; color: var(--accent)">5교시</span>
+<span style="flex: 1 1 200px; min-width: 0; font-size: 17px; font-weight: 700">안전점검의 날 대피 훈련</span>
+<span style="flex: none; font-size: 15px; color: var(--c-t3)">운동장 · 인성안전부</span>
+</li>
+<li style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 14px 18px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span style="flex: none; width: 64px; font-size: 16px; font-weight: 800; color: var(--accent)">15:00</span>
+<span style="flex: 1 1 200px; min-width: 0; font-size: 17px; font-weight: 700">학년별 교육과정 협의</span>
+<span style="flex: none; font-size: 15px; color: var(--c-t3)">학년 협의실 · 연구부</span>
+</li>
+</ul>
+<div style="position: relative; margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding-top: 16px; border-top: 1px solid var(--c-line); font-size: 15px; color: var(--c-t3)">
+<span style="font-weight: 700; color: var(--c-t2)">내일 미리 보기</span>
+<span>3·4학년 현장체험학습(종일)</span>
+<span aria-hidden="true">·</span>
+<span>동료장학 참관 신청 마감 17:00</span>
+</div>
+</section>
+<section aria-labelledby="Main-todo-title" style="flex: 1 1 320px; min-width: 0; box-sizing: border-box; padding: 24px; border-radius: 20px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<h2 id="Main-todo-title" style="margin: 0; font-size: 20px; font-weight: 800">내가 할 일 <span style="color: var(--accent)">2</span></h2>
+<a href="#SurveyRespond" style="font-size: 15px; font-weight: 600; color: var(--c-t3); text-decoration: none">전체 보기</a>
+</div>
+<article style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 14px; background: var(--c-card2)">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="padding: 3px 10px; border-radius: 9999px; background: var(--c-warnBg); color: var(--c-warnFg); font-size: 13px; font-weight: 700">내일 마감</span>
+<span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">연구부</span>
+</div>
+<h3 style="margin: 0; font-size: 18px; line-height: 1.4; font-weight: 800">2학기 동료장학 참관 신청</h3>
+<p style="margin: 0; font-size: 15px; color: var(--c-t2)">질문 1개</p>
+<a href="#SurveyRespond" style="margin-top: 4px; min-height: 52px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 18px; border-radius: 12px; background: var(--accent); color: var(--c-onAccent); font-size: 17px; font-weight: 800; text-decoration: none; box-shadow: 0 0 0 1px var(--accent-ring), 0 16px 32px var(--accent-glow)">지금 응답하기</a>
+</article>
+<article style="display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-radius: 14px; background: var(--c-sub); border: 1px solid var(--c-line)">
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="padding: 2px 10px; border-radius: 9999px; border: 1px solid var(--c-line2); color: var(--c-t2); font-size: 13px; font-weight: 700">5일 남음</span>
+<span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">정보부</span>
+</div>
+<h3 style="margin: 0; font-size: 17px; line-height: 1.4; font-weight: 700">고장 난 태블릿 신고</h3>
+</div>
+<a href="#SurveyRespond" style="flex: none; min-height: 44px; box-sizing: border-box; display: flex; align-items: center; padding: 0 14px; border-radius: 12px; background: var(--c-card2); border: 1px solid var(--c-line2); color: var(--c-t1); font-size: 15px; font-weight: 700; text-decoration: none">응답하기</a>
+</article>
+<p style="margin: 0; font-size: 14px; color: var(--c-t3)">끝낸 일 3개는 ‘조사·신청’에서 다시 볼 수 있어요</p>
+</section>
+</div>
+<section aria-labelledby="Main-week-title" style="box-sizing: border-box; padding: 24px; border-radius: 20px; background: var(--c-sub); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; align-items: baseline; gap: 12px">
+<h2 id="Main-week-title" style="margin: 0; font-size: 22px; font-weight: 800">이번 주 일정</h2>
+<span style="font-size: 15px; font-weight: 600; color: var(--c-t3)">10월 12일 – 16일</span>
+</div>
+<div role="group" aria-label="보기 범위" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line)">
+<button type="button" aria-pressed="true" style="min-height: 40px; padding: 0 14px; border: 0; border-radius: 9px; background: var(--c-seg); color: var(--c-t1); font-size: 15px; font-weight: 700; cursor: pointer">전체</button>
+<button type="button" aria-pressed="false" style="min-height: 40px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: var(--c-t3); font-size: 15px; font-weight: 600; cursor: pointer">우리 학년</button>
+<button type="button" aria-pressed="false" style="min-height: 40px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: var(--c-t3); font-size: 15px; font-weight: 600; cursor: pointer">내 담당</button>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<div style="flex: 1 1 180px; min-width: 0; box-sizing: border-box; min-height: 220px; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--accent-ring)">
+<div style="display: flex; align-items: center; justify-content: space-between"><span style="font-size: 15px; font-weight: 800; color: var(--c-t1)">월 12</span><span style="padding: 2px 8px; border-radius: 9999px; background: var(--accent); color: var(--c-onAccent); font-size: 12px; font-weight: 800">오늘</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700; line-height: 1.35">교직원 협의회</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">08:40 · 교무부</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700; line-height: 1.35">안전점검의 날 대피 훈련</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">5교시 · 인성안전부</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700; line-height: 1.35">학년별 교육과정 협의</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">15:00 · 연구부</span></div>
+</div>
+<div style="flex: 1 1 180px; min-width: 0; box-sizing: border-box; min-height: 220px; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">화 13</span>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700; line-height: 1.35">3·4학년 현장체험학습</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">종일 · 3·4학년</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700; line-height: 1.35">동료장학 참관 신청 마감</span><span style="font-size: 13px; font-weight: 600; color: var(--c-warnFg)">17:00 · 연구부</span></div>
+</div>
+<div style="flex: 1 1 180px; min-width: 0; box-sizing: border-box; min-height: 220px; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">수 14</span>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700; line-height: 1.35">동료장학 수업 공개</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">5교시 · 연구부</span></div>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700; line-height: 1.35">체육대회 참가 신청 마감</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">17:00 · 체육부</span></div>
+</div>
+<div style="flex: 1 1 180px; min-width: 0; box-sizing: border-box; min-height: 220px; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">목 15</span>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700; line-height: 1.35">학교운영위원회</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">16:00 · 행정실</span></div>
+</div>
+<div style="flex: 1 1 180px; min-width: 0; box-sizing: border-box; min-height: 220px; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">금 16</span>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700; line-height: 1.35">교직원 체육대회</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">15:00 · 체육부</span></div>
+</div>
+</div>
+</section>
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<section aria-labelledby="Main-notice-title" style="flex: 2 1 560px; min-width: 0; box-sizing: border-box; padding: 24px; border-radius: 20px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px">
+<div style="display: flex; align-items: baseline; gap: 10px"><h2 id="Main-notice-title" style="margin: 0; font-size: 22px; font-weight: 800">공지</h2><span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">연구부장·부담당이 올려요</span></div>
+<a href="#" style="font-size: 15px; font-weight: 600; color: var(--c-t3); text-decoration: none">전체 보기</a>
+</div>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column">
+<li style="display: flex; align-items: center; gap: 14px; padding: 14px 4px; border-bottom: 1px solid var(--c-line)">
+<span style="flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--accent)"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap">안 읽음</span></span>
+<span style="flex: none; padding: 3px 10px; border-radius: 9999px; background: var(--c-pill); color: var(--c-t2); font-size: 13px; font-weight: 700">인성안전</span>
+<a href="#" style="flex: 1 1 auto; min-width: 0; color: var(--c-t1); font-size: 17px; font-weight: 700; text-decoration: none">학교폭력 예방교육이 10월 22일(목)로 바뀌었어요</a>
+<span style="flex: none; font-size: 14px; color: var(--c-t3)">오늘</span>
+</li>
+<li style="display: flex; align-items: center; gap: 14px; padding: 14px 4px; border-bottom: 1px solid var(--c-line)">
+<span style="flex: none; width: 8px; height: 8px; border-radius: 50%; background: transparent"></span>
+<span style="flex: none; padding: 3px 10px; border-radius: 9999px; background: var(--c-pill); color: var(--c-t2); font-size: 13px; font-weight: 700">정보</span>
+<a href="#" style="flex: 1 1 auto; min-width: 0; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none">태블릿 충전보관함을 15일까지 점검해요</a>
+<span style="flex: none; font-size: 14px; color: var(--c-t3)">어제</span>
+</li>
+<li style="display: flex; align-items: center; gap: 14px; padding: 14px 4px">
+<span style="flex: none; width: 8px; height: 8px; border-radius: 50%; background: transparent"></span>
+<span style="flex: none; padding: 3px 10px; border-radius: 9999px; background: var(--c-pill); color: var(--c-t2); font-size: 13px; font-weight: 700">연구</span>
+<a href="#" style="flex: 1 1 auto; min-width: 0; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none">법정 연수 이수 기록은 12월까지 입력해 주세요</a>
+<span style="flex: none; font-size: 14px; color: var(--c-t3)">10월 8일</span>
+</li>
+</ul>
+</section>
+<section aria-labelledby="Main-quick-title" style="flex: 1 1 320px; min-width: 0; box-sizing: border-box; padding: 24px; border-radius: 20px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+<h2 id="Main-quick-title" style="margin: 0; font-size: 22px; font-weight: 800">자주 찾는 자료</h2>
+<a href="#" style="font-size: 15px; font-weight: 600; color: var(--c-t3); text-decoration: none">자료실 가기</a>
+</div>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column">
+<li style="border-bottom: 1px solid var(--c-line)"><a href="#" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; color: var(--c-t1); font-size: 16px; font-weight: 600; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--c-t3); flex: none"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M14 3v5h5"></path></svg><span style="flex: 1 1 auto">방학 근무 상신하는 법</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--c-t3); flex: none"><path d="m9 6 6 6-6 6"></path></svg></a></li>
+<li style="border-bottom: 1px solid var(--c-line)"><a href="#" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; color: var(--c-t1); font-size: 16px; font-weight: 600; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--c-t3); flex: none"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M14 3v5h5"></path></svg><span style="flex: 1 1 auto">공무외 국외여행 처리 방법</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--c-t3); flex: none"><path d="m9 6 6 6-6 6"></path></svg></a></li>
+<li style="border-bottom: 1px solid var(--c-line)"><a href="#" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; color: var(--c-t1); font-size: 16px; font-weight: 600; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--c-t3); flex: none"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M14 3v5h5"></path></svg><span style="flex: 1 1 auto">학교 규칙·제규정</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--c-t3); flex: none"><path d="m9 6 6 6-6 6"></path></svg></a></li>
+<li><a href="#" style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; color: var(--c-t1); font-size: 16px; font-weight: 600; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--c-t3); flex: none"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="M4 10h16M10 4v16"></path></svg><span style="flex: 1 1 auto">기존 협의회 시트 바로가기</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--c-t3); flex: none"><path d="m9 6 6 6-6 6"></path></svg></a></li>
+</ul>
+</section>
+</div>
+<section aria-labelledby="Main-legacy-title" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 20px 24px; border-radius: 20px; background: var(--c-sub); border: 1px dashed var(--c-line2)">
+<div style="flex: 1 1 280px; display: flex; flex-direction: column; gap: 4px">
+<h2 id="Main-legacy-title" style="margin: 0; font-size: 19px; font-weight: 800">아직 기존 시트에서 하는 일</h2>
+<p style="margin: 0; font-size: 15px; color: var(--c-t3)">2차에 온라인 교무실로 옮겨 와요. 그 전까지는 바로가기로 들어가세요.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<a href="#" style="min-height: 44px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-t1); font-size: 15px; font-weight: 700; text-decoration: none">특별실 시간표<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--c-t3)"><path d="M14 5h5v5M19 5l-8 8"></path><path d="M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"></path></svg></a>
+<a href="#" style="min-height: 44px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-t1); font-size: 15px; font-weight: 700; text-decoration: none">방학 근무<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--c-t3)"><path d="M14 5h5v5M19 5l-8 8"></path><path d="M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"></path></svg></a>
+<a href="#" style="min-height: 44px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-t1); font-size: 15px; font-weight: 700; text-decoration: none">연수 이수 확인<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--c-t3)"><path d="M14 5h5v5M19 5l-8 8"></path><path d="M18 14v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4"></path></svg></a>
+</div>
+</section>
+</div>
+</main>
+</div>
+</section>
+<section class="screen" id="MobileHome" data-kind="mobile" data-title="홈 (휴대폰)" hidden>
+<div class="stage-bar"><a href="#index" class="stage-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg>화면 목록</a><span class="stage-name">홈 · 휴대폰</span></div>
+<div class="print-root" style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: var(--c-bg); color: var(--c-t1); font-family: Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 16px; line-height: 1.5; letter-spacing: -0.02em">
+<header style="flex: none; height: 60px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 0 12px 0 20px">
+<span style="width: 32px; height: 32px; flex: none; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5c2.5-1 5-1 8 1 3-2 5.5-2 8-1V18c-2.5-1-5-1-8 1-3-2-5.5-2-8-1z"></path><path d="M12 7.5V19"></path></svg></span>
+<span style="font-size: 17px; font-weight: 800; letter-spacing: -0.03em">온라인 교무실</span>
+<button type="button" class="print-hide" aria-label="어두운 화면으로 바꾸기" data-theme-label data-action="theme-toggle" style="margin-left: auto; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 12px; background: transparent; color: var(--c-t2); cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: var(--sun-display)"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: var(--moon-display)"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg></button>
+<button type="button" aria-label="검색" style="width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 12px; background: transparent; color: var(--c-t2); cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg></button>
+<button type="button" aria-label="알림 2개" style="position: relative; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 12px; background: transparent; color: var(--c-t2); cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"></path><path d="M10 20.5a2 2 0 0 0 4 0"></path></svg><span aria-hidden="true" style="position: absolute; top: 10px; right: 11px; width: 7px; height: 7px; border-radius: 50%; background: var(--c-red)"></span></button>
+</header>
+<main style="flex: 1 1 auto; min-height: 0; overflow-y: auto; box-sizing: border-box; padding: 4px 16px 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="flex: none; display: flex; flex-direction: column; gap: 2px; padding: 0 4px">
+<p style="margin: 0; font-size: 14px; font-weight: 600; color: var(--c-t3)">10월 12일 월요일</p>
+<h1 style="margin: 0; font-size: 22px; line-height: 1.3; font-weight: 800; letter-spacing: -0.03em">홍길동 선생님, 반가워요</h1>
+</div>
+<section aria-labelledby="MobileHome-m-today" style="flex: none; position: relative; overflow: hidden; box-sizing: border-box; padding: 20px; border-radius: 20px; background: var(--c-sub); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 12px">
+<div aria-hidden="true" style="position: absolute; right: -80px; top: -90px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, var(--hero-a) 0%, var(--hero-b) 40%, transparent 70%); pointer-events: none"></div>
+<div style="position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 8px">
+<div>
+<h2 id="MobileHome-m-today" style="margin: 0; font-size: 15px; font-weight: 700; color: var(--c-t2)">오늘 학교 일정</h2>
+<p style="margin: 2px 0 0; font-size: 30px; line-height: 1.15; font-weight: 800; letter-spacing: -0.04em; color: var(--c-t0)">3개 있어요</p>
+</div>
+<a href="#MobileSchedule" style="display: inline-flex; align-items: center; gap: 2px; min-height: 44px; font-size: 15px; font-weight: 700; color: var(--c-t2); text-decoration: none">이번 주<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></a>
+</div>
+<ul style="position: relative; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column">
+<li style="display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--c-line)">
+<span style="flex: none; width: 48px; font-size: 15px; font-weight: 800; color: var(--accent)">08:40</span>
+<span style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 16px; font-weight: 700">교직원 협의회</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">교무실 · 교무부</span></span>
+</li>
+<li style="display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--c-line)">
+<span style="flex: none; width: 48px; font-size: 15px; font-weight: 800; color: var(--accent)">5교시</span>
+<span style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 16px; font-weight: 700">안전점검의 날 대피 훈련</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">운동장 · 인성안전부</span></span>
+</li>
+<li style="display: flex; gap: 12px; padding: 10px 0 0; border-top: 1px solid var(--c-line)">
+<span style="flex: none; width: 48px; font-size: 15px; font-weight: 800; color: var(--accent)">15:00</span>
+<span style="display: flex; flex-direction: column; min-width: 0"><span style="font-size: 16px; font-weight: 700">학년별 교육과정 협의</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">학년 협의실 · 연구부</span></span>
+</li>
+</ul>
+</section>
+<section aria-labelledby="MobileHome-m-todo" style="flex: none; box-sizing: border-box; padding: 18px; border-radius: 20px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<h2 id="MobileHome-m-todo" style="margin: 0; font-size: 18px; font-weight: 800">내가 할 일 <span style="color: var(--accent)">2</span></h2>
+<a href="#MobileSurvey" style="font-size: 14px; font-weight: 600; color: var(--c-t3); text-decoration: none">1개 더 보기</a>
+</div>
+<article style="display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 14px; background: var(--c-card2)">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-warnBg); color: var(--c-warnFg); font-size: 13px; font-weight: 700">내일 마감</span>
+<span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">연구부</span>
+</div>
+<h3 style="margin: 0; font-size: 17px; line-height: 1.4; font-weight: 800">2학기 동료장학 참관 신청</h3>
+<p style="margin: 0; font-size: 14px; color: var(--c-t2)">질문 1개</p>
+<a href="#MobileSurvey" style="margin-top: 6px; min-height: 52px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: var(--accent); color: var(--c-onAccent); font-size: 17px; font-weight: 800; text-decoration: none; box-shadow: 0 0 0 1px var(--accent-ring), 0 16px 32px var(--accent-glow)">지금 응답하기</a>
+</article>
+</section>
+<section aria-labelledby="MobileHome-m-week" style="flex: none; display: flex; flex-direction: column; gap: 8px; padding: 4px 4px 0">
+<h2 id="MobileHome-m-week" style="margin: 0; font-size: 18px; font-weight: 800">다가오는 일정</h2>
+<div style="display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--c-line)"><span style="flex: none; width: 48px; font-size: 14px; font-weight: 700; color: var(--c-t3)">화 13</span><span style="font-size: 16px; font-weight: 700">3·4학년 현장체험학습</span></div>
+<div style="display: flex; gap: 12px; padding: 12px 0"><span style="flex: none; width: 48px; font-size: 14px; font-weight: 700; color: var(--c-t3)">수 14</span><span style="font-size: 16px; font-weight: 700">동료장학 수업 공개</span></div>
+</section>
+</main>
+<nav aria-label="주 메뉴" class="print-hide" style="flex: none; height: 72px; box-sizing: border-box; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px 4px 10px; border-top: 1px solid var(--c-line); background: var(--c-sub)">
+<a href="#MobileHome" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--accent); font-size: 12px; font-weight: 700; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"></path></svg>홈</a>
+<a href="#MobileSchedule" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--c-t3); font-size: 12px; font-weight: 600; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16"></path></svg>일정</a>
+<a href="#MobileSurvey" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--c-t3); font-size: 12px; font-weight: 600; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 3.5h6v3H9zM9 13l2 2 4-4"></path></svg>조사·신청<span style="position: absolute; top: 2px; left: 50%; margin-left: 6px; min-width: 18px; height: 18px; box-sizing: border-box; padding: 0 5px; border-radius: 9999px; background: var(--accent); color: var(--c-onAccent); font-size: 11px; font-weight: 800; display: grid; place-items: center">2</span></a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--c-t3); font-size: 12px; font-weight: 600; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path></svg>자료실</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--c-t3); font-size: 12px; font-weight: 600; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>전체</a>
+</nav>
+</div>
+</section>
+<section class="screen" id="Schedule" data-kind="pc" data-title="일정 (PC)" hidden>
+<div class="print-root" style="box-sizing: border-box; min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--c-bg); color: var(--c-t1); font-family: Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 17px; line-height: 1.5; letter-spacing: -0.02em">
+<nav aria-label="주 메뉴" class="print-hide" style="flex: 1 1 248px; box-sizing: border-box; padding: 28px 16px 24px; background: var(--c-sub); border-right: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 28px">
+<a href="#Main" style="display: flex; align-items: center; gap: 12px; padding: 0 8px; color: var(--c-t1); text-decoration: none">
+<span style="width: 40px; height: 40px; flex: none; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5c2.5-1 5-1 8 1 3-2 5.5-2 8-1V18c-2.5-1-5-1-8 1-3-2-5.5-2-8-1z"></path><path d="M12 7.5V19"></path></svg></span>
+<span style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">인천장도초등학교</span><span style="font-size: 18px; font-weight: 800; letter-spacing: -0.03em">온라인 교무실</span></span>
+</a>
+<div style="display: flex; flex-wrap: wrap; gap: 4px">
+<a href="#Main" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"></path></svg>홈</a>
+<a href="#Schedule" aria-current="page" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; background: var(--c-card2); color: var(--c-t1); font-size: 17px; font-weight: 700; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent)"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16"></path></svg>일정</a>
+<a href="#SurveyRespond" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 3.5h6v3H9zM9 13l2 2 4-4"></path></svg>조사·신청<span style="margin-left: auto; min-width: 24px; height: 24px; box-sizing: border-box; padding: 0 8px; border-radius: 9999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 800; display: grid; place-items: center">2</span></a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path></svg>자료실</a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="9" r="3"></circle><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 6.5a3 3 0 0 1 0 6M17.5 19a4.5 4.5 0 0 0-2.5-4"></path></svg>교직원</a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4M12 16.8v.2"></path></svg>도움말</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding-top: 20px; border-top: 1px solid var(--c-line)">
+<span style="padding: 0 14px; font-size: 13px; font-weight: 700; color: var(--c-t3)">관리 · 연구부장·부담당</span>
+<a href="#" style="box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>관리자</a>
+<a href="#" style="box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 15px; font-weight: 600; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M14 3v5h5M9 13h6M9 17h4"></path></svg>운영 안내서</a>
+</div>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 12px">
+<div role="group" aria-label="화면 밝기" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--c-card2); border: 1px solid var(--c-line)">
+<button type="button" aria-pressed="true" data-pressed-when="light" data-action="theme-light" style="flex: 1 1 0; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 9px; background: var(--seg-light-bg); color: var(--seg-light-fg); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg>밝게</button>
+<button type="button" aria-pressed="false" data-pressed-when="dark" data-action="theme-dark" style="flex: 1 1 0; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 9px; background: var(--seg-dark-bg); color: var(--seg-dark-fg); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg>어둡게</button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span aria-hidden="true" style="width: 40px; height: 40px; flex: none; border-radius: 50%; background: var(--c-avatar); color: var(--c-t1); display: grid; place-items: center; font-size: 16px; font-weight: 800">홍</span>
+<span style="display: flex; flex-direction: column; min-width: 0; line-height: 1.4"><span style="font-size: 16px; font-weight: 700">홍길동 선생님</span><span style="font-size: 14px; color: var(--c-t3)">3학년 1반 · <a href="#" aria-label="다른 선생님으로 바꾸기" style="color: var(--c-t2); font-weight: 600">바꾸기</a></span><span style="display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: var(--c-okFg)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>본인 확인됨</span></span>
+</div>
+</div>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 36px 40px 56px">
+<div style="max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-size: 32px; line-height: 1.2; font-weight: 800; letter-spacing: -0.03em">일정</h1>
+<p style="margin: 0; font-size: 16px; color: var(--c-t2)">부서와 학년이 한 번 입력하면 학사일정과 월별 계획에 함께 들어가요.</p>
+</div>
+<div class="print-hide" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<a href="#ScheduleUpload" style="min-height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-t1); font-size: 15px; font-weight: 700; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15.5V4.5M7 9l5-5 5 5M5 19.5h14"></path></svg>엑셀로 한 번에 올리기<span style="padding: 1px 8px; border-radius: 9999px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 800">관리</span></a>
+<div role="group" aria-label="보기 방식" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line)">
+<button type="button" aria-pressed="true" style="min-height: 40px; padding: 0 16px; border: 0; border-radius: 9px; background: var(--c-seg); color: var(--c-t1); font-size: 15px; font-weight: 700; cursor: pointer">월별 계획</button>
+<button type="button" aria-pressed="false" style="min-height: 40px; padding: 0 16px; border: 0; border-radius: 9px; background: transparent; color: var(--c-t3); font-size: 15px; font-weight: 600; cursor: pointer">연간 학사일정</button>
+</div>
+<button type="button" style="min-height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-t1); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V4h10v5"></path><rect x="4" y="9" width="16" height="8" rx="2"></rect><path d="M7 14h10v6H7z"></path></svg>인쇄·내려받기</button>
+</div>
+</header>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--c-sub); border: 1px solid var(--c-line)">
+<div style="display: flex; align-items: center; gap: 4px">
+<button type="button" aria-label="이전 달" class="print-hide" style="width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--c-t2); cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></button>
+<h2 style="margin: 0 4px; font-size: 22px; font-weight: 800; white-space: nowrap">2026년 10월</h2>
+<button type="button" aria-label="다음 달" class="print-hide" style="width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--c-t2); cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></button>
+<button type="button" class="print-hide" style="min-height: 40px; margin-left: 4px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--c-line2); background: transparent; color: var(--c-t1); font-size: 15px; font-weight: 700; cursor: pointer">오늘</button>
+</div>
+<div class="print-hide" style="margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<label for="Schedule-f-grade" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap">학년 고르기</label>
+<select id="Schedule-f-grade" style="height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-t1); font-size: 15px; font-weight: 600; color-scheme: var(--scheme)"><option>전체 학년</option><option>1학년</option><option>2학년</option><option>3학년</option><option>4학년</option><option>5학년</option><option>6학년</option></select>
+<label for="Schedule-f-dept" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap">부서 고르기</label>
+<select id="Schedule-f-dept" style="height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-t1); font-size: 15px; font-weight: 600; color-scheme: var(--scheme)"><option>전체 부서</option><option>교무부</option><option>연구부</option><option>인성안전부</option><option>정보부</option><option>체육부</option><option>행정실</option></select>
+<label style="min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-t2); font-size: 15px; font-weight: 600; cursor: pointer"><input type="checkbox" style="width: 18px; height: 18px; margin: 0; accent-color: var(--accent); color-scheme: var(--scheme)">내 담당만</label>
+<button type="button" aria-expanded="true" aria-controls="Schedule-add-panel" style="min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--accent-ring); background: var(--accent-soft); color: var(--c-t1); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent)"><path d="M12 5v14M5 12h14"></path></svg>행사 추가</button>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<div style="flex: 1 1 170px; box-sizing: border-box; padding: 16px 18px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">이달 수업일수</span>
+<span style="font-size: 26px; font-weight: 800; letter-spacing: -0.03em">20일</span>
+<span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">공휴일 빼고 자동 계산</span>
+</div>
+<div style="flex: 1 1 170px; box-sizing: border-box; padding: 16px 18px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">이달 행사</span>
+<span style="font-size: 26px; font-weight: 800; letter-spacing: -0.03em">22개</span>
+<span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">부서·학년이 입력한 것</span>
+</div>
+<div style="flex: 2 1 360px; box-sizing: border-box; padding: 16px 18px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">10월 중점지도</span>
+<span style="font-size: 16px; font-weight: 700; line-height: 1.45">학생 안전지도와 학교폭력 예방교육</span>
+<span style="font-size: 16px; font-weight: 700; line-height: 1.45">자전거로 오는 학생은 헬멧 쓰기</span>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px">
+<section aria-label="2026년 10월 월별 계획" style="flex: 2 1 600px; min-width: 0; box-sizing: border-box; padding: 18px; border-radius: 20px; background: var(--c-sub); border: 1px solid var(--c-line)">
+<div style="overflow-x: auto">
+<div style="min-width: 560px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+<span style="padding: 2px 10px; font-size: 14px; font-weight: 700; color: var(--c-t3)">월</span>
+<span style="padding: 2px 10px; font-size: 14px; font-weight: 700; color: var(--c-t3)">화</span>
+<span style="padding: 2px 10px; font-size: 14px; font-weight: 700; color: var(--c-t3)">수</span>
+<span style="padding: 2px 10px; font-size: 14px; font-weight: 700; color: var(--c-t3)">목</span>
+<span style="padding: 2px 10px; font-size: 14px; font-weight: 700; color: var(--c-t3)">금</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; border: 1px solid var(--c-line)"><span style="font-size: 15px; font-weight: 600; color: var(--c-t3)">9.28</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; border: 1px solid var(--c-line)"><span style="font-size: 15px; font-weight: 600; color: var(--c-t3)">9.29</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; border: 1px solid var(--c-line)"><span style="font-size: 15px; font-weight: 600; color: var(--c-t3)">9.30</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">1</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">학부모 상담 주간</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">2</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">교육과정 협의회</span></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-red)">5</span><span style="font-size: 13px; font-weight: 700; color: var(--c-red)">대체공휴일</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">6</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">학생자치회의</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">7</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">정보화기기 점검</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">8</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">독서 골든벨</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-red)">9</span><span style="font-size: 13px; font-weight: 700; color: var(--c-red)">한글날</span></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--accent); display: flex; flex-direction: column; gap: 6px"><span style="display: flex; align-items: center; gap: 6px"><span style="min-width: 26px; height: 26px; box-sizing: border-box; padding: 0 6px; border-radius: 9999px; background: var(--accent); color: var(--c-onAccent); font-size: 14px; font-weight: 800; display: grid; place-items: center">12</span><span style="font-size: 13px; font-weight: 700; color: var(--accent)">오늘</span></span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">교직원 협의회</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">대피 훈련</span><a href="#" style="padding: 0 8px; font-size: 13px; font-weight: 700; color: var(--c-t3); text-decoration: none">+1개 더</a></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">13</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">3·4학년 현장체험학습</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-warnBg); color: var(--c-warnFg); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">참관 신청 마감</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">14</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">동료장학 수업 공개</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-warnBg); color: var(--c-warnFg); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">체육대회 신청 마감</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">15</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">학교운영위원회</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">16</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">교직원 체육대회</span></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">19</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">학년 협의회</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">20</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">21</span><span style="padding: 3px 7px; border-radius: 8px; background: var(--accent-soft); border: 1px dashed var(--accent); font-size: 13px; font-weight: 700; line-height: 1.35; word-break: keep-all">교통안전 교육 · 추가 중</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">22</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">학교폭력 예방교육</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">23</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">진로체험의 날</span></div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">26</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">독도교육주간(~30일)</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">27</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">학생자치회의</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">28</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">5·6학년 스포츠 수업</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">29</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">교육과정 협의회</span></div>
+<div style="min-height: 112px; box-sizing: border-box; padding: 10px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 6px"><span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">30</span><span style="padding: 4px 8px; border-radius: 8px; background: var(--c-pill); font-size: 13px; font-weight: 600; line-height: 1.35; word-break: keep-all">환경 정화 활동</span></div>
+</div>
+</div>
+</div>
+</section>
+<aside id="Schedule-add-panel" aria-labelledby="Schedule-add-title" class="print-hide" style="flex: 1 1 340px; min-width: 0; box-sizing: border-box; padding: 24px; border-radius: 20px; background: var(--c-card); border: 1px solid var(--c-line2); display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<h2 id="Schedule-add-title" style="margin: 0; font-size: 22px; font-weight: 800">행사 추가</h2>
+<button type="button" aria-label="행사 추가 닫기" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--c-t3); cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+<p style="margin: 0; display: flex; gap: 10px; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); font-size: 15px; font-weight: 600; line-height: 1.45"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px; color: var(--accent)"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 11v5M12 8v.2"></path></svg>한 번만 입력하면 연간 학사일정과 월별 계획에 함께 들어가요.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<div style="flex: 3 1 170px; display: flex; flex-direction: column; gap: 6px">
+<span id="Schedule-lbl-date" style="font-size: 14px; font-weight: 700; color: var(--c-t2)">날짜</span>
+<button type="button" aria-labelledby="Schedule-lbl-date" style="height: 48px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--c-line2); background: var(--c-sub); color: var(--c-t1); font-size: 16px; font-weight: 600; cursor: pointer">10월 21일 (수)<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--c-t3)"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16"></path></svg></button>
+</div>
+<div style="flex: 2 1 110px; display: flex; flex-direction: column; gap: 6px">
+<label for="Schedule-ev-time" style="font-size: 14px; font-weight: 700; color: var(--c-t2)">시간</label>
+<select id="Schedule-ev-time" style="height: 48px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; border: 1px solid var(--c-line2); background: var(--c-sub); color: var(--c-t1); font-size: 16px; font-weight: 600; color-scheme: var(--scheme)"><option>3교시</option><option>종일</option><option>1교시</option><option>2교시</option><option>4교시</option><option>5교시</option><option>6교시</option><option>방과후</option></select>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<label for="Schedule-ev-name" style="font-size: 14px; font-weight: 700; color: var(--c-t2)">행사 이름</label>
+<input id="Schedule-ev-name" type="text" value="교통안전 교육" style="width: 100%; min-width: 0; height: 48px; box-sizing: border-box; padding: 0 14px; border-radius: 12px; border: 2px solid var(--accent); background: var(--c-sub); color: var(--c-t1); font-size: 16px; font-weight: 600; outline: none">
+</div>
+<fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 6px">
+<legend style="padding: 0; margin-bottom: 6px; font-size: 14px; font-weight: 700; color: var(--c-t2)">대상 학년</legend>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<button type="button" aria-pressed="false" style="min-width: 40px; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--c-line2); background: transparent; color: var(--c-t2); font-size: 15px; font-weight: 600; cursor: pointer">전체</button>
+<button type="button" aria-pressed="true" style="min-width: 40px; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--c-t1); font-size: 15px; font-weight: 800; cursor: pointer">1</button>
+<button type="button" aria-pressed="true" style="min-width: 40px; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--c-t1); font-size: 15px; font-weight: 800; cursor: pointer">2</button>
+<button type="button" aria-pressed="false" style="min-width: 40px; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--c-line2); background: transparent; color: var(--c-t2); font-size: 15px; font-weight: 600; cursor: pointer">3</button>
+<button type="button" aria-pressed="false" style="min-width: 40px; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--c-line2); background: transparent; color: var(--c-t2); font-size: 15px; font-weight: 600; cursor: pointer">4</button>
+<button type="button" aria-pressed="false" style="min-width: 40px; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--c-line2); background: transparent; color: var(--c-t2); font-size: 15px; font-weight: 600; cursor: pointer">5</button>
+<button type="button" aria-pressed="false" style="min-width: 40px; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--c-line2); background: transparent; color: var(--c-t2); font-size: 15px; font-weight: 600; cursor: pointer">6</button>
+</div>
+</fieldset>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<div style="flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<label for="Schedule-ev-dept" style="font-size: 14px; font-weight: 700; color: var(--c-t2)">담당 부서</label>
+<select id="Schedule-ev-dept" style="height: 48px; box-sizing: border-box; padding: 0 12px; border-radius: 12px; border: 1px solid var(--c-line2); background: var(--c-sub); color: var(--c-t1); font-size: 16px; font-weight: 600; color-scheme: var(--scheme)"><option>인성안전부</option><option>교무부</option><option>연구부</option><option>정보부</option><option>체육부</option><option>행정실</option></select>
+</div>
+<div style="flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+<label for="Schedule-ev-place" style="font-size: 14px; font-weight: 700; color: var(--c-t2)">장소</label>
+<input id="Schedule-ev-place" type="text" value="시청각실" style="width: 100%; min-width: 0; height: 48px; box-sizing: border-box; padding: 0 14px; border-radius: 12px; border: 1px solid var(--c-line2); background: var(--c-sub); color: var(--c-t1); font-size: 16px; font-weight: 600">
+</div>
+</div>
+<button type="button" style="align-self: flex-start; min-height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 4px; border: 0; background: transparent; color: var(--c-t2); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>메모 남기기 (선택)</button>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 12px; background: var(--c-sub); border: 1px solid var(--c-line)">
+<span style="font-size: 14px; font-weight: 700; color: var(--c-t2)">저장하면 이렇게 들어가요</span>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent); flex: none"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>연간 학사일정 · 10월 21일(수)</span>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent); flex: none"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>10월 월별 계획 · 21일 행사 칸</span>
+</div>
+<p style="margin: 0; font-size: 14px; color: var(--c-t3)">입력하는 사람: 홍길동 선생님(3학년 1반) · <a href="#" style="color: var(--c-t2); font-weight: 600">바꾸기</a></p>
+<div style="display: flex; gap: 8px">
+<button type="button" style="flex: 1 1 auto; min-height: 52px; border: 0; border-radius: 12px; background: var(--accent); color: var(--c-onAccent); font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 0 0 1px var(--accent-ring), 0 16px 32px var(--accent-glow)">저장하기</button>
+<button type="button" style="min-height: 52px; padding: 0 20px; border: 1px solid var(--c-line2); border-radius: 12px; background: var(--c-card2); color: var(--c-t1); font-size: 16px; font-weight: 700; cursor: pointer">취소</button>
+</div>
+</aside>
+</div>
+</div>
+</main>
+</div>
+</section>
+<section class="screen" id="MobileSchedule" data-kind="mobile" data-title="일정 (휴대폰)" hidden>
+<div class="stage-bar"><a href="#index" class="stage-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg>화면 목록</a><span class="stage-name">일정 · 휴대폰</span></div>
+<div class="print-root" style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: var(--c-bg); color: var(--c-t1); font-family: Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 16px; line-height: 1.5; letter-spacing: -0.02em">
+<header style="flex: none; height: 60px; box-sizing: border-box; display: flex; align-items: center; gap: 4px; padding: 0 12px 0 20px">
+<h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.03em">일정</h1>
+<button type="button" class="print-hide" aria-label="어두운 화면으로 바꾸기" data-theme-label data-action="theme-toggle" style="margin-left: auto; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 12px; background: transparent; color: var(--c-t2); cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: var(--sun-display)"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: var(--moon-display)"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg></button>
+<button type="button" aria-label="일정 검색" style="width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 12px; background: transparent; color: var(--c-t2); cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg></button>
+<button type="button" aria-label="학년·부서 고르기" style="width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 12px; background: transparent; color: var(--c-t2); cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"></path></svg></button>
+</header>
+<main style="flex: 1 1 auto; min-height: 0; overflow-y: auto; box-sizing: border-box; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="flex: none; display: flex; align-items: center; gap: 2px">
+<button type="button" aria-label="지난주" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--c-t2); cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg></button>
+<h2 style="margin: 0; font-size: 17px; font-weight: 800">10월 12일 – 16일</h2>
+<button type="button" aria-label="다음 주" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--c-t2); cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></button>
+<a href="#Schedule" style="margin-left: auto; min-height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 10px; border: 1px solid var(--c-line2); color: var(--c-t2); font-size: 14px; font-weight: 700; text-decoration: none">한 달 보기</a>
+</div>
+<div role="group" aria-label="요일 고르기" style="flex: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+<button type="button" aria-pressed="true" style="height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 0; border-radius: 14px; background: var(--accent); color: var(--c-onAccent); cursor: pointer"><span style="font-size: 13px; font-weight: 700">월</span><span style="font-size: 19px; font-weight: 800; line-height: 1.1">12</span><span style="font-size: 11px; font-weight: 800">오늘</span></button>
+<button type="button" aria-pressed="false" style="height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 1px solid var(--c-line); border-radius: 14px; background: var(--c-card); color: var(--c-t1); cursor: pointer"><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">화</span><span style="font-size: 19px; font-weight: 800; line-height: 1.1">13</span><span aria-label="일정 2개" style="display: flex; gap: 3px"><span style="width: 5px; height: 5px; border-radius: 50%; background: var(--c-dot)"></span><span style="width: 5px; height: 5px; border-radius: 50%; background: var(--c-dot)"></span></span></button>
+<button type="button" aria-pressed="false" style="height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 1px solid var(--c-line); border-radius: 14px; background: var(--c-card); color: var(--c-t1); cursor: pointer"><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">수</span><span style="font-size: 19px; font-weight: 800; line-height: 1.1">14</span><span aria-label="일정 2개" style="display: flex; gap: 3px"><span style="width: 5px; height: 5px; border-radius: 50%; background: var(--c-dot)"></span><span style="width: 5px; height: 5px; border-radius: 50%; background: var(--c-dot)"></span></span></button>
+<button type="button" aria-pressed="false" style="height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 1px solid var(--c-line); border-radius: 14px; background: var(--c-card); color: var(--c-t1); cursor: pointer"><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">목</span><span style="font-size: 19px; font-weight: 800; line-height: 1.1">15</span><span aria-label="일정 1개" style="display: flex; gap: 3px"><span style="width: 5px; height: 5px; border-radius: 50%; background: var(--c-dot)"></span></span></button>
+<button type="button" aria-pressed="false" style="height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 1px solid var(--c-line); border-radius: 14px; background: var(--c-card); color: var(--c-t1); cursor: pointer"><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">금</span><span style="font-size: 19px; font-weight: 800; line-height: 1.1">16</span><span aria-label="일정 1개" style="display: flex; gap: 3px"><span style="width: 5px; height: 5px; border-radius: 50%; background: var(--c-dot)"></span></span></button>
+</div>
+<section aria-labelledby="MobileSchedule-m-day" style="flex: none; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; padding: 4px 4px 0">
+<h2 id="MobileSchedule-m-day" style="margin: 0; font-size: 17px; font-weight: 800">10월 12일 월요일</h2>
+<span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">일정 3개</span>
+</div>
+<article style="display: flex; gap: 14px; padding: 16px; border-radius: 16px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span style="flex: none; width: 46px; font-size: 15px; font-weight: 800; color: var(--accent)">08:40</span>
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<h3 style="margin: 0; font-size: 17px; font-weight: 700">교직원 협의회</h3>
+<span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">교무실 · 교무부</span>
+</div>
+</article>
+<article style="display: flex; gap: 14px; padding: 16px; border-radius: 16px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span style="flex: none; width: 46px; font-size: 15px; font-weight: 800; color: var(--accent)">5교시</span>
+<div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<h3 style="margin: 0; font-size: 17px; font-weight: 700">안전점검의 날 대피 훈련</h3>
+<span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">운동장 · 인성안전부</span>
+<span style="align-self: flex-start; padding: 2px 10px; border-radius: 9999px; background: var(--accent-soft); color: var(--c-t1); font-size: 13px; font-weight: 700">우리 반도 참여해요</span>
+</div>
+</article>
+<article style="display: flex; gap: 14px; padding: 16px; border-radius: 16px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span style="flex: none; width: 46px; font-size: 15px; font-weight: 800; color: var(--accent)">15:00</span>
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<h3 style="margin: 0; font-size: 17px; font-weight: 700">학년별 교육과정 협의</h3>
+<span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">학년 협의실 · 연구부</span>
+</div>
+</article>
+</section>
+<section aria-labelledby="MobileSchedule-m-next" style="flex: none; display: flex; flex-direction: column; padding: 4px 4px 0">
+<h2 id="MobileSchedule-m-next" style="margin: 0 0 4px; font-size: 15px; font-weight: 700; color: var(--c-t2)">내일 · 10월 13일 화요일</h2>
+<div style="display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--c-line)"><span style="flex: none; width: 46px; font-size: 14px; font-weight: 700; color: var(--c-t3)">종일</span><span style="font-size: 16px; font-weight: 700">3·4학년 현장체험학습</span></div>
+<div style="display: flex; gap: 14px; padding: 12px 0"><span style="flex: none; width: 46px; font-size: 14px; font-weight: 700; color: var(--c-warnFg)">17:00</span><span style="font-size: 16px; font-weight: 700">동료장학 참관 신청 마감</span></div>
+</section>
+</main>
+<div class="print-hide" style="flex: none; box-sizing: border-box; padding: 10px 16px 12px; background: var(--c-bg)">
+<button type="button" style="width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 12px; background: var(--accent); color: var(--c-onAccent); font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 0 0 1px var(--accent-ring), 0 16px 32px var(--accent-glow)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>행사 추가</button>
+</div>
+<nav aria-label="주 메뉴" class="print-hide" style="flex: none; height: 72px; box-sizing: border-box; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px 4px 10px; border-top: 1px solid var(--c-line); background: var(--c-sub)">
+<a href="#MobileHome" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--c-t3); font-size: 12px; font-weight: 600; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"></path></svg>홈</a>
+<a href="#MobileSchedule" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--accent); font-size: 12px; font-weight: 700; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16"></path></svg>일정</a>
+<a href="#MobileSurvey" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--c-t3); font-size: 12px; font-weight: 600; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 3.5h6v3H9zM9 13l2 2 4-4"></path></svg>조사·신청<span style="position: absolute; top: 2px; left: 50%; margin-left: 6px; min-width: 18px; height: 18px; box-sizing: border-box; padding: 0 5px; border-radius: 9999px; background: var(--accent); color: var(--c-onAccent); font-size: 11px; font-weight: 800; display: grid; place-items: center">2</span></a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--c-t3); font-size: 12px; font-weight: 600; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path></svg>자료실</a>
+<a href="#" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--c-t3); font-size: 12px; font-weight: 600; text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>전체</a>
+</nav>
+</div>
+</section>
+<section class="screen" id="ScheduleUpload" data-kind="pc" data-title="학사일정 엑셀로 올리기 (PC)" hidden>
+<div class="print-root" style="box-sizing: border-box; min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--c-bg); color: var(--c-t1); font-family: Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 17px; line-height: 1.5; letter-spacing: -0.02em">
+<nav aria-label="주 메뉴" class="print-hide" style="flex: 1 1 248px; box-sizing: border-box; padding: 28px 16px 24px; background: var(--c-sub); border-right: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 28px">
+<a href="#Main" style="display: flex; align-items: center; gap: 12px; padding: 0 8px; color: var(--c-t1); text-decoration: none">
+<span style="width: 40px; height: 40px; flex: none; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5c2.5-1 5-1 8 1 3-2 5.5-2 8-1V18c-2.5-1-5-1-8 1-3-2-5.5-2-8-1z"></path><path d="M12 7.5V19"></path></svg></span>
+<span style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">인천장도초등학교</span><span style="font-size: 18px; font-weight: 800; letter-spacing: -0.03em">온라인 교무실</span></span>
+</a>
+<div style="display: flex; flex-wrap: wrap; gap: 4px">
+<a href="#Main" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"></path></svg>홈</a>
+<a href="#Schedule" aria-current="page" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; background: var(--c-card2); color: var(--c-t1); font-size: 17px; font-weight: 700; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent)"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16"></path></svg>일정</a>
+<a href="#SurveyRespond" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 3.5h6v3H9zM9 13l2 2 4-4"></path></svg>조사·신청<span style="margin-left: auto; min-width: 24px; height: 24px; box-sizing: border-box; padding: 0 8px; border-radius: 9999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 800; display: grid; place-items: center">2</span></a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path></svg>자료실</a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="9" r="3"></circle><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 6.5a3 3 0 0 1 0 6M17.5 19a4.5 4.5 0 0 0-2.5-4"></path></svg>교직원</a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4M12 16.8v.2"></path></svg>도움말</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding-top: 20px; border-top: 1px solid var(--c-line)">
+<span style="padding: 0 14px; font-size: 13px; font-weight: 700; color: var(--c-t3)">관리 · 연구부장·부담당</span>
+<a href="#" style="box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>관리자</a>
+<a href="#" style="box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 15px; font-weight: 600; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M14 3v5h5M9 13h6M9 17h4"></path></svg>운영 안내서</a>
+</div>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 12px">
+<div role="group" aria-label="화면 밝기" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--c-card2); border: 1px solid var(--c-line)">
+<button type="button" aria-pressed="true" data-pressed-when="light" data-action="theme-light" style="flex: 1 1 0; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 9px; background: var(--seg-light-bg); color: var(--seg-light-fg); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg>밝게</button>
+<button type="button" aria-pressed="false" data-pressed-when="dark" data-action="theme-dark" style="flex: 1 1 0; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 9px; background: var(--seg-dark-bg); color: var(--seg-dark-fg); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg>어둡게</button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span aria-hidden="true" style="width: 40px; height: 40px; flex: none; border-radius: 50%; background: var(--c-avatar); color: var(--c-t1); display: grid; place-items: center; font-size: 16px; font-weight: 800">홍</span>
+<span style="display: flex; flex-direction: column; min-width: 0; line-height: 1.4"><span style="font-size: 16px; font-weight: 700">홍길동 선생님</span><span style="font-size: 14px; color: var(--c-t3)">3학년 1반 · <a href="#" aria-label="다른 선생님으로 바꾸기" style="color: var(--c-t2); font-weight: 600">바꾸기</a></span><span style="display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: var(--c-okFg)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>본인 확인됨</span></span>
+</div>
+</div>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px 40px 56px">
+<div style="max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px">
+<a href="#Schedule" class="print-hide" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; min-height: 40px; font-size: 15px; font-weight: 700; color: var(--c-t2); text-decoration: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg>일정으로 돌아가기</a>
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="align-self: flex-start; padding: 3px 10px; border-radius: 9999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 800">관리 · 연구부장·부담당만 보여요</span>
+<h1 style="margin: 0; font-size: 32px; line-height: 1.2; font-weight: 800; letter-spacing: -0.03em">학사일정 엑셀로 한 번에 올리기</h1>
+<p style="margin: 0; font-size: 16px; color: var(--c-t2)">목록 양식으로 올리면 달력, 홈의 오늘 일정, 월별 계획에 한 번에 들어가요.</p>
+</div>
+<a href="#" class="print-hide" style="min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 8px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); font-size: 16px; font-weight: 700; text-decoration: none; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"></path></svg>양식 내려받기</a>
+</header>
+<ol aria-label="올리는 순서" style="margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px">
+<li style="flex: 1 1 200px; min-width: 0; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--c-line); background: var(--c-card)"><span aria-hidden="true" style="width: 28px; height: 28px; flex: none; border-radius: 50%; background: var(--c-okBg); color: var(--c-okFg); display: grid; place-items: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span><span style="display: flex; flex-direction: column; min-width: 0; line-height: 1.35"><span style="font-size: 16px; font-weight: 800; color: var(--c-t1)">1. 양식 내려받기</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">목록 양식(.xlsx)</span></span></li>
+<li style="flex: 1 1 200px; min-width: 0; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--c-line); background: var(--c-card)"><span aria-hidden="true" style="width: 28px; height: 28px; flex: none; border-radius: 50%; background: var(--c-okBg); color: var(--c-okFg); display: grid; place-items: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span><span style="display: flex; flex-direction: column; min-width: 0; line-height: 1.35"><span style="font-size: 16px; font-weight: 800; color: var(--c-t1)">2. 파일 고르기</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">2026학년도_학사일정.xlsx</span></span></li>
+<li aria-current="step" style="flex: 1 1 200px; min-width: 0; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; border: 2px solid var(--accent); background: var(--c-card)"><span aria-hidden="true" style="width: 28px; height: 28px; flex: none; border-radius: 50%; background: var(--accent); color: var(--c-onAccent); display: grid; place-items: center; font-size: 14px; font-weight: 800">3</span><span style="display: flex; flex-direction: column; min-width: 0; line-height: 1.35"><span style="font-size: 16px; font-weight: 800; color: var(--c-t1)">3. 미리보기 확인</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">확인 필요 3줄</span></span></li>
+<li style="flex: 1 1 200px; min-width: 0; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--c-line); background: var(--c-sub)"><span aria-hidden="true" style="width: 28px; height: 28px; flex: none; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--c-line2); color: var(--c-t3); display: grid; place-items: center; font-size: 14px; font-weight: 800">4</span><span style="display: flex; flex-direction: column; min-width: 0; line-height: 1.35"><span style="font-size: 16px; font-weight: 800; color: var(--c-t3)">4. 올리기</span><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">올린 뒤에도 되돌릴 수 있어요</span></span></li>
+</ol>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<div style="flex: 1 1 220px; box-sizing: border-box; padding: 18px 20px; border-radius: 16px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600; color: var(--c-t3)">올릴 행사</span><span style="font-size: 32px; line-height: 1.25; font-weight: 800; letter-spacing: -0.03em; color: var(--c-t1)">128개</span><span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">목록 128줄</span></div>
+<div style="flex: 1 1 220px; box-sizing: border-box; padding: 18px 20px; border-radius: 16px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600; color: var(--c-t3)">확인이 필요한 줄</span><span style="font-size: 32px; line-height: 1.25; font-weight: 800; letter-spacing: -0.03em; color: var(--c-warnFg)">3개</span><span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">고치거나 빼고 올릴 수 있어요</span></div>
+<div style="flex: 1 1 220px; box-sizing: border-box; padding: 18px 20px; border-radius: 16px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600; color: var(--c-t3)">계산한 수업일수</span><span style="font-size: 32px; line-height: 1.25; font-weight: 800; letter-spacing: -0.03em; color: var(--c-okFg)">190일</span><span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">기존 학사일정의 190일과 같아요</span></div>
+</div>
+<section aria-labelledby="ScheduleUpload-pv-title" style="box-sizing: border-box; padding: 24px; border-radius: 20px; background: var(--c-sub); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h2 id="ScheduleUpload-pv-title" style="margin: 0; font-size: 22px; font-weight: 800">미리보기</h2>
+<p style="margin: 0; font-size: 14px; color: var(--c-t3)">확인이 필요한 줄을 먼저 보여 줘요. 칸을 눌러 바로 고칠 수 있어요.</p>
+</div>
+<div role="group" aria-label="보기" class="print-hide" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--c-card); border: 1px solid var(--c-line)">
+<button type="button" aria-pressed="true" style="min-height: 40px; padding: 0 14px; border: 0; border-radius: 9px; background: var(--c-seg); color: var(--c-t1); font-size: 15px; font-weight: 700; cursor: pointer">전체 128</button>
+<button type="button" aria-pressed="false" style="min-height: 40px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: var(--c-t3); font-size: 15px; font-weight: 600; cursor: pointer">확인 필요 3</button>
+</div>
+</div>
+<div style="overflow-x: auto; border-radius: 14px; border: 1px solid var(--c-line); background: var(--c-card)">
+<table style="width: 100%; min-width: 760px; border-collapse: collapse; font-size: 15px">
+<thead><tr><th style="padding: 10px 14px; text-align: left; font-size: 13px; font-weight: 700; color: var(--c-t3); white-space: nowrap">상태</th><th style="padding: 10px 14px; text-align: left; font-size: 13px; font-weight: 700; color: var(--c-t3); white-space: nowrap">날짜</th><th style="padding: 10px 14px; text-align: left; font-size: 13px; font-weight: 700; color: var(--c-t3); white-space: nowrap">행사명</th><th style="padding: 10px 14px; text-align: left; font-size: 13px; font-weight: 700; color: var(--c-t3); white-space: nowrap">대상</th><th style="padding: 10px 14px; text-align: left; font-size: 13px; font-weight: 700; color: var(--c-t3); white-space: nowrap">담당 부서</th><th style="padding: 10px 14px; text-align: left; font-size: 13px; font-weight: 700; color: var(--c-t3); white-space: nowrap">구분</th></tr></thead>
+<tbody>
+<tr><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-warnBg); color: var(--c-warnFg); font-size: 13px; font-weight: 700">확인 필요</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap"><span style="display: flex; flex-direction: column"><span style="font-weight: 700; color: var(--c-warnFg)">10월 32일</span><span style="font-size: 13px; font-weight: 600; color: var(--c-warnFg)">없는 날짜예요</span></span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="font-weight: 700">학교 밖 체험 안전교육</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">전체</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">인성안전부</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">행사</td></tr>
+<tr><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-warnBg); color: var(--c-warnFg); font-size: 13px; font-weight: 700">확인 필요</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap"><span style="font-weight: 700">10월 16일(금)</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="display: flex; flex-direction: column"><span style="font-weight: 700">교직원 체육대회</span><span style="font-size: 13px; font-weight: 600; color: var(--c-warnFg)">이미 있는 행사와 같아요</span></span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">교직원</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">체육부</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">행사</td></tr>
+<tr><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-warnBg); color: var(--c-warnFg); font-size: 13px; font-weight: 700">확인 필요</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap"><span style="font-weight: 700">10월 23일(금)</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="font-weight: 700">진로체험의 날</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">5·6학년</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">교무부</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)"><span style="font-size: 13px; font-weight: 700; color: var(--c-warnFg)">구분이 비어 있어요</span></td></tr>
+<tr><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-okBg); color: var(--c-okFg); font-size: 13px; font-weight: 700">정상</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap"><span style="font-weight: 700">10월 5일(월)</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="font-weight: 700">대체공휴일</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">전체</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">—</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">공휴일</td></tr>
+<tr><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-okBg); color: var(--c-okFg); font-size: 13px; font-weight: 700">정상</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap"><span style="font-weight: 700">10월 9일(금)</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="font-weight: 700">한글날</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">전체</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">—</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">공휴일</td></tr>
+<tr><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-okBg); color: var(--c-okFg); font-size: 13px; font-weight: 700">정상</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap"><span style="font-weight: 700">10월 14일(수)</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="font-weight: 700">동료장학 수업 공개</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">교직원</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">연구부</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">행사</td></tr>
+<tr><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-okBg); color: var(--c-okFg); font-size: 13px; font-weight: 700">정상</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap"><span style="font-weight: 700">10월 22일(목)</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="font-weight: 700">학교폭력 예방교육</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">전체</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">인성안전부</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">행사</td></tr>
+<tr><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-okBg); color: var(--c-okFg); font-size: 13px; font-weight: 700">정상</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap"><span style="font-weight: 700">10월 26일(월) – 30일(금)</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top"><span style="font-weight: 700">독도교육주간</span></td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">전체</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">교무부</td><td style="padding: 12px 14px; border-top: 1px solid var(--c-line); vertical-align: top; white-space: nowrap; color: var(--c-t2)">행사</td></tr>
+<tr><td colspan="6" style="padding: 12px 14px; border-top: 1px solid var(--c-line); font-size: 14px; font-weight: 600; color: var(--c-t3)">나머지 120줄은 정상이에요 · 모두 보기</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+<section aria-labelledby="ScheduleUpload-opt-title" style="box-sizing: border-box; padding: 20px 24px; border-radius: 20px; background: var(--c-sub); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 10px">
+<h2 id="ScheduleUpload-opt-title" style="margin: 0; font-size: 18px; font-weight: 800">이미 있는 행사와 겹치면</h2>
+<div role="radiogroup" aria-labelledby="ScheduleUpload-opt-title" style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" role="radio" aria-checked="true" style="min-height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-radius: 12px; border: 2px solid var(--accent); background: var(--accent-soft); color: var(--c-t1); font-size: 16px; font-weight: 700; cursor: pointer"><span aria-hidden="true" style="width: 22px; height: 22px; flex: none; border-radius: 50%; background: var(--accent); color: var(--c-onAccent); display: grid; place-items: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span>건너뛰기(추천)</button>
+<button type="button" role="radio" aria-checked="false" style="min-height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); font-size: 16px; font-weight: 700; cursor: pointer"><span aria-hidden="true" style="width: 22px; height: 22px; flex: none; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--c-radio)"></span>새 내용으로 바꾸기</button>
+</div>
+<p style="margin: 0; display: flex; gap: 6px; font-size: 14px; line-height: 1.45; color: var(--c-t3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 11v5M12 8v.2"></path></svg>부서가 직접 입력한 행사는 지우지 않아요.</p>
+</section>
+<div class="print-hide" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px">
+<button type="button" style="min-height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 28px; border: 0; border-radius: 12px; background: var(--accent); color: var(--c-onAccent); font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 0 0 1px var(--accent-ring), 0 16px 32px var(--accent-glow)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15.5V4.5M7 9l5-5 5 5M5 19.5h14"></path></svg>125개 올리기</button>
+<a href="#Schedule" style="min-height: 52px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 20px; border-radius: 12px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); font-size: 16px; font-weight: 700; text-decoration: none">취소</a>
+<span style="flex: 1 1 260px; font-size: 14px; color: var(--c-t3)">확인이 필요한 3줄은 빼고 올라가요. 올린 뒤에도 ‘방금 올린 것 되돌리기’로 이번 묶음만 지울 수 있어요.</span>
+</div>
+<aside style="display: flex; gap: 14px; padding: 18px 20px; border-radius: 16px; border: 1px dashed var(--c-line2)">
+<span aria-hidden="true" style="width: 40px; height: 40px; flex: none; border-radius: 12px; background: var(--c-card2); color: var(--c-t2); display: grid; place-items: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M14 3v5h5M9 12.5l4 5M13 12.5l-4 5"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<span style="font-size: 16px; font-weight: 800">달력 모양 파일은 바로 읽기 어려워요</span>
+<span style="font-size: 14px; line-height: 1.5; color: var(--c-t2)">지금 협의회 시트의 학사일정처럼 칸마다 날짜가 들어간 달력 모양이면, 처음 한 번만 목록 양식으로 옮겨서 올려 주세요. 다음 학년도부터는 양식에 바로 적으면 돼요.</span>
+</span>
+</aside>
+</div>
+</main>
+</div>
+</section>
+<section class="screen" id="SurveyRespond" data-kind="pc" data-title="조사 응답 (PC)" hidden>
+<div class="print-root" style="box-sizing: border-box; min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--c-bg); color: var(--c-t1); font-family: Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 17px; line-height: 1.5; letter-spacing: -0.02em">
+<nav aria-label="주 메뉴" class="print-hide" style="flex: 1 1 248px; box-sizing: border-box; padding: 28px 16px 24px; background: var(--c-sub); border-right: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 28px">
+<a href="#Main" style="display: flex; align-items: center; gap: 12px; padding: 0 8px; color: var(--c-t1); text-decoration: none">
+<span style="width: 40px; height: 40px; flex: none; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5c2.5-1 5-1 8 1 3-2 5.5-2 8-1V18c-2.5-1-5-1-8 1-3-2-5.5-2-8-1z"></path><path d="M12 7.5V19"></path></svg></span>
+<span style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">인천장도초등학교</span><span style="font-size: 18px; font-weight: 800; letter-spacing: -0.03em">온라인 교무실</span></span>
+</a>
+<div style="display: flex; flex-wrap: wrap; gap: 4px">
+<a href="#Main" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"></path></svg>홈</a>
+<a href="#Schedule" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16"></path></svg>일정</a>
+<a href="#SurveyRespond" aria-current="page" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; background: var(--c-card2); color: var(--c-t1); font-size: 17px; font-weight: 700; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent)"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 3.5h6v3H9zM9 13l2 2 4-4"></path></svg>조사·신청<span style="margin-left: auto; min-width: 24px; height: 24px; box-sizing: border-box; padding: 0 8px; border-radius: 9999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 800; display: grid; place-items: center">2</span></a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path></svg>자료실</a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="9" r="3"></circle><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 6.5a3 3 0 0 1 0 6M17.5 19a4.5 4.5 0 0 0-2.5-4"></path></svg>교직원</a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4M12 16.8v.2"></path></svg>도움말</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding-top: 20px; border-top: 1px solid var(--c-line)">
+<span style="padding: 0 14px; font-size: 13px; font-weight: 700; color: var(--c-t3)">관리 · 연구부장·부담당</span>
+<a href="#" style="box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>관리자</a>
+<a href="#" style="box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 15px; font-weight: 600; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M14 3v5h5M9 13h6M9 17h4"></path></svg>운영 안내서</a>
+</div>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 12px">
+<div role="group" aria-label="화면 밝기" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--c-card2); border: 1px solid var(--c-line)">
+<button type="button" aria-pressed="true" data-pressed-when="light" data-action="theme-light" style="flex: 1 1 0; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 9px; background: var(--seg-light-bg); color: var(--seg-light-fg); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg>밝게</button>
+<button type="button" aria-pressed="false" data-pressed-when="dark" data-action="theme-dark" style="flex: 1 1 0; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 9px; background: var(--seg-dark-bg); color: var(--seg-dark-fg); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg>어둡게</button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span aria-hidden="true" style="width: 40px; height: 40px; flex: none; border-radius: 50%; background: var(--c-avatar); color: var(--c-t1); display: grid; place-items: center; font-size: 16px; font-weight: 800">홍</span>
+<span style="display: flex; flex-direction: column; min-width: 0; line-height: 1.4"><span style="font-size: 16px; font-weight: 700">홍길동 선생님</span><span style="font-size: 14px; color: var(--c-t3)">3학년 1반 · <a href="#" aria-label="다른 선생님으로 바꾸기" style="color: var(--c-t2); font-weight: 600">바꾸기</a></span><span style="display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: var(--c-okFg)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>본인 확인됨</span></span>
+</div>
+</div>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 36px 40px 56px">
+<div style="max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-size: 32px; line-height: 1.2; font-weight: 800; letter-spacing: -0.03em">조사·신청</h1>
+<p style="margin: 0; font-size: 16px; color: var(--c-t2)">낼 조사는 마감 전에 내고, 내가 만든 조사는 누가 냈는지 확인해요.</p>
+</div>
+<button type="button" class="print-hide" style="min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 8px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); font-size: 16px; font-weight: 700; text-decoration: none; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent)"><path d="M12 5v14M5 12h14"></path></svg>새 조사 만들기</button>
+</header>
+<div role="tablist" aria-label="조사 목록 종류" style="display: flex; gap: 4px; border-bottom: 1px solid var(--c-line)">
+<button type="button" role="tab" aria-selected="true" style="min-height: 48px; padding: 0 16px; border: 0; border-bottom: 2px solid var(--accent); margin-bottom: -1px; background: transparent; color: var(--c-t1); font-size: 17px; font-weight: 800; cursor: pointer">응답할 것 <span style="color: var(--accent); font-weight: 800">2</span></button>
+<a href="#Survey" role="tab" aria-selected="false" style="min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 16px; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--c-t3); font-size: 17px; font-weight: 600; text-decoration: none">내가 만든 조사 3</a>
+<button type="button" role="tab" aria-selected="false" style="min-height: 48px; padding: 0 16px; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: transparent; color: var(--c-t3); font-size: 17px; font-weight: 600; cursor: pointer">지난 조사</button>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px">
+<section aria-label="응답할 조사" class="print-hide" style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<a href="#" aria-current="true" style="display: flex; flex-direction: column; gap: 8px; padding: 18px; border-radius: 16px; background: var(--c-card); border: 2px solid var(--accent); color: var(--c-t1); text-decoration: none">
+<span style="display: flex; align-items: center; gap: 8px"><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-warnBg); color: var(--c-warnFg); font-size: 13px; font-weight: 700">내일 마감</span><span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">연구부</span></span>
+<span style="font-size: 18px; font-weight: 800; line-height: 1.4">2학기 동료장학 참관 신청</span>
+<span style="font-size: 14px; color: var(--c-t3)">질문 1개 · 10월 13일(화) 17:00까지</span>
+</a>
+<a href="#" style="display: flex; flex-direction: column; gap: 8px; padding: 18px; border-radius: 16px; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-t1); text-decoration: none">
+<span style="display: flex; align-items: center; gap: 8px"><span style="padding: 2px 10px; border-radius: 9999px; border: 1px solid var(--c-line2); color: var(--c-t2); font-size: 13px; font-weight: 700">5일 남음</span><span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">정보부</span></span>
+<span style="font-size: 18px; font-weight: 700; line-height: 1.4">고장 난 태블릿 신고</span>
+<span style="font-size: 14px; color: var(--c-t3)">고장 난 기기와 위치를 알려 주세요</span>
+</a>
+<p style="margin: 4px 2px 0; font-size: 14px; color: var(--c-t3)">끝낸 일 3개는 ‘지난 조사’에서 다시 볼 수 있어요.</p>
+</section>
+<section aria-labelledby="SurveyRespond-rs-title" style="flex: 2 1 560px; min-width: 0; box-sizing: border-box; padding: 28px; border-radius: 20px; background: var(--c-sub); border: 1px solid var(--c-line)">
+<div style="max-width: 640px; display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; align-items: center; gap: 8px"><span style="padding: 2px 10px; border-radius: 9999px; border: 1px solid var(--c-line2); color: var(--c-t2); font-size: 13px; font-weight: 700">연구부</span><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-warnBg); color: var(--c-warnFg); font-size: 13px; font-weight: 700">내일 마감</span></span>
+<h2 id="SurveyRespond-rs-title" style="margin: 0; font-size: 28px; line-height: 1.25; font-weight: 800; letter-spacing: -0.03em">2학기 동료장학 참관 신청</h2>
+<p style="margin: 0; font-size: 15px; color: var(--c-t3)">질문 1개 · 10월 13일(화) 17:00까지</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span id="SurveyRespond-who-label" style="font-size: 15px; font-weight: 700; color: var(--c-t2)">응답하는 사람</span>
+<div style="border-radius: 14px; border: 1px solid var(--c-line2); background: var(--c-card); overflow: hidden">
+<button type="button" aria-labelledby="SurveyRespond-who-label SurveyRespond-who-name" style="width: 100%; min-height: 68px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 0; background: transparent; color: var(--c-t1); text-align: left; cursor: pointer">
+<span aria-hidden="true" style="width: 40px; height: 40px; flex: none; border-radius: 50%; background: var(--c-avatar); display: grid; place-items: center; font-size: 16px; font-weight: 800">홍</span>
+<span id="SurveyRespond-who-name" style="flex: 1 1 auto; display: flex; flex-direction: column; line-height: 1.35"><span style="font-size: 17px; font-weight: 700">홍길동</span><span style="font-size: 14px; color: var(--c-t3)">3학년 1반</span></span>
+<span style="font-size: 15px; font-weight: 700; color: var(--accent)">바꾸기</span>
+</button>
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--c-line)">
+<label for="SurveyRespond-pin" style="flex: 1 1 auto; font-size: 15px; font-weight: 700; color: var(--c-t2)">개인 번호 4자리</label>
+<input id="SurveyRespond-pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" aria-describedby="SurveyRespond-pin-help" style="width: 120px; min-width: 0; height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 10px; border: 1px solid var(--c-line2); background: var(--c-card2); color: var(--c-t1); font-size: 18px; letter-spacing: 0.3em; text-align: center">
+</div>
+</div>
+<label style="display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; font-weight: 600; color: var(--c-t1); cursor: pointer"><input type="checkbox" style="width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--accent); color-scheme: var(--scheme)">이 기기에서 기억하기</label>
+<p id="SurveyRespond-pin-help" style="margin: 0; display: flex; gap: 6px; font-size: 14px; line-height: 1.45; color: var(--c-t3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 11v5M12 8v.2"></path></svg>처음 한 번만 넣으면 돼요. 교무실 공용 PC에서는 기억하기를 꺼 주세요. 번호를 잊었다면 연구부장·부담당에게 다시 받으세요.</p>
+</div>
+<fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px">
+<legend style="padding: 0; margin-bottom: 2px; font-size: 19px; font-weight: 800">참관할 수업을 골라 주세요</legend>
+<span style="font-size: 14px; color: var(--c-t3)">하나만 고르면 돼요</span>
+<button type="button" aria-pressed="false" style="min-height: 64px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 14px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); text-align: left; cursor: pointer"><span style="flex: 1 1 auto; display: flex; flex-direction: column; line-height: 1.35"><span style="font-size: 16px; font-weight: 700">10월 14일(수) 5교시</span><span style="font-size: 14px; color: var(--c-t3)">3학년 과학 · 과학실</span></span><span aria-hidden="true" style="width: 22px; height: 22px; flex: none; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--c-radio)"></span></button>
+<button type="button" aria-pressed="true" style="min-height: 64px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 14px; border: 2px solid var(--accent); background: var(--accent-soft); color: var(--c-t1); text-align: left; cursor: pointer"><span style="flex: 1 1 auto; display: flex; flex-direction: column; line-height: 1.35"><span style="font-size: 16px; font-weight: 800">10월 21일(수) 5교시</span><span style="font-size: 14px; color: var(--c-t2)">6학년 국어 · 6학년 2반 교실</span></span><span aria-hidden="true" style="width: 22px; height: 22px; flex: none; border-radius: 50%; background: var(--accent); color: var(--c-onAccent); display: grid; place-items: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span></button>
+<button type="button" aria-pressed="false" style="min-height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 14px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); text-align: left; cursor: pointer"><span style="flex: 1 1 auto; font-size: 16px; font-weight: 700">이번에는 참관이 어려워요</span><span aria-hidden="true" style="width: 22px; height: 22px; flex: none; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--c-radio)"></span></button>
+</fieldset>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="SurveyRespond-memo" style="font-size: 15px; font-weight: 700; color: var(--c-t2)">하고 싶은 말 <span style="font-weight: 600; color: var(--c-t3)">(선택)</span></label>
+<textarea id="SurveyRespond-memo" rows="3" placeholder="예: 수업 끝나고 협의회도 함께할게요" style="box-sizing: border-box; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); font-size: 16px; line-height: 1.5; resize: none"></textarea>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px">
+<button type="button" class="print-hide" style="min-height: 52px; padding: 0 32px; border: 0; border-radius: 12px; background: var(--accent); color: var(--c-onAccent); font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 0 0 1px var(--accent-ring), 0 16px 32px var(--accent-glow)">제출하기</button>
+<span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">마감 전까지는 언제든 고칠 수 있어요</span>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+</div>
+</section>
+<section class="screen" id="MobileSurvey" data-kind="mobile" data-title="조사 응답 (휴대폰)" hidden>
+<div class="stage-bar"><a href="#index" class="stage-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg>화면 목록</a><span class="stage-name">조사 응답 · 휴대폰</span></div>
+<div class="print-root" style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: var(--c-bg); color: var(--c-t1); font-family: Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 16px; line-height: 1.5; letter-spacing: -0.02em">
+<header style="flex: none; height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 4px; padding: 0 12px 0 6px">
+<a href="#MobileHome" aria-label="뒤로" style="width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; color: var(--c-t1); text-decoration: none"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7"></path></svg></a>
+<span style="font-size: 17px; font-weight: 700">조사 응답</span>
+<button type="button" class="print-hide" aria-label="어두운 화면으로 바꾸기" data-theme-label data-action="theme-toggle" style="margin-left: auto; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 12px; background: transparent; color: var(--c-t2); cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: var(--sun-display)"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: var(--moon-display)"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg></button>
+</header>
+<main style="flex: 1 1 auto; min-height: 0; overflow-y: auto; box-sizing: border-box; padding: 4px 20px 16px; display: flex; flex-direction: column; gap: 18px">
+<div style="flex: none; display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; align-items: center; gap: 8px"><span style="padding: 2px 10px; border-radius: 9999px; border: 1px solid var(--c-line2); color: var(--c-t2); font-size: 13px; font-weight: 700">연구부</span><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-warnBg); color: var(--c-warnFg); font-size: 13px; font-weight: 700">내일 마감</span></span>
+<h1 style="margin: 0; font-size: 23px; line-height: 1.35; font-weight: 800; letter-spacing: -0.03em">2학기 동료장학 참관 신청</h1>
+<p style="margin: 0; font-size: 14px; color: var(--c-t3)">질문 1개 · 10월 13일(화) 17:00까지</p>
+</div>
+<div style="flex: none; display: flex; flex-direction: column; gap: 8px">
+<span id="MobileSurvey-who-label" style="font-size: 15px; font-weight: 700; color: var(--c-t2)">응답하는 사람</span>
+<div style="border-radius: 14px; border: 1px solid var(--c-line2); background: var(--c-card); overflow: hidden">
+<button type="button" aria-labelledby="MobileSurvey-who-label MobileSurvey-who-name" style="width: 100%; min-height: 68px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 0; background: transparent; color: var(--c-t1); text-align: left; cursor: pointer">
+<span aria-hidden="true" style="width: 40px; height: 40px; flex: none; border-radius: 50%; background: var(--c-avatar); display: grid; place-items: center; font-size: 16px; font-weight: 800">홍</span>
+<span id="MobileSurvey-who-name" style="flex: 1 1 auto; display: flex; flex-direction: column; line-height: 1.35"><span style="font-size: 17px; font-weight: 700">홍길동</span><span style="font-size: 14px; color: var(--c-t3)">3학년 1반</span></span>
+<span style="font-size: 15px; font-weight: 700; color: var(--accent)">바꾸기</span>
+</button>
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--c-line)">
+<label for="MobileSurvey-pin" style="flex: 1 1 auto; font-size: 15px; font-weight: 700; color: var(--c-t2)">개인 번호 4자리</label>
+<input id="MobileSurvey-pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" aria-describedby="MobileSurvey-pin-help" style="width: 112px; min-width: 0; height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 10px; border: 1px solid var(--c-line2); background: var(--c-card2); color: var(--c-t1); font-size: 18px; letter-spacing: 0.3em; text-align: center">
+</div>
+</div>
+<label style="display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 15px; font-weight: 600; color: var(--c-t1); cursor: pointer"><input type="checkbox" checked style="width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--accent); color-scheme: var(--scheme)">이 휴대폰에서 기억하기</label>
+<p id="MobileSurvey-pin-help" style="margin: 0; display: flex; gap: 6px; font-size: 14px; line-height: 1.45; color: var(--c-t3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 11v5M12 8v.2"></path></svg>처음 한 번만 넣으면 돼요. 여럿이 쓰는 기기에서는 기억하기를 꺼 주세요. 번호를 잊었다면 연구부장·부담당에게 다시 받으세요.</p>
+</div>
+<fieldset style="flex: none; margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px">
+<legend style="padding: 0; margin-bottom: 2px; font-size: 18px; font-weight: 800">참관할 수업을 골라 주세요</legend>
+<span style="font-size: 14px; color: var(--c-t3)">하나만 고르면 돼요</span>
+<button type="button" aria-pressed="false" style="min-height: 64px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 14px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); text-align: left; cursor: pointer"><span style="flex: 1 1 auto; display: flex; flex-direction: column; line-height: 1.35"><span style="font-size: 16px; font-weight: 700">10월 14일(수) 5교시</span><span style="font-size: 14px; color: var(--c-t3)">3학년 과학 · 과학실</span></span><span aria-hidden="true" style="width: 22px; height: 22px; flex: none; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--c-radio)"></span></button>
+<button type="button" aria-pressed="true" style="min-height: 64px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 14px; border: 2px solid var(--accent); background: var(--accent-soft); color: var(--c-t1); text-align: left; cursor: pointer"><span style="flex: 1 1 auto; display: flex; flex-direction: column; line-height: 1.35"><span style="font-size: 16px; font-weight: 800">10월 21일(수) 5교시</span><span style="font-size: 14px; color: var(--c-t2)">6학년 국어 · 6학년 2반 교실</span></span><span aria-hidden="true" style="width: 22px; height: 22px; flex: none; border-radius: 50%; background: var(--accent); color: var(--c-onAccent); display: grid; place-items: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg></span></button>
+<button type="button" aria-pressed="false" style="min-height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 14px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); text-align: left; cursor: pointer"><span style="flex: 1 1 auto; font-size: 16px; font-weight: 700">이번에는 참관이 어려워요</span><span aria-hidden="true" style="width: 22px; height: 22px; flex: none; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--c-radio)"></span></button>
+</fieldset>
+<div style="flex: none; display: flex; flex-direction: column; gap: 8px">
+<label for="MobileSurvey-memo" style="font-size: 15px; font-weight: 700; color: var(--c-t2)">하고 싶은 말 <span style="font-weight: 600; color: var(--c-t3)">(선택)</span></label>
+<textarea id="MobileSurvey-memo" rows="3" placeholder="예: 수업 끝나고 협의회도 함께할게요" style="box-sizing: border-box; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); font-size: 16px; line-height: 1.5; resize: none"></textarea>
+</div>
+</main>
+<div class="print-hide" style="flex: none; box-sizing: border-box; padding: 10px 20px 14px; border-top: 1px solid var(--c-line); background: var(--c-sub); display: flex; flex-direction: column; gap: 8px">
+<button type="button" style="width: 100%; min-height: 54px; border: 0; border-radius: 14px; background: var(--accent); color: var(--c-onAccent); font-size: 18px; font-weight: 800; cursor: pointer; box-shadow: 0 0 0 1px var(--accent-ring), 0 16px 32px var(--accent-glow)">제출하기</button>
+<p style="margin: 0; text-align: center; font-size: 13px; font-weight: 600; color: var(--c-t3)">마감 전까지는 언제든 고칠 수 있어요</p>
+</div>
+</div>
+</section>
+<section class="screen" id="Survey" data-kind="pc" data-title="내가 만든 조사 (PC)" hidden>
+<div class="print-root" style="box-sizing: border-box; min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--c-bg); color: var(--c-t1); font-family: Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 17px; line-height: 1.5; letter-spacing: -0.02em">
+<nav aria-label="주 메뉴" class="print-hide" style="flex: 1 1 248px; box-sizing: border-box; padding: 28px 16px 24px; background: var(--c-sub); border-right: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 28px">
+<a href="#Main" style="display: flex; align-items: center; gap: 12px; padding: 0 8px; color: var(--c-t1); text-decoration: none">
+<span style="width: 40px; height: 40px; flex: none; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5c2.5-1 5-1 8 1 3-2 5.5-2 8-1V18c-2.5-1-5-1-8 1-3-2-5.5-2-8-1z"></path><path d="M12 7.5V19"></path></svg></span>
+<span style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 13px; font-weight: 600; color: var(--c-t3)">인천장도초등학교</span><span style="font-size: 18px; font-weight: 800; letter-spacing: -0.03em">온라인 교무실</span></span>
+</a>
+<div style="display: flex; flex-wrap: wrap; gap: 4px">
+<a href="#Main" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"></path></svg>홈</a>
+<a href="#Schedule" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16"></path></svg>일정</a>
+<a href="#SurveyRespond" aria-current="page" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; background: var(--c-card2); color: var(--c-t1); font-size: 17px; font-weight: 700; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent)"><rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 3.5h6v3H9zM9 13l2 2 4-4"></path></svg>조사·신청<span style="margin-left: auto; min-width: 24px; height: 24px; box-sizing: border-box; padding: 0 8px; border-radius: 9999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 800; display: grid; place-items: center">2</span></a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"></path></svg>자료실</a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="9" r="3"></circle><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 6.5a3 3 0 0 1 0 6M17.5 19a4.5 4.5 0 0 0-2.5-4"></path></svg>교직원</a>
+<a href="#" style="flex: 1 1 200px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4M12 16.8v.2"></path></svg>도움말</a>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding-top: 20px; border-top: 1px solid var(--c-line)">
+<span style="padding: 0 14px; font-size: 13px; font-weight: 700; color: var(--c-t3)">관리 · 연구부장·부담당</span>
+<a href="#" style="box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 17px; font-weight: 600; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>관리자</a>
+<a href="#" style="box-sizing: border-box; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 12px; color: var(--c-t2); font-size: 15px; font-weight: 600; text-decoration: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M14 3v5h5M9 13h6M9 17h4"></path></svg>운영 안내서</a>
+</div>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 12px">
+<div role="group" aria-label="화면 밝기" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--c-card2); border: 1px solid var(--c-line)">
+<button type="button" aria-pressed="true" data-pressed-when="light" data-action="theme-light" style="flex: 1 1 0; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 9px; background: var(--seg-light-bg); color: var(--seg-light-fg); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path></svg>밝게</button>
+<button type="button" aria-pressed="false" data-pressed-when="dark" data-action="theme-dark" style="flex: 1 1 0; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 9px; background: var(--seg-dark-bg); color: var(--seg-dark-fg); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg>어둡게</button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: var(--c-card); border: 1px solid var(--c-line)">
+<span aria-hidden="true" style="width: 40px; height: 40px; flex: none; border-radius: 50%; background: var(--c-avatar); color: var(--c-t1); display: grid; place-items: center; font-size: 16px; font-weight: 800">홍</span>
+<span style="display: flex; flex-direction: column; min-width: 0; line-height: 1.4"><span style="font-size: 16px; font-weight: 700">홍길동 선생님</span><span style="font-size: 14px; color: var(--c-t3)">3학년 1반 · <a href="#" aria-label="다른 선생님으로 바꾸기" style="color: var(--c-t2); font-weight: 600">바꾸기</a></span><span style="display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: var(--c-okFg)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>본인 확인됨</span></span>
+</div>
+</div>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 36px 40px 56px">
+<div style="max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+<header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-size: 32px; line-height: 1.2; font-weight: 800; letter-spacing: -0.03em">조사·신청</h1>
+<p style="margin: 0; font-size: 16px; color: var(--c-t2)">조사를 만들고, 누가 냈는지 한눈에 확인해요.</p>
+</div>
+<button type="button" class="print-hide" style="min-height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); font-size: 16px; font-weight: 700; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--accent)"><path d="M12 5v14M5 12h14"></path></svg>새 조사 만들기</button>
+</header>
+<div role="tablist" aria-label="조사 목록 종류" style="display: flex; gap: 4px; border-bottom: 1px solid var(--c-line)">
+<a href="#SurveyRespond" role="tab" aria-selected="false" style="min-height: 48px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 4px; padding: 0 16px; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--c-t3); font-size: 17px; font-weight: 600; text-decoration: none">응답할 것 <span style="color: var(--accent); font-weight: 800">2</span></a>
+<button type="button" role="tab" aria-selected="true" style="min-height: 48px; padding: 0 16px; border: 0; border-bottom: 2px solid var(--accent); margin-bottom: -1px; background: transparent; color: var(--c-t1); font-size: 17px; font-weight: 800; cursor: pointer">내가 만든 조사 3</button>
+<button type="button" role="tab" aria-selected="false" style="min-height: 48px; padding: 0 16px; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: transparent; color: var(--c-t3); font-size: 17px; font-weight: 600; cursor: pointer">지난 조사</button>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px">
+<section aria-label="내가 만든 조사" class="print-hide" style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<a href="#" aria-current="true" style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 16px; background: var(--c-card); border: 2px solid var(--accent); color: var(--c-t1); text-decoration: none">
+<span style="display: flex; align-items: center; gap: 8px"><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-okBg); color: var(--c-okFg); font-size: 13px; font-weight: 700">진행 중</span><span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">2일 남음</span></span>
+<span style="font-size: 18px; font-weight: 800; line-height: 1.4">교직원 체육대회 참가 신청</span>
+<span style="display: flex; align-items: center; gap: 10px"><span style="flex: 1 1 auto; height: 8px; border-radius: 9999px; background: var(--c-pill); overflow: hidden"><span class="print-keep" style="display: block; width: 83%; height: 100%; border-radius: 4px; background: var(--accent)"></span></span><span style="font-size: 14px; font-weight: 700">38/46명</span></span>
+</a>
+<a href="#" style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 16px; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-t1); text-decoration: none">
+<span style="display: flex; align-items: center; gap: 8px"><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-okBg); color: var(--c-okFg); font-size: 13px; font-weight: 700">진행 중</span><span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">8일 남음</span></span>
+<span style="font-size: 18px; font-weight: 700; line-height: 1.4">교실 환경 개선 희망 조사</span>
+<span style="display: flex; align-items: center; gap: 10px"><span style="flex: 1 1 auto; height: 8px; border-radius: 9999px; background: var(--c-pill); overflow: hidden"><span class="print-keep" style="display: block; width: 26%; height: 100%; border-radius: 4px; background: var(--accent)"></span></span><span style="font-size: 14px; font-weight: 700">12/46명</span></span>
+</a>
+<a href="#" style="display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 16px; background: var(--c-sub); border: 1px solid var(--c-line); color: var(--c-t2); text-decoration: none">
+<span style="display: flex; align-items: center; gap: 8px"><span style="padding: 2px 10px; border-radius: 9999px; border: 1px solid var(--c-line2); color: var(--c-t2); font-size: 13px; font-weight: 700">끝남</span><span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">10월 8일 마감</span></span>
+<span style="font-size: 18px; font-weight: 700; line-height: 1.4">10월 안전점검 결과 제출</span>
+<span style="display: flex; align-items: center; gap: 10px"><span style="flex: 1 1 auto; height: 8px; border-radius: 9999px; background: var(--c-pill); overflow: hidden"><span class="print-keep" style="display: block; width: 100%; height: 100%; border-radius: 4px; background: var(--c-dot)"></span></span><span style="font-size: 14px; font-weight: 700">46/46명</span></span>
+</a>
+</section>
+<section aria-labelledby="Survey-sv-title" style="flex: 2 1 560px; min-width: 0; box-sizing: border-box; padding: 28px; border-radius: 20px; background: var(--c-sub); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 24px">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px">
+<div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+<span style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px"><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-okBg); color: var(--c-okFg); font-size: 13px; font-weight: 700">진행 중</span><span style="padding: 2px 10px; border-radius: 9999px; background: var(--c-warnBg); color: var(--c-warnFg); font-size: 13px; font-weight: 700">마감 10월 14일(수) 17:00</span></span>
+<h2 id="Survey-sv-title" style="margin: 0; font-size: 28px; line-height: 1.25; font-weight: 800; letter-spacing: -0.03em">교직원 체육대회 참가 신청</h2>
+<p style="margin: 0; font-size: 15px; color: var(--c-t3)">체육부 · 홍길동 선생님이 10월 6일에 만들었어요 · 대상 전 교직원 46명</p>
+</div>
+<div class="print-hide" style="display: flex; flex-wrap: wrap; gap: 8px">
+<button type="button" style="min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); font-size: 15px; font-weight: 700; cursor: pointer">수정</button>
+<button type="button" style="min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); font-size: 15px; font-weight: 700; cursor: pointer">마감 연장</button>
+<button type="button" style="min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>엑셀로 받기</button>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<div style="flex: 1 1 160px; box-sizing: border-box; padding: 18px 20px; border-radius: 16px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 15px; font-weight: 600; color: var(--c-t3)">낸 사람</span>
+<span style="font-size: 32px; font-weight: 800; letter-spacing: -0.03em">38명</span>
+</div>
+<div style="flex: 1 1 160px; box-sizing: border-box; padding: 18px 20px; border-radius: 16px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 15px; font-weight: 600; color: var(--c-t3)">아직 안 낸 사람</span>
+<span style="font-size: 32px; font-weight: 800; letter-spacing: -0.03em; color: var(--c-warnFg)">8명</span>
+</div>
+<div style="flex: 1 1 160px; box-sizing: border-box; padding: 18px 20px; border-radius: 16px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 15px; font-weight: 600; color: var(--c-t3)">응답률</span>
+<span style="font-size: 32px; line-height: 1.2; font-weight: 800; letter-spacing: -0.03em">83%</span>
+<span style="height: 8px; border-radius: 9999px; background: var(--c-pill); overflow: hidden"><span class="print-keep" style="display: block; width: 83%; height: 100%; border-radius: 4px; background: var(--accent)"></span></span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 16px; background: var(--c-card); border: 1px solid var(--c-line)">
+<h3 style="margin: 0; font-size: 19px; font-weight: 800">아직 안 낸 분 8명</h3>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px">
+<li style="padding: 6px 12px; border-radius: 9999px; background: var(--c-pill); font-size: 15px; font-weight: 600">1학년 2반 담임</li>
+<li style="padding: 6px 12px; border-radius: 9999px; background: var(--c-pill); font-size: 15px; font-weight: 600">2학년 3반 담임</li>
+<li style="padding: 6px 12px; border-radius: 9999px; background: var(--c-pill); font-size: 15px; font-weight: 600">4학년 1반 담임</li>
+<li style="padding: 6px 12px; border-radius: 9999px; background: var(--c-pill); font-size: 15px; font-weight: 600">5학년 2반 담임</li>
+<li style="padding: 6px 12px; border-radius: 9999px; background: var(--c-pill); font-size: 15px; font-weight: 600">과학 전담</li>
+<li style="padding: 6px 12px; border-radius: 9999px; background: var(--c-pill); font-size: 15px; font-weight: 600">영어 전담</li>
+<li style="padding: 6px 12px; border-radius: 9999px; background: var(--c-pill); font-size: 15px; font-weight: 600">보건교사</li>
+<li style="padding: 6px 12px; border-radius: 9999px; background: var(--c-pill); font-size: 15px; font-weight: 600">행정실 주무관</li>
+</ul>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 12px; background: var(--c-card2); border: 1px solid var(--c-line)">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-size: 15px; font-weight: 700; color: var(--c-t2)">메신저에 붙일 안내 문구</span>
+<button type="button" class="print-hide" style="min-height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--c-line2); background: var(--c-card); color: var(--c-t1); font-size: 15px; font-weight: 700; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 0 1 2-2h8"></path></svg>문구 복사</button>
+</div>
+<p style="margin: 0; font-size: 16px; line-height: 1.6; color: var(--c-t1); white-space: pre-line">[체육부] 교직원 체육대회 참가 신청이 10월 14일(수) 17시에 마감돼요.
+아직 안 내신 분은 온라인 교무실 › 조사·신청에서 바로 낼 수 있어요.</p>
+</div>
+<div class="print-hide" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding-top: 4px">
+<button type="button" style="min-height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 22px; border: 0; border-radius: 12px; background: var(--accent); color: var(--c-onAccent); font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 0 0 1px var(--accent-ring), 0 16px 32px var(--accent-glow)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12 20 4l-6 16-3-7z"></path></svg>안 낸 분께 다시 알리기</button>
+<p style="flex: 1 1 260px; margin: 0; font-size: 14px; line-height: 1.5; color: var(--c-t3)">누르면 그분들 홈 화면의 ‘내가 할 일’ 맨 위에 다시 보여요. 메신저 문구는 위에서 복사하세요.</p>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px">
+<h3 style="margin: 0; font-size: 19px; font-weight: 800">응답 요약</h3>
+<span style="font-size: 14px; font-weight: 600; color: var(--c-t3)">질문 2개 중 1번</span>
+</div>
+<p style="margin: 0; font-size: 16px; font-weight: 700; color: var(--c-t2)">참가할 종목을 골라 주세요</p>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 14px"><span style="flex: none; width: 120px; font-size: 16px; font-weight: 600">피구</span><span style="flex: 1 1 auto; height: 12px; border-radius: 9999px; background: var(--c-pill); overflow: hidden"><span class="print-keep" style="display: block; width: 37%; height: 100%; border-radius: 4px; background: var(--accent)"></span></span><span style="flex: none; width: 44px; text-align: right; font-size: 16px; font-weight: 700">14명</span></div>
+<div style="display: flex; align-items: center; gap: 14px"><span style="flex: none; width: 120px; font-size: 16px; font-weight: 600">배드민턴</span><span style="flex: 1 1 auto; height: 12px; border-radius: 9999px; background: var(--c-pill); overflow: hidden"><span class="print-keep" style="display: block; width: 29%; height: 100%; border-radius: 4px; background: var(--accent)"></span></span><span style="flex: none; width: 44px; text-align: right; font-size: 16px; font-weight: 700">11명</span></div>
+<div style="display: flex; align-items: center; gap: 14px"><span style="flex: none; width: 120px; font-size: 16px; font-weight: 600">줄다리기</span><span style="flex: 1 1 auto; height: 12px; border-radius: 9999px; background: var(--c-pill); overflow: hidden"><span class="print-keep" style="display: block; width: 24%; height: 100%; border-radius: 4px; background: var(--accent)"></span></span><span style="flex: none; width: 44px; text-align: right; font-size: 16px; font-weight: 700">9명</span></div>
+<div style="display: flex; align-items: center; gap: 14px"><span style="flex: none; width: 120px; font-size: 16px; font-weight: 600">응원만 할게요</span><span style="flex: 1 1 auto; height: 12px; border-radius: 9999px; background: var(--c-pill); overflow: hidden"><span class="print-keep" style="display: block; width: 11%; height: 100%; border-radius: 4px; background: var(--accent)"></span></span><span style="flex: none; width: 44px; text-align: right; font-size: 16px; font-weight: 700">4명</span></div>
+</div>
+<a href="#" class="print-hide" style="align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; min-height: 40px; font-size: 15px; font-weight: 700; color: var(--c-t2); text-decoration: none">2번 질문(단체 티셔츠 크기) 결과 보기<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></a>
+</div>
+</section>
+</div>
+</div>
+</main>
+</div>
+</section>
+<a href="#index" id="screen-nav" class="screen-nav" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>화면 목록</a>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script>
+(function () {
+  var root = document.documentElement;
+  var KEY = 'gyomusil-draft-theme';
+  function saved() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+  function save(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+  function setTheme(t) {
+    root.setAttribute('data-theme', t);
+    var dark = t === 'dark';
+    document.querySelectorAll('[data-pressed-when]').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-pressed-when') === t ? 'true' : 'false');
+    });
+    document.querySelectorAll('[data-theme-label]').forEach(function (b) {
+      b.setAttribute('aria-label', dark ? '밝은 화면으로 바꾸기' : '어두운 화면으로 바꾸기');
+    });
+  }
+  setTheme(saved() === 'dark' ? 'dark' : 'light');
+  document.addEventListener('click', function (e) {
+    var act = e.target.closest('[data-action]');
+    if (act) {
+      var a = act.getAttribute('data-action');
+      var next = a === 'theme-light' ? 'light' : a === 'theme-dark' ? 'dark' : (root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      setTheme(next); save(next);
+      return;
+    }
+    var dead = e.target.closest('a[href="#"]');
+    if (dead) { e.preventDefault(); toast('시안에서는 아직 연결되지 않은 화면이에요.'); }
+  });
+  var toastEl = document.getElementById('toast'), timer;
+  function toast(msg) {
+    toastEl.textContent = msg; toastEl.classList.add('show');
+    clearTimeout(timer); timer = setTimeout(function () { toastEl.classList.remove('show'); }, 1800);
+  }
+  var TITLES = {"Main": "홈 (PC)", "MobileHome": "홈 (휴대폰)", "Schedule": "일정 (PC)", "MobileSchedule": "일정 (휴대폰)", "ScheduleUpload": "학사일정 엑셀로 올리기 (PC)", "SurveyRespond": "조사 응답 (PC)", "MobileSurvey": "조사 응답 (휴대폰)", "Survey": "내가 만든 조사 (PC)", "index": "화면 목록"};
+  var nav = document.getElementById('screen-nav');
+  function route() {
+    var id = (location.hash || '').replace(/^#/, '');
+    var target = document.getElementById(id);
+    if (!target || !target.classList.contains('screen')) {
+      var owner = target ? target.closest('.screen') : null;
+      if (owner) { show(owner.id); target.scrollIntoView(); return; }
+      id = 'index';
+    }
+    show(id);
+    window.scrollTo(0, 0);
+  }
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(function (s) { s.hidden = s.id !== id; });
+    var scr = document.getElementById(id);
+    nav.hidden = id === 'index' || (scr && scr.getAttribute('data-kind') === 'mobile');
+    document.title = (TITLES[id] || '화면') + ' · 온라인 교무실 시안';
+  }
+  window.addEventListener('hashchange', route);
+  route();
+})();
+</script>
+</body>
+</html>

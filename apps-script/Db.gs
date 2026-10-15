@@ -1,0 +1,314 @@
+/**
+ * Db.gs — 전용 시트를 표처럼 읽고 쓰는 곳
+ *
+ * 원칙
+ * - 탭 하나가 표 하나, 1행은 머리글. 값은 모두 글자로 저장한다(앞자리 0, 날짜 자동 변환 막기 → cellWrite_).
+ * - 지우지 않는다: 삭제는 '삭제 여부' 칸에 표시만 하고, 관리자가 되살릴 수 있다.
+ * - 고칠 때마다 '기록' 탭에 언제·누가·무엇을, 바뀌기 전·바뀐 뒤 내용까지 남긴다.
+ * - 시트에 쓸 때는 잠금(LockService)을 걸어 동시에 저장해도 꼬이지 않게 한다.
+ */
+
+/** 모든 표(기록·설정 제외)에 붙는 입력·수정·삭제 칸 */
+function auditCols_() {
+  return ['입력자ID', '입력 시각', '수정자ID', '수정 시각', '삭제 여부'];
+}
+
+/** 시트 탭 구조. 첫 칸이 ID다(설정·기록은 예외). 순서를 바꾸지 말고, 새 칸은 끝에 더한다. */
+function tabs_() {
+  var A = auditCols_();
+  return {
+    '설정': ['키', '값', '설명'],
+    '분류': ['분류ID', '종류', '이름', '순서', '사용 여부'].concat(A),
+    '교직원': ['교직원ID', '이름', '직위', '소속', '부서ID', '담당 업무', '내선', '역할', '사용 여부', '순서',
+      '개인번호해시', '솔트', '틀린 횟수', '잠금 해제 시각', '번호 바꾼 날'].concat(A),
+    '일정': ['일정ID', '시작일', '끝일', '시간', '행사명', '대상 학년', '담당 부서ID', '장소', '구분', '메모',
+      '올린 묶음ID'].concat(A),
+    '월별중점': ['중점ID', '학년도', '월', '중점지도 내용'].concat(A),
+    '조사': ['조사ID', '제목', '부서ID', '대상', '마감 일시', '상태', '질문', '메신저 문구'].concat(A),
+    '응답': ['응답ID', '조사ID', '교직원ID', '답', '하고 싶은 말', '낸 시각', '고친 시각'].concat(A),
+    '알림': ['알림ID', '조사ID', '대상 교직원ID', '알린 시각'].concat(A),
+    '자료': ['자료ID', '학년도', '분류ID', '부서ID', '제목', '설명', '링크', '파일ID', '담당', '보관 여부'].concat(A),
+    '도움말': ['항목ID', '분류ID', '제목', '내용', '링크', '순서'].concat(A),
+    '기록': ['시각', '교직원ID', '이름', '탭', '대상ID', '동작', '요약', '바뀌기 전', '바뀐 뒤']
+  };
+}
+
+/** ID 앞글자 */
+function idPrefix_(tab) {
+  return { '분류': 'C', '교직원': 'T', '일정': 'E', '월별중점': 'F', '조사': 'S', '응답': 'R', '알림': 'N', '자료': 'D', '도움말': 'H' }[tab] || 'X';
+}
+
+/** 기록에 남기지 않는 칸(개인 번호 해시 등) */
+function secretCols_() {
+  return ['개인번호해시', '솔트'];
+}
+
+/** 화면에 내보내지 않는 칸 */
+function hiddenCols_() {
+  return ['개인번호해시', '솔트'];
+}
+
+// ---------------------------------------------------------------- 시트 열기
+
+var DB_SS_ = null; // 한 번 실행하는 동안만 쓰는 캐시
+
+function ss_() {
+  if (DB_SS_) return DB_SS_;
+  var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+  if (id) {
+    DB_SS_ = SpreadsheetApp.openById(id);
+  } else {
+    DB_SS_ = SpreadsheetApp.getActiveSpreadsheet();
+  }
+  if (!DB_SS_) throw userError_('아직 처음 설정이 되지 않았어요. 연구부장·부담당에게 알려 주세요.', 'SETUP');
+  return DB_SS_;
+}
+
+function sheet_(tab) {
+  var sh = ss_().getSheetByName(tab);
+  if (!sh) throw userError_('시트에 "' + tab + '" 탭이 없어요. 관리자가 시트 메뉴에서 "처음 설정"을 먼저 해 주세요.', 'SETUP');
+  return sh;
+}
+
+// ---------------------------------------------------------------- 값 다루기
+
+/** 시트에서 읽은 값을 글자로 */
+function cellText_(v) {
+  if (v === null || v === undefined) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    var hasTime = v.getHours() || v.getMinutes() || v.getSeconds();
+    return Utilities.formatDate(v, tz_(), hasTime ? 'yyyy-MM-dd HH:mm:ss' : 'yyyy-MM-dd');
+  }
+  return String(v);
+}
+
+/**
+ * 시트에 쓸 값. 모두 글자로 남긴다.
+ * 수식(=, +, -, @로 시작)이나 숫자·날짜처럼 보이는 글자(0101, 2026-03-02, TRUE)는
+ * 앞에 ' 를 붙여 시트가 바꾸지 못하게 한다. 시트에서 ' 는 보이지 않고, 읽을 때도 빠진다.
+ */
+function cellWrite_(v) {
+  if (v === null || v === undefined) return '';
+  var s = String(v);
+  if (s === '') return '';
+  if (/^[=+\-@']/.test(s) || /^[\d\s.,:\/%]+$/.test(s) || /^\d{4}-\d{2}-\d{2}/.test(s) || /^(true|false)$/i.test(s)) s = "'" + s;
+  return s;
+}
+
+function tz_() {
+  return 'Asia/Seoul';
+}
+
+function nowText_() {
+  return Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd HH:mm:ss');
+}
+
+// ---------------------------------------------------------------- 읽기
+
+/** 표 전체를 [{머리글: 값, _row: 행 번호}] 로 읽는다 */
+function readRows_(tab) {
+  var sh = sheet_(tab);
+  var vals = sh.getDataRange().getValues();
+  var head = vals[0].map(cellText_);
+  var rows = [];
+  for (var i = 1; i < vals.length; i++) {
+    var o = { _row: i + 1 };
+    var empty = true;
+    for (var j = 0; j < head.length; j++) {
+      if (!head[j]) continue;
+      o[head[j]] = cellText_(vals[i][j]);
+      if (o[head[j]] !== '') empty = false;
+    }
+    if (!empty) rows.push(o);
+  }
+  return rows;
+}
+
+/** 삭제 표시가 없는 행만 */
+function liveRows_(tab) {
+  return readRows_(tab).filter(function (r) { return !r['삭제 여부']; });
+}
+
+function findRow_(tab, id) {
+  var key = tabs_()[tab][0];
+  var rows = readRows_(tab);
+  for (var i = 0; i < rows.length; i++) if (rows[i][key] === id) return rows[i];
+  return null;
+}
+
+/** 화면에 보낼 때 숨길 칸을 뺀다 */
+function publicRow_(r) {
+  var o = {};
+  var hide = hiddenCols_();
+  Object.keys(r).forEach(function (k) {
+    if (k === '_row' || hide.indexOf(k) >= 0) return;
+    o[k] = r[k];
+  });
+  return o;
+}
+
+// ---------------------------------------------------------------- 쓰기 (모두 잠금 안에서)
+
+var DB_LOCK_DEPTH_ = 0;
+
+function withLock_(fn) {
+  if (DB_LOCK_DEPTH_ > 0) return fn(); // 이미 잠금 안이면 그대로
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) throw userError_('다른 분이 저장하는 중이에요. 잠시 뒤에 다시 눌러 주세요.', 'BUSY');
+  DB_LOCK_DEPTH_++;
+  try {
+    return fn();
+  } finally {
+    DB_LOCK_DEPTH_--;
+    lock.releaseLock();
+  }
+}
+
+function headOf_(tab) {
+  var sh = sheet_(tab);
+  return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(cellText_);
+}
+
+function newId_(tab) {
+  var key = tabs_()[tab][0];
+  var used = {};
+  readRows_(tab).forEach(function (r) { used[r[key]] = true; });
+  for (var n = 0; n < 20; n++) {
+    var id = idPrefix_(tab) + Utilities.getUuid().replace(/-/g, '').slice(0, 8).toUpperCase();
+    if (!used[id]) return id;
+  }
+  throw new Error('ID를 만들지 못했어요');
+}
+
+/**
+ * 새 행 넣기. actor = {id, name}
+ * 돌려주는 값: 넣은 행(숨김 칸 제외)
+ */
+function insertRow_(tab, obj, actor, summary) {
+  return withLock_(function () {
+    var head = headOf_(tab);
+    var key = head[0];
+    var rec = {};
+    head.forEach(function (h) { if (obj[h] !== undefined) rec[h] = String(obj[h]); });
+    rec[key] = newId_(tab);
+    rec['입력자ID'] = actor.id || '';
+    rec['입력 시각'] = nowText_();
+    rec['수정자ID'] = '';
+    rec['수정 시각'] = '';
+    rec['삭제 여부'] = '';
+    sheet_(tab).appendRow(head.map(function (h) { return cellWrite_(rec[h]); }));
+    writeLog_(actor, tab, rec[key], '추가', summary || '', null, auditView_(rec));
+    return publicRow_(rec);
+  });
+}
+
+/**
+ * 행 고치기. patch에 있는 칸만 바꾼다(ID·입력 칸은 못 바꿈).
+ * 바뀐 칸이 없으면 기록을 남기지 않는다.
+ */
+function updateRow_(tab, id, patch, actor, summary, action) {
+  return withLock_(function () {
+    var row = findRow_(tab, id);
+    if (!row) throw userError_('고칠 항목을 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
+    var head = headOf_(tab);
+    var locked = [head[0], '입력자ID', '입력 시각', '수정자ID', '수정 시각'];
+    var before = {}, after = {}, changed = false;
+    var next = {};
+    head.forEach(function (h) { next[h] = row[h] === undefined ? '' : row[h]; });
+    Object.keys(patch).forEach(function (h) {
+      if (head.indexOf(h) < 0 || locked.indexOf(h) >= 0) return;
+      var v = patch[h] === null || patch[h] === undefined ? '' : String(patch[h]);
+      if (next[h] !== v) {
+        before[h] = next[h];
+        after[h] = v;
+        next[h] = v;
+        changed = true;
+      }
+    });
+    if (!changed) return publicRow_(row);
+    next['수정자ID'] = actor.id || '';
+    next['수정 시각'] = nowText_();
+    sheet_(tab).getRange(row._row, 1, 1, head.length)
+      .setValues([head.map(function (h) { return cellWrite_(next[h]); })]);
+    writeLog_(actor, tab, id, action || '수정', summary || '', auditView_(before), auditView_(after));
+    next._row = row._row;
+    return publicRow_(next);
+  });
+}
+
+/** 지우기 = 숨김 표시. 되살릴 수 있다. */
+function softDelete_(tab, id, actor, summary) {
+  return updateRow_(tab, id, { '삭제 여부': '삭제' }, actor, summary, '삭제');
+}
+
+function restoreRow_(tab, id, actor, summary) {
+  return updateRow_(tab, id, { '삭제 여부': '' }, actor, summary, '되살리기');
+}
+
+/**
+ * 기록을 남기지 않고 칸만 바꾼다. 틀린 횟수처럼 보안용 숫자에만 쓴다.
+ * 반드시 withLock_ 안에서 부른다.
+ */
+function setCellsNoLog_(tab, row, patch) {
+  var head = headOf_(tab);
+  var sh = sheet_(tab);
+  Object.keys(patch).forEach(function (h) {
+    var c = head.indexOf(h);
+    if (c < 0) return;
+    sh.getRange(row._row, c + 1).setValue(cellWrite_(patch[h]));
+    row[h] = String(patch[h]);
+  });
+}
+
+// ---------------------------------------------------------------- 기록
+
+function auditView_(rec) {
+  if (!rec) return null;
+  var o = {};
+  var secret = secretCols_();
+  Object.keys(rec).forEach(function (k) {
+    if (k === '_row') return;
+    o[k] = secret.indexOf(k) >= 0 ? '(비공개)' : rec[k];
+  });
+  return o;
+}
+
+function writeLog_(actor, tab, id, action, summary, before, after) {
+  var sh = sheet_('기록');
+  sh.appendRow([
+    nowText_(),
+    actor.id || '',
+    actor.name || '',
+    tab,
+    id || '',
+    action,
+    summary || '',
+    before ? JSON.stringify(before) : '',
+    after ? JSON.stringify(after) : ''
+  ].map(cellWrite_));
+}
+
+// ---------------------------------------------------------------- 오류
+
+/** 사용자에게 그대로 보여 줄 오류 */
+function userError_(msg, code) {
+  var e = new Error(msg);
+  e.userMessage = msg;
+  e.code = code || 'USER';
+  return e;
+}
+
+/** 글자 길이 확인 */
+function cleanText_(v, max, label, required) {
+  var s = v === null || v === undefined ? '' : String(v).trim();
+  if (required && !s) throw userError_(label + josa_(label, '을', '를') + ' 적어 주세요.');
+  if (s.length > max) throw userError_(label + josa_(label, '은', '는') + ' ' + max + '자까지 적을 수 있어요.');
+  return s;
+}
+
+/** 받침에 맞는 조사 */
+function josa_(word, withBatchim, without) {
+  var c = String(word).charCodeAt(String(word).length - 1);
+  if (c < 0xAC00 || c > 0xD7A3) return withBatchim + '(' + without + ')';
+  return (c - 0xAC00) % 28 ? withBatchim : without;
+}
