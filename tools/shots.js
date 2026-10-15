@@ -160,6 +160,76 @@ async function surveyFlow(page, kind) {
   await shot(page, kind + '_홈_내가할일');
 }
 
+/** 4단계: 홈 검색 → 자료실·교직원·도움말·운영 안내서 */
+async function libraryFlow(page, kind) {
+  const phone = kind === '휴대폰';
+  const nav = (id) => page.evaluate((x) => window.__gy.go(x), id);
+  // 홈 검색
+  await page.fill('#home-q', '협의');
+  await page.press('#home-q', 'Enter');
+  await page.locator('.search-res').waitFor();
+  for (const g of ['자료', '일정']) if (!(await page.locator('.sr-h', { hasText: g }).count())) problems.push(kind + ': 홈 검색 "협의"에서 ' + g + '이(가) 안 나옴');
+  await shot(page, kind + '_홈_검색', true);
+  await page.fill('#home-q', '정보부');
+  await page.press('#home-q', 'Enter');
+  await page.locator('.sr-h', { hasText: '교직원' }).waitFor();
+  if ((await page.locator('.sr-h', { hasText: '교직원' }).locator('xpath=..').locator('.sr-row').count()) !== 2) problems.push(kind + ': 홈 검색 "정보부" 교직원이 2명이 아님');
+  await page.locator('.sr-row[data-action=sr-lib]').first().click();
+  await page.locator('.modal .ev-dl').waitFor();
+  await shot(page, kind + '_자료_보기');
+  await page.click('.modal [data-action=close-modal]');
+  await page.locator('.lib-card').first().waitFor();
+  await shot(page, kind + '_자료실', true);
+  // 파일 올리기
+  await page.click('[data-action=lib-new]');
+  await page.locator('#lib-form').waitFor();
+  await page.fill('#lf-title', '학급 운영 계획 양식');
+  await page.fill('#lf-desc', '새 학년 학급 운영 계획을 적는 양식이에요.');
+  await page.click('#lib-form [data-mode=file]');
+  await page.setInputFiles('#lf-file', { name: '학급운영계획.hwp', mimeType: 'application/x-hwp', buffer: Buffer.from('가짜 한글 파일') });
+  await shot(page, kind + '_자료_넣기');
+  await page.click('#lib-form [type=submit]');
+  await waitText(page, '자료를 넣었어요');
+  if (!(await page.locator('.lib-card', { hasText: '학급 운영 계획 양식' }).count())) problems.push(kind + ': 올린 자료가 목록에 안 보임');
+  const dl = page.waitForEvent('download', { timeout: 5000 }).catch(() => null);
+  await page.locator('.lib-card', { hasText: '학급 운영 계획 양식' }).locator('[data-action=file-dl]').click();
+  const d = await dl;
+  if (!d) problems.push(kind + ': 파일 내려받기가 안 됨');
+  // 이름은 확인하지 않는다: 시험용 headless 크롬은 한글 파일 이름을 'download'로 바꾼다(영문 이름은 그대로). 실제 브라우저에서 확인할 것
+  else if (require('fs').readFileSync(await d.path(), 'utf8') !== '가짜 한글 파일') problems.push(kind + ': 내려받은 파일 내용이 다름');
+  // 보관함
+  await page.click('[data-action=lib-view][data-v=archive]');
+  await page.locator('.lib-card').first().waitFor();
+  await shot(page, kind + '_자료실_보관함');
+  await page.click('[data-action=lib-view][data-v=now]');
+  // 교직원 명단
+  await nav('staff');
+  await page.locator('.dir-row').nth(3).waitFor();
+  await shot(page, kind + '_교직원명단', true);
+  await page.fill('#dir-q', '정보');
+  await page.waitForTimeout(200);
+  if ((await page.locator('.dir-row:not(.head)').count()) !== 2) problems.push(kind + ': 교직원 찾기 "정보" 결과가 2명이 아님');
+  // 도움말
+  await nav('help');
+  await page.locator('.help-item').first().waitFor();
+  await page.locator('.help-item summary').first().click();
+  await shot(page, kind + '_도움말', true);
+  await page.click('[data-action=help-new]');
+  await page.locator('#help-form').waitFor();
+  await page.fill('#hf-title', '연가 사용 안내(예시)');
+  await page.fill('#hf-body', '학교에서 정한 내용을 여기에 적어요.');
+  await shot(page, kind + '_도움말_쓰기');
+  await page.click('#help-form [type=submit]');
+  await waitText(page, '도움말을 넣었어요');
+  // 운영 안내서
+  await nav('guide');
+  await page.locator('.guide-card').first().waitFor();
+  await shot(page, kind + '_운영안내서', true);
+  await page.click(phone ? '.bottom-nav [data-go=home]' : '.side [data-go=home]');
+  await page.locator('.today-card').waitFor();
+  if (!(await page.locator('.quick-card .sr-row').count())) problems.push(kind + ': 홈 자주 찾는 자료가 비어 있음');
+}
+
 async function login(page) {
   await page.fill('#login-pw', 'preview1');
   await page.click('#login-form [type=submit]');
@@ -202,6 +272,7 @@ async function flow(browser, kind, viewport) {
   await shot(page, kind + '_홈', true);
   await scheduleFlow(page, kind);
   await surveyFlow(page, kind);
+  await libraryFlow(page, kind);
 
   if (kind === '휴대폰') {
     await page.click('.bottom-nav [data-action=sheet]');
@@ -240,6 +311,17 @@ async function flow(browser, kind, viewport) {
   await page.locator('#set-form').waitFor();
   await shot(page, kind + '_설정', true);
 
+  await page.click('[data-admin-tab=year]');
+  await page.locator('.ny-item').first().waitFor();
+  await page.locator('.ny-item input').nth(1).uncheck();
+  await shot(page, kind + '_관리자_새학년도', true);
+  if (kind === 'PC') {
+    await page.click('#ny-go');
+    await page.click('#cf-ok');
+    await waitText(page, '학년도로 넘겼어요');
+    await page.locator('.ny-item').first().waitFor();
+  }
+
   await page.click('[data-admin-tab=log]');
   await page.locator('.log-item').first().waitFor();
   const det = page.locator('.log-item details').first();
@@ -266,7 +348,11 @@ async function flow(browser, kind, viewport) {
   } else {
     await page.click('.side [data-go=schedule]');
   }
-  await shot(page, kind + '_어둡게_준비중');
+  await page.locator(kind === '휴대폰' ? '.pweek' : '.cal').waitFor();
+  await shot(page, kind + '_어둡게_일정');
+  await page.evaluate(() => window.__gy.go('library'));
+  await page.locator('.lib-card').first().waitFor();
+  await shot(page, kind + '_어둡게_자료실');
   await ctx.close();
 }
 
@@ -329,6 +415,13 @@ async function printCheck(browser) {
   const planBg = await page.evaluate(() => getComputedStyle(document.querySelector('.plan-card')).backgroundColor);
   if (!/rgba?\(255, 255, 255|rgba\(0, 0, 0, 0\)/.test(planBg)) problems.push('인쇄: 월별 계획 바탕이 흰색이 아님 ' + planBg);
   await page.pdf({ path: path.join(OUT, '인쇄_월별계획.pdf'), format: 'A4' });
+  for (const [scr, sel, name] of [['staff', '.dir-row', '인쇄_교직원명단.pdf'], ['guide', '.guide-card', '인쇄_운영안내서.pdf']]) {
+    await page.emulateMedia({ media: 'screen' });
+    await page.evaluate((x) => window.__gy.go(x), scr);
+    await page.locator(sel).first().waitFor();
+    await page.emulateMedia({ media: 'print' });
+    await page.pdf({ path: path.join(OUT, name), format: 'A4' });
+  }
   await ctx.close();
 }
 
@@ -357,12 +450,32 @@ async function printCheck(browser) {
     await page.locator('.sv-card').first().waitFor();
     await page.waitForTimeout(500);
     await check(page, vp.width + ' 조사');
+    await page.fill('#home-q', '').catch(() => {});
+    await page.evaluate(() => window.__gy.go('home'));
+    await page.fill('#home-q', '협의');
+    await page.press('#home-q', 'Enter');
+    await page.locator('.search-res').waitFor();
+    await check(page, vp.width + ' 홈 검색');
+    for (const [scr, sel] of [['library', '.lib-card'], ['staff', '.dir-row:not(.head)'], ['help', '.help-item'], ['guide', '.guide-card']]) {
+      await page.evaluate((x) => window.__gy.go(x), scr);
+      await page.locator(sel).first().waitFor();
+      if (scr === 'help') await page.locator('.help-item summary').first().click();
+      await page.waitForTimeout(300);
+      await check(page, vp.width + ' ' + scr);
+    }
+    await page.evaluate(() => window.__gy.go('library'));
+    await page.locator('.lib-card').first().waitFor();
+    await page.click('[data-action=lib-new]');
+    await page.locator('#lib-form').waitFor();
+    await page.click('#lib-form [data-mode=file]');
+    await check(page, vp.width + ' 자료 넣기 창');
+    await page.click('#lib-form [data-action=close-modal]');
     await page.evaluate(() => window.__gy.go('admin'));
     await page.fill('#admin-pw', 'admin1');
     await page.click('#admin-form [type=submit]');
     await page.locator('.srow').nth(3).waitFor();
     await check(page, vp.width + ' 관리자');
-    for (const t of ['cat', 'settings', 'log', 'pw']) {
+    for (const t of ['cat', 'settings', 'year', 'log', 'trash', 'pw']) {
       await page.click('[data-admin-tab=' + t + ']');
       await page.waitForTimeout(400);
       await check(page, vp.width + ' 관리자 ' + t);

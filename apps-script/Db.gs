@@ -27,8 +27,9 @@ function tabs_() {
     '조사': ['조사ID', '제목', '부서ID', '대상', '마감 일시', '상태', '질문', '메신저 문구'].concat(A).concat(['설명', '결과 공개']),
     '응답': ['응답ID', '조사ID', '교직원ID', '답', '하고 싶은 말', '낸 시각', '고친 시각'].concat(A),
     '알림': ['알림ID', '조사ID', '대상 교직원ID', '알린 시각'].concat(A),
-    '자료': ['자료ID', '학년도', '분류ID', '부서ID', '제목', '설명', '링크', '파일ID', '담당', '보관 여부'].concat(A),
-    '도움말': ['항목ID', '분류ID', '제목', '내용', '링크', '순서'].concat(A),
+    '자료': ['자료ID', '학년도', '분류ID', '부서ID', '제목', '설명', '링크', '파일ID', '담당', '보관 여부'].concat(A)
+      .concat(['파일 이름', '파일 크기', '홈에 보이기', '원본 자료ID']),
+    '도움말': ['항목ID', '분류ID', '제목', '내용', '링크', '순서'].concat(A).concat(['파일ID', '파일 이름', '파일 크기']),
     '기록': ['시각', '교직원ID', '이름', '탭', '대상ID', '동작', '요약', '바뀌기 전', '바뀐 뒤']
   };
 }
@@ -214,8 +215,10 @@ function insertRow_(tab, obj, actor, summary) {
 
 /**
  * 여러 줄을 한 번에 넣기(다시 알리기처럼 수십 줄을 쓸 때). 기록은 한 줄로 남긴다.
+ * keepAudit: true면 obj의 입력자ID·입력 시각·수정자ID·수정 시각을 그대로 둔다
+ *   (새 학년도로 옮긴 자료를 처음 넣은 분이 계속 고칠 수 있고, 수정일도 그대로 보이게. 옮긴 일은 기록 탭에 남는다)
  */
-function insertRows_(tab, list, actor, summary) {
+function insertRows_(tab, list, actor, summary, keepAudit) {
   if (!list.length) return [];
   return withLock_(function () {
     var head = headOf_(tab);
@@ -234,6 +237,7 @@ function insertRows_(tab, list, actor, summary) {
       rec['입력 시각'] = now;
       rec['수정자ID'] = '';
       rec['수정 시각'] = '';
+      if (keepAudit) ['입력자ID', '입력 시각', '수정자ID', '수정 시각'].forEach(function (h) { if (obj[h]) rec[h] = String(obj[h]); });
       rec['삭제 여부'] = '';
       return rec;
     });
@@ -276,6 +280,37 @@ function updateRow_(tab, id, patch, actor, summary, action) {
     writeLog_(actor, tab, id, action || '수정', summary || '', auditView_(before), auditView_(after));
     next._row = row._row;
     return publicRow_(next);
+  });
+}
+
+/**
+ * 여러 줄에 같은 값을 한 번에 쓰기(새 학년도에 지난 자료를 보관함으로 보낼 때). 기록은 한 줄로 남긴다.
+ * 바뀌기 전 값과 ID 목록을 기록에 남겨 되돌릴 수 있게 한다. 수정일은 그대로 둔다(내용을 고친 것이 아니라서).
+ */
+function updateRowsSame_(tab, ids, patch, actor, summary, action) {
+  if (!ids.length) return 0;
+  return withLock_(function () {
+    var head = headOf_(tab);
+    var key = head[0];
+    var want = {};
+    ids.forEach(function (id) { want[id] = true; });
+    var sh = sheet_(tab);
+    var n = 0, before = {};
+    readRows_(tab).forEach(function (row) {
+      if (!want[row[key]]) return;
+      var next = {};
+      head.forEach(function (h) { next[h] = row[h] === undefined ? '' : row[h]; });
+      Object.keys(patch).forEach(function (h) {
+        if (head.indexOf(h) >= 0) { before[h] = before[h] || {}; before[h][row[key]] = next[h]; next[h] = String(patch[h]); }
+      });
+      sh.getRange(row._row, 1, 1, head.length).setValues([head.map(function (h) { return cellWrite_(next[h]); })]);
+      n++;
+    });
+    var after = {};
+    Object.keys(patch).forEach(function (h) { after[h] = String(patch[h]); });
+    after['ID 목록'] = ids.join(',');
+    writeLog_(actor, tab, '', action || '수정', summary || (n + '줄 고침'), before, after);
+    return n;
   });
 }
 

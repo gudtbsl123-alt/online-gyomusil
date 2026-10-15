@@ -19,8 +19,9 @@ function settingDefs_() {
     { key: '잠금 분', def: '10', type: 'int', min: 1, max: 120, label: '잠그는 시간', unit: '분', note: "'이름+개인 번호'일 때만 써요" },
     { key: '백업 남길 개수', def: '30', type: 'int', min: 3, max: 365, label: '매일 백업을 몇 개까지 남길까요', unit: '개' },
     { key: '기존 시트 바로가기', def: '[]', type: 'links', label: "홈의 '아직 기존 시트에서 하는 일' 바로가기", note: '2단계 홈 화면에 보여요' },
+    { key: '파일 크기 한도', def: '10', type: 'int', min: 1, max: 50, label: '자료실에 올릴 수 있는 파일 크기', unit: 'MB', note: '확인 필요: 학교 PC·휴대폰에서 실제로 올려 보고 정해요. 더 큰 파일은 드라이브 링크로 넣어요' },
     { key: '백업 폴더ID', def: '', type: 'readonly', label: '백업 폴더(자동)' },
-    { key: '자료 폴더ID', def: '', type: 'readonly', label: '자료 파일 폴더(자동, 4단계)' }
+    { key: '자료 폴더ID', def: '', type: 'readonly', label: '자료실 파일 폴더(자동, 공유하지 않음)' }
   ];
 }
 

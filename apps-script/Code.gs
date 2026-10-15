@@ -11,6 +11,8 @@
  *   Admin.gs  설정, 분류, 교직원 표, 수정 기록
  *   Schedule.gs  일정(달력·연간 학사일정·월별 계획·홈), 수업일수, 휴지통
  *   Survey.gs  조사·신청(만들기, 응답, 제출 현황, 다시 알리기, 요약, CSV)
+ *   Library.gs  자료실(자료 카드, 파일 올리기·내려받기), 새 학년도 넘기기
+ *   Help.gs   도움말, 교직원 명단, 홈 검색
  *   Setup.gs  시트 메뉴, 처음 설정, 매일 백업, 테스트 데이터
  *   Index.html / Styles.html / App.html  화면
  */
@@ -55,6 +57,17 @@ function routes_() {
     'survey.remind': { need: 'identity', fn: apiSurveyRemind_ },
     'survey.csv': { need: 'login', fn: apiSurveyCsv_ },
 
+    'lib.list': { need: 'login', fn: apiLibList_ },
+    'lib.save': { need: 'identity', fn: apiLibSave_ },
+    'lib.delete': { need: 'identity', fn: apiLibDelete_ },
+    'lib.unarchive': { need: 'identity', fn: apiLibUnarchive_ },
+    'file.get': { need: 'login', fn: apiFileGet_ },
+    'help.list': { need: 'login', fn: apiHelpList_ },
+    'help.save': { need: 'identity', fn: apiHelpSave_ },
+    'help.delete': { need: 'identity', fn: apiHelpDelete_ },
+    'staff.list': { need: 'login', fn: function () { return apiStaffDir_(); } },
+    'search': { need: 'login', fn: apiSearch_ },
+
     'admin.settings.get': { need: 'admin', fn: function () { return adminSettingsGet_(); } },
     'admin.settings.save': { need: 'admin', fn: adminSettingsSave_ },
     'admin.cat.list': { need: 'admin', fn: function () { return adminCategoryList_(); } },
@@ -71,6 +84,10 @@ function routes_() {
     'admin.trash.restore': { need: 'admin', fn: adminTrashRestore_ },
     'admin.trash.surveys': { need: 'admin', fn: function () { return adminSurveyTrash_(); } },
     'admin.trash.restoreSurvey': { need: 'admin', fn: adminSurveyRestore_ },
+    'admin.trash.library': { need: 'admin', fn: function () { return adminLibTrash_(); } },
+    'admin.trash.restoreLibrary': { need: 'admin', fn: adminLibRestore_ },
+    'admin.year.preview': { need: 'admin', fn: function () { return adminYearPreview_(); } },
+    'admin.year.start': { need: 'admin', fn: adminYearStart_ },
     'admin.pw.common': { need: 'admin', fn: adminChangeCommonPw_ },
     'admin.pw.admin': { need: 'admin', fn: adminChangeAdminPw_ }
   };

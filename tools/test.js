@@ -965,5 +965,240 @@ test('목록: 응답할 것·내가 만든 조사·지난 조사', () => {
   assert.throws(() => g.seedTestSurveys_(), /이미 조사가/);
 });
 
+
+// ================================================================ 4단계: 자료실·교직원·도움말·검색
+
+const b64 = (text) => Buffer.from(text, 'utf8').toString('base64');
+const cats = (g, kind) => plain(g.catOptions_(kind));
+
+function libFields(g, extra) {
+  return Object.assign({ '제목': '학년 협의록 양식', '설명': '협의 때 쓰는 양식', '부서ID': cats(g, '부서')[1].id, '분류ID': cats(g, '자료 분류')[1].id, '담당': '홍길동', mode: 'link', link: 'https://example.com/a' }, extra || {});
+}
+
+test('자료: 누구나 넣고, 처음 넣은 분·관리만 고치고 지운다', () => {
+  const g = freshName();
+  const { L, who } = ids(g);
+  assert.strictEqual(call(g, 'lib.save', { fields: libFields(g) }, { login: L }).code, 'IDENTITY');
+  const r = call(g, 'lib.save', { fields: libFields(g) }, who('심청'));
+  assert.strictEqual(r.ok, true, r.error);
+  const it = r.data;
+  assert.strictEqual(it.year, '2026');
+  assert.strictEqual(it.dept, '연구부');
+  assert.strictEqual(it.kind, '양식');
+  assert.strictEqual(it.canEdit, true);
+  assert.strictEqual(call(g, 'lib.save', { id: it.id, fields: libFields(g, { '제목': '남이 고침' }) }, who('흥부')).code, 'FORBIDDEN');
+  assert.strictEqual(call(g, 'lib.delete', { id: it.id }, who('흥부')).code, 'FORBIDDEN');
+  assert.strictEqual(call(g, 'lib.save', { id: it.id, fields: libFields(g, { '제목': '관리가 고침' }) }, who('홍길동')).ok, true, '역할 관리');
+  const list = call(g, 'lib.list', {}, who('흥부')).data;
+  assert.strictEqual(list.items[0].title, '관리가 고침');
+  assert.strictEqual(list.items[0].canEdit, false);
+  assert.strictEqual(call(g, 'lib.delete', { id: it.id }, who('심청')).ok, true);
+  assert.strictEqual(call(g, 'lib.list', {}, who('심청')).data.items.length, 0);
+  const log = g.readRows_('기록').filter((x) => x['탭'] === '자료').map((x) => x['동작']);
+  assert.deepStrictEqual(plain(log), ['추가', '수정', '삭제']);
+});
+
+test('자료 값 확인: 제목·https 링크·부서·분류', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('심청');
+  assert.match(call(g, 'lib.save', { fields: libFields(g, { '제목': '' }) }, me).error, /제목을/);
+  assert.match(call(g, 'lib.save', { fields: libFields(g, { link: 'http://a.b' }) }, me).error, /https:\/\//);
+  assert.match(call(g, 'lib.save', { fields: libFields(g, { link: 'javascript:alert(1)' }) }, me).error, /https:\/\//);
+  assert.match(call(g, 'lib.save', { fields: libFields(g, { '부서ID': 'C없음' }) }, me).error, /부서를/);
+  assert.match(call(g, 'lib.save', { fields: libFields(g, { '분류ID': cats(g, '부서')[0].id }) }, me).error, /자료 분류를/);
+  assert.match(call(g, 'lib.save', { fields: libFields(g, { mode: 'file' }) }, me).error, /파일을 골라/);
+});
+
+test('파일 올리기: 비공개 자료 폴더에 만들고, 웹앱으로만 내려받는다', () => {
+  const g = freshName();
+  const { L, who } = ids(g);
+  const file = { name: '../협의록:양식.hwp', type: 'application/x-hwp', data: b64('가짜 파일 내용') };
+  const r = call(g, 'lib.save', { fields: libFields(g, { mode: 'file' }), file }, who('심청'));
+  assert.strictEqual(r.ok, true, r.error);
+  assert.strictEqual(r.data.hasFile, true);
+  assert.strictEqual(r.data.fileName, '.. 협의록 양식.hwp', '경로·특수 글자는 빈칸으로');
+  assert.strictEqual(r.data.fileSize, Buffer.byteLength('가짜 파일 내용'));
+  assert.strictEqual(r.data.link, '');
+  assert.ok(!('fileId' in r.data) && !JSON.stringify(r.data).includes('Fmock'), '드라이브 파일ID는 화면에 보내지 않음');
+  const folderId = g.setting_('자료 폴더ID');
+  assert.ok(folderId, '자료 폴더ID가 설정에 남음');
+  const row = g.findRow_('자료', r.data.id);
+  assert.strictEqual(g.DriveApp._store.files[row['파일ID']]._folder, folderId);
+  const got = call(g, 'file.get', { tab: '자료', id: r.data.id }, { login: L });
+  assert.strictEqual(got.ok, true, got.error);
+  assert.strictEqual(Buffer.from(got.data.data, 'base64').toString('utf8'), '가짜 파일 내용');
+  assert.strictEqual(got.data.type, 'application/x-hwp');
+  assert.strictEqual(call(g, 'file.get', { tab: '자료', id: r.data.id }, {}).code, 'LOGIN');
+  assert.strictEqual(call(g, 'file.get', { tab: '자료', id: row['파일ID'] }, { login: L }).code, 'NOTFOUND', '파일ID로 직접은 못 받음');
+  // 링크로 바꿔도 드라이브 파일은 지우지 않는다
+  call(g, 'lib.save', { id: r.data.id, fields: libFields(g) }, who('심청'));
+  assert.strictEqual(g.DriveApp._store.files[row['파일ID']].isTrashed(), false);
+  assert.strictEqual(call(g, 'file.get', { tab: '자료', id: r.data.id }, { login: L }).code, 'NOTFOUND');
+});
+
+test('파일 크기 한도: 설정값(MB)을 넘으면 받지 않는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  g.putSetting_('파일 크기 한도', '1', { id: '', name: '시험' });
+  const big = Buffer.alloc(1024 * 1024 + 10, 65).toString('base64');
+  const r = call(g, 'lib.save', { fields: libFields(g, { mode: 'file' }), file: { name: 'big.pdf', type: 'application/pdf', data: big } }, who('심청'));
+  assert.match(r.error, /1MB까지/);
+  assert.strictEqual(Object.keys(g.DriveApp._store.files).length, 0, '드라이브에 남지 않음');
+  assert.match(call(g, 'lib.save', { fields: libFields(g, { mode: 'file' }), file: { name: 'a', data: '' } }, who('심청')).error, /읽지 못했/);
+});
+
+test('홈 자주 찾는 자료: 관리가 고른 것만, 일반 교직원의 표시는 무시', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const a = call(g, 'lib.save', { fields: libFields(g, { '제목': '가', home: true }) }, who('심청')).data;
+  assert.strictEqual(a.home, false);
+  const b = call(g, 'lib.save', { fields: libFields(g, { '제목': '나', home: true }) }, who('홍길동')).data;
+  assert.strictEqual(b.home, true);
+  const home = call(g, 'home', {}, who('심청')).data;
+  assert.deepStrictEqual(plain(home.library.map((x) => x.title)), ['나']);
+});
+
+test('새 학년도 넘기기: 지난 자료는 보관함으로, 고른 자료만 새 학년도로', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const { who } = ids(g);
+  const me = who('심청');
+  const a = call(g, 'lib.save', { fields: libFields(g, { '제목': '가져갈 자료' }) }, me).data;
+  const file = { name: '양식.hwp', type: 'application/x-hwp', data: b64('양식') };
+  const b = call(g, 'lib.save', { fields: libFields(g, { '제목': '가져갈 파일', mode: 'file' }), file }, me).data;
+  const c = call(g, 'lib.save', { fields: libFields(g, { '제목': '두고 갈 자료' }) }, me).data;
+  const pv = call(g, 'admin.year.preview', {}, t).data;
+  assert.strictEqual(pv.year, '2026');
+  assert.strictEqual(pv.next, '2027');
+  assert.strictEqual(pv.items.length, 3);
+  assert.match(call(g, 'admin.year.start', { year: '2026', keep: [] }, t).error, /2026/);
+  assert.strictEqual(call(g, 'admin.year.start', { year: '2027', keep: [] }, me).code, 'ADMIN');
+  const r = call(g, 'admin.year.start', { year: '2027', keep: [a.id, b.id] }, t);
+  assert.strictEqual(r.ok, true, r.error);
+  assert.deepStrictEqual(plain(r.data), { year: '2027', archived: 3, copied: 2 });
+  assert.strictEqual(g.setting_('학년도'), '2027');
+  const list = call(g, 'lib.list', {}, me).data;
+  assert.strictEqual(list.year, '2027');
+  const now = list.items.filter((x) => !x.archived), old = list.items.filter((x) => x.archived);
+  assert.deepStrictEqual(plain(now.map((x) => x.title).sort()), ['가져갈 자료', '가져갈 파일']);
+  assert.ok(now.every((x) => x.year === '2027' && x.canEdit), '처음 넣은 분이 계속 고칠 수 있음');
+  assert.strictEqual(old.length, 3);
+  assert.ok(old.every((x) => x.year === '2026'));
+  // 옮긴 파일은 같은 파일을 가리켜 내려받을 수 있다
+  const nb = now.find((x) => x.title === '가져갈 파일');
+  assert.strictEqual(Buffer.from(call(g, 'file.get', { tab: '자료', id: nb.id }, me).data.data, 'base64').toString(), '양식');
+  // 보관함 자료는 고칠 수 없다
+  assert.match(call(g, 'lib.save', { id: c.id, fields: libFields(g) }, me).error, /보관함/);
+  // 기록: 보관 한 줄 + 옮겨 적기 한 줄 + 학년도 설정
+  const log = g.readRows_('기록');
+  assert.ok(log.some((x) => x['동작'] === '보관' && x['바뀐 뒤'].includes(c.id)));
+  assert.ok(log.some((x) => x['탭'] === '설정' && x['대상ID'] === '학년도'));
+});
+
+test('보관함에서 꺼내기: 관리만, 지금 학년도로 옮겨 적는다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const { who } = ids(g);
+  const a = call(g, 'lib.save', { fields: libFields(g, { '제목': '작년 자료' }) }, who('심청')).data;
+  call(g, 'admin.year.start', { year: '2027', keep: [] }, t);
+  assert.strictEqual(call(g, 'lib.unarchive', { id: a.id }, who('심청')).code, 'FORBIDDEN');
+  const r = call(g, 'lib.unarchive', { id: a.id }, who('홍길동'));
+  assert.strictEqual(r.ok, true, r.error);
+  assert.strictEqual(r.data.year, '2027');
+  assert.strictEqual(r.data.archived, false);
+  assert.strictEqual(call(g, 'lib.list', {}, who('심청')).data.items.length, 2);
+});
+
+test('자료·도움말 휴지통: 지운 것을 되살린다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const { who } = ids(g);
+  const a = call(g, 'lib.save', { fields: libFields(g) }, who('심청')).data;
+  call(g, 'lib.delete', { id: a.id }, who('심청'));
+  const h = call(g, 'help.save', { fields: { '분류ID': cats(g, '도움말 분류')[0].id, '제목': '안내', '내용': '학교에서 적는 글' } }, who('심청')).data;
+  call(g, 'help.delete', { id: h.id }, who('심청'));
+  const trash = call(g, 'admin.trash.library', {}, t).data;
+  assert.strictEqual(trash.length, 2);
+  call(g, 'admin.trash.restoreLibrary', { tab: '자료', id: a.id }, t);
+  call(g, 'admin.trash.restoreLibrary', { tab: '도움말', id: h.id }, t);
+  assert.strictEqual(call(g, 'lib.list', {}, who('심청')).data.items.length, 1);
+  assert.strictEqual(call(g, 'help.list', {}, who('심청')).data.items.length, 1);
+});
+
+test('도움말: 누구나 쓰고, 처음 쓴 분·관리만 고친다. 파일도 붙인다', () => {
+  const g = freshName();
+  const { L, who } = ids(g);
+  const k = cats(g, '도움말 분류');
+  assert.match(call(g, 'help.save', { fields: { '제목': '분류 없음', '내용': 'x' } }, who('심청')).error, /분류를/);
+  assert.match(call(g, 'help.save', { fields: { '분류ID': k[0].id, '제목': '빈 글' } }, who('심청')).error, /내용을 적거나/);
+  const h = call(g, 'help.save', { fields: { '분류ID': k[1].id, '제목': '학교 규칙', '내용': '' }, file: { name: '규칙.pdf', type: 'application/pdf', data: b64('pdf') } }, who('심청'));
+  assert.strictEqual(h.ok, true, h.error);
+  assert.strictEqual(h.data.hasFile, true);
+  assert.strictEqual(h.data.kind, '학교 규칙·제규정');
+  assert.strictEqual(Buffer.from(call(g, 'file.get', { tab: '도움말', id: h.data.id }, { login: L }).data.data, 'base64').toString(), 'pdf');
+  assert.strictEqual(call(g, 'help.save', { id: h.data.id, fields: { '분류ID': k[1].id, '제목': '남이' , '내용': 'x' } }, who('흥부')).code, 'FORBIDDEN');
+  call(g, 'help.save', { fields: { '분류ID': k[0].id, '제목': '나중 글', '내용': 'b', '순서': '2' } }, who('흥부'));
+  call(g, 'help.save', { fields: { '분류ID': k[0].id, '제목': '먼저 글', '내용': 'a', '순서': '1' } }, who('흥부'));
+  const list = call(g, 'help.list', {}, { login: L }).data;
+  assert.deepStrictEqual(plain(list.items.map((x) => x.title)), ['먼저 글', '나중 글', '학교 규칙'], '분류 순서 → 순서 → 제목');
+  // 파일 빼기
+  const r = call(g, 'help.save', { id: h.data.id, fields: { '분류ID': k[1].id, '제목': '학교 규칙', '내용': '파일은 뺐어요', removeFile: true } }, who('홍길동'));
+  assert.strictEqual(r.data.hasFile, false);
+});
+
+test('교직원 명단: 사용 중인 분만, 비밀 칸·역할 없이', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const { L, staff } = ids(g);
+  call(g, 'admin.staff.setActive', { id: staff.find((x) => x.name === '놀부').id, active: false }, t);
+  const d = call(g, 'staff.list', {}, { login: L }).data;
+  assert.strictEqual(d.staff.length, 7);
+  assert.ok(!d.staff.some((x) => x.name === '놀부'));
+  const hong = d.staff.find((x) => x.name === '홍길동');
+  assert.deepStrictEqual(Object.keys(hong).sort(), ['dept', 'deptId', 'duty', 'ext', 'group', 'id', 'name', 'position'].sort());
+  assert.strictEqual(hong.ext, '101');
+  assert.strictEqual(hong.dept, '연구부');
+  assert.strictEqual(call(g, 'staff.list', {}, {}).code, 'LOGIN');
+});
+
+test('홈 검색: 자료·일정·교직원·도움말·조사를 한 번에 찾는다', () => {
+  const g = freshName();
+  const { L, who } = ids(g);
+  g.seedTestSchedule_();
+  g.seedTestSurveys_();
+  g.seedTestLibrary_();
+  const s = (q) => call(g, 'search', { q }, { login: L }).data;
+  assert.ok(s('학적').library.items.some((x) => x.title.includes('학적')), '자료 제목');
+  assert.ok(s('협의록').library.items.some((x) => x.hasFile), '파일 자료');
+  assert.ok(s('체육대회').events.items.some((x) => x.title === '교직원 체육대회'), '일정');
+  assert.ok(s('체육대회').surveys.items.length >= 1, '조사');
+  assert.deepStrictEqual(plain(s('홍길동').staff.items.map((x) => x.name)), ['홍길동'], '교직원 이름');
+  assert.ok(s('정보부').staff.total === 2, '부서로 교직원');
+  assert.ok(s('101').staff.items[0].name === '홍길동', '내선');
+  assert.ok(s('근무 상신').help.items.length === 1, '도움말 두 낱말');
+  assert.ok(s('근무상신').help.items.length === 1, '띄어쓰기 무시');
+  const old = s('업무 분장').library.items[0];
+  assert.strictEqual(old.archived, true, '보관함 자료도 찾되 표시');
+  const none = s('없는낱말xyz');
+  assert.strictEqual(none.library.total + none.events.total + none.staff.total + none.help.total + none.surveys.total, 0);
+  assert.strictEqual(s('  ').library.total, 0);
+  assert.strictEqual(call(g, 'search', { q: '학적' }, {}).code, 'LOGIN');
+  assert.ok(!JSON.stringify(s('홍길동')).includes('개인번호해시'));
+  assert.strictEqual(who('심청').login, L);
+});
+
+test('가짜 자료·도움말: 빈 시트에만, 파일 2개와 보관함 1개', () => {
+  const g = freshName();
+  const n = g.seedTestLibrary_();
+  assert.strictEqual(n, 7);
+  const items = plain(g.apiLibList_({}, {}, { identity: null, tokens: {} }).items);
+  assert.strictEqual(items.filter((x) => x.hasFile).length, 2);
+  assert.strictEqual(items.filter((x) => x.archived).length, 1);
+  assert.throws(() => g.seedTestLibrary_(), /이미 내용이/);
+  const help = g.readRows_('도움말');
+  assert.ok(help.every((h) => h['제목'].includes('(예시)')), '도움말은 예시로만');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + passed + '/' + results.length + ' 통과');

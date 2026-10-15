@@ -74,19 +74,22 @@
   function toBytes(v) { return typeof v === 'string' ? utf8(v) : unsigned(v); }
 
   var B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-  function b64ws(bytes) {
+  var B64STD = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  function b64ws(bytes, abc) {
+    abc = abc || B64;
     var out = '';
     for (var i = 0; i < bytes.length; i += 3) {
       var n = (bytes[i] << 16) | ((bytes[i + 1] || 0) << 8) | (bytes[i + 2] || 0);
-      out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + (i + 1 < bytes.length ? B64[(n >> 6) & 63] : '=') + (i + 2 < bytes.length ? B64[n & 63] : '=');
+      out += abc[(n >> 18) & 63] + abc[(n >> 12) & 63] + (i + 1 < bytes.length ? abc[(n >> 6) & 63] : '=') + (i + 2 < bytes.length ? abc[n & 63] : '=');
     }
     return out;
   }
-  function unb64ws(s) {
+  function unb64ws(s, abc) {
+    abc = abc || B64;
     s = s.replace(/=+$/, '');
     var out = [], buf = 0, bits = 0;
     for (var i = 0; i < s.length; i++) {
-      var v = B64.indexOf(s[i]);
+      var v = abc.indexOf(s[i]);
       if (v < 0) throw new Error('bad base64');
       buf = (buf << 6) | v; bits += 6;
       if (bits >= 8) { bits -= 8; out.push((buf >> bits) & 255); }
@@ -179,6 +182,68 @@
   Spreadsheet.prototype.insertSheet = function (n) { var s = new Sheet(n); this.sheets.push(s); return s; };
   Spreadsheet.prototype.getSheets = function () { return this.sheets.slice(); };
 
+  // ------------------------------------------------------------ 드라이브 (자료 파일·백업 폴더)
+  function makeBlob(bytes, type, name) {
+    var b = unsigned(bytes || []);
+    var blob = {
+      getBytes: function () { return signed(b); },
+      getName: function () { return name || ''; },
+      setName: function (n) { name = n; return blob; },
+      getContentType: function () { return type || 'application/octet-stream'; },
+      getDataAsString: function () { return new TextDecoder().decode(new Uint8Array(b)); }
+    };
+    return blob;
+  }
+
+  function createDrive() {
+    var store = { files: {}, folders: {}, n: 0 };
+    function newId(p) { store.n++; return p + 'mock' + store.n; }
+    function makeFile(name, bytes, type, folderId) {
+      var id = newId('F'), trashed = false, created = new Date();
+      var f = {
+        _bytes: unsigned(bytes), _folder: folderId,
+        getId: function () { return id; },
+        getName: function () { return name; },
+        getMimeType: function () { return type; },
+        getSize: function () { return f._bytes.length; },
+        getBlob: function () { return makeBlob(f._bytes, type, name); },
+        isTrashed: function () { return trashed; },
+        setTrashed: function (v) { trashed = !!v; return f; },
+        getDateCreated: function () { return created; },
+        makeCopy: function (n, folder) { return makeFile(n, f._bytes, type, folder.getId()); }
+      };
+      store.files[id] = f;
+      return f;
+    }
+    function makeFolder(name) {
+      var id = newId('D'), trashed = false;
+      var d = {
+        getId: function () { return id; },
+        getName: function () { return name; },
+        isTrashed: function () { return trashed; },
+        setTrashed: function (v) { trashed = !!v; return d; },
+        createFile: function (blob) { return makeFile(blob.getName(), blob.getBytes(), blob.getContentType(), id); },
+        getFilesByType: function () {
+          var list = Object.keys(store.files).map(function (k) { return store.files[k]; }).filter(function (f) { return f._folder === id && !f.isTrashed(); });
+          var i = 0;
+          return { hasNext: function () { return i < list.length; }, next: function () { return list[i++]; } };
+        }
+      };
+      store.folders[id] = d;
+      return d;
+    }
+    return {
+      _store: store,
+      createFolder: makeFolder,
+      getFolderById: function (id) { if (!store.folders[id]) throw new Error('없는 폴더'); return store.folders[id]; },
+      getFileById: function (id) {
+        if (id === 'mock-sheet-id') return { makeCopy: function (n, folder) { return makeFile(n, [], 'application/vnd.google-apps.spreadsheet', folder.getId()); } };
+        if (!store.files[id]) throw new Error('없는 파일');
+        return store.files[id];
+      }
+    };
+  }
+
   // ------------------------------------------------------------ 환경 만들기
   function createEnv(opts) {
     opts = opts || {};
@@ -215,14 +280,16 @@
         computeHmacSha256Signature: function (value, key) { return signed(hmac(toBytes(key), toBytes(value))); },
         base64EncodeWebSafe: function (v) { return b64ws(toBytes(v)); },
         base64DecodeWebSafe: function (s) { return signed(unb64ws(s)); },
-        newBlob: function (bytes) {
-          return { getDataAsString: function () { return new TextDecoder().decode(new Uint8Array(unsigned(bytes))); } };
-        },
+        newBlob: function (bytes, type, name) { return makeBlob(typeof bytes === 'string' ? utf8(bytes) : bytes, type, name); },
+        base64Encode: function (v) { return b64ws(toBytes(v), B64STD); },
+        base64Decode: function (s) { return signed(unb64ws(String(s), B64STD)); },
         getUuid: uuid,
         formatDate: formatDate,
         sleep: function () { env._sleeps++; }
       },
       Session: { getScriptTimeZone: function () { return 'Asia/Seoul'; } },
+      DriveApp: createDrive(),
+      MimeType: { GOOGLE_SHEETS: 'application/vnd.google-apps.spreadsheet' },
       console: root.console
     };
     return env;

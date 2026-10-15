@@ -506,4 +506,100 @@ select.input{appearance:auto}
   .sv-actions{justify-content:flex-start}
 }
 @media print{ .sv-actions,.sv-submit{display:none!important} }
+/* ---------- 4단계: 자료실·교직원·도움말·운영 안내서·홈 검색 ---------- */
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.btn-ghost-danger{border-color:transparent;background:transparent;color:var(--c-red)}
+.btn-note{font-size:13px;font-weight:600;color:var(--c-t3)}
+.linkish.accent{color:var(--accent);text-decoration:none;font-weight:700}
+.input-file{padding:10px 12px;min-height:52px;font-size:15px}
+.file-now{display:flex;align-items:center;gap:8px;margin:0;font-size:15px;overflow-wrap:anywhere}
+.ev-dl dd{overflow-wrap:anywhere}
+.home-search{width:340px;max-width:100%}
+.intro{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:16px 20px;background:var(--c-sub);border:1px solid var(--c-line);border-radius:14px}
+.intro-t{margin:0;display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700}
+.intro-t svg{color:var(--accent)}
+.intro-list{flex:1 1 480px;margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:8px}
+.intro-list li{padding:6px 12px;border-radius:9999px;background:var(--c-pill);color:var(--c-t2);font-size:15px;font-weight:600}
+.intro-btns{display:flex;align-items:center;gap:4px}
+.intro-btns .linkish{min-height:40px;padding:0 12px}
+.home-row{display:flex;flex-wrap:wrap;gap:16px}
+.home-row>.card{flex:1 1 320px;min-width:0}
+.sr-list{display:flex;flex-direction:column}
+.sr-row{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:8px 4px;border:0;border-bottom:1px solid var(--c-line);background:transparent;color:var(--c-t1);font:inherit;text-align:left;cursor:pointer}
+.sr-list .sr-row:last-child{border-bottom:0}
+.sr-ico{color:var(--c-t3)}
+.sr-main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+.sr-t{font-weight:700;line-height:1.4;overflow-wrap:anywhere}
+.sr-sub{font-size:14px;color:var(--c-t3);overflow-wrap:anywhere}
+.sr-right{flex:none;font-size:14px;font-weight:700;color:var(--c-t2)}
+.sr-chev{color:var(--c-dot)}
+.sr-group{display:flex;flex-direction:column;gap:4px}
+.sr-h{display:flex;align-items:center;gap:8px;margin:0;font-size:18px!important}
+.sr-h svg{color:var(--accent)}
+.sr-more{align-self:flex-start;min-height:40px}
+.search-res{gap:20px}
+.lib-group{display:flex;flex-direction:column;gap:12px}
+.lib-h{margin:0;font-size:20px;font-weight:800}
+.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:12px}
+.lib-card{display:flex;flex-direction:column;gap:8px;padding:18px;border:1px solid var(--c-line);border-radius:16px;background:var(--c-card);min-width:0}
+.lib-ico{color:var(--c-t3)}
+.lib-title{padding:0;border:0;background:none;color:var(--c-t1);font:inherit;font-size:18px;font-weight:800;line-height:1.35;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.lib-desc{margin:0;color:var(--c-t2);font-size:15px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.lib-meta{margin:0;font-size:14px;color:var(--c-t3)}
+.lib-btns{margin-top:auto;display:flex;flex-wrap:wrap;gap:8px;padding-top:4px}
+.dir{border:1px solid var(--c-line);border-radius:14px;overflow:hidden;background:var(--c-card)}
+.dir-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(110px,.9fr) minmax(90px,.8fr) minmax(160px,2fr) 64px;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid var(--c-line)}
+.dir-row:first-child{border-top:0}
+.dir-row.head{background:var(--c-card2);font-size:14px;font-weight:700;color:var(--c-t3);padding-top:10px;padding-bottom:10px}
+.d-name{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px}
+.d-duty{color:var(--c-t2);font-size:15px;overflow-wrap:anywhere}
+.d-ext{font-variant-numeric:tabular-nums}
+.d-gd{display:none}
+.help-card{gap:8px}
+.help-list{display:flex;flex-direction:column}
+.help-item{border-top:1px solid var(--c-line)}
+.help-item:first-child{border-top:0}
+.help-item summary{display:flex;align-items:center;gap:10px;min-height:56px;padding:6px 2px;list-style:none;cursor:pointer}
+.help-item summary::-webkit-details-marker{display:none}
+.help-t{flex:1 1 auto;min-width:0;font-weight:700;font-size:17px;overflow-wrap:anywhere}
+.help-ico{color:var(--c-t3)}
+.help-chev{color:var(--c-t3);transition:transform .15s}
+.help-item[open] .help-chev{transform:rotate(180deg)}
+.help-body{display:flex;flex-direction:column;gap:12px;padding:4px 2px 20px}
+.help-text{margin:0;white-space:pre-line;overflow-wrap:anywhere;line-height:1.65}
+.help-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.guide-h{margin:8px 0 0;font-size:22px;font-weight:800}
+.guide-card{gap:12px}
+.guide-card h2{display:flex;align-items:center;gap:10px}
+.guide-list{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;color:var(--c-t2)}
+.guide-list b{color:var(--c-t1)}
+.ny-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:4px 16px}
+.ny-item{align-items:flex-start;padding:6px 0;font-weight:500}
+.ny-item input{margin-top:3px}
+@media (hover:hover){ .sr-row:hover{background:var(--c-card2)} .lib-title:hover{color:var(--accent)} .help-item summary:hover .help-t{color:var(--accent)} }
+@media (max-width:899px){
+  .home-search{width:100%}
+  .intro{padding:14px 16px}
+  .intro-list li{font-size:14px}
+  .lib-card{padding:16px}
+  .dir-row{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:12px 16px}
+  .dir-row.head{display:none}
+  .d-name{grid-column:1}
+  .d-ext{grid-column:2;grid-row:1;text-align:right}
+  .d-ext:not(:empty)::before{content:'내선 ';font-size:13px;color:var(--c-t3);font-weight:600}
+  .d-group,.d-dept{display:none}
+  .d-gd{display:block;grid-column:1 / -1;font-size:15px;color:var(--c-t2)}
+  .d-gd:empty,.d-duty:empty{display:none}
+  #lib-body .toolbar .seg{flex:1 1 100%}
+  #lib-body .toolbar .seg button{flex:1 1 0}
+  #lib-body .toolbar select{flex:1 1 0;min-width:0}
+  .d-duty{grid-column:1 / -1}
+}
+@media print{
+  .intro,.search-res .sr-chev,.lib-btns,.help-foot .row-btns{display:none!important}
+  .lib-grid{grid-template-columns:repeat(2,1fr)}
+  .lib-card,.dir-row,.guide-card{break-inside:avoid}
+  .help-body{display:flex!important}
+  .dir-row{padding:6px 10px;font-size:13px}
+}
 </style>
