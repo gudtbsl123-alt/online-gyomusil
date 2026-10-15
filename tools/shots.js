@@ -237,6 +237,87 @@ async function libraryFlow(page, kind) {
   if (!(await page.locator('.quick-card .sr-row').count())) problems.push(kind + ': 홈 자주 찾는 자료가 비어 있음');
 }
 
+/** 5단계: 학사일정 한 번에 올리기(연구부장·부담당) — SAMPLE_XLSX(엑셀로 만든 시험 파일)가 있을 때 */
+const SAMPLE_XLSX = process.env.SAMPLE_XLSX;
+const TEMPLATE_OUT = process.env.TEMPLATE_OUT;
+async function uploadFlow(page, kind) {
+  const nav = (id) => page.evaluate((x) => window.__gy.go(x), id);
+  await nav('schedule');
+  await page.locator('[data-go=upload]').click();
+  await page.locator('.up-steps').waitFor();
+  await shot(page, kind + '_학사일정올리기', true);
+  const dl = page.waitForEvent('download', { timeout: 5000 }).catch(() => null);
+  await page.click('[data-action=up-template]');
+  const d = await dl;
+  if (!d) problems.push(kind + ': 양식 내려받기가 안 됨');
+  else if (TEMPLATE_OUT && kind === 'PC') await d.saveAs(TEMPLATE_OUT);
+  if (SAMPLE_XLSX) {
+    await page.setInputFiles('#up-file', SAMPLE_XLSX);
+    await page.locator('.up-table').waitFor();
+    const n = await page.locator('#up-count').textContent();
+    if (!/^2[0-9]개$/.test(n.trim())) problems.push(kind + ': 엑셀 파일에서 올릴 행사 수가 이상함 ' + n);
+    const first = await page.locator('.up-table tbody tr').first().innerText();
+    if (!/학예회/.test(first) || !/11월 9일/.test(first)) problems.push(kind + ': 엑셀 날짜 칸을 못 읽음 ' + first.replace(/\s+/g, ' '));
+    await shot(page, kind + '_학사일정_미리보기', true);
+    // 올릴 수 없는 줄 고치기
+    await page.click('[data-action=up-filter][data-v=error]');
+    await page.locator('.up-table [data-action=up-edit]').first().click();
+    await page.locator('#ue-form').waitFor();
+    await shot(page, kind + '_학사일정_줄고치기');
+    await page.fill('#ue-start', '2026-10-30');
+    await page.click('#ue-form [type=submit]');
+    await page.waitForTimeout(500);
+    await page.locator('.up-table, .up-card .empty').first().waitFor();
+    if ((await page.locator('[data-action=up-filter][data-v=error] .tab-n').textContent()).trim() !== '0') problems.push(kind + ': 줄을 고쳐도 오류가 남음');
+    await page.click('[data-action=up-save]');
+    await page.click('#cf-ok');
+    await page.locator('.up-done').waitFor();
+    await shot(page, kind + '_학사일정_올림');
+    await page.click('[data-action=up-undo]');
+    await page.click('#cf-ok');
+    await waitText(page, '되돌렸어요');
+  }
+  // 한글·엑셀에서 표를 복사해 붙여 넣기(HTML 표 흉내)
+  if (await page.locator('[data-action=up-again]').count()) await page.click('[data-action=up-again]');
+  await page.click('[data-action=up-input][data-v=paste]');
+  await page.locator('#up-paste').focus();
+  await page.evaluate(() => {
+    const html = '<table><tr><td>날짜</td><td>행사명</td><td>대상</td><td>구분</td></tr><tr><td>2026. 11. 20.(금)</td><td>학교 축제</td><td>전교</td><td>행사</td></tr><tr><td>11월 23일</td><td>재량휴업일</td><td></td><td>휴업일</td></tr></table>';
+    const dt = new DataTransfer();
+    dt.setData('text/html', html);
+    dt.setData('text/plain', '날짜\t행사명\t대상\t구분\n2026. 11. 20.(금)\t학교 축제\t전교\t행사\n11월 23일\t재량휴업일\t\t휴업일');
+    const ta = document.querySelector('#up-paste');
+    ta.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }));
+    ta.value = dt.getData('text/plain');
+  });
+  await page.click('[data-action=up-read-paste]');
+  await page.locator('.up-table').waitFor();
+  if ((await page.locator('#up-count').textContent()).trim() !== '2개') problems.push(kind + ': 붙여 넣은 표를 못 읽음');
+  await shot(page, kind + '_학사일정_붙여넣기', true);
+}
+
+/** 5단계: 공지 */
+async function noticeFlow(page, kind) {
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.notice-card').waitFor();
+  if ((await page.locator('.notice-card .sr-row').count()) !== 2) problems.push(kind + ': 홈 공지가 2개가 아님(지난 공지는 빠져야 함)');
+  await page.click('.notice-card [data-action=notice-new]');
+  await page.locator('#notice-form').waitFor();
+  await page.fill('#nf-title', '다음 주 교직원 협의회 장소 변경');
+  await page.fill('#nf-body', '회의실 대신 도서실에서 해요.');
+  await shot(page, kind + '_공지_쓰기');
+  await page.click('#notice-form [type=submit]');
+  await waitText(page, '공지를 올렸어요');
+  await page.locator('.notice-item').nth(2).waitFor();
+  await shot(page, kind + '_공지', true);
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.notice-card .sr-row').nth(2).waitFor();
+  await page.locator('.notice-card .sr-row').first().click();
+  await page.locator('.modal').waitFor();
+  await shot(page, kind + '_공지_보기');
+  await page.click('.modal [data-action=close-modal]');
+}
+
 async function login(page) {
   await page.fill('#login-pw', 'preview1');
   await page.click('#login-form [type=submit]');
@@ -280,6 +361,8 @@ async function flow(browser, kind, viewport) {
   await scheduleFlow(page, kind);
   await surveyFlow(page, kind);
   await libraryFlow(page, kind);
+  await noticeFlow(page, kind);
+  await uploadFlow(page, kind);
 
   if (kind === '휴대폰') {
     await page.click('.bottom-nav [data-action=sheet]');
@@ -463,7 +546,7 @@ async function printCheck(browser) {
     await page.press('#home-q', 'Enter');
     await page.locator('.search-res').waitFor();
     await check(page, vp.width + ' 홈 검색');
-    for (const [scr, sel] of [['library', '.lib-card'], ['staff', '.dir-row:not(.head)'], ['help', '.help-item'], ['guide', '.guide-card']]) {
+    for (const [scr, sel] of [['notice', '.notice-item'], ['upload', '.up-steps'], ['library', '.lib-card'], ['staff', '.dir-row:not(.head)'], ['help', '.help-item'], ['guide', '.guide-card']]) {
       await page.evaluate((x) => window.__gy.go(x), scr);
       await page.locator(sel).first().waitFor();
       if (scr === 'help') await page.locator('.help-item summary').first().click();

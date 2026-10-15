@@ -281,11 +281,15 @@ function adminLibTrash_() {
   var help = readRows_('도움말').filter(function (r) { return r['삭제 여부']; }).map(function (r) {
     return { tab: '도움말', id: r['항목ID'], title: r['제목'], sub: helpNames[r['분류ID']] || '', by: names[r['입력자ID']] || '', deletedBy: names[r['수정자ID']] || '', deletedAt: r['수정 시각'] };
   });
-  return lib.concat(help).sort(function (a, b) { return a.deletedAt < b.deletedAt ? 1 : a.deletedAt > b.deletedAt ? -1 : 0; }).slice(0, 200);
+  var depts = categoryNames_('부서');
+  var notices = readRows_('공지').filter(function (r) { return r['삭제 여부']; }).map(function (r) {
+    return { tab: '공지', id: r['공지ID'], title: r['제목'], sub: depts[r['부서ID']] || '', by: names[r['입력자ID']] || '', deletedBy: names[r['수정자ID']] || '', deletedAt: r['수정 시각'] };
+  });
+  return lib.concat(help).concat(notices).sort(function (a, b) { return a.deletedAt < b.deletedAt ? 1 : a.deletedAt > b.deletedAt ? -1 : 0; }).slice(0, 200);
 }
 
 function adminLibRestore_(args, actor) {
-  var tab = args.tab === '도움말' ? '도움말' : '자료';
+  var tab = args.tab === '도움말' || args.tab === '공지' ? args.tab : '자료';
   var row = findRow_(tab, String(args.id || ''));
   if (!row || !row['삭제 여부']) throw userError_('되살릴 항목을 찾지 못했어요.');
   restoreRow_(tab, row[tabs_()[tab][0]], actor, tab + ' 되살림: ' + row['제목']);

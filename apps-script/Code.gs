@@ -9,10 +9,10 @@
  *   Db.gs     시트 읽기·쓰기, 기록, 잠금
  *   Auth.gs   비밀번호, 개인 번호, 로그인 표
  *   Admin.gs  설정, 분류, 교직원 표, 수정 기록
- *   Schedule.gs  일정(달력·연간 학사일정·월별 계획·홈), 수업일수, 휴지통
+ *   Schedule.gs  일정(달력·연간 학사일정·월별 계획·홈), 수업일수, 휴지통, 학사일정 한 번에 올리기
  *   Survey.gs  조사·신청(만들기, 응답, 제출 현황, 다시 알리기, 요약, CSV)
  *   Library.gs  자료실(자료 카드, 파일 올리기·내려받기), 새 학년도 넘기기
- *   Help.gs   도움말, 교직원 명단, 홈 검색
+ *   Help.gs   도움말, 교직원 명단, 홈 검색, 공지
  *   Setup.gs  시트 메뉴, 처음 설정, 매일 백업, 테스트 데이터
  *   Index.html / Styles.html / App.html  화면
  */
@@ -47,6 +47,10 @@ function routes_() {
     'sched.save': { need: 'identity', fn: apiSchedSave_ },
     'sched.delete': { need: 'identity', fn: apiSchedDelete_ },
     'focus.save': { need: 'identity', fn: apiFocusSave_ },
+    'sched.upload.info': { need: 'login', fn: apiUploadInfo_ },
+    'sched.upload.check': { need: 'login', fn: apiUploadCheck_ },
+    'sched.upload.save': { need: 'login', fn: apiUploadSave_ },
+    'sched.upload.undo': { need: 'login', fn: apiUploadUndo_ },
 
     'survey.list': { need: 'login', fn: apiSurveyList_ },
     'survey.get': { need: 'login', fn: apiSurveyGet_ },
@@ -67,6 +71,9 @@ function routes_() {
     'help.delete': { need: 'identity', fn: apiHelpDelete_ },
     'staff.list': { need: 'login', fn: function () { return apiStaffDir_(); } },
     'search': { need: 'login', fn: apiSearch_ },
+    'notice.list': { need: 'login', fn: apiNoticeList_ },
+    'notice.save': { need: 'identity', fn: apiNoticeSave_ },
+    'notice.delete': { need: 'identity', fn: apiNoticeDelete_ },
 
     'admin.settings.get': { need: 'admin', fn: function () { return adminSettingsGet_(); } },
     'admin.settings.save': { need: 'admin', fn: adminSettingsSave_ },

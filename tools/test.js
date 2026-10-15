@@ -77,10 +77,10 @@ test('SHA-256·HMAC 가짜 구현이 Node crypto와 같다', () => {
   }
 });
 
-test('처음 설정: 탭 11개와 머리글, 설정 기본값을 만든다', () => {
+test('처음 설정: 탭 12개와 머리글, 설정 기본값을 만든다', () => {
   const g = loadGas();
   const r = g.setupAll_();
-  assert.strictEqual(r.created.length, 11);
+  assert.strictEqual(r.created.length, 12);
   const names = g._ss.sheets.map((s) => s.name);
   for (const t of Object.keys(g.tabs_())) assert.ok(names.includes(t), t);
   assert.deepStrictEqual(plain(g.headOf_('교직원')), plain(g.tabs_()['교직원']));
@@ -1228,6 +1228,169 @@ test('가짜 자료·도움말: 빈 시트에만, 파일 3개·공통 3개·보�
   assert.throws(() => g.seedTestLibrary_(), /이미 내용이/);
   const help = g.readRows_('도움말');
   assert.ok(help.every((h) => h['제목'].includes('(예시)')), '도움말은 예시로만');
+});
+
+
+// ================================================================ 5단계: 학사일정 올리기·공지
+
+const HEAD = ['시작일', '끝일', '시간', '행사명', '대상', '담당 부서', '장소', '구분', '메모', '중요'];
+
+test('올리기: 날짜 모양 여러 가지를 읽고, 없는 날짜는 막는다', () => {
+  const g = freshName();
+  const d = (s) => plain(g.parseDay_(s, 2026));
+  assert.deepStrictEqual(d('2026-03-02'), { ymd: '2026-03-02' });
+  assert.deepStrictEqual(d('2026. 3. 2.'), { ymd: '2026-03-02' });
+  assert.deepStrictEqual(d('2026년 3월 2일'), { ymd: '2026-03-02' });
+  assert.deepStrictEqual(d('3.2.(월)'), { ymd: '2026-03-02' });
+  assert.deepStrictEqual(d('3월 2일 월요일'), { ymd: '2026-03-02' });
+  assert.deepStrictEqual(d('1/5'), { ymd: '2027-01-05' }, '1·2월은 다음 해');
+  assert.deepStrictEqual(d('46083'), { ymd: '2026-03-02' }, '엑셀 날짜 숫자');
+  assert.match(d('10월 32일').err, /없는 날짜/);
+  assert.match(d('2027-02-29').err, /없는 날짜/);
+  assert.match(d('다음 주').err, /읽지 못했/);
+  assert.strictEqual(g.parseTargetText_('3·4학년'), '3,4');
+  assert.strictEqual(g.parseTargetText_('3~6학년'), '3,4,5,6');
+  assert.strictEqual(g.parseTargetText_('전교'), '전체');
+  assert.strictEqual(g.parseTargetText_('교직원'), '교직원');
+  assert.strictEqual(g.parseTargetText_('1~6학년'), '전체');
+});
+
+test('올리기: 머리글을 찾아 줄을 읽고, 확인 필요·오류를 표시한다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  g.seedTestSchedule_();
+  g.putSetting_('2학기 시작일', '2026-08-17', { id: '', name: '시험' });
+  g.putSetting_('2학기 끝일', '2027-01-08', { id: '', name: '시험' });
+  const mon = g.mondayOf_(g.todayYmd_());
+  const grid = [
+    ['2026학년도 학사일정'],
+    HEAD,
+    ['2026-10-32', '', '', '학교 밖 체험 안전교육', '전체', '인성안전부', '', '행사'],
+    [mon, '', '', '교직원 협의회', '교직원', '교무부', '', '행사'],
+    ['2026-11-02', '', '', '진로체험의 날', '5·6학년', '교무', '', ''],
+    ['2026-11-03', '2026-11-04', '', '테스트 재량휴업', '전체', '', '', '재량휴업일'],
+    ['2026-11-05', '', '', '독서 행사', '3~4', '도서부', '', '행사', '', 'O'],
+    ['2026-11-05', '', '', '독서 행사', '3~4', '', '', '행사'],
+    ['(예시) 학교운영위원회', '', '', '', '', '', '', ''],
+    ['', '', '', '', ''],
+    ['2026-11-09', '', '', '', '전체']
+  ];
+  const r = call(g, 'sched.upload.check', { grid }, t);
+  assert.strictEqual(r.ok, true, r.error);
+  const rows = r.data.rows;
+  assert.strictEqual(rows.length, 8, '빈 줄은 빼고, 머리글 위 제목 줄도 건너뜀');
+  assert.strictEqual(rows[0].status, 'error');
+  assert.match(rows[0].msgs[0], /없는 날짜/);
+  assert.strictEqual(rows[1].dup, 'dept', '부서가 넣은 행사와 같음');
+  assert.strictEqual(rows[1].include, false);
+  assert.strictEqual(rows[2].dept, '교무부', "'교무'도 교무부로");
+  assert.strictEqual(rows[2].target, '5,6');
+  assert.ok(rows[2].msgs.some((m) => /구분이 비어/.test(m)));
+  assert.strictEqual(rows[2].include, true);
+  assert.strictEqual(rows[3].kind, '휴업일');
+  assert.strictEqual(rows[3].end, '2026-11-04');
+  assert.ok(rows[4].msgs.some((m) => /도서부/.test(m)), '모르는 부서');
+  assert.strictEqual(rows[4].important, true);
+  assert.strictEqual(rows[5].dup, 'file');
+  assert.strictEqual(rows[5].include, false);
+  assert.strictEqual(rows[6].status, 'error', '예시 줄(날짜 없음)');
+  assert.ok(rows[7].msgs.some((m) => /행사명이 비어/.test(m)));
+  assert.strictEqual(r.data.counts.add, 3);
+  // 수업일수 미리보기: 휴업일 이틀(평일)이 빠진다
+  assert.strictEqual(r.data.days.now.total - r.data.days.after.total, 2);
+});
+
+test('올리기: 연구부장·부담당만, 머리글 없는 표는 양식 순서로 읽는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const grid = [['2026-11-02', '', '5교시', '동아리 발표회', '전체', '연구부', '강당', '행사', '', '']];
+  assert.strictEqual(call(g, 'sched.upload.check', { grid }, who('심청')).code, 'FORBIDDEN');
+  const r = call(g, 'sched.upload.check', { grid }, who('홍길동')).data;
+  assert.strictEqual(r.rows[0].title, '동아리 발표회');
+  assert.strictEqual(r.rows[0].time, '5교시');
+  assert.strictEqual(r.rows[0].status, 'ok');
+});
+
+test('올리기 → 달력에 보이고, 다시 올리면 건너뛰기·바꾸기, 되돌리면 원래대로', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const { who } = ids(g);
+  const dept = call(g, 'sched.save', { fields: { start: '2026-11-10', title: '부서 행사', kind: '행사' } }, who('심청')).data;
+  const grid = [HEAD, ['2026-11-09', '', '', '학예회', '전체', '교무부', '강당', '행사'], ['2026-11-10', '', '', '부서 행사', '전체', '', '', '행사'], ['2026-11-11', '', '', '재량휴업', '전체', '', '', '휴업일']];
+  const first = call(g, 'sched.upload.check', { grid }, t).data;
+  const s1 = call(g, 'sched.upload.save', { rows: first.rows.map((r) => r.raw), mode: 'skip' }, t);
+  assert.strictEqual(s1.ok, true, s1.error);
+  assert.strictEqual(s1.data.added, 2);
+  assert.strictEqual(s1.data.skipped, 1, '부서가 넣은 행사는 건너뜀');
+  let month = call(g, 'sched.month', { year: 2026, month: 11 }, t).data.events;
+  assert.ok(month.some((e) => e.title === '학예회' && e.place === '강당'));
+  assert.ok(month.some((e) => e.id === dept.id), '부서 행사 그대로');
+  const batch1 = s1.data.batch;
+  assert.ok(g.readRows_('일정').filter((e) => e['올린 묶음ID'] === batch1).length === 2);
+  // 다시 올리기: 같은 행사 → 건너뛰기
+  const again = call(g, 'sched.upload.check', { grid }, t).data;
+  assert.strictEqual(again.counts.dupUpload, 2);
+  assert.match(call(g, 'sched.upload.save', { rows: again.rows.map((r) => r.raw), mode: 'skip' }, t).error, /올릴 행사가 없어요/);
+  // 장소를 고쳐서 바꾸기
+  const grid2 = grid.map((l) => l.slice());
+  grid2[1][6] = '체육관';
+  g.__clock.offset += 2000;
+  const rows2 = call(g, 'sched.upload.check', { grid: grid2, mode: 'replace' }, t).data;
+  assert.strictEqual(rows2.counts.replace, 2);
+  const s2 = call(g, 'sched.upload.save', { rows: rows2.rows.map((r) => r.raw), mode: 'replace' }, t).data;
+  assert.strictEqual(s2.replaced, 2);
+  month = call(g, 'sched.month', { year: 2026, month: 11 }, t).data.events;
+  assert.deepStrictEqual(plain(month.filter((e) => e.title === '학예회').map((e) => e.place)), ['체육관'], '전 것은 숨기고 새것만');
+  // 되돌리기: 방금 올린 것만
+  assert.match(call(g, 'sched.upload.undo', { batch: batch1 }, t).error, /방금 올린 것만/);
+  const u = call(g, 'sched.upload.undo', { batch: s2.batch }, t).data;
+  assert.deepStrictEqual(plain(u), { removed: 2, restored: 2 });
+  month = call(g, 'sched.month', { year: 2026, month: 11 }, t).data.events;
+  assert.deepStrictEqual(plain(month.filter((e) => e.title === '학예회').map((e) => e.place)), ['강당'], '바꿨던 전 행사가 되살아남');
+  assert.ok(month.some((e) => e.id === dept.id));
+  assert.match(call(g, 'sched.upload.undo', { batch: s2.batch }, t).error, /방금 올린 것만/, '두 번 되돌리기 안 됨');
+  assert.ok(g.readRows_('기록').some((x) => /학사일정 올리기 되돌림/.test(x['요약'])));
+});
+
+test('올리기: 미리보기에서 뺀 줄은 올리지 않는다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const grid = [HEAD, ['2026-11-09', '', '', '가 행사', '', '', '', '행사'], ['2026-11-10', '', '', '나 행사', '', '', '', '행사']];
+  const rows = call(g, 'sched.upload.check', { grid }, t).data.rows.map((r) => r.raw);
+  rows[1].include = false;
+  const s = call(g, 'sched.upload.save', { rows, mode: 'skip' }, t).data;
+  assert.strictEqual(s.added, 1);
+  assert.ok(!call(g, 'sched.month', { year: 2026, month: 11 }, t).data.events.some((e) => e.title === '나 행사'));
+});
+
+test('공지: 누구나 쓰고, 쓴 분·관리만 고치고, 고정은 관리만, 끝일이 지나면 홈에서 내려간다', () => {
+  const g = freshName();
+  const { L, who } = ids(g);
+  const today = g.todayYmd_();
+  assert.strictEqual(call(g, 'notice.save', { fields: { '제목': 'x' } }, { login: L }).code, 'IDENTITY');
+  const a = call(g, 'notice.save', { fields: { '제목': '체육대회 안내', '내용': '금요일 5교시', '게시 끝일': g.addDays_(today, 3), pinned: true } }, who('심청'));
+  assert.strictEqual(a.ok, true, a.error);
+  assert.strictEqual(a.data.pinned, false, '일반 교직원은 고정 못 함');
+  assert.strictEqual(a.data.active, true);
+  const b = call(g, 'notice.save', { fields: { '제목': '연수 안내', pinned: true } }, who('홍길동')).data;
+  assert.strictEqual(b.pinned, true);
+  const old = call(g, 'notice.save', { fields: { '제목': '지난 안내', '게시 끝일': g.addDays_(today, -1) } }, who('심청')).data;
+  assert.strictEqual(old.active, false);
+  assert.strictEqual(call(g, 'notice.save', { id: a.data.id, fields: { '제목': '남이 고침' } }, who('흥부')).code, 'FORBIDDEN');
+  assert.match(call(g, 'notice.save', { fields: { '제목': 'y', '링크': 'http://x' } }, who('심청')).error, /https/);
+  assert.match(call(g, 'notice.save', { fields: { '제목': 'y', '게시 끝일': '내일' } }, who('심청')).error, /날짜/);
+  const home = call(g, 'home', {}, who('흥부')).data.notices;
+  assert.deepStrictEqual(plain(home.items.map((n) => n.title)), ['연수 안내', '체육대회 안내'], '고정 먼저, 지난 공지는 빠짐');
+  const list = call(g, 'notice.list', {}, who('흥부')).data.items;
+  assert.strictEqual(list[list.length - 1].title, '지난 안내');
+  assert.ok(call(g, 'search', { q: '체육대회' }, { login: L }).data.notices.total === 1);
+  call(g, 'notice.delete', { id: a.data.id }, who('심청'));
+  assert.strictEqual(call(g, 'home', {}, who('흥부')).data.notices.total, 1);
+  const { t } = adminTokens(g);
+  assert.ok(call(g, 'admin.trash.library', {}, t).data.some((x) => x.tab === '공지'));
+  call(g, 'admin.trash.restoreLibrary', { tab: '공지', id: a.data.id }, t);
+  assert.strictEqual(call(g, 'home', {}, who('흥부')).data.notices.total, 2);
+  assert.strictEqual(g.seedTestNotices_ && 1, 1);
 });
 
 console.log(results.join('\n'));

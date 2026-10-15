@@ -15,7 +15,7 @@ function onOpen() {
     .addItem('테스트용 가짜 데이터 넣기 (테스트 시트에서만)', 'menuSeedTestData')
     .addItem('테스트용 가짜 일정 넣기 (테스트 시트에서만)', 'menuSeedTestSchedule')
     .addItem('테스트용 가짜 조사 넣기 (테스트 시트에서만)', 'menuSeedTestSurveys')
-    .addItem('테스트용 가짜 자료·도움말 넣기 (테스트 시트에서만)', 'menuSeedTestLibrary')
+    .addItem('테스트용 가짜 자료·도움말·공지 넣기 (테스트 시트에서만)', 'menuSeedTestLibrary')
     .addToUi();
 }
 
@@ -240,10 +240,11 @@ function menuSeedTestSurveys() {
 
 function menuSeedTestLibrary() {
   var ui = requireSheetUi_();
-  var ok = ui.alert('테스트용 가짜 자료·도움말', '테스트용 시트에서만 쓰세요. 가짜 자료 10개(공통 자료 3개, 파일 3개는 "온라인 교무실 자료" 드라이브 폴더에 만들어요)와 예시 도움말 3개를 넣어요.\n\n넣을까요?', ui.ButtonSet.YES_NO);
+  var ok = ui.alert('테스트용 가짜 자료·도움말', '테스트용 시트에서만 쓰세요. 가짜 자료 10개(공통 자료 3개, 파일 3개는 "온라인 교무실 자료" 드라이브 폴더에 만들어요)와 예시 도움말 3개, 가짜 공지 3개를 넣어요.\n\n넣을까요?', ui.ButtonSet.YES_NO);
   if (ok !== ui.Button.YES) return;
   seedTestLibrary_();
-  ui.alert('가짜 자료를 넣었어요', '웹앱의 자료실·도움말과 홈 검색창에서 확인해 보세요.', ui.ButtonSet.OK);
+  seedTestNotices_();
+  ui.alert('가짜 자료를 넣었어요', '웹앱의 자료실·도움말·공지와 홈 검색창에서 확인해 보세요.', ui.ButtonSet.OK);
 }
 
 /** 가짜 데이터. 실제 교직원 이름은 쓰지 않는다. */

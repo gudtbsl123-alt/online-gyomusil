@@ -4,7 +4,8 @@
  * - 도움말: 분류(복무·인사, 학교 규칙·제규정 등 '도움말 분류')별 안내 글. 내용은 학교에서 넣는다(앱이 규정을 지어내지 않음)
  *   넣기: 이름을 고른 교직원 누구나. 고치기·지우기: 처음 넣은 분과 관리
  * - 교직원 명단: 사용 중인 분의 직위·소속·부서·담당 업무·내선(개인 연락처는 없음)
- * - 검색: 자료·일정·교직원·도움말·조사를 한 번에 찾는다
+ * - 검색: 자료·일정·교직원·도움말·조사·공지를 한 번에 찾는다
+ * - 공지: 홈 공지 카드(아래)
  */
 
 // ---------------------------------------------------------------- 도움말
@@ -135,7 +136,7 @@ function apiSearch_(args, actor, ctx) {
   var q = String(args.q || '').trim().slice(0, 40);
   var terms = searchTerms_(q);
   var empty = { total: 0, items: [] };
-  if (!terms.length) return { q: q, library: empty, events: empty, staff: empty, help: empty, surveys: empty };
+  if (!terms.length) return { q: q, library: empty, events: empty, staff: empty, help: empty, surveys: empty, notices: empty };
   var depts = categoryNames_('부서');
   var names = staffNames_();
   function pack(list, n) { return { total: list.length, items: list.slice(0, n) }; }
@@ -179,6 +180,92 @@ function apiSearch_(args, actor, ctx) {
     events: pack(next.concat(past), 6),
     staff: pack(staff, 6),
     help: pack(help, 6),
-    surveys: pack(surveys, 4)
+    surveys: pack(surveys, 4),
+    notices: pack(noticeViews_(ctx).filter(function (n) { return matchAll_(terms, [n.title, n.body, n.dept]); }), 4)
   };
+}
+
+// ---------------------------------------------------------------- 공지 (홈 공지 카드)
+// - 쓰기: 이름을 고른 교직원 누구나. 고치기·지우기: 쓴 분과 관리. '맨 위 고정'은 관리만
+// - '게시 끝일'이 지나면 홈에서 내려가고, 공지 화면의 '지난 공지'에 남는다
+
+function noticeView_(r, ctx, depts, names, today) {
+  return {
+    id: r['공지ID'],
+    title: r['제목'],
+    body: r['내용'],
+    link: r['링크'],
+    deptId: r['부서ID'],
+    dept: depts[r['부서ID']] || '',
+    until: r['게시 끝일'],
+    pinned: r['고정'] === '예',
+    active: !r['게시 끝일'] || r['게시 끝일'] >= today,
+    by: names[r['입력자ID']] || '',
+    at: r['입력 시각'],
+    updated: r['수정 시각'],
+    canEdit: canEditOwned_(r, ctx)
+  };
+}
+
+function noticeViews_(ctx) {
+  var depts = categoryNames_('부서'), names = staffNames_(), today = todayYmd_();
+  return liveRows_('공지').map(function (r) { return noticeView_(r, ctx, depts, names, today); }).sort(function (a, b) {
+    return (b.active - a.active) || (b.active && a.active ? b.pinned - a.pinned : 0) || (a.at < b.at ? 1 : a.at > b.at ? -1 : 0);
+  });
+}
+
+function apiNoticeList_(args, actor, ctx) {
+  return { items: noticeViews_(ctx), canManage: canManage_(ctx), depts: deptOptions_(), today: todayYmd_() };
+}
+
+/** 홈: 지금 걸린 공지(고정 먼저, 새것 먼저) 4개까지 */
+function homeNotices_(ctx) {
+  var list = noticeViews_(ctx).filter(function (n) { return n.active; });
+  return { items: list.slice(0, 4), total: list.length };
+}
+
+/** args = { id?, fields: { 제목, 내용, 링크, 부서ID, 게시 끝일, pinned } } */
+function apiNoticeSave_(args, actor, ctx) {
+  var f = args.fields || {};
+  var rec = {
+    '제목': cleanText_(f['제목'], 60, '제목', true),
+    '내용': cleanText_(f['내용'], 2000, '내용'),
+    '링크': cleanUrl_(f['링크'], '링크'),
+    '부서ID': checkCat_(f['부서ID'], '부서', '부서'),
+    '게시 끝일': String(f['게시 끝일'] || '').trim()
+  };
+  if (rec['게시 끝일'] && !isDate_(rec['게시 끝일'])) throw userError_('게시 끝일을 날짜로 골라 주세요.');
+  if (canManage_(ctx) && f.pinned !== undefined) rec['고정'] = f.pinned ? '예' : '';
+  var row = null;
+  if (args.id) {
+    row = findRow_('공지', String(args.id));
+    if (!row || row['삭제 여부']) throw userError_('공지를 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
+    if (!canEditOwned_(row, ctx)) throw userError_('쓴 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
+  }
+  var saved = row
+    ? updateRow_('공지', row['공지ID'], rec, actor, '공지 고침: ' + rec['제목'])
+    : insertRow_('공지', rec, actor, '공지 추가: ' + rec['제목']);
+  return noticeView_(findRow_('공지', saved['공지ID']), ctx, categoryNames_('부서'), staffNames_(), todayYmd_());
+}
+
+function apiNoticeDelete_(args, actor, ctx) {
+  var row = findRow_('공지', String(args.id || ''));
+  if (!row || row['삭제 여부']) throw userError_('공지를 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
+  if (!canEditOwned_(row, ctx)) throw userError_('쓴 분과 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
+  softDelete_('공지', row['공지ID'], actor, '공지 지움: ' + row['제목']);
+  return { done: true };
+}
+
+/** 테스트용 가짜 공지 3개(하나는 지난 공지) */
+function seedTestNotices_() {
+  if (liveRows_('공지').length) throw userError_('공지 탭에 이미 공지가 있어요. 가짜 공지는 빈 테스트 시트에만 넣을 수 있어요.');
+  var d = {};
+  liveRows_('분류').forEach(function (c) { if (c['종류'] === '부서') d[c['이름']] = c['분류ID']; });
+  var t = todayYmd_(), actor = { id: '', name: '테스트 데이터' };
+  withLock_(function () {
+    insertRow_('공지', { '제목': '온라인 교무실을 시험 중이에요(가짜 공지)', '내용': '불편한 점은 연구부로 알려 주세요.', '부서ID': d['연구부'] || '', '게시 끝일': addDays_(t, 14), '고정': '예' }, actor, '가짜 공지');
+    insertRow_('공지', { '제목': '교실 안전점검표 제출 안내(가짜)', '내용': '이번 주 금요일까지 자료실의 점검표를 내 주세요.', '부서ID': d['인성안전부'] || '', '게시 끝일': addDays_(t, 7) }, actor, '가짜 공지');
+    insertRow_('공지', { '제목': '지난 공지 예시(가짜)', '내용': '게시 끝일이 지나서 홈에서 내려간 공지예요.', '부서ID': d['교무부'] || '', '게시 끝일': addDays_(t, -3) }, actor, '가짜 공지');
+  });
+  return 3;
 }
