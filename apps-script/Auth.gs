@@ -12,6 +12,8 @@
  *   ADMIN_PW_HASH, ADMIN_PW_SALT, ADMIN_PW_VER, ADMIN_FAILS, ADMIN_LOCK_UNTIL
  */
 
+function fileMark_Auth_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+
 var AUTH_LOGIN_HOURS_ = 12;   // '기억하기'를 끈 로그인·본인 확인이 유지되는 시간 (제안)
 var AUTH_ADMIN_HOURS_ = 2;    // 관리자 화면이 열려 있는 시간 (제안)
 var AUTH_MIN_PW_ = 6;         // 공통·관리자 비밀번호 최소 글자 수 (제안)

@@ -9,6 +9,8 @@
  * - 결과(누가 뭐라고 답했는지): 만든 사람·관리자, 그리고 '결과 공개'를 켠 조사는 대상 교직원 모두
  */
 
+function fileMark_Survey_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+
 function qTypes_() {
   return { one: '하나 고르기', many: '여러 개 고르기', short: '짧은 글', long: '긴 글', number: '숫자', date: '날짜' };
 }

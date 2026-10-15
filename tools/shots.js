@@ -310,6 +310,7 @@ async function uploadFlow(page, kind) {
 async function noticeFlow(page, kind) {
   await page.evaluate(() => window.__gy.go('home'));
   await page.locator('.notice-card').waitFor();
+  if (!(await page.locator('[data-dot=notice]:not([hidden])').count())) problems.push(kind + ': 새 공지 점이 안 보임');
   if ((await page.locator('.notice-card .sr-row').count()) !== 2) problems.push(kind + ': 홈 공지가 2개가 아님(지난 공지는 빠져야 함)');
   await page.click('.notice-card [data-action=notice-new]');
   await page.locator('#notice-form').waitFor();
@@ -320,6 +321,7 @@ async function noticeFlow(page, kind) {
   await waitText(page, '공지를 올렸어요');
   await page.locator('.notice-item').nth(2).waitFor();
   await shot(page, kind + '_공지', true);
+  if (await page.locator('[data-dot=notice]:not([hidden])').count()) problems.push(kind + ': 공지를 봤는데 새 공지 점이 남음');
   await page.evaluate(() => window.__gy.go('home'));
   await page.locator('.notice-card .sr-row').nth(2).waitFor();
   await page.locator('.notice-card .sr-row').first().click();
@@ -388,6 +390,20 @@ async function flow(browser, kind, viewport) {
   await page.locator('.srow').nth(3).waitFor();
   await shot(page, kind + '_관리자_교직원표', true);
 
+  await page.click('[data-action=staff-import]');
+  await page.locator('#imp-paste').waitFor();
+  await page.fill('#imp-paste', '이름\t직위\t소속\t부서\t내선\n전우치\t교사\t2학년 2반\t교무\t109\n박씨\t수석교사\t\t연구부\t010-1234-5678\n홍길동\t교사\t3학년 1반\t연구부\t101');
+  await page.click('[data-action=imp-read]');
+  await page.locator('.imp-table').waitFor();
+  await shot(page, kind + '_명단_한번에넣기');
+  await page.click('#imp-go');
+  await waitText(page, '명을 넣었어요');
+  await page.click('[data-admin-tab=check]');
+  await page.locator('.check-row').first().waitFor();
+  await shot(page, kind + '_관리자_점검', true);
+  if (await page.locator('.check-row.bad').count()) problems.push(kind + ': 점검에 문제 항목이 있음 ' + (await page.locator('.check-row.bad').first().innerText()).replace(/\s+/g, ' '));
+  await page.click('[data-admin-tab=staff]');
+  await page.locator('.srow').nth(3).waitFor();
   await page.click('[data-action=staff-add]');
   await shot(page, kind + '_교직원_추가창');
   await page.fill('#sf-이름', '전우치');
@@ -575,7 +591,7 @@ async function printCheck(browser) {
     await page.click('#admin-form [type=submit]');
     await page.locator('.srow').nth(3).waitFor();
     await check(page, vp.width + ' 관리자');
-    for (const t of ['cat', 'settings', 'year', 'log', 'trash', 'pw']) {
+    for (const t of ['cat', 'settings', 'year', 'log', 'trash', 'pw', 'check']) {
       await page.click('[data-admin-tab=' + t + ']');
       await page.waitForTimeout(400);
       await check(page, vp.width + ' 관리자 ' + t);

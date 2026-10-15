@@ -120,6 +120,7 @@
   // ------------------------------------------------------------ 시트
   function Range(sheet, r, c, nr, nc) { this.s = sheet; this.r = r; this.c = c; this.nr = nr; this.nc = nc; }
   Range.prototype.getValues = function () {
+    this.s.reads = (this.s.reads || 0) + 1; // 시트를 몇 번 읽는지 세기(속도 점검)
     var out = [];
     for (var i = 0; i < this.nr; i++) {
       var row = [];
@@ -289,6 +290,7 @@
       },
       Session: { getScriptTimeZone: function () { return 'Asia/Seoul'; } },
       DriveApp: createDrive(),
+      ScriptApp: { getProjectTriggers: function () { return env._triggers || []; } },
       MimeType: { GOOGLE_SHEETS: 'application/vnd.google-apps.spreadsheet' },
       console: root.console
     };

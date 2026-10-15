@@ -22,7 +22,7 @@ ${inScript(mock)}
 (function () {
   var env = GasMock.createEnv({});
   var SpreadsheetApp = env.SpreadsheetApp, PropertiesService = env.PropertiesService, LockService = env.LockService,
-      Utilities = env.Utilities, Session = env.Session, DriveApp = env.DriveApp, MimeType = env.MimeType;
+      Utilities = env.Utilities, Session = env.Session, DriveApp = env.DriveApp, MimeType = env.MimeType, ScriptApp = env.ScriptApp;
 ${GAS_FILES.map((f) => '/* ===== ' + f + ' ===== */\n' + inScript(read(f))).join('\n')}
   setupAll_();
   setPassword_('common', 'preview1');

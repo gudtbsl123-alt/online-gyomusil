@@ -12,7 +12,7 @@ const REPO = 'https://github.com/gudtbsl123-alt/online-gyomusil/blob/' + BRANCH 
 const FILES = [
   ['Code.gs', '스크립트', '이미 있음 → 내용 바꾸기'], ['Db.gs', '스크립트', '이미 있음 → 내용 바꾸기'], ['Auth.gs', '스크립트', '이미 있음 → 내용 바꾸기'],
   ['Admin.gs', '스크립트', '이미 있음 → 내용 바꾸기'], ['Schedule.gs', '스크립트', '이미 있음 → 내용 바꾸기'],
-  ['Survey.gs', '스크립트', '**새로 만들기** (이미 있으면 내용 바꾸기)'], ['Library.gs', '스크립트', '**새로 만들기**'], ['Help.gs', '스크립트', '**새로 만들기**'],
+  ['Survey.gs', '스크립트', '이미 있음 → 내용 바꾸기'], ['Library.gs', '스크립트', '이미 있음 → 내용 바꾸기'], ['Help.gs', '스크립트', '이미 있음 → 내용 바꾸기'],
   ['Setup.gs', '스크립트', '이미 있음 → 내용 바꾸기'],
   ['Index.html', 'HTML', '이미 있음 → 내용 바꾸기'], ['Styles.html', 'HTML', '이미 있음 → 내용 바꾸기'], ['App.html', 'HTML', '이미 있음 → 내용 바꾸기']
 ];

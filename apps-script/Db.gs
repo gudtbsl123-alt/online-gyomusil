@@ -8,6 +8,8 @@
  * - 시트에 쓸 때는 잠금(LockService)을 걸어 동시에 저장해도 꼬이지 않게 한다.
  */
 
+function fileMark_Db_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+
 /** 모든 표(기록·설정 제외)에 붙는 입력·수정·삭제 칸 */
 function auditCols_() {
   return ['입력자ID', '입력 시각', '수정자ID', '수정 시각', '삭제 여부'];
@@ -66,9 +68,33 @@ function ss_() {
   return DB_SS_;
 }
 
+// ---------------------------------------------------------------- 한 요청 안에서 다시 읽지 않기(속도)
+// 탭마다 시트 값을 한 번만 읽어 두고, 그 탭에 쓰면 버린다. 잠금에 들어갈 때도 모두 버려
+// 잠금 안에서는 늘 최신 값을 읽는다(다른 분이 그사이 저장했어도 꼬이지 않게).
+var DB_CACHE_ = {};
+var DB_SHEETS_ = {};
+
+function dbReset_() {
+  DB_CACHE_ = {};
+  DB_SHEETS_ = {};
+}
+
+/** 탭에 쓴 뒤 부른다(tab을 비우면 모두) */
+function dirty_(tab) {
+  if (tab) delete DB_CACHE_[tab];
+  else DB_CACHE_ = {};
+}
+
+function sheetValues_(tab) {
+  if (!DB_CACHE_[tab]) DB_CACHE_[tab] = sheet_(tab).getDataRange().getValues();
+  return DB_CACHE_[tab];
+}
+
 function sheet_(tab) {
+  if (DB_SHEETS_[tab]) return DB_SHEETS_[tab];
   var sh = ss_().getSheetByName(tab);
   if (!sh) throw userError_('시트에 "' + tab + '" 탭이 없어요. 관리자가 시트 메뉴에서 "처음 설정"을 먼저 해 주세요.', 'SETUP');
+  DB_SHEETS_[tab] = sh;
   return sh;
 }
 
@@ -108,8 +134,7 @@ function nowText_() {
 
 /** 표 전체를 [{머리글: 값, _row: 행 번호}] 로 읽는다 */
 function readRows_(tab) {
-  var sh = sheet_(tab);
-  var vals = sh.getDataRange().getValues();
+  var vals = sheetValues_(tab);
   var head = vals[0].map(cellText_);
   var rows = [];
   for (var i = 1; i < vals.length; i++) {
@@ -156,6 +181,7 @@ function withLock_(fn) {
   if (DB_LOCK_DEPTH_ > 0) return fn(); // 이미 잠금 안이면 그대로
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) throw userError_('다른 분이 저장하는 중이에요. 잠시 뒤에 다시 눌러 주세요.', 'BUSY');
+  dirty_(); // 잠금 안에서는 최신 값을 다시 읽는다
   DB_LOCK_DEPTH_++;
   try {
     return fn();
@@ -166,8 +192,7 @@ function withLock_(fn) {
 }
 
 function headOf_(tab) {
-  var sh = sheet_(tab);
-  return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(cellText_);
+  return sheetValues_(tab)[0].map(cellText_);
 }
 
 /** 나중에 더한 칸이 시트에 없으면 머리글 끝에 붙인다(있는 데이터는 그대로) */
@@ -177,6 +202,7 @@ function ensureCols_(tab) {
     var missing = tabs_()[tab].filter(function (h) { return head.indexOf(h) < 0; });
     if (!missing.length) return;
     sheet_(tab).getRange(1, head.length + 1, 1, missing.length).setValues([missing]);
+    dirty_(tab);
   });
 }
 
@@ -208,6 +234,7 @@ function insertRow_(tab, obj, actor, summary) {
     rec['수정 시각'] = '';
     rec['삭제 여부'] = '';
     sheet_(tab).appendRow(head.map(function (h) { return cellWrite_(rec[h]); }));
+    dirty_(tab);
     writeLog_(actor, tab, rec[key], '추가', summary || '', null, auditView_(rec));
     return publicRow_(rec);
   });
@@ -244,6 +271,7 @@ function insertRows_(tab, list, actor, summary, keepAudit) {
     var sh = sheet_(tab);
     sh.getRange(sh.getLastRow() + 1, 1, recs.length, head.length)
       .setValues(recs.map(function (rec) { return head.map(function (h) { return cellWrite_(rec[h]); }); }));
+    dirty_(tab);
     writeLog_(actor, tab, '', '추가', summary || (recs.length + '줄 추가'), null, { '줄 수': String(recs.length) });
     return recs.map(publicRow_);
   });
@@ -278,6 +306,7 @@ function updateRow_(tab, id, patch, actor, summary, action) {
     next['수정 시각'] = nowText_();
     sheet_(tab).getRange(row._row, 1, 1, head.length)
       .setValues([head.map(function (h, j) { return h ? cellWrite_(next[h]) : raw[j]; })]);
+    dirty_(tab);
     writeLog_(actor, tab, id, action || '수정', summary || '', auditView_(before), auditView_(after));
     next._row = row._row;
     return publicRow_(next);
@@ -312,6 +341,7 @@ function updateRowsSame_(tab, ids, patch, actor, summary, action) {
       sh.getRange(row._row, 1, 1, head.length).setValues([head.map(function (h, j) { return h ? cellWrite_(next[h]) : raw[j]; })]);
       n++;
     });
+    dirty_(tab);
     var after = {};
     Object.keys(patch).forEach(function (h) { after[h] = String(patch[h]); });
     after['ID 목록'] = ids.join(',');
@@ -342,6 +372,7 @@ function setCellsNoLog_(tab, row, patch) {
     sh.getRange(row._row, c + 1).setValue(cellWrite_(patch[h]));
     row[h] = String(patch[h]);
   });
+  dirty_(tab);
 }
 
 // ---------------------------------------------------------------- 기록
@@ -370,6 +401,7 @@ function writeLog_(actor, tab, id, action, summary, before, after) {
     before ? JSON.stringify(before) : '',
     after ? JSON.stringify(after) : ''
   ].map(cellWrite_));
+  dirty_('기록');
 }
 
 // ---------------------------------------------------------------- 오류

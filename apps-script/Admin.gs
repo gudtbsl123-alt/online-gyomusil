@@ -2,6 +2,8 @@
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
+function fileMark_Admin_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+
 // ---------------------------------------------------------------- 설정
 
 /** 설정 탭의 키. (확인 필요)는 학교에서 정해 주셔야 하는 값이다. */
@@ -60,6 +62,7 @@ function putSetting_(key, value, actor) {
       var def = settingDefs_().filter(function (d) { return d.key === key; })[0];
       sh.appendRow([key, value, def ? (def.note || def.label) : ''].map(cellWrite_));
     }
+    dirty_('설정');
     writeLog_(actor, '설정', key, '수정', key + ' 바꿈', { '값': before }, { '값': String(value) });
   });
   SETTINGS_CACHE_ = null;
@@ -312,4 +315,195 @@ function adminChangeAdminPw_(args, actor) {
   setPassword_('admin', args.newPw);
   withLock_(function () { writeLog_(actor, '설정', '', '비밀번호 바꿈', '관리자 비밀번호를 바꿈', null, null); });
   return { done: true };
+}
+
+// ---------------------------------------------------------------- 점검 (관리자): 파일·시트·비밀번호·백업·설정을 한 번에
+
+/**
+ * args.client = { app, styles, index } : 화면 파일의 판 표시(화면이 보낸다)
+ * 돌려주는 값: { build, at, items: [{ group, label, state: 'ok'|'warn'|'bad', detail, fix }] }
+ */
+function adminCheck_(args) {
+  var items = [];
+  var add = function (group, label, state, detail, fix) { items.push({ group: group, label: label, state: state, detail: detail || '', fix: fix || '' }); };
+  var paste = function (f) { return "설치안내 표의 '" + f + "' 파일을 Copy raw file로 다시 붙여 넣고, 배포 관리 → 새 버전으로 배포해 주세요"; };
+
+  // 1) 코드 파일(빠진 파일·예전 파일)
+  ['Code', 'Db', 'Auth', 'Admin', 'Schedule', 'Survey', 'Library', 'Help', 'Setup'].forEach(function (f) {
+    var mark = globalFn_('fileMark_' + f + '_');
+    if (!mark) add('코드 파일', f + '.gs', 'bad', '파일이 없거나 내용이 비어 있어요', paste(f));
+    else if (mark() !== APP_BUILD_) add('코드 파일', f + '.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
+    else add('코드 파일', f + '.gs', 'ok', '최신 판 ' + mark());
+  });
+  var c = (args && args.client) || {};
+  [['App.html', c.app], ['Styles.html', c.styles], ['Index.html', c.index]].forEach(function (x) {
+    var f = x[0].replace('.html', '');
+    if (!x[1]) add('코드 파일', x[0], 'warn', '판 표시를 찾지 못했어요(예전 파일일 수 있어요)', paste(f));
+    else if (x[1] !== APP_BUILD_) add('코드 파일', x[0], 'warn', '예전 판이에요(' + x[1] + ')', paste(f));
+    else add('코드 파일', x[0], 'ok', '최신 판 ' + x[1]);
+  });
+  var routes = routes_(), missing = [], n = 0;
+  Object.keys(routes).forEach(function (k) {
+    if (typeof routes[k].fn !== 'string') return;
+    n++;
+    if (!globalFn_(routes[k].fn)) missing.push(routes[k].fn);
+  });
+  if (missing.length) add('코드 파일', '기능 연결', 'bad', '찾지 못한 기능 ' + missing.length + '개: ' + missing.slice(0, 5).join(', ') + (missing.length > 5 ? ' …' : ''), '위에서 문제로 나온 파일을 다시 붙여 넣어 주세요');
+  else add('코드 파일', '기능 연결', 'ok', '기능 ' + n + '개가 모두 연결됐어요');
+
+  // 2) 시트 탭·칸
+  var tabs = tabs_(), bad = 0;
+  Object.keys(tabs).forEach(function (tab) {
+    var head;
+    try { head = headOf_(tab); } catch (e) {
+      bad++;
+      add('시트', tab + ' 탭', 'bad', '탭이 없어요', "전용 시트 메뉴 '온라인 교무실 → 1. 처음 설정'을 눌러 주세요");
+      return;
+    }
+    var miss = tabs[tab].filter(function (h) { return head.indexOf(h) < 0; });
+    if (miss.length) { bad++; add('시트', tab + ' 탭', 'warn', '칸이 없어요: ' + miss.join(', '), "전용 시트 메뉴 '1. 처음 설정'을 한 번 더 눌러 주세요(있는 데이터는 그대로예요)"); }
+  });
+  if (!bad) add('시트', '탭과 칸', 'ok', '탭 ' + Object.keys(tabs).length + '개와 칸이 모두 있어요');
+  try {
+    var vals = sheetValues_('교직원');
+    var blank = 0;
+    for (var i = 1; i < vals.length; i++) if (!vals[i].some(function (v) { return String(v) !== ''; })) blank++;
+    if (blank) add('시트', '교직원 탭 빈 줄', 'warn', '시트에서 직접 비운 줄이 ' + blank + '개 있어요. 앱은 건너뛰지만 기록에는 남지 않았어요', "앞으로는 줄을 지우지 말고 웹앱 교직원 표에서 '사용 안 함'으로 바꿔 주세요");
+  } catch (e) { /* 탭이 없으면 위에서 알렸다 */ }
+
+  // 3) 비밀번호
+  add('비밀번호', '공통 비밀번호', hasPassword_('common') ? 'ok' : 'bad', hasPassword_('common') ? '정해져 있어요' : '아직 없어요', "전용 시트 메뉴 '2. 공통 비밀번호 정하기'");
+  add('비밀번호', '관리자 비밀번호', hasPassword_('admin') ? 'ok' : 'bad', hasPassword_('admin') ? '정해져 있어요' : '아직 없어요', "전용 시트 메뉴 '3. 관리자 비밀번호 정하기'");
+
+  // 4) 매일 백업
+  var trig = null;
+  try { trig = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'dailyBackup'; }); } catch (e) { trig = null; }
+  var last = Number(PropertiesService.getScriptProperties().getProperty('LAST_BACKUP_AT') || 0);
+  var lastText = last ? Utilities.formatDate(new Date(last), tz_(), 'yyyy-MM-dd HH:mm') : '없음';
+  if (trig === null) add('백업', '매일 자동 백업', 'warn', '켜져 있는지 확인하지 못했어요 · 마지막 백업 ' + lastText, "전용 시트 메뉴 '4. 매일 자동 백업 켜기'를 한 번 눌러 두면 확실해요");
+  else if (!trig) add('백업', '매일 자동 백업', 'warn', '꺼져 있어요 · 마지막 백업 ' + lastText, "전용 시트 메뉴 '4. 매일 자동 백업 켜기'");
+  else if (!last || Date.now() - last > 2 * 86400000) add('백업', '매일 자동 백업', 'warn', '켜져 있지만 마지막 백업이 ' + lastText + '예요', "백업 폴더를 확인하고, 이상하면 '4. 매일 자동 백업 켜기'를 다시 눌러 주세요");
+  else add('백업', '매일 자동 백업', 'ok', '켜져 있어요 · 마지막 백업 ' + lastText);
+
+  // 5) 설정
+  var semOk = semesters_().length === 2;
+  add('설정', '학기 기간', semOk ? 'ok' : 'warn', semOk ? '1·2학기 기간이 들어 있어요' : '비어 있는 학기가 있어 수업일수를 다 세지 못해요', '관리자 › 설정에서 1·2학기 시작일·끝일을 넣어 주세요');
+  var days = rememberDays_();
+  add('설정', '기기 기억 기간', days >= 365 ? 'ok' : 'warn', days + '일', days >= 365 ? '' : "정한 값은 365일이에요. 관리자 › 설정에서 바꿔 주세요");
+  add('설정', '본인 확인 방식', 'ok', pinMode_() ? '이름+개인 번호' : "이름만 (관리 일은 관리자 화면을 연 기기에서만)");
+
+  // 6) 교직원·분류
+  var staff = activeStaff_();
+  var depts = categoryNames_('부서');
+  var noDept = staff.filter(function (r) { return !depts[r['부서ID']]; }).length;
+  add('교직원', '사용 중인 교직원', staff.length ? 'ok' : 'bad', staff.length + '명', staff.length ? '' : '관리자 › 교직원 표에서 넣거나 "명단 한 번에 넣기"를 써 주세요');
+  if (noDept) add('교직원', '부서 없는 분', 'warn', noDept + '명', '교직원 표에서 부서를 골라 주세요(내 담당·조사 대상에 쓰여요)');
+
+  return { build: APP_BUILD_, at: nowText_(), items: items };
+}
+
+// ---------------------------------------------------------------- 교직원 명단 한 번에 넣기 (관리자)
+
+function staffImportHeads_() {
+  return {
+    name: ['이름', '성명'], position: ['직위', '직급', '직'], group: ['소속', '학년반', '학년·반', '담임'],
+    dept: ['부서', '담당 부서', '소속 부서'], duty: ['담당 업무', '업무', '담당업무', '맡은 일'],
+    ext: ['내선', '내선번호', '내선 번호'], role: ['역할'], order: ['순서', '번호', '순번']
+  };
+}
+
+/** 칸 목록 → 줄 목록(앞 5줄 안에서 머리글을 찾고, 없으면 cols 순서로) */
+function gridRowsBy_(grid, heads, cols, must) {
+  var map = null, startAt = 0;
+  for (var i = 0; i < Math.min(5, grid.length) && !map; i++) {
+    var m = {};
+    (grid[i] || []).forEach(function (cell, j) {
+      var h = normHead_(cell);
+      Object.keys(heads).forEach(function (k) {
+        if (m[k] === undefined && heads[k].some(function (a) { return normHead_(a) === h; })) m[k] = j;
+      });
+    });
+    if (must.every(function (k) { return m[k] !== undefined; })) { map = m; startAt = i + 1; }
+  }
+  if (!map) { map = {}; cols.forEach(function (k, j) { map[k] = j; }); }
+  var rows = [];
+  for (var r = startAt; r < grid.length; r++) {
+    var line = grid[r] || [];
+    if (!line.some(function (c) { return String(c || '').trim(); })) continue;
+    var o = {};
+    cols.forEach(function (k) { o[k] = map[k] === undefined ? '' : String(line[map[k]] === undefined || line[map[k]] === null ? '' : line[map[k]]).trim(); });
+    rows.push(o);
+  }
+  return rows;
+}
+
+function staffImportCheck_(rows) {
+  var deptIds = {};
+  catOptions_('부서').forEach(function (d) { var k = normHead_(d.name); deptIds[k] = d.id; deptIds[k.replace(/부$/, '')] = deptIds[k.replace(/부$/, '')] || d.id; });
+  var names = categoryNames_('부서');
+  var have = {};
+  liveRows_('교직원').forEach(function (r) { have[r['이름'] + '|' + r['소속']] = true; });
+  var seen = {};
+  return rows.map(function (raw, i) {
+    var msgs = [], status = 'ok', dup = '';
+    var warn = function (t) { msgs.push(t); if (status === 'ok') status = 'warn'; };
+    var fail = function (t) { msgs.push(t); status = 'error'; };
+    var name = String(raw.name || '').trim();
+    if (!name) fail('이름이 비어 있어요');
+    else if (name.length > 20) fail('이름이 너무 길어요(20자까지)');
+    var ext = String(raw.ext || '').replace(/\s/g, '');
+    if (ext && (/^0?1[016789]/.test(ext.replace(/-/g, '')) && ext.replace(/\D/g, '').length >= 10)) { warn('휴대폰 번호 같아서 넣지 않아요(내선만 넣어요)'); ext = ''; }
+    else if (ext && (!/^[0-9\-]+$/.test(ext) || ext.length > 15)) { warn("내선 '" + raw.ext + "'" + josa_(String(raw.ext), '은', '는') + ' 숫자가 아니라 비워 두고 넣어요'); ext = ''; }
+    var deptId = '';
+    if (String(raw.dept || '').trim()) {
+      deptId = deptIds[normHead_(raw.dept)] || deptIds[normHead_(raw.dept).replace(/부$/, '')] || '';
+      if (!deptId) warn("부서 '" + raw.dept + "'" + josa_(String(raw.dept), '이', '가') + ' 분류에 없어서 비워 두고 넣어요');
+    }
+    var order = String(raw.order || '').trim();
+    if (order && !/^\d{1,4}$/.test(order)) { warn('순서는 숫자만 넣어요'); order = ''; }
+    var group = String(raw.group || '').trim().slice(0, 30);
+    var key = name + '|' + group;
+    if (name && have[key]) { dup = 'exists'; warn('이미 같은 이름·소속이 있어서 건너뛰어요'); }
+    else if (name && seen[key] !== undefined) { dup = 'file'; warn('위의 ' + (seen[key] + 1) + '번째 줄과 같아요'); }
+    if (name && seen[key] === undefined) seen[key] = i;
+    var include = status !== 'error' && !dup;
+    if (raw.include === false) include = false;
+    return {
+      n: i + 1, raw: raw, name: name, position: String(raw.position || '').trim().slice(0, 20), group: group,
+      deptId: deptId, dept: names[deptId] || '', duty: String(raw.duty || '').trim().slice(0, 200), ext: ext,
+      role: /관리/.test(String(raw.role || '')) ? '관리' : '일반', order: order,
+      status: status, msgs: msgs, dup: dup, include: include
+    };
+  });
+}
+
+/** args = { grid } 또는 { rows } */
+function adminStaffImportCheck_(args) {
+  var cols = ['name', 'position', 'group', 'dept', 'duty', 'ext', 'role', 'order'];
+  var rows = args.grid ? gridRowsBy_(args.grid, staffImportHeads_(), cols, ['name']) : (args.rows || []);
+  if (rows.length > 300) throw userError_('한 번에 300명까지 넣을 수 있어요.');
+  var checked = staffImportCheck_(rows);
+  return {
+    rows: checked,
+    counts: {
+      total: checked.length,
+      add: checked.filter(function (r) { return r.include; }).length,
+      warn: checked.filter(function (r) { return r.status === 'warn'; }).length,
+      error: checked.filter(function (r) { return r.status === 'error'; }).length
+    }
+  };
+}
+
+function adminStaffImport_(args, actor) {
+  var rows = args.rows || [];
+  if (rows.length > 300) throw userError_('한 번에 300명까지 넣을 수 있어요.');
+  return withLock_(function () {
+    var checked = staffImportCheck_(rows);
+    var recs = checked.filter(function (r) { return r.include; }).map(function (r) {
+      return { '이름': r.name, '직위': r.position, '소속': r.group, '부서ID': r.deptId, '담당 업무': r.duty, '내선': r.ext, '역할': r.role, '순서': r.order, '사용 여부': '사용', '틀린 횟수': '0' };
+    });
+    if (!recs.length) throw userError_('넣을 분이 없어요. 미리보기에서 넣을 줄을 골라 주세요.');
+    insertRows_('교직원', recs, actor, '교직원 명단 한 번에 넣기: ' + recs.length + '명');
+    return { added: recs.length, skipped: checked.length - recs.length };
+  });
 }

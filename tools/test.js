@@ -1471,5 +1471,112 @@ test("관리 권한: 이름만 방식에서는 역할 '관리'라도 관리자 �
   assert.strictEqual(call(p, 'survey.get', { id: id2 }, { login: pi.L, identity: hong }).data.canSeeResults, true, '개인 번호 방식에서는 역할만으로 관리');
 });
 
+
+// ================================================================ 최종 점검 뒤 보완: 점검 탭·속도·명단 한 번에 넣기·새 공지
+
+test('파일 하나가 빠져도 그 기능만 멈추고, 홈·세션은 열리며, 원인 한 줄을 돌려준다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  g.apiHelpList_ = undefined; // Help.gs가 빠진 상황
+  g.homeNotices_ = undefined;
+  g.latestNoticeAt_ = undefined;
+  const r = call(g, 'help.list', {}, who('심청'));
+  assert.strictEqual(r.code, 'MISSING');
+  assert.match(r.error, /apiHelpList_/);
+  assert.strictEqual(call(g, 'session', {}, who('심청')).ok, true, '세션은 열림');
+  const home = call(g, 'home', {}, who('심청'));
+  assert.strictEqual(home.ok, true, '홈도 열림');
+  assert.strictEqual(home.data.notices.total, 0);
+  g.apiStaffDir_ = undefined; // 함수 안에서 부르는 다른 파일 함수가 없을 때
+  const s = call(g, 'staff.list', {}, who('심청'));
+  assert.strictEqual(s.code, 'ERROR');
+  assert.match(s.detail, /apiStaffDir_/, '원인 한 줄');
+});
+
+test('점검: 최신이면 문제 없음, 빠진 파일·예전 화면 파일·빈 학기·꺼진 백업을 알려 준다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const client = { app: g.APP_BUILD_, styles: g.APP_BUILD_, index: g.APP_BUILD_ };
+  let r = call(g, 'admin.check', { client }, t).data;
+  const by = (label) => r.items.find((x) => x.label === label);
+  for (const f of ['Code.gs', 'Survey.gs', 'Help.gs', 'App.html', '기능 연결', '탭과 칸', '공통 비밀번호']) assert.strictEqual(by(f).state, 'ok', f);
+  assert.strictEqual(by('학기 기간').state, 'warn');
+  assert.strictEqual(by('매일 자동 백업').state, 'warn', '트리거 없음');
+  assert.strictEqual(call(g, 'admin.check', { client }, ids(g).who('심청')).code, 'ADMIN');
+  g.fileMark_Help_ = undefined;
+  g.apiHelpList_ = undefined;
+  r = call(g, 'admin.check', { client: { app: '2020-01-01', styles: g.APP_BUILD_ } }, t).data;
+  assert.strictEqual(by('Help.gs').state, 'bad');
+  assert.strictEqual(by('기능 연결').state, 'bad');
+  assert.match(by('기능 연결').detail, /apiHelpList_/);
+  assert.strictEqual(by('App.html').state, 'warn');
+  assert.strictEqual(by('Index.html').state, 'warn', '판 표시가 없으면');
+  // 시트에서 직접 비운 줄
+  const sh = g._ss.getSheetByName('교직원');
+  sh.data[3] = sh.data[3].map(() => '');
+  r = call(g, 'admin.check', { client }, t).data;
+  assert.strictEqual(by('교직원 탭 빈 줄').state, 'warn');
+});
+
+test('속도: 한 요청 안에서 같은 탭을 두 번 읽지 않는다(쓰면 다시 읽는다)', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  g.seedTestSchedule_();
+  const me = who('심청');
+  g._ss.sheets.forEach((x) => { x.reads = 0; });
+  call(g, 'home', {}, me);
+  const tabsRead = g._ss.sheets.filter((x) => x.reads).length;
+  const total = g._ss.sheets.reduce((n, x) => n + (x.reads || 0), 0);
+  assert.strictEqual(total, tabsRead, '탭마다 한 번씩만');
+  const e = call(g, 'sched.save', { fields: { start: '2026-10-21', title: '방금 넣은 행사' } }, me).data;
+  assert.strictEqual(e.title, '방금 넣은 행사', '쓴 뒤 다시 읽어 최신 값');
+  assert.ok(call(g, 'sched.month', { year: 2026, month: 10 }, me).data.events.some((x) => x.id === e.id));
+});
+
+test('교직원 명단 한 번에 넣기: 머리글 찾기, 휴대폰 번호 막기, 같은 분 건너뛰기, 기록 한 줄', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const grid = [
+    ['2026학년도 교직원 현황'],
+    ['순번', '성명', '직위', '소속', '부서', '담당 업무', '내선번호'],
+    ['1', '전우치', '교사', '2학년 2반', '교무', '생활기록부', '109'],
+    ['2', '박씨', '수석교사', '', '연구부', '수업 컨설팅', '010-1234-5678'],
+    ['3', '홍길동', '교사', '3학년 1반', '연구부', '', '101'],
+    ['4', '', '교사', '4학년 2반', '', '', ''],
+    ['5', '임꺽정', '교사', '5학년 2반', '체육부', '', '1 1 0'],
+    ['6', '전우치', '교사', '2학년 2반', '', '', '']
+  ];
+  assert.strictEqual(call(g, 'admin.staff.importCheck', { grid }, ids(g).who('심청')).code, 'ADMIN');
+  const r = call(g, 'admin.staff.importCheck', { grid }, t);
+  assert.strictEqual(r.ok, true, r.error);
+  const rows = r.data.rows;
+  assert.strictEqual(rows.length, 6);
+  assert.strictEqual(rows[0].dept, '교무부', "'교무'도 교무부로");
+  assert.strictEqual(rows[0].order, '1');
+  assert.strictEqual(rows[1].ext, '', '휴대폰 번호는 넣지 않음');
+  assert.ok(rows[1].msgs.some((m) => /휴대폰/.test(m)));
+  assert.strictEqual(rows[2].dup, 'exists');
+  assert.strictEqual(rows[3].status, 'error');
+  assert.ok(rows[4].msgs.some((m) => /체육부/.test(m)));
+  assert.strictEqual(rows[4].ext, '110', '띄어쓰기는 빼고 숫자만');
+  assert.strictEqual(rows[5].dup, 'file');
+  assert.strictEqual(r.data.counts.add, 3);
+  const before = g.readRows_('기록').length;
+  const s = call(g, 'admin.staff.import', { rows: rows.map((x) => Object.assign({}, x.raw, { include: x.include })) }, t).data;
+  assert.deepStrictEqual(plain(s), { added: 3, skipped: 3 });
+  assert.strictEqual(g.readRows_('기록').length, before + 1, '기록은 한 줄');
+  const dir = call(g, 'staff.list', {}, { login: t.login }).data.staff;
+  assert.ok(dir.some((p) => p.name === '임꺽정' && p.ext === '110'));
+  assert.ok(!JSON.stringify(dir).includes('010-1234'));
+});
+
+test('새 공지 표시: 세션에 지금 걸린 공지 중 가장 최근 시각이 온다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  assert.strictEqual(call(g, 'session', {}, who('심청')).data.noticeLatest, '');
+  const n = call(g, 'notice.save', { fields: { '제목': '새 안내' } }, who('심청')).data;
+  assert.strictEqual(call(g, 'session', {}, who('흥부')).data.noticeLatest, n.at);
+});
+
 console.log(results.join('\n'));
 console.log('\n' + passed + '/' + results.length + ' 통과');

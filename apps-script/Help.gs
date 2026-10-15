@@ -8,6 +8,8 @@
  * - 공지: 홈 공지 카드(아래)
  */
 
+function fileMark_Help_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+
 // ---------------------------------------------------------------- 도움말
 
 function helpView_(r, ctx, kinds, names) {
@@ -216,6 +218,16 @@ function noticeViews_(ctx) {
 
 function apiNoticeList_(args, actor, ctx) {
   return { items: noticeViews_(ctx), canManage: canManage_(ctx), depts: deptOptions_(), today: todayYmd_() };
+}
+
+/** 지금 걸린 공지 중 가장 최근에 올라온 시각(화면의 '새 공지' 점 표시용, 기기마다 본 시각과 비교) */
+function latestNoticeAt_() {
+  var t = todayYmd_(), last = '';
+  liveRows_('공지').forEach(function (r) {
+    if (r['게시 끝일'] && r['게시 끝일'] < t) return;
+    if (r['입력 시각'] > last) last = r['입력 시각'];
+  });
+  return last;
 }
 
 /** 홈: 지금 걸린 공지(고정 먼저, 새것 먼저) 4개까지 */

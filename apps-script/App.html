@@ -8,6 +8,7 @@
   'use strict';
 
   // ============================================================ 기본 도구
+  var APP_FILE_BUILD = '2026-10-16'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -66,6 +67,7 @@
         if (r.ok) return resolve(r.data);
         var err = new Error(r.error);
         err.code = r.code;
+        err.detail = r.detail || '';
         authTrouble(err);
         reject(err);
       }
@@ -148,6 +150,7 @@
     link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2"></path><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"></path>',
     upload: '<path d="M12 15V4M7 8.5l5-5 5 5M5 19.5h14"></path>',
     star: '<path d="m12 3.8 2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z"></path>',
+    reload: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"></path>',
     bell: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"></path><path d="M10 20.5a2 2 0 0 0 4 0"></path>',
     archive: '<rect x="3.5" y="4.5" width="17" height="4.5" rx="1"></rect><path d="M5 9v9.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"></path>',
     ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path>',
@@ -223,6 +226,7 @@
         S.me = s.me;
         S.admin = s.admin;
         S.todoCount = s.todoCount || 0;
+        S.noticeLatest = s.noticeLatest || '';
         if (!s.me) stDel('gy.identity');
         if (!s.admin) stDel('gy.admin');
         if (!S.me && stGet('gy.skipIdentity') !== '1') return showIdentity();
@@ -230,7 +234,7 @@
       });
     }).catch(function (e) {
       if (e.code === 'LOGIN') return;
-      $app.innerHTML = gateWrap('<div class="gate-card"><h1>잠깐 문제가 생겼어요</h1><p class="muted" style="margin:0">' + esc(e.message) + '</p>' +
+      $app.innerHTML = gateWrap('<div class="gate-card"><h1>잠깐 문제가 생겼어요</h1><p class="muted" style="margin:0">' + esc(e.message) + '</p>' + detailHtml(e) +
         '<button type="button" class="btn btn-primary btn-block" data-action="reload">다시 열기</button></div>');
     });
   }
@@ -402,7 +406,8 @@
     var cur = S.screen === m.id;
     return '<button type="button" class="nav-item' + (small || m.small ? ' small' : '') + '" data-go="' + m.id + '"' + (cur ? ' aria-current="page"' : '') + '>' +
       icon(m.icon, m.small ? 20 : 22) + m.label + (m.stage ? '<span class="nav-soon">' + m.stage + '단계</span>' : '') +
-      (m.id === 'survey' ? '<span class="nav-badge" data-badge="survey"' + (S.todoCount ? '' : ' hidden') + '>' + (S.todoCount || 0) + '</span>' : '') + '</button>';
+      (m.id === 'survey' ? '<span class="nav-badge" data-badge="survey"' + (S.todoCount ? '' : ' hidden') + '>' + (S.todoCount || 0) + '</span>' : '') +
+      (m.id === 'notice' ? '<span class="nav-dot" data-dot="notice" aria-label="새 공지"' + (noticeUnseen() ? '' : ' hidden') + '></span>' : '') + '</button>';
   }
 
   function meCard() {
@@ -445,7 +450,8 @@
         return '<button type="button" data-go="' + id + '"' + (S.screen === id ? ' aria-current="page"' : '') + '>' + icon(x.icon, 24) + x.label +
           (id === 'survey' ? '<span class="bn-badge" data-badge="survey"' + (S.todoCount ? '' : ' hidden') + '>' + (S.todoCount || 0) + '</span>' : '') + '</button>';
       }).join('') +
-      '<button type="button" data-action="sheet"' + (['staff', 'help', 'admin', 'guide', 'notice'].indexOf(S.screen) >= 0 ? ' aria-current="page"' : '') + '>' + icon('menu', 24) + '전체</button>' +
+      '<button type="button" data-action="sheet"' + (['staff', 'help', 'admin', 'guide', 'notice'].indexOf(S.screen) >= 0 ? ' aria-current="page"' : '') + '>' + icon('menu', 24) + '전체' +
+      '<span class="bn-dot" data-dot="notice" aria-label="새 공지"' + (noticeUnseen() ? '' : ' hidden') + '></span></button>' +
       '</nav></div>';
     document.title = m.label + ' · 온라인 교무실';
     var $s = qs('#screen');
@@ -575,6 +581,8 @@
     if (S.homeQ) { var q = S.homeQ; S.homeQ = ''; S.search = null; runSearch(q); return; }
     server('home').then(function (h) {
       S.home = h;
+      S.noticeLatest = h.noticeLatest || S.noticeLatest || '';
+      updateNoticeDots();
       if (!S.homeQ) drawHome();
     }).catch(function (e) { var b = qs('#home-body'); if (b && !S.homeQ) b.innerHTML = failHtml(e); });
   };
@@ -583,7 +591,7 @@
   function introBanner() {
     if (stGet('gy.intro') === 'off') return '';
     return '<section class="intro print-hide" aria-label="처음 쓰는 분을 위한 안내">' +
-      '<p class="intro-t">' + icon('info', 22) + '처음이세요? 세 가지만 알면 돼요</p>' +
+      '<p class="intro-t">' + icon('info', 22) + '처음이세요?<span class="intro-more"> 세 가지만 알면 돼요</span></p>' +
       '<ol class="intro-list"><li>① 오늘 일정은 여기 홈에서</li><li>② 낼 조사는 \'내가 할 일\'에서</li><li>③ 자료는 위 검색창에서</li></ol>' +
       '<div class="intro-btns"><button type="button" class="linkish accent" data-go="guide">운영 안내서 보기</button>' +
       '<button type="button" class="icon-btn" data-action="intro-off" aria-label="안내 닫기">' + icon('x', 20) + '</button></div></section>';
@@ -613,6 +621,7 @@
         : '일정이 없어요') + '</p></section>' +
       todoCard(h) + '</div>' +
 
+      (isPhone() ? homeNoticeCard(h) : '') +
       '<section class="card"><div class="card-head"><h2>이번 주 일정 <span class="faint" style="font-weight:600">' + md(h.monday) + ' – ' + md(addD(h.monday, 4)) + '</span></h2>' +
       '<div class="seg print-hide" role="group" aria-label="이번 주 일정 보기">' +
       '<button type="button" data-home-f="all" aria-pressed="' + (hf === 'all') + '">전체</button>' +
@@ -631,7 +640,7 @@
       (weekend.length ? '<p class="faint">주말: ' + weekend.map(function (e) { return esc(mdw(e.start) + ' ' + e.title); }).join(' · ') + '</p>' : '') +
       '</section>' +
 
-      '<div class="home-row">' + homeNoticeCard(h) + quickLibCard(h.library || []) + '</div>' +
+      '<div class="home-row">' + (isPhone() ? '' : homeNoticeCard(h)) + quickLibCard(h.library || []) + '</div>' +
       (h.focus && h.focus.text ? '<section class="card"><div class="card-head"><h2>' + h.focus.month + '월 중점지도</h2></div><p class="focus-text">' + esc(h.focus.text) + '</p></section>' : '') +
       (links.length ? '<section class="card dashed"><div class="card-head"><div><h2>아직 기존 시트에서 하는 일</h2>' +
         '<p class="faint" style="margin-top:4px">2차에 온라인 교무실로 옮겨 와요. 그 전까지는 바로가기로 들어가세요.</p></div>' +
@@ -767,15 +776,22 @@
     if (!phone) html += statCards();
 
     if (phone && !sc.phoneMonth) {
-      html += phoneWeek(shown);
+      html += phoneWeek(shown) + calLegend();
     } else {
       if (phone) html += '<div class="row-btns print-hide"><button type="button" class="btn btn-sm" data-action="phone-week">' + icon('chevl', 18) + '이번 주로 보기</button></div>';
-      html += '<div class="sched-main' + (formSide ? ' with-side' : '') + '"><div class="card cal-card">' + calGrid(shown) + '</div>' +
+      html += '<div class="sched-main' + (formSide ? ' with-side' : '') + '"><div class="card cal-card">' + calGrid(shown) + calLegend() + '</div>' +
         (formSide ? '<aside class="card side-form print-hide" id="side-form"></aside>' : '') + '</div>';
     }
     if (phone) html += statCards();
     body.innerHTML = '<div class="wrap" style="gap:16px">' + html + '</div>';
     if (formSide) drawEventForm(qs('#side-form'), sc.form);
+  }
+
+  /** 달력 색 설명 */
+  function calLegend() {
+    return '<div class="legend" aria-label="색 설명">' +
+      '<span><i class="lg lg-imp"></i>★ 중요</span><span><i class="lg lg-ev"></i>행사</span>' +
+      '<span><i class="lg lg-act"></i>교육활동</span><span><i class="lg lg-off"></i>휴업일·공휴일</span></div>';
   }
 
   function calGrid(shown) {
@@ -2358,9 +2374,9 @@
   var UP_HEAD = ['시작일', '끝일', '시간', '행사명', '대상', '담당 부서', '장소', '구분', '메모', '중요'];
 
   /** 학사일정 목록 양식(.xlsx): 머리글 + 예시 2줄(올릴 때 '예시 줄'로 빠짐) */
-  function templateXlsx(year) {
+  function templateXlsx(year, customRows, sheetName) {
     var y = Number(year) || new Date().getFullYear();
-    var rows = [UP_HEAD,
+    var rows = customRows || [UP_HEAD,
       [y + '-03-02', '', '09:00', '(예시) 입학식', '1', '교무부', '강당', '행사', '이 줄은 지우고 쓰세요', '예'],
       [y + '-05-04', y + '-05-05', '', '(예시) 재량휴업일', '전체', '', '', '휴업일', '', '']];
     var cols = 'ABCDEFGHIJ';
@@ -2376,7 +2392,7 @@
     return zipStore([
       { name: '[Content_Types].xml', text: XMLH + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
       { name: '_rels/.rels', text: XMLH + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
-      { name: 'xl/workbook.xml', text: XMLH + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="학사일정" sheetId="1" r:id="rId1"/></sheets></workbook>' },
+      { name: 'xl/workbook.xml', text: XMLH + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="' + xmlEsc(sheetName || '학사일정') + '" sheetId="1" r:id="rId1"/></sheets></workbook>' },
       { name: 'xl/_rels/workbook.xml.rels', text: XMLH + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' },
       { name: 'xl/styles.xml', text: XMLH + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="맑은 고딕"/></font><font><b/><sz val="11"/><name val="맑은 고딕"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF2F4F6"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>' },
       { name: 'xl/worksheets/sheet1.xml', text: sheet }
@@ -2750,7 +2766,7 @@
   };
 
   function loadNotices() {
-    return server('notice.list').then(function (d) { S.notice.data = d; drawNotices(); })
+    return server('notice.list').then(function (d) { S.notice.data = d; drawNotices(); markNoticesSeen(d.items); })
       .catch(function (e) { var b = qs('#notice-body'); if (b) b.innerHTML = failHtml(e); });
   }
 
@@ -2848,7 +2864,7 @@
   // ============================================================ 관리자
   SCREENS.admin = function ($s) {
     if (!S.admin) return adminGate($s);
-    var tabs = [['staff', '교직원 표'], ['cat', '분류'], ['settings', '설정'], ['year', '새 학년도'], ['log', '수정 기록'], ['trash', '휴지통'], ['pw', '비밀번호']];
+    var tabs = [['staff', '교직원 표'], ['cat', '분류'], ['settings', '설정'], ['year', '새 학년도'], ['log', '수정 기록'], ['trash', '휴지통'], ['pw', '비밀번호'], ['check', '점검']];
     $s.innerHTML = pageHead('관리 · 연구부장·부담당', '관리자', '계정·분류·설정을 관리해요. 바꾼 내용은 모두 수정 기록에 남아요.',
       '<button type="button" class="btn btn-sm print-hide" data-action="admin-out">' + icon('lock', 18) + '관리자 화면 닫기</button>') +
       (S.me ? '' : '<div class="box" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px"><span class="warn-text" style="font-size:15px">본인 확인 전이라 기록에 "관리자(본인 확인 전)"으로 남아요.</span>' +
@@ -2856,8 +2872,10 @@
       '<div class="tabs print-hide" role="tablist">' + tabs.map(function (t) {
         return '<button type="button" class="tab" role="tab" data-admin-tab="' + t[0] + '" aria-selected="' + (S.adminTab === t[0]) + '">' + t[1] + '</button>';
       }).join('') + '</div><div id="admin-panel" role="tabpanel"></div>';
+    var selTab = qs('.tabs [aria-selected="true"]', $s);
+    if (selTab && selTab.scrollIntoView) { try { selTab.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {} }
     var panel = qs('#admin-panel');
-    ({ staff: adminStaff, cat: adminCat, settings: adminSettings, year: adminYear, log: adminLog, trash: adminTrash, pw: adminPw }[S.adminTab] || adminStaff)(panel);
+    ({ staff: adminStaff, cat: adminCat, settings: adminSettings, year: adminYear, log: adminLog, trash: adminTrash, pw: adminPw, check: adminCheck }[S.adminTab] || adminStaff)(panel);
   };
 
   function adminGate($s) {
@@ -2893,7 +2911,11 @@
     return '<div class="loading"><span class="spin" aria-hidden="true"></span>' + esc(t || '불러오는 중이에요') + '</div>';
   }
   function failHtml(e) {
-    return '<div class="card"><p class="err">' + esc(e.message) + '</p></div>';
+    return '<div class="card"><p class="err">' + esc(e.message) + '</p>' + detailHtml(e) + '</div>';
+  }
+  /** 예상 못 한 오류의 원인 한 줄(연구부장·부담당이 고칠 곳을 찾게) */
+  function detailHtml(e) {
+    return e && e.detail ? '<p class="err-detail">자세한 내용(연구부장·부담당께 전해 주세요): <code>' + esc(e.detail) + '</code></p>' : '';
   }
 
   // ------------------------------------------------------------ 관리자 · 교직원 표
@@ -2925,6 +2947,7 @@
       '<input id="staff-find" type="search" placeholder="이름·소속·업무로 찾기" value="' + esc(S.staffSearch) + '" autocomplete="off"></label>' +
       '<label class="check" style="padding:0 6px"><input type="checkbox" id="staff-off"' + (S.showOff ? ' checked' : '') + '>사용 안 함도 보기</label>' +
       (S.cache.pinMode ? '<button type="button" class="btn btn-sm" data-action="staff-issue"' + (noPin.length ? '' : ' disabled') + '>' + icon('key', 18) + '번호 없는 분 번호 만들기</button>' : '') +
+      '<button type="button" class="btn btn-sm" data-action="staff-import">' + icon('upload', 18) + '명단 한 번에 넣기</button>' +
       '<button type="button" class="btn btn-sm btn-primary" data-action="staff-add">' + icon('plus', 18) + '교직원 추가</button></div>' +
       (shown.length
         ? '<div class="rows" role="table" aria-label="교직원 표">' +
@@ -3351,6 +3374,137 @@
     });
   }
 
+  // ------------------------------------------------------------ 관리자 · 점검
+  function clientBuilds() {
+    var meta = qs('meta[name="gy-build"]');
+    var css = '';
+    try { css = getComputedStyle(root).getPropertyValue('--gy-build').trim().replace(/^["']|["']$/g, ''); } catch (e) {}
+    return { app: APP_FILE_BUILD, styles: css, index: meta ? meta.getAttribute('content') : '' };
+  }
+
+  function adminCheck(panel) {
+    panel.innerHTML = loadingHtml('점검하는 중이에요');
+    server('admin.check', { client: clientBuilds() }).then(function (r) {
+      var label = { ok: '정상', warn: '확인 필요', bad: '문제' };
+      var chip = { ok: 'chip-ok', warn: 'chip-warn', bad: 'chip-red' };
+      var bad = r.items.filter(function (x) { return x.state === 'bad'; }).length;
+      var warn = r.items.filter(function (x) { return x.state === 'warn'; }).length;
+      var groups = uniq(r.items.map(function (x) { return x.group; }));
+      panel.innerHTML = '<div class="stack">' +
+        '<section class="card check-sum"><div class="card-head"><div><h2>' + (bad ? '고칠 것이 ' + bad + '개 있어요' : warn ? '확인할 것이 ' + warn + '개 있어요' : '모두 정상이에요') + '</h2>' +
+        '<p class="faint" style="margin-top:4px">' + esc(atText(r.at)) + ' 점검 · 코드 판 ' + esc(r.build) + '</p></div>' +
+        '<button type="button" class="btn btn-sm" data-action="check-again">' + icon('reload', 18) + '다시 점검</button></div>' +
+        '<p class="hint">' + icon('info', 16) + '<span>코드를 새로 붙여 넣은 뒤나, 화면에 \'잠깐 문제가 생겼어요\'가 뜰 때 여기부터 보세요. 고친 뒤에는 배포 관리 → 새 버전으로 배포해야 반영돼요.</span></p></section>' +
+        groups.map(function (gname) {
+          var list = r.items.filter(function (x) { return x.group === gname; });
+          return '<section class="card"><h2>' + esc(gname) + '</h2><div class="check-list">' + list.map(function (x) {
+            return '<div class="check-row ' + x.state + '"><span class="chip ' + chip[x.state] + '">' + label[x.state] + '</span>' +
+              '<div class="check-main"><b>' + esc(x.label) + '</b><span class="faint">' + esc(x.detail) + '</span>' +
+              (x.state !== 'ok' && x.fix ? '<span class="check-fix">' + icon('chev', 16) + esc(x.fix) + '</span>' : '') + '</div></div>';
+          }).join('') + '</div></section>';
+        }).join('') + '</div>';
+    }).catch(function (e) { panel.innerHTML = failHtml(e); });
+  }
+
+  // ------------------------------------------------------------ 관리자 · 교직원 명단 한 번에 넣기
+  S.imp = { res: null, pasteGrid: null };
+
+  function openStaffImport() {
+    S.imp = { res: null, pasteGrid: null };
+    openModal('<h2 id="m-title">교직원 명단 한 번에 넣기</h2>' +
+      '<p class="muted" style="margin:0">엑셀이나 한글의 명단 표를 복사해 붙여 넣거나, 엑셀 파일을 골라요. 머리글(이름·직위·소속·부서·담당 업무·내선·역할·순서)이 있으면 그 이름으로 칸을 맞춰요.</p>' +
+      '<div class="row-btns"><button type="button" class="btn btn-sm" data-action="imp-template">' + icon('down', 18) + '명단 양식 내려받기</button></div>' +
+      '<div class="field"><label class="label" for="imp-file">엑셀·CSV 파일</label><input id="imp-file" class="input input-file" type="file" accept=".xlsx,.csv,.txt"></div>' +
+      '<div class="field"><label class="label" for="imp-paste">또는 표 붙여 넣기</label><textarea id="imp-paste" class="input" rows="4" placeholder="명단 표를 복사해 여기에 붙여 넣으세요(머리글 줄도 함께)"></textarea></div>' +
+      '<div class="row-btns"><button type="button" class="btn" data-action="imp-read">미리보기 만들기</button></div>' +
+      '<p class="hint">' + icon('info', 16) + '<span>개인 연락처(휴대폰 번호)는 넣지 않아요. 내선 칸에 휴대폰 번호가 있으면 빼고 넣어요. 이미 있는 분(같은 이름·소속)은 건너뛰어요.</span></p>' +
+      '<p class="err" id="imp-err" role="alert"></p><div id="imp-preview"></div>' +
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
+      '<button type="button" class="btn btn-primary" id="imp-go" data-action="imp-go" disabled>넣기</button></div>', { wide: true, noBackdropClose: true });
+    var ta = qs('#imp-paste');
+    ta.addEventListener('paste', function (e) {
+      var html = e.clipboardData && e.clipboardData.getData('text/html');
+      S.imp.pasteGrid = html ? htmlTableGrid(html) : null;
+    });
+    ta.addEventListener('input', function (e) { if (e.inputType !== 'insertFromPaste') S.imp.pasteGrid = null; });
+    qs('#imp-file').addEventListener('change', function (e) {
+      var f = e.target.files[0];
+      if (!f) return;
+      var name = f.name.toLowerCase();
+      qs('#imp-err').textContent = '';
+      if (!/\.(xlsx|csv|txt)$/.test(name)) { qs('#imp-err').textContent = '엑셀(.xlsx)이나 CSV 파일을 골라 주세요. 한글 표는 복사해 붙여 넣어 주세요.'; return; }
+      f.arrayBuffer().then(function (buf) { return /\.xlsx$/.test(name) ? readXlsx(buf) : parseDelimited(decodeText(buf)); })
+        .then(function (grid) { staffImportCheck({ grid: grid }); })
+        .catch(function (err) { qs('#imp-err').textContent = err.message || '파일을 읽지 못했어요.'; });
+    });
+  }
+
+  function staffImportCheck(args) {
+    var box = qs('#imp-preview');
+    if (!box) return;
+    box.innerHTML = loadingHtml('확인하는 중이에요');
+    server('admin.staff.importCheck', args).then(function (r) {
+      S.imp.res = r;
+      drawStaffImport();
+    }).catch(function (e) { box.innerHTML = ''; qs('#imp-err').textContent = e.message; });
+  }
+
+  function drawStaffImport() {
+    var r = S.imp.res, box = qs('#imp-preview'), go = qs('#imp-go');
+    if (!box || !r) return;
+    var c = r.counts;
+    box.innerHTML = '<p class="imp-sum"><b>넣을 분 ' + c.add + '명</b> · 읽은 줄 ' + c.total + '개' + (c.warn ? ' · <span class="warn-num">확인 필요 ' + c.warn + '</span>' : '') + (c.error ? ' · <span class="err-num">넣을 수 없음 ' + c.error + '</span>' : '') + '</p>' +
+      '<div class="table-wrap"><table class="plan imp-table"><thead><tr><th>넣기</th><th>이름</th><th>직위</th><th>소속</th><th>부서</th><th>담당 업무</th><th>내선</th><th>확인</th></tr></thead><tbody>' +
+      r.rows.map(function (x) {
+        return '<tr class="' + (x.include ? '' : 'off') + '"><td><input type="checkbox" class="imp-inc" data-n="' + x.n + '"' + (x.include ? ' checked' : '') + (x.status === 'error' || x.dup ? ' disabled' : '') + ' aria-label="' + x.n + '번째 줄 넣기"></td>' +
+          '<td><b>' + esc(x.name || x.raw.name) + '</b>' + (x.role === '관리' ? ' <span class="chip">관리</span>' : '') + '</td><td>' + esc(x.position) + '</td><td>' + esc(x.group) + '</td>' +
+          '<td>' + esc(x.dept || x.raw.dept) + '</td><td>' + esc(x.duty) + '</td><td>' + esc(x.ext) + '</td>' +
+          '<td>' + (x.msgs.length ? x.msgs.map(function (m) { return '<span class="up-msg">' + esc(m) + '</span>'; }).join('') : '<span class="chip chip-ok">정상</span>') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+    if (go) { go.disabled = !c.add; go.textContent = c.add + '명 넣기'; }
+    qsa('.imp-inc', box).forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        S.imp.res.rows[Number(cb.getAttribute('data-n')) - 1].include = cb.checked;
+        var n = S.imp.res.rows.filter(function (x) { return x.include; }).length;
+        S.imp.res.counts.add = n;
+        cb.closest('tr').classList.toggle('off', !cb.checked);
+        if (go) { go.disabled = !n; go.textContent = n + '명 넣기'; }
+      });
+    });
+  }
+
+  function staffImportGo(btn) {
+    var rows = S.imp.res.rows.map(function (x) { var o = {}; Object.keys(x.raw).forEach(function (k) { o[k] = x.raw[k]; }); o.include = x.include; return o; });
+    busy(btn, true, '넣는 중');
+    server('admin.staff.import', { rows: rows }).then(function (r) {
+      closeModal();
+      toast(r.added + '명을 넣었어요' + (r.skipped ? ' · ' + r.skipped + '줄은 건너뛰었어요' : ''));
+      adminStaff(qs('#admin-panel'));
+    }).catch(function (e) { busy(btn, false); qs('#imp-err').textContent = e.message; });
+  }
+
+  // ------------------------------------------------------------ 새 공지 점 표시(기기마다 본 시각을 기억)
+  function noticeUnseen() {
+    return !!(S.noticeLatest && S.noticeLatest > (stGet('gy.noticeSeen') || ''));
+  }
+  function updateNoticeDots() {
+    var on = noticeUnseen();
+    qsa('[data-dot="notice"]').forEach(function (d) { d.hidden = !on; });
+  }
+  function markNoticesSeen(items) {
+    var last = (items || []).reduce(function (m, n) { return n.active && n.at > m ? n.at : m; }, S.noticeLatest || '');
+    if (last) stSet('gy.noticeSeen', last, true);
+    updateNoticeDots();
+  }
+
+  // ------------------------------------------------------------ 옆으로 밀리는 탭: 더 있다는 표시
+  function updateTabHints() {
+    qsa('.tabs').forEach(function (t) {
+      t.classList.toggle('more-r', t.scrollLeft + t.clientWidth < t.scrollWidth - 2);
+      t.classList.toggle('more-l', t.scrollLeft > 2);
+    });
+  }
+
   // ============================================================ 창(모달)
   var lastFocus = null;
   function openModal(html, opts) {
@@ -3579,6 +3733,20 @@
           return server('notice.delete', { id: id }).then(function () { closeModal(); S.home = null; toast('공지를 지웠어요'); return loadNotices(); });
         }, true);
         break;
+      case 'check-again': adminCheck(qs('#admin-panel')); break;
+      case 'staff-import': openStaffImport(); break;
+      case 'imp-template':
+        saveBlob(templateXlsx(S.start && S.start.year, [['이름', '직위', '소속', '부서', '담당 업무', '내선', '역할', '순서'],
+          ['(예시) 홍길동', '교사', '3학년 1반', '연구부', '교육과정', '101', '관리', '1']], '교직원'), '교직원_명단_양식.xlsx');
+        toast('양식을 내려받았어요');
+        break;
+      case 'imp-read':
+        var itxt = qs('#imp-paste').value;
+        qs('#imp-err').textContent = '';
+        if (!itxt.trim() && !S.imp.pasteGrid) { qs('#imp-err').textContent = '명단 표를 붙여 넣거나 파일을 골라 주세요.'; break; }
+        staffImportCheck({ grid: S.imp.pasteGrid || parseDelimited(itxt) });
+        break;
+      case 'imp-go': staffImportGo(t); break;
       case 'help-new': openHelpForm(null); break;
       case 'help-edit': openHelpForm(helpById(id)); break;
       case 'help-kind': S.help.kind = id || ''; drawHelp(); break;
@@ -3623,7 +3791,8 @@
       var shape = isPhone() + '/' + isWide();
       if (shape === lastShape) return;
       lastShape = shape;
-      if (S.screen === 'schedule' && qs('.app')) renderApp();
+      if ((S.screen === 'schedule' || S.screen === 'home') && qs('.app')) renderApp();
+      updateTabHints();
     }, 200);
   });
 
@@ -3634,6 +3803,13 @@
     var h = (location.hash || '').replace('#', '');
     if (menuItem(h) && h !== S.screen && qs('.app')) go(h);
   });
+
+  // 옆으로 밀리는 탭(관리자 탭 등): 더 있으면 끝을 흐리게
+  document.addEventListener('scroll', function (e) { if (e.target.classList && e.target.classList.contains('tabs')) updateTabHints(); }, true);
+  if (window.MutationObserver) {
+    var tabTimer;
+    new MutationObserver(function () { clearTimeout(tabTimer); tabTimer = setTimeout(updateTabHints, 50); }).observe($app, { childList: true, subtree: true });
+  }
 
   // 미리보기·자동 점검에서 쓰는 창구
   window.__gy = { S: S, go: go, renderApp: renderApp, server: server };

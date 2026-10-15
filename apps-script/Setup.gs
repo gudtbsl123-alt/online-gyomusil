@@ -4,6 +4,8 @@
  * 메뉴 함수는 시트 안에서만 돌아간다(웹앱에서 부르면 requireSheetUi_()가 막는다).
  */
 
+function fileMark_Setup_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('온라인 교무실')
     .addItem('1. 처음 설정 (탭 만들기)', 'menuSetup')
@@ -49,6 +51,7 @@ function setupAll_() {
   secretProp_('PIN_PEPPER');
   secretProp_('TOKEN_SECRET');
   DB_SS_ = ss;
+  dbReset_();
 
   var created = [], extended = [];
   var defs = tabs_();
@@ -72,6 +75,7 @@ function setupAll_() {
     sh.getRange(1, 1, 1, sh.getLastColumn()).setFontWeight('bold').setBackground('#F2F4F6');
   });
 
+  dbReset_(); // 머리글을 바꿨으니 다시 읽는다
   // 설정 기본값(없는 키만). 있는 키는 값은 그대로 두고 '설명' 칸만 지금 안내로 바꾼다
   var have = {};
   var sheet = sheet_('설정');
@@ -85,6 +89,7 @@ function setupAll_() {
     if (!have[d.key]) sheet.appendRow([d.key, d.def, d.note || d.label].map(cellWrite_));
   });
   SETTINGS_CACHE_ = null;
+  dbReset_();
   return { created: created, extended: extended };
 }
 

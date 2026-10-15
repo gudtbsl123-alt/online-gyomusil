@@ -7,6 +7,8 @@
  * 고치기·지우기: 처음 넣은 사람, 역할이 '관리'인 분, 관리자 화면을 연 분만.
  */
 
+function fileMark_Schedule_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+
 function schedKinds_() {
   return ['행사', '교육활동', '휴업일', '공휴일'];
 }
@@ -195,9 +197,10 @@ function apiHome_(args, actor, ctx) {
     links: links,
     focus: focusOf_(m >= 3 ? y : y - 1, m),
     canManage: canManage_(ctx),
-    todos: todoList_(ctx),
-    library: homeLibrary_(ctx),
-    notices: homeNotices_(ctx)
+    todos: optional_('todoList_', [])(ctx),
+    library: optional_('homeLibrary_', [])(ctx),
+    notices: optional_('homeNotices_', { items: [], total: 0 })(ctx),
+    noticeLatest: optional_('latestNoticeAt_', '')()
   };
 }
 
