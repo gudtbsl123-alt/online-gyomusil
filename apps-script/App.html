@@ -608,7 +608,7 @@
     var sc = S.sched;
     if (!sc.y) { var t = localToday(); sc.y = +t.slice(0, 4); sc.m = +t.slice(5, 7); }
     var views = [['cal', '달력'], ['plan', '월별 계획'], ['year', '연간 학사일정']];
-    $s.innerHTML = pageHead('', '일정', '부서와 학년이 한 번 넣으면 달력·연간 학사일정·월별 계획에 함께 들어가요.') +
+    $s.innerHTML = pageHead('', '일정') +
       '<div class="toolbar print-hide">' +
       '<div class="seg" role="group" aria-label="일정 보기">' + views.map(function (v) {
         return '<button type="button" data-sched-view="' + v[0] + '" aria-pressed="' + (sc.view === v[0]) + '">' + v[1] + '</button>';
