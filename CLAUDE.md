@@ -79,7 +79,7 @@
 - `apps-script/` : 웹앱에 그대로 붙여 넣는 파일(Code·Db·Auth·Admin·Schedule·Survey·Library·Help·Setup.gs, Index·Styles·App.html, appsscript.json)
 - 화면 → 서버는 `api(JSON)` 하나뿐. 요청마다 `routes_()`의 need(public/login/identity/admin)로 확인한다.
 - 시트 쓰기는 `insertRow_/updateRow_/softDelete_/restoreRow_`(Db.gs)만 쓴다. 잠금·기록이 자동으로 붙는다. 보안 숫자(틀린 횟수)만 `setCellsNoLog_`.
-- 값은 모두 글자로 저장(`cellWrite_`가 숫자·날짜·수식처럼 보이는 글자 앞에 ' 를 붙임).
+- 값은 모두 글자로 저장(`cellWrite_`가 빈칸이 아닌 모든 값 앞에 ' 를 붙임).
 - 이름이 `_`로 끝나지 않는 함수는 웹앱에서 부를 수 있으니, 시트 메뉴 함수는 `requireSheetUi_()`로 막는다.
 - 판 표시: Code.gs `APP_BUILD_`와 각 .gs의 `fileMark_○○_()`, App.html `APP_FILE_BUILD`, Styles.html `--gy-build`, Index.html `<meta name="gy-build">`. 파일을 바꿔 다시 붙여 넣게 할 때는 바꾼 파일의 판과 `APP_BUILD_`를 함께 올린다(관리자 › 점검이 예전 파일을 찾아냄)
 - 요청 처리 함수는 routes_()에 이름(글자)으로 적고 부를 때 찾는다(globalFn_). 파일 하나가 빠져도 그 기능만 멈추고, 예상 못 한 오류는 원인 한 줄(detail)을 화면에 보여 준다
