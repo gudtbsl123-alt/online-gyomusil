@@ -358,6 +358,7 @@ async function studentsFlow(page, kind) {
     }
   }
   await page.fill('#stu-2', '61');
+  if ((await page.textContent('#stu-err')).trim()) problems.push(kind + ': 숫자를 고쳤는데 지난 안내가 남아 있음');
   await shot(page, kind + '_학생수_넣기창');
   await page.click('#stu-save');
   await page.locator('.stu-grid').waitFor();

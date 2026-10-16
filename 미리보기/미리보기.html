@@ -5700,6 +5700,7 @@ function setPinForTest_(row, pin) {
       x.addEventListener('input', function () {
         var v = x.value.replace(/[^0-9]/g, '').slice(0, 3);
         if (v !== x.value) x.value = v;
+        qs('#stu-err').textContent = ''; // 고치기 시작하면 지난 안내는 지운다
         sum();
       });
     });
