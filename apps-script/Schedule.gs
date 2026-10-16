@@ -7,7 +7,7 @@
  * 고치기·지우기: 처음 넣은 사람, 역할이 '관리'인 분, 관리자 화면을 연 분만.
  */
 
-function fileMark_Schedule_() { return '2026-10-16c'; } // 판 표시(관리자 › 점검)
+function fileMark_Schedule_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 function schedKinds_() {
   return ['행사', '교육활동', '휴업일', '공휴일'];
@@ -38,8 +38,11 @@ function weekday_(s) {
   return new Date(ymdToUtc_(s)).getUTCDay();
 }
 
+var TODAY_MEMO_ = { at: 0, v: '' }; // 한 요청에서 여러 번 불러도 날짜 형식은 1초에 한 번
 function todayYmd_() {
-  return Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd');
+  var t = Date.now();
+  if (t - TODAY_MEMO_.at > 1000 || t < TODAY_MEMO_.at) TODAY_MEMO_ = { at: t, v: Utilities.formatDate(new Date(t), tz_(), 'yyyy-MM-dd') };
+  return TODAY_MEMO_.v;
 }
 
 /** 그 주 월요일 */
@@ -88,10 +91,15 @@ function sortEvents_(list) {
  * - 관리자 화면이 열린 기기(관리자 비밀번호)는 늘 관리
  * - 역할 '관리'는 '이름+개인 번호' 방식일 때만 관리. '이름만' 방식에서는 누구나 그 이름을 고를 수 있어서
  *   관리자 비밀번호 없이는 관리 권한을 주지 않는다(2026-10-15 교사 결정)
+ * 한 요청 안에서는 한 번만 따져 ctx.manage에 둔다. 관리자 표 확인은 스크립트 속성을 읽고 서명을 맞춰 보는 일이라
+ * 목록의 줄마다 하면 관리자 화면을 연 기기에서 홈·달력이 느려진다
  */
 function canManage_(ctx) {
-  if (ctx.tokens && ctx.tokens.admin && checkAdmin_(ctx.tokens.admin)) return true;
-  return !!(ctx.identity && ctx.identity['역할'] === '관리' && pinMode_());
+  if (ctx.manage === undefined) {
+    ctx.manage = !!(ctx.admin || (ctx.tokens && ctx.tokens.admin && checkAdmin_(ctx.tokens.admin)) ||
+      (ctx.identity && ctx.identity['역할'] === '관리' && pinMode_()));
+  }
+  return ctx.manage;
 }
 
 function canEditEvent_(e, ctx) {
@@ -159,7 +167,7 @@ function apiSchedMonth_(args, actor, ctx) {
     to: to,
     events: eventsBetween_(from, to, ctx),
     focus: focusOf_(sy, m),
-    monthDays: instructionalDays_(first, last),
+    monthDays: semesterIn_(sy) ? instructionalDays_(first, last) : null, // 이 달의 학년도에 학기 기간이 없으면 0일이 아니라 '없음'
     canManage: canManage_(ctx),
     depts: deptOptions_(),
     schoolYear: sy
@@ -176,7 +184,8 @@ function apiSchedYear_(args, actor, ctx) {
     today: todayYmd_(),
     events: eventsBetween_(r.from, r.to, ctx),
     days: semesterDays_(y),
-    canManage: canManage_(ctx)
+    canManage: canManage_(ctx),
+    depts: deptOptions_()
   };
 }
 
@@ -188,6 +197,10 @@ function apiHome_(args, actor, ctx) {
   var to = addDays_(mon, 6) > tomorrow ? addDays_(mon, 6) : tomorrow;
   var links = [];
   try { links = JSON.parse(setting_('기존 시트 바로가기') || '[]'); } catch (e) { links = []; }
+  // 시트에서 손으로 고친 값도 https 주소만 내보낸다(관리자 화면의 설정 저장과 같은 기준)
+  links = (Array.isArray(links) ? links : []).filter(function (l) {
+    return l && typeof l.url === 'string' && /^https:\/\//.test(l.url) && typeof l.name === 'string';
+  }).slice(0, 12).map(function (l) { return { name: l.name.slice(0, 20), url: l.url.slice(0, 500) }; });
   var m = Number(today.slice(5, 7)), y = Number(today.slice(0, 4));
   return {
     today: today,
@@ -198,6 +211,7 @@ function apiHome_(args, actor, ctx) {
     focus: focusOf_(m >= 3 ? y : y - 1, m),
     students: studentsOf_(m >= 3 ? y : y - 1),
     canManage: canManage_(ctx),
+    depts: deptOptions_(), // 홈에서 일정을 고칠 때 부서 목록
     todos: optional_('todoList_', [])(ctx),
     library: optional_('homeLibrary_', [])(ctx),
     notices: optional_('homeNotices_', { items: [], total: 0 })(ctx),
@@ -236,7 +250,7 @@ function cleanEvent_(f) {
 function cleanTarget_(t) {
   var list = Array.isArray(t) ? t : String(t || '').split(',');
   list = list.map(function (x) { return String(x).trim(); }).filter(Boolean);
-  if (list.indexOf('전체') >= 0) return '전체';
+  if (list.indexOf('전체') >= 0) return '전체' + (list.indexOf('교직원') >= 0 ? ',교직원' : ''); // 전체 + 교직원을 함께 고르면 둘 다
   var ok = schedTargets_();
   list = ok.filter(function (x) { return list.indexOf(x) >= 0; });
   var grades = list.filter(function (x) { return x !== '교직원'; });
@@ -437,6 +451,10 @@ function apiStudentsSave_(args, actor) {
   ensureCols_('학생수'); // 먼저 만든 탭에는 '반별' 칸이 없을 수 있다
   withLock_(function () {
     var cur = studentsOf_(sy);
+    // 창을 연 뒤 다른 분이 먼저 저장했으면 덮어쓰지 않는다(화면은 학년 전체를 함께 보낸다). base가 없는 예전 화면은 그대로
+    if (args.base !== undefined && String(args.base || '') !== String(cur.at || '')) {
+      throw userError_('그사이 다른 선생님이 학생 수를 먼저 고쳤어요. 창을 닫았다가 다시 열어, 바뀐 숫자에서 고쳐 주세요.', 'CONFLICT');
+    }
     if (cur.id) {
       updateRow_('학생수', cur.id, patch, actor, sy + '학년도 학생 수 고침');
     } else {
@@ -466,6 +484,12 @@ function instructionalDays_(from, to) {
     if (off[d]) removed++;
   }
   return { weekdays: weekdays, off: removed, days: weekdays - removed };
+}
+
+/** 그 학년도(3월~다음 해 2월)에 걸친 학기 기간이 설정에 있는지 */
+function semesterIn_(schoolYear) {
+  var r = schoolYearRange_(schoolYear);
+  return semesters_().some(function (s) { return s.to >= r.from && s.from <= r.to; });
 }
 
 /** 설정의 학기 기간(들어 있는 것만) */
@@ -520,7 +544,10 @@ function semesterDays_(year, extra) {
 
 function adminTrashList_() {
   var depts = categoryNames_('부서'), names = staffNames_();
-  return sortEvents_(readRows_('일정').filter(function (e) { return e['삭제 여부']; })).reverse().slice(0, 200).map(function (e) {
+  // 최근에 지운 것부터(올리기 되돌리기로 한꺼번에 숨긴 것이 많아도 방금 지운 것이 보이게)
+  var del = sortEvents_(readRows_('일정').filter(function (e) { return e['삭제 여부']; })).reverse();
+  del.sort(function (a, b) { var x = String(a['수정 시각'] || ''), y = String(b['수정 시각'] || ''); return x < y ? 1 : x > y ? -1 : 0; });
+  return del.slice(0, 200).map(function (e) {
     var v = eventView_(e, { identity: null, tokens: {} }, depts, names);
     v.deletedBy = names[e['수정자ID']] || '';
     v.deletedAt = e['수정 시각'];
@@ -589,6 +616,11 @@ function requireManage_(ctx) {
   if (!canManage_(ctx)) throw userError_('학사일정 올리기는 연구부장·부담당만 할 수 있어요.', 'FORBIDDEN');
 }
 
+/** 이름을 고르지 않고 관리자 화면에서 한 일은 기록에 '관리자(본인 확인 전)'으로 남긴다 */
+function manageActor_(actor) {
+  return actor && actor.name ? actor : { id: '', name: '관리자(본인 확인 전)' };
+}
+
 /** 머리글 이름 → 칸 */
 function uploadHeads_() {
   return {
@@ -647,25 +679,45 @@ function gridToRows_(grid) {
  * 읽는 모양: 2026-03-02, 2026.3.2., 2026/3/2, 2026년 3월 2일, 3/2, 3.2.(월), 3월 2일, 엑셀 날짜 숫자(46083)
  * 돌려주는 값: { ymd } 또는 { err }
  */
+var DAY_NAMES_ = ['일', '월', '화', '수', '목', '금', '토'];
+
+/**
+ * 날짜 칸 읽기 → { ymd, guessed(연도를 학년도로 채움), shifted(요일에 맞춰 다음 해로), warn } 또는 { err }
+ * '3. 2.(화)'처럼 연도가 없으면 학년도 설정으로 채운다. 적힌 요일이 맞지 않으면 다음 해(새 학년도 일정을 미리 올릴 때)를 맞춰 보고,
+ * 그래도 다르면 확인 필요로 알린다
+ */
 function parseDay_(v, schoolYear) {
-  var s = String(v || '').trim().replace(/\([^)]*\)/g, '').replace(/\s*(월|화|수|목|금|토|일)요일\s*$/, '').trim().replace(/\.$/, '');
+  var raw = String(v || '').trim();
+  var wm = /\(\s*(월|화|수|목|금|토|일)(?:요일)?\s*\)|(월|화|수|목|금|토|일)요일\s*$/.exec(raw);
+  var wday = wm ? DAY_NAMES_.indexOf(wm[1] || wm[2]) : -1;
+  var s = raw.replace(/\([^)]*\)/g, '').replace(/\s*(월|화|수|목|금|토|일)요일\s*$/, '').trim().replace(/\.$/, '');
   if (!s) return { err: '' };
-  var y, m, d, hit;
+  var y, m, d, hit, guessed = false;
   if (/^\d{5}(\.\d+)?$/.test(s)) {
     var t = Date.UTC(1899, 11, 30) + Math.floor(Number(s)) * 86400000;
     return { ymd: utcToYmd_(t) };
   }
   if ((hit = /^(\d{4})\s*[-.\/년]\s*(\d{1,2})\s*[-.\/월]\s*(\d{1,2})\s*일?$/.exec(s))) { y = +hit[1]; m = +hit[2]; d = +hit[3]; }
-  else if ((hit = /^(\d{1,2})\s*[-.\/월]\s*(\d{1,2})\s*일?$/.exec(s))) { m = +hit[1]; d = +hit[2]; y = m >= 3 ? schoolYear : schoolYear + 1; }
+  else if ((hit = /^(\d{1,2})\s*[-.\/월]\s*(\d{1,2})\s*일?$/.exec(s))) { m = +hit[1]; d = +hit[2]; y = m >= 3 ? schoolYear : schoolYear + 1; guessed = true; }
   else return { err: '날짜를 읽지 못했어요' };
-  var ymd = y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
-  if (!isDate_(ymd)) return { err: '없는 날짜예요(' + m + '월 ' + d + '일)' };
-  return { ymd: ymd };
+  var fmt = function (yy) { return yy + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2); };
+  var ymd = fmt(y);
+  if (!isDate_(ymd) && !(guessed && wday >= 0 && isDate_(fmt(y + 1)))) return { err: '없는 날짜예요(' + m + '월 ' + d + '일)' };
+  if (wday >= 0 && (!isDate_(ymd) || weekday_(ymd) !== wday)) {
+    if (guessed && isDate_(fmt(y + 1)) && weekday_(fmt(y + 1)) === wday) {
+      return { ymd: fmt(y + 1), guessed: true, shifted: true,
+        warn: '적힌 요일(' + DAY_NAMES_[wday] + ')에 맞춰 ' + (y + 1) + '년으로 읽었어요. 다음 학년도 일정이면 학년도 설정도 확인해 주세요' };
+    }
+    if (isDate_(ymd)) return { ymd: ymd, guessed: guessed, warn: '요일이 맞지 않아요: ' + y + '년 ' + m + '월 ' + d + '일은 ' + DAY_NAMES_[weekday_(ymd)] + '요일이에요' };
+    return { err: '없는 날짜예요(' + m + '월 ' + d + '일)' };
+  }
+  return { ymd: ymd, guessed: guessed };
 }
 
 /** '3·4학년', '3~6', '전교', '교직원' → '3,4' 같은 저장 글자 */
 function parseTargetText_(v) {
   var s = String(v || '').trim();
+  if (/^(전|모든)?(교직원|교원|교사)(전체|모두)?$/.test(s.replace(/[\s·,()]/g, ''))) return '교직원'; // 전교직원·전 교직원·교직원 전체 = 교직원만
   if (!s || /전체|전교|전학년/.test(s)) return /교직원|교원|교사/.test(s) ? '전체,교직원' : '전체';
   var list = [];
   s.replace(/([1-6])\s*[~\-–]\s*([1-6])/g, function (all, a, b) {
@@ -690,10 +742,30 @@ function titleKey_(s) {
   return String(s || '').replace(/\s+/g, '').toLowerCase();
 }
 
-/** 마지막으로 올린 묶음(되돌리기용) */
+/** 마지막으로 올린 묶음(되돌리기용). 바꾼(숨긴) 행사 ID 목록은 길 수 있어 LAST_UPLOAD_R1, R2…에 나눠 둔다(속성 한 칸 9KB 한도) */
 function lastUpload_() {
-  var s = PropertiesService.getScriptProperties().getProperty('LAST_UPLOAD');
-  return s ? safeParse_(s, null) : null;
+  var p = PropertiesService.getScriptProperties();
+  var s = p.getProperty('LAST_UPLOAD');
+  var info = s ? safeParse_(s, null) : null;
+  if (info && info.parts) {
+    var txt = '';
+    for (var i = 1; i <= info.parts; i++) txt += p.getProperty('LAST_UPLOAD_R' + i) || '';
+    info.replaced = safeParse_(txt, []);
+  }
+  return info;
+}
+
+function saveLastUpload_(info) {
+  var p = PropertiesService.getScriptProperties();
+  var old = safeParse_(p.getProperty('LAST_UPLOAD') || '', null);
+  var rep = JSON.stringify(info.replaced || []), parts = [];
+  for (var i = 0; i < rep.length; i += 8000) parts.push(rep.slice(i, i + 8000));
+  parts.forEach(function (x, j) { p.setProperty('LAST_UPLOAD_R' + (j + 1), x); });
+  for (var k = parts.length + 1; k <= ((old && old.parts) || 0); k++) p.deleteProperty('LAST_UPLOAD_R' + k);
+  var head = {};
+  Object.keys(info).forEach(function (key) { if (key !== 'replaced') head[key] = info[key]; });
+  head.parts = parts.length;
+  p.setProperty('LAST_UPLOAD', JSON.stringify(head));
 }
 
 /**
@@ -716,8 +788,11 @@ function uploadCheck_(rows) {
     var title = String(raw.title || '').trim();
     var a = parseDay_(raw.start, sy);
     var b = raw.end ? parseDay_(raw.end, sy) : { ymd: '' };
+    if (a.shifted && b.ymd && b.guessed && !b.shifted) b.ymd = (Number(b.ymd.slice(0, 4)) + 1) + b.ymd.slice(4); // 끝나는 날도 같은 해로
     if (!a.ymd) fail(a.err || '날짜가 비어 있어요');
     if (raw.end && !b.ymd) fail('끝나는 날: ' + (b.err || '읽지 못했어요'));
+    if (a.warn) warn(a.warn);
+    if (b.warn && !a.shifted) warn('끝나는 날: ' + b.warn);
     if (!title) fail('행사명이 비어 있어요');
     var kind = parseKind_(raw.kind);
     if (kind === '') { kind = '행사'; warn("구분이 비어 있어서 '행사'로 넣어요"); }
@@ -814,6 +889,7 @@ function apiUploadCheck_(args, actor, ctx) {
 
 function apiUploadSave_(args, actor, ctx) {
   requireManage_(ctx);
+  actor = manageActor_(actor);
   var rows = args.rows || [];
   if (rows.length > 1000) throw userError_('한 번에 1000줄까지 올릴 수 있어요. 나눠서 올려 주세요.');
   var mode = args.mode === 'replace' ? 'replace' : 'skip';
@@ -826,7 +902,7 @@ function apiUploadSave_(args, actor, ctx) {
     if (plan.replace.length) updateRowsSame_('일정', plan.replace, { '삭제 여부': '삭제' }, actor, '학사일정 올리기(' + batch + '): 전에 올린 같은 행사 ' + plan.replace.length + '개를 바꿈', '삭제');
     insertRows_('일정', recs, actor, '학사일정 올리기(' + batch + '): 행사 ' + recs.length + '개');
     var info = { batch: batch, count: recs.length, replaced: plan.replace, at: nowText_(), by: actor.name || '' };
-    PropertiesService.getScriptProperties().setProperty('LAST_UPLOAD', JSON.stringify(info));
+    saveLastUpload_(info);
     return { batch: batch, added: recs.length, replaced: plan.replace.length, skipped: plan.skipped, last: info };
   });
 }
@@ -834,6 +910,7 @@ function apiUploadSave_(args, actor, ctx) {
 /** 방금(마지막으로) 올린 묶음만 되돌린다: 올린 행사는 숨김 삭제, 바꿨던 전 행사는 되살림 */
 function apiUploadUndo_(args, actor, ctx) {
   requireManage_(ctx);
+  actor = manageActor_(actor);
   return withLock_(function () {
     var last = lastUpload_();
     if (!last || last.batch !== args.batch || last.undone) throw userError_('방금 올린 것만 되돌릴 수 있어요. 화면을 새로 고쳐 주세요.');
@@ -841,7 +918,7 @@ function apiUploadUndo_(args, actor, ctx) {
     var removed = updateRowsSame_('일정', ids, { '삭제 여부': '삭제' }, actor, '학사일정 올리기 되돌림(' + last.batch + '): ' + ids.length + '개 숨김', '삭제');
     var restored = updateRowsSame_('일정', last.replaced || [], { '삭제 여부': '' }, actor, '학사일정 올리기 되돌림(' + last.batch + '): 바꿨던 행사 되살림', '되살리기');
     last.undone = true;
-    PropertiesService.getScriptProperties().setProperty('LAST_UPLOAD', JSON.stringify(last));
+    saveLastUpload_(last);
     return { removed: removed, restored: restored };
   });
 }

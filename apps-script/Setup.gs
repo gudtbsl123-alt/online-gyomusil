@@ -4,15 +4,21 @@
  * 메뉴 함수는 시트 안에서만 돌아간다(웹앱에서 부르면 requireSheetUi_()가 막는다).
  */
 
-function fileMark_Setup_() { return '2026-10-16d'; } // 판 표시(관리자 › 점검)
+function fileMark_Setup_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 /**
- * 시트를 손으로 고치면 웹앱이 서버에 기억해 둔 내용을 모두 버리게 한다(다음 요청은 시트에서 새로 읽는다).
- * 단순 트리거라 이 환경에서 안 되면(확인 필요) 기억은 10분 뒤에 저절로 사라진다.
+ * 시트를 손으로 고치면 고친 탭의 서버 기억을 버리게 한다(다음 요청은 그 탭만 시트에서 새로 읽는다).
+ * 단순 트리거라 이 환경에서 되는지는 관리자 › 점검 '서버 기억'에 보인다(손으로 고친 것을 알아챈 시각, 스크립트 속성 SHEET_EDIT_AT).
+ * 줄 지우기·정렬처럼 onEdit가 오지 않는 바꿈은, 화면이 뒤에서 보내는 요청이 10분 넘은 기억을 시트와 다시 맞춘다.
  * 이름이 '_'로 끝나지 않아 웹앱에서도 부를 수 있지만, 기억을 버리기만 하므로 괜찮다
  */
 function onEdit(e) {
-  try { CacheService.getScriptCache().put('gy:ep', Utilities.getUuid().replace(/-/g, '').slice(0, 10), 21600); } catch (err) { /* 무시 */ }
+  try {
+    var tab = '';
+    try { tab = e && e.range ? e.range.getSheet().getName() : ''; } catch (e1) { tab = ''; }
+    CacheService.getScriptCache().put(tab ? 'gy:v:' + tab : 'gy:ep', Utilities.getUuid().replace(/-/g, '').slice(0, 10), 21600);
+  } catch (err) { /* 무시 */ }
+  try { PropertiesService.getScriptProperties().setProperty('SHEET_EDIT_AT', String(Date.now())); } catch (err2) { /* 점검 화면 표시용이라 못 남겨도 괜찮다 */ }
 }
 
 function onOpen() {
@@ -52,8 +58,17 @@ function menuSetup() {
     '다음 차례: 메뉴 "2. 공통 비밀번호 정하기"', ui.ButtonSet.OK);
 }
 
-/** 여러 번 눌러도 괜찮다. 있는 탭·칸·값은 그대로 두고 없는 것만 더한다. */
+/** 여러 번 눌러도 괜찮다. 있는 탭·칸·값은 그대로 두고 없는 것만 더한다. 서버 기억을 쓰지 않고 늘 시트에서 읽는다 */
 function setupAll_() {
+  MEMO_BYPASS_ = true; // 시트에서 손으로 줄을 지운 직후여도 옛 기억으로 판단하지 않게
+  try {
+    return setupAllNow_();
+  } finally {
+    MEMO_BYPASS_ = false;
+  }
+}
+
+function setupAllNow_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var p = PropertiesService.getScriptProperties();
   p.setProperty('SHEET_ID', ss.getId());
@@ -77,6 +92,7 @@ function setupAll_() {
     var missing = head.filter(function (h) { return cur.indexOf(h) < 0; });
     if (missing.length) {
       var start = curUsed.length ? cur.length + 1 : 1;
+      growCols_(sh, start + missing.length - 1);
       sh.getRange(1, start, 1, missing.length).setValues([missing]);
       if (curUsed.length) extended.push(name);
     }
@@ -90,12 +106,13 @@ function setupAll_() {
   var sheet = sheet_('설정');
   var notes = {};
   settingDefs_().forEach(function (d) { notes[d.key] = d.note || d.label; });
+  var noteCol = headOf_('설정').indexOf('설명') + 1; // 칸 위치는 머리글 이름으로(누가 칸을 끼워 넣어도)
   readRows_('설정').forEach(function (r) {
     have[r['키']] = true;
-    if (notes[r['키']] !== undefined && r['설명'] !== notes[r['키']]) sheet.getRange(r._row, 3).setValue(cellWrite_(notes[r['키']]));
+    if (noteCol > 0 && notes[r['키']] !== undefined && r['설명'] !== notes[r['키']]) sheet.getRange(r._row, noteCol).setValue(cellWrite_(notes[r['키']]));
   });
   settingDefs_().forEach(function (d) {
-    if (!have[d.key]) sheet.appendRow([d.key, d.def, d.note || d.label].map(cellWrite_));
+    if (!have[d.key]) sheet.appendRow(rowByHead_('설정', { '키': d.key, '값': d.def, '설명': d.note || d.label }));
   });
   SETTINGS_CACHE_ = null;
   dbReset_();

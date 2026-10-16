@@ -9,7 +9,7 @@
  * - 결과(누가 뭐라고 답했는지): 만든 사람·관리자, 그리고 '결과 공개'를 켠 조사는 대상 교직원 모두
  */
 
-function fileMark_Survey_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+function fileMark_Survey_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 function qTypes_() {
   return { one: '하나 고르기', many: '여러 개 고르기', short: '짧은 글', long: '긴 글', number: '숫자', date: '날짜' };
@@ -21,8 +21,11 @@ function safeParse_(s, fallback) {
   try { var v = JSON.parse(s); return v === null || v === undefined ? fallback : v; } catch (e) { return fallback; }
 }
 
+var NOW_MIN_MEMO_ = { at: 0, v: '' }; // 조사마다 날짜 형식을 부르지 않게 1초 동안 같은 값을 쓴다
 function nowMin_() {
-  return Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd HH:mm');
+  var t = Date.now();
+  if (t - NOW_MIN_MEMO_.at > 1000 || t < NOW_MIN_MEMO_.at) NOW_MIN_MEMO_ = { at: t, v: Utilities.formatDate(new Date(t), tz_(), 'yyyy-MM-dd HH:mm') };
+  return NOW_MIN_MEMO_.v;
 }
 
 /** 끝났는지: 손으로 끝냈거나 마감이 지났으면 */
@@ -201,7 +204,9 @@ function apiSurveyGet_(args, actor, ctx) {
       return { name: st['이름'] || '(알 수 없음)', group: st['소속'] || '', answers: safeParse_(r['답'], {}), note: r['하고 싶은 말'], at: r['고친 시각'] || r['낸 시각'], edited: !!r['고친 시각'] };
     }).sort(function (a, b) { return a.at < b.at ? -1 : 1; });
     out.summary = summarize_(questions, out.responses);
-    out.remindedCount = owner ? liveRows_('알림').filter(function (r) { return r['조사ID'] === s['조사ID']; }).length : 0;
+    var presses = {}; // 알림 줄은 사람마다 하나씩이라, 누른 횟수는 알린 시각으로 센다
+    if (owner) liveRows_('알림').forEach(function (r) { if (r['조사ID'] === s['조사ID']) presses[r['알린 시각']] = 1; });
+    out.remindedCount = Object.keys(presses).length;
   }
   if (owner) out.depts = deptOptions_();
   return out;
@@ -297,6 +302,9 @@ function apiSurveySave_(args, actor, ctx) {
   var questions = cleanQuestions_(f.questions);
   var target = cleanTargetJson_(f.target);
   var messenger = cleanText_(f.messenger, 500, '메신저 문구');
+  // 자동 문구는 저장하지 않고 읽을 때 만든다(제목·마감을 고치면 문구도 따라 바뀌게). 직접 고쳐 쓴 문구만 저장한다
+  var plain = function (t) { return String(t || '').replace(/\s+/g, ' ').trim(); };
+  if (plain(messenger) === plain(defaultMessenger_(title, depts[deptId] || '', deadline))) messenger = '';
   var rec = {
     '제목': title,
     '설명': cleanText_(f.description, 1000, '설명'),
@@ -304,7 +312,7 @@ function apiSurveySave_(args, actor, ctx) {
     '대상': JSON.stringify(target),
     '마감 일시': deadline,
     '질문': JSON.stringify(questions),
-    '메신저 문구': messenger || defaultMessenger_(title, depts[deptId] || '', deadline),
+    '메신저 문구': messenger,
     '결과 공개': f.showResults ? '예' : ''
   };
   ensureCols_('조사');
@@ -315,8 +323,9 @@ function apiSurveySave_(args, actor, ctx) {
     if (liveResponses_(s['조사ID']).length && !sameQuestions_(safeParse_(s['질문'], []), questions)) {
       throw userError_('이미 낸 답이 있어서 질문은 고칠 수 없어요. 제목·마감·대상·안내 문구만 고칠 수 있어요.', 'LOCKED');
     }
-    // 마감을 늦추면 다시 열린다
-    if (deadline > nowMin_() && s['상태'] === '끝남' && f.reopen) rec['상태'] = '진행 중';
+    if (plain(messenger) === plain(defaultMessenger_(s['제목'], depts[s['부서ID']] || '', s['마감 일시']))) rec['메신저 문구'] = ''; // 예전 자동 문구 그대로면 자동으로
+    // '지금 끝내기'로 끝낸 조사는 마감을 전보다 늦췄을 때만 다시 연다(글만 고쳐 저장하면 끝난 그대로)
+    if (s['상태'] === '끝남' && f.reopen && deadline > nowMin_() && deadline > String(s['마감 일시'] || '')) rec['상태'] = '진행 중';
     updateRow_('조사', s['조사ID'], rec, actor, '조사 고침: ' + title);
     return { id: s['조사ID'] };
   }
@@ -440,7 +449,7 @@ function apiSurveyCsv_(args, actor, ctx) {
   if (!d.canSeeResults) throw userError_('이 조사의 결과는 만든 분만 볼 수 있어요.', 'FORBIDDEN');
   var cell = function (v) {
     var t = Array.isArray(v) ? v.join(', ') : String(v === undefined || v === null ? '' : v);
-    if (/^[=+\-@]/.test(t)) t = "'" + t; // 엑셀 수식으로 읽히지 않게
+    if (/^[=+\-@\t\r]/.test(t) && !/^-?\d+(\.\d+)?$/.test(t)) t = "'" + t; // 엑셀 수식으로 읽히지 않게(음수 같은 숫자는 그대로)
     return '"' + t.replace(/"/g, '""') + '"';
   };
   var hasNote = d.responses.some(function (r) { return r.note; });
@@ -456,7 +465,9 @@ function apiSurveyCsv_(args, actor, ctx) {
 
 function adminSurveyTrash_() {
   var names = staffNames_();
-  return readRows_('조사').filter(function (s) { return s['삭제 여부']; }).reverse().slice(0, 100).map(function (s) {
+  var del = readRows_('조사').filter(function (s) { return s['삭제 여부']; }).reverse();
+  del.sort(function (a, b) { var x = String(a['수정 시각'] || ''), y = String(b['수정 시각'] || ''); return x < y ? 1 : x > y ? -1 : 0; }); // 최근에 지운 것부터
+  return del.slice(0, 100).map(function (s) {
     return { id: s['조사ID'], title: s['제목'], deadline: s['마감 일시'], by: names[s['입력자ID']] || '', deletedBy: names[s['수정자ID']] || '', deletedAt: s['수정 시각'] };
   });
 }

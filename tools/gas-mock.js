@@ -134,6 +134,7 @@
     return out;
   };
   Range.prototype.getValue = function () { return this.getValues()[0][0]; };
+  Range.prototype.getSheet = function () { return this.s; };
   Range.prototype.setValues = function (vals) {
     if (vals.length !== this.nr || vals[0].length !== this.nc) throw new Error('setValues: 크기가 맞지 않음');
     for (var i = 0; i < this.nr; i++) for (var j = 0; j < this.nc; j++) this.s.put(this.r + i, this.c + j, vals[i][j]);
@@ -144,7 +145,16 @@
   Range.prototype.setBackground = function () { return this; };
   Range.prototype.setNumberFormat = function () { return this; };
 
-  function Sheet(name) { this.name = name; this.data = []; this.frozen = 0; }
+  /** 진짜 시트처럼 새 탭은 1000줄 × 26칸. appendRow·insertRowsAfter로 늘고, 그 밖을 가리키면 오류 */
+  function Sheet(name) { this.name = name; this.data = []; this.frozen = 0; this.maxRows = 1000; this.maxCols = 26; }
+  Sheet.prototype.getMaxRows = function () { return Math.max(this.maxRows, this.data.length); };
+  Sheet.prototype.getMaxColumns = function () {
+    var m = this.maxCols;
+    this.data.forEach(function (line) { if (line.length > m) m = line.length; });
+    return m;
+  };
+  Sheet.prototype.insertRowsAfter = function (after, n) { this.maxRows = this.getMaxRows() + n; return this; };
+  Sheet.prototype.insertColumnsAfter = function (after, n) { this.maxCols = this.getMaxColumns() + n; return this; };
   /** 진짜 시트처럼: ' 로 시작하면 글자로 저장하고 ' 는 뺀다. 아니면 숫자처럼 보이면 숫자로 바꾼다. */
   Sheet.prototype.put = function (r, c, v) {
     while (this.data.length < r) this.data.push([]);
@@ -168,10 +178,18 @@
     this.data.forEach(function (line) { for (var j = line.length; j > m; j--) if (line[j - 1] !== '') { m = j; break; } });
     return m;
   };
-  Sheet.prototype.getRange = function (r, c, nr, nc) { return new Range(this, r, c, nr || 1, nc || 1); };
+  Sheet.prototype.getRange = function (r, c, nr, nc) {
+    nr = nr || 1; nc = nc || 1;
+    if (r < 1 || c < 1 || r + nr - 1 > this.getMaxRows() || c + nc - 1 > this.getMaxColumns()) {
+      throw new Error('The coordinates of the range are outside the dimensions of the sheet.');
+    }
+    return new Range(this, r, c, nr, nc);
+  };
   Sheet.prototype.getDataRange = function () { return new Range(this, 1, 1, Math.max(1, this.getLastRow()), Math.max(1, this.getLastColumn())); };
   Sheet.prototype.appendRow = function (vals) {
     var r = this.getLastRow() + 1;
+    if (r > this.getMaxRows()) this.maxRows = r;
+    if (vals.length > this.getMaxColumns()) this.maxCols = vals.length;
     for (var j = 0; j < vals.length; j++) this.put(r, j + 1, vals[j]);
     return this;
   };
@@ -184,6 +202,19 @@
   Spreadsheet.prototype.getSheets = function () { return this.sheets.slice(); };
 
   // ------------------------------------------------------------ 드라이브 (자료 파일·백업 폴더)
+  // gzip: Node(자동 시험)에서는 진짜 gzip, 브라우저(미리보기)에서는 표시만 붙인다(줄였다 푸는 길만 같으면 된다)
+  var zlib = null;
+  try { if (typeof require === 'function') zlib = require('zlib'); } catch (e) { zlib = null; }
+  function gzipBytes(bytes) {
+    if (zlib) return Array.prototype.slice.call(zlib.gzipSync(Buffer.from(bytes)));
+    return [0x47, 0x59, 0x5a].concat(bytes);
+  }
+  function gunzipBytes(bytes) {
+    if (zlib && bytes[0] === 0x1f && bytes[1] === 0x8b) return Array.prototype.slice.call(zlib.gunzipSync(Buffer.from(bytes)));
+    if (bytes[0] === 0x47 && bytes[1] === 0x59 && bytes[2] === 0x5a) return bytes.slice(3);
+    throw new Error('gzip이 아니에요');
+  }
+
   function makeBlob(bytes, type, name) {
     var b = unsigned(bytes || []);
     var blob = {
@@ -300,7 +331,10 @@
         getScriptProperties: function () {
           return {
             getProperty: function (k) { return Object.prototype.hasOwnProperty.call(props, k) ? props[k] : null; },
-            setProperty: function (k, v) { props[k] = String(v); return this; },
+            setProperty: function (k, v) {
+              if (utf8(String(k)).length + utf8(String(v)).length > 9 * 1024) throw new Error('Argument too large: value'); // 진짜처럼 한 칸 9KB
+              props[k] = String(v); return this;
+            },
             deleteProperty: function (k) { delete props[k]; return this; },
             getProperties: function () { return Object.assign({}, props); }
           };
@@ -321,6 +355,8 @@
         newBlob: function (bytes, type, name) { return makeBlob(typeof bytes === 'string' ? utf8(bytes) : bytes, type, name); },
         base64Encode: function (v) { return b64ws(toBytes(v), B64STD); },
         base64Decode: function (s) { return signed(unb64ws(String(s), B64STD)); },
+        gzip: function (blob) { return makeBlob(gzipBytes(unsigned(blob.getBytes())), 'application/x-gzip'); },
+        ungzip: function (blob) { return makeBlob(gunzipBytes(unsigned(blob.getBytes())), 'application/octet-stream'); },
         getUuid: uuid,
         formatDate: formatDate,
         sleep: function () { env._sleeps++; }

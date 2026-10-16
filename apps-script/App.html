@@ -8,7 +8,7 @@
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-16d'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-10-16e'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -71,15 +71,23 @@
   /**
    * then: [[읽기 이름, args], …] 를 함께 보내면 서버가 저장한 다음 그 화면들을 같은 요청으로 돌려준다(왕복 한 번).
    * 받은 것은 화면 기억에 넣어 두므로, 저장 뒤 평소처럼 화면을 다시 불러오면 기다리지 않고 바로 그려진다.
+   * bg: 뒤에서 보내는 요청(미리 받기·뒤에서 새로 받기). 기다리는 사람이 없으니 서버가 오래된 기억을 시트와 다시 맞춘다
    */
-  function server(action, args, then) {
+  var pendingWrites = 0; // 저장 같은 요청이 서버에 가 있는 동안에는 창을 닫지 않게(실패하면 쓰던 것과 안내가 사라지므로)
+  function server(action, args, then, bg) {
     var t0 = Date.now();
+    var writing = !READS[action];
+    if (writing) pendingWrites++;
+    var settled = false;
+    var settle = function () { if (!settled) { settled = true; if (writing) pendingWrites = Math.max(0, pendingWrites - 1); } };
     return new Promise(function (resolve, reject) {
       var payload = { action: action, args: args || {}, tokens: tokens() };
       if (then) payload.then = then;
+      if (bg) payload.bg = 1;
       var req = JSON.stringify(payload);
       function done(text) {
-        recentCalls.unshift({ action: action, ms: Date.now() - t0 });
+        settle();
+        recentCalls.unshift({ action: action, ms: Date.now() - t0, bg: !!bg });
         recentCalls.length = Math.min(recentCalls.length, 15);
         var r;
         try { r = JSON.parse(text); } catch (e) { r = { ok: false, error: '서버 답을 읽지 못했어요. 다시 해 주세요.', code: 'ERROR' }; }
@@ -99,9 +107,15 @@
       } else {
         google.script.run
           .withSuccessHandler(done)
-          .withFailureHandler(function () {
-            var err = new Error('서버에 닿지 못했어요. 인터넷 연결을 확인하고 다시 해 주세요.');
-            err.code = 'NET';
+          .withFailureHandler(function (e) {
+            settle();
+            // 연결이 끊긴 것과 서버가 처리하다 멈춘 것(시간 초과·권한 등)을 나눠 알린다
+            var msg = e && e.message ? String(e.message) : '';
+            var net = !msg || /NetworkError|HTTP 0|Failed to fetch|network/i.test(msg);
+            var err = new Error(net ? '서버에 닿지 못했어요. 인터넷 연결을 확인하고 다시 해 주세요.'
+              : '서버에서 처리하다 멈췄어요. 잠깐 뒤에 다시 해 주세요. 계속 안 되면 연구부장·부담당에게 알려 주세요.');
+            err.code = net ? 'NET' : 'ERROR';
+            err.detail = msg ? ((e.name ? e.name + ': ' : '') + msg).slice(0, 300) : '';
             reject(err);
           })
           .api(req);
@@ -114,16 +128,31 @@
     if (err.code === 'LOGIN') {
       stDel('gy.login'); stDel('gy.identity'); stDel('gy.admin');
       S.me = null; S.admin = false;
+      forgetScreens();
       setTimeout(function () { showLogin('다시 로그인해 주세요.'); }, 0);
     } else if (err.code === 'ADMIN') {
       stDel('gy.admin');
       S.admin = false;
+      forgetScreens();
       setTimeout(renderApp, 0);
     } else if (err.code === 'IDENTITY') {
       stDel('gy.identity');
       S.me = null;
+      forgetScreens();
       setTimeout(function () { showIdentity(); }, 0);
     }
+  }
+
+  /**
+   * 누구로 보는지(로그인·이름·관리자 화면)가 바뀌면 화면 기억과 들고 있던 화면 내용을 모두 버린다
+   * (그 권한으로만 보이던 조사 결과 같은 것이 남지 않게)
+   */
+  function forgetScreens() {
+    memoClear();
+    S.home = null; S.search = null;
+    S.sched.data = null; S.sched.yearData = null; S.sched.form = null;
+    S.survey.list = null; S.survey.detail = null; S.survey.showResults = false; S.survey.draft = null;
+    S.lib.data = null; S.dir.data = null; S.help.data = null; S.notice.data = null;
   }
 
   // ------------------------------------------------------------ 화면 기억(속도)
@@ -146,6 +175,7 @@
       (a.tagName === 'INPUT' && !/^(checkbox|radio|button|submit)$/.test(a.type))));
   }
   function flushPending() {
+    if (typeof reshape === 'function') reshape();
     if (!pendingDraw || editingNow()) return;
     var f = pendingDraw;
     pendingDraw = null;
@@ -162,27 +192,33 @@
    * 새 내용이 다르면 다시 draw(그사이 화면을 옮겼거나 쓰던 것이 있으면 그리지 않음, 창이 열려 있으면 닫은 뒤에).
    * 기억이 없으면 받아서 draw, 안 되면 fail(e).
    */
+  var paintN = {}; // 키마다 그린 횟수(같은 화면을 두 요청이 받아 와도 두 번째 답이 쓰던 것을 덮지 않게)
   function loadMemo(action, args, draw, fail) {
     var key = memoKey(action, args), m = MEMO[key], seq = navSeq;
-    if (m) { screenEdited = false; draw(m.data, true); }
+    var paint = function (d, fromMemo) { paintN[key] = (paintN[key] || 0) + 1; screenEdited = false; draw(d, fromMemo); };
+    if (m) paint(m.data, true);
+    var p0 = paintN[key] || 0;
     if (m && Date.now() - m.at < MEMO_FRESH) return;
     if (m) refreshing(true);
     var done = function () { if (m) refreshing(false); };
     var gen = memoGen;
-    server(action, args).then(function (d) {
+    server(action, args, null, !!m).then(function (d) {
       done();
-      if (gen !== memoGen) return; // 그사이 저장해서 기억을 비웠으면 이 답은 옛 내용(저장 뒤 화면이 새로 그린다)
-      var json = JSON.stringify(d);
-      var changed = !m || m.json !== json;
+      if (gen !== memoGen) { // 그사이 저장해서 기억을 비웠으면 이 답은 옛 내용
+        if (!m && seq === navSeq && (paintN[key] || 0) === p0) loadMemo(action, args, draw, fail); // 아직 아무것도 못 그렸으면 새로 받는다('불러오는 중'에 멈추지 않게)
+        return;
+      }
+      var json = JSON.stringify(d), prev = MEMO[key];
+      var changed = !prev || prev.json !== json;
       MEMO[key] = { data: d, json: json, at: Date.now() };
-      if (seq !== navSeq || !changed) return;
-      if (!m) { screenEdited = false; draw(d, false); return; }
-      if (screenEdited) return; // 쓰던 것이 있으면 그대로(다음에 열 때 새 내용으로)
-      var redraw = function () { if (seq === navSeq && !screenEdited) draw(d, false); };
+      if (seq !== navSeq) return;
+      if (!m && (paintN[key] || 0) === p0) { paint(d, false); return; } // 처음 그리기
+      if (!changed || screenEdited) return; // 같거나, 쓰던 것이 있으면 그대로(다음에 열 때 새 내용으로)
+      var redraw = function () { if (seq === navSeq && !screenEdited) { paintN[key] = (paintN[key] || 0) + 1; draw(d, false); } };
       if (editingNow()) pendingDraw = redraw; else redraw();
     }, function (e) {
       done();
-      if (!m && seq === navSeq && fail) fail(e);
+      if (!m && seq === navSeq && (paintN[key] || 0) === p0 && fail) fail(e);
     });
   }
 
@@ -190,9 +226,23 @@
   // 화면을 그린 뒤·저장한 뒤, 자주 여는 화면을 뒤에서 한 번에(batch) 받아 화면 기억에 넣는다 → 처음 누르는 메뉴도 바로 보인다
   var prefetchBusy = false, prefetchAgain = false;
   function prefetchList() {
-    var t = localToday();
-    return [['home', {}], ['sched.month', { year: +t.slice(0, 4), month: +t.slice(5, 7) }], ['survey.list', {}], ['lib.list', {}],
-      ['notice.list', {}], ['help.list', {}], ['staff.list', {}]].filter(function (x) { return !MEMO[memoKey(x[0], x[1])]; });
+    var t = localToday(), sc = S.sched;
+    var list = [['home', {}], ['sched.month', { year: +t.slice(0, 4), month: +t.slice(5, 7) }]];
+    if (S.screen === 'schedule' && sc.view !== 'year' && sc.y) {
+      // 달력·월별 계획을 보는 중이면 지난달·다음 달도 받아 둔다(달을 넘기면 바로 보이게)
+      [-1, 1].forEach(function (k) {
+        var d = new Date(Date.UTC(sc.y, sc.m - 1 + k, 1));
+        list.push(['sched.month', { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 }]);
+      });
+    }
+    list = list.concat([['survey.list', {}], ['lib.list', {}], ['notice.list', {}], ['help.list', {}], ['staff.list', {}]]);
+    var seen = {};
+    return list.filter(function (x) {
+      var k = memoKey(x[0], x[1]);
+      if (MEMO[k] || seen[k]) return false;
+      seen[k] = 1;
+      return true;
+    }).slice(0, 8); // 서버가 한 번에 8개까지 받는다
   }
   function prefetchScreens() {
     if (!qs('.app') || !stGet('gy.login')) return; // 앱 화면이 열려 있을 때만
@@ -201,7 +251,7 @@
     if (!reads.length) return;
     prefetchBusy = true;
     var gen = memoGen;
-    server('batch', { reads: reads }).then(function (res) {
+    server('batch', { reads: reads }, null, true).then(function (res) {
       if (gen !== memoGen) return; // 그사이 저장했으면 옛 내용이라 버린다(저장 뒤 다시 받는다)
       (res || []).forEach(function (x, i) {
         if (x && !MEMO[memoKey(reads[i][0], reads[i][1])]) memoPut(reads[i][0], reads[i][1], x.data);
@@ -556,7 +606,7 @@
         stDel('gy.skipIdentity');
         S.me = r.me;
         S.todoCount = 0;
-        if (S.survey) S.survey.list = null;
+        forgetScreens(); // 고른 이름으로 다시 받는다
         renderApp();
         toast(r.me.name + ' 선생님, 본인 확인이 됐어요');
         server('session').then(function (s2) { setTodoCount(s2.todoCount || 0); }).catch(function () {});
@@ -705,7 +755,11 @@
     return m ? m[1] : '';
   }
   function isPhone() { return window.matchMedia('(max-width: 899px)').matches; }
-  function isWide() { return window.innerWidth >= 1200; }
+  function isWide() { return window.innerWidth / zoomFactor() >= 1200; } // 화면 크기를 키우면 그만큼 좁은 화면처럼
+  function zoomFactor() {
+    var z = parseFloat(getComputedStyle(root).getPropertyValue('--gy-zoom'));
+    return z > 0 ? z : 1;
+  }
 
   /** 필터: grade('', '1'~'6', '교직원'), dept(부서ID), mine */
   function passFilter(e, f) {
@@ -746,13 +800,29 @@
       (e.target && e.target !== '전체' ? '<span class="chip">' + esc(targetText(e.target)) + '</span>' : '') + '</span></button>';
   }
 
+  /** 일정을 들고 있는 곳들. 지금 보는 화면의 것을 먼저 본다 */
+  function eventPools() {
+    var home = S.home && S.home.events, month = S.sched.data && S.sched.data.events, year = S.sched.yearData && S.sched.yearData.events,
+      found = S.search && S.search.events && S.search.events.items;
+    return S.screen === 'schedule' ? [month, year, found, home] : S.screen === 'search' ? [found, home, month, year] : [home, month, year, found];
+  }
   function eventById(id) {
-    var pools = [S.home && S.home.events, S.sched.data && S.sched.data.events, S.sched.yearData && S.sched.yearData.events, S.search && S.search.events.items];
+    var pools = eventPools();
     for (var i = 0; i < pools.length; i++) {
       var hit = (pools[i] || []).filter(function (e) { return e.id === id; })[0];
       if (hit) return hit;
     }
     return null;
+  }
+  /** 저장·지운 일정을 들고 있는 모든 곳에 바로 반영한다(다른 화면에서 다시 열어도 옛 내용이 나오지 않게) */
+  function patchEvent(saved, removedId) {
+    eventPools().forEach(function (list) {
+      if (!list) return;
+      for (var i = list.length - 1; i >= 0; i--) {
+        if (list[i].id !== (saved ? saved.id : removedId)) continue;
+        if (saved) list[i] = saved; else list.splice(i, 1);
+      }
+    });
   }
 
   // ============================================================ 홈
@@ -829,7 +899,7 @@
       (links.length ? '<section class="card dashed"><div class="card-head"><div><h2>아직 기존 시트에서 하는 일</h2>' +
         '<p class="faint" style="margin-top:4px">2차에 온라인 교무실로 옮겨 와요. 그 전까지는 바로가기로 들어가세요.</p></div>' +
         '<div class="row-btns">' + links.map(function (l) {
-          return '<a class="btn btn-sm" href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.name) + icon('ext', 16) + '</a>';
+          return '<a class="btn btn-sm" href="' + esc(safeUrl(l.url)) + '" target="_blank" rel="noopener">' + esc(l.name) + icon('ext', 16) + '</a>';
         }).join('') + '</div></div></section>' : '') +
       '</div>';
   }
@@ -910,6 +980,7 @@
   function editStudents(focusGrade) {
     var h = S.home || {}, st = h.students || {};
     var today = h.today || '';
+    var stuBase = st.at || ''; // 창을 열 때의 저장 시각: 그사이 다른 분이 저장했으면 서버가 알려 준다
     var model = {}; // { '1': [['12', '13'], …] } 입력 칸 글자 그대로
     var oldTotals = st.id && !st.classes ? (st.grades || null) : null; // 학년 합계만 넣었던 때: 맞춰 넣게 보여 준다
     for (var g = 1; g <= 6; g++) {
@@ -1021,12 +1092,18 @@
         classes[g] = model[g].map(function (c) { return [Number(c[0]), Number(c[1])]; });
       }
       busy(btn, true, '저장하는 중');
-      server('students.save', { date: qs('#stu-date').value, classes: classes }).then(function (r) {
+      server('students.save', { date: qs('#stu-date').value, classes: classes, base: stuBase }).then(function (r) {
         if (S.home) { S.home.students = r; memoPut('home', {}, S.home); }
         closeModal();
         drawHome();
         toast('학생 수를 저장했어요');
-      }).catch(function (e) { busy(btn, false); err.textContent = e.message; });
+      }).catch(function (e) {
+        busy(btn, false);
+        err.textContent = e.message;
+        if (e.code === 'CONFLICT') { // 다음에 열 때 새 숫자가 보이게 홈을 뒤에서 새로 받는다
+          server('home', {}, null, true).then(function (h2) { S.home = h2; memoPut('home', {}, h2); }, function () {});
+        }
+      });
     });
   }
 
@@ -1098,6 +1175,7 @@
         sc.day = wd(t) === 0 || wd(t) === 6 ? sc.week : t;
       }
       sc.view === 'plan' ? drawPlan() : drawCal();
+      setTimeout(prefetchScreens, 300); // 지난달·다음 달을 뒤에서 받아 둔다
     }, fail);
   }
 
@@ -1159,9 +1237,23 @@
   }
 
   // ------------------------------------------------------------ 달력
+  /** 행사 칸에 쓰던 값을 S.sched.form.draft에 담아 둔다(달 옮기기·필터·창 크기 바꾸기로 다시 그려도 그대로) */
+  function captureEventForm() {
+    var sc = S.sched, form = qs('#ev-form');
+    if (!sc.form || !form) return;
+    var kindBtn = qs('[data-kind][aria-pressed=true]', form);
+    sc.form.draft = {
+      start: qs('#ef-start', form).value, multi: qs('#ef-multi', form).checked, end: qs('#ef-end', form).value,
+      time: qs('#ef-time', form).value, title: qs('#ef-title', form).value, kind: kindBtn ? kindBtn.getAttribute('data-kind') : '행사',
+      target: qsa('[data-tg][aria-pressed=true]', form).map(function (o) { return o.getAttribute('data-tg'); }),
+      deptId: qs('#ef-dept', form).value, place: qs('#ef-place', form).value, memo: qs('#ef-memo', form).value, important: qs('#ef-imp', form).checked
+    };
+  }
+
   function drawCal() {
     var sc = S.sched, d = sc.data, body = qs('#sched-body');
     if (!body || !d) return;
+    if (qs('#side-form')) captureEventForm();
     var f = sc.filter;
     var shown = d.events.filter(function (e) { return passFilter(e, f); });
     var formSide = sc.form && isWide();
@@ -1181,6 +1273,7 @@
     if (phone) html += statCards();
     body.innerHTML = '<div class="wrap" style="gap:16px">' + html + '</div>';
     if (formSide) drawEventForm(qs('#side-form'), sc.form);
+    else if (sc.form && !$modal.innerHTML) { openModal('<div id="modal-form"></div>'); drawEventForm(qs('#modal-form'), sc.form); } // 창이 좁아졌으면 쓰던 것을 창으로
   }
 
   /** 달력 색 설명 */
@@ -1375,14 +1468,18 @@
 
   function drawEventForm(box, init) {
     var e = init.id ? eventById(init.id) || {} : {};
-    var start = e.start || init.start || localToday();
-    var multi = !!(e.end && e.end !== e.start);
+    var dr = init.draft || null; // 다시 그릴 때는 쓰던 값 그대로
+    var start = dr ? dr.start : e.start || init.start || localToday();
+    var multi = dr ? dr.multi : !!(e.end && e.end !== e.start);
+    var endV = dr ? dr.end : (multi ? e.end : '');
     var canOff = !!((S.sched.data && S.sched.data.canManage) || (S.home && S.home.canManage) || (S.sched.yearData && S.sched.yearData.canManage));
-    var kind = e.kind || '행사';
-    var targets = (e.target || '').split(',').filter(Boolean);
-    if (!init.id && !targets.length) targets = [];
-    var depts = (S.sched.data && S.sched.data.depts) || [];
-    var deptId = init.id ? e.deptId : (S.me && S.me.deptId) || '';
+    var kind = dr ? dr.kind : e.kind || '행사';
+    var targets = dr ? dr.target.slice() : (e.target || '').split(',').filter(Boolean);
+    var vTime = dr ? dr.time : e.time || '', vTitle = dr ? dr.title : e.title || '', vPlace = dr ? dr.place : e.place || '', vMemo = dr ? dr.memo : e.memo || '';
+    var vImp = dr ? dr.important : !!e.important;
+    var depts = ((S.sched.data && S.sched.data.depts) || (S.sched.yearData && S.sched.yearData.depts) || (S.home && S.home.depts) || []).slice();
+    var deptId = dr ? dr.deptId : init.id ? e.deptId : (S.me && S.me.deptId) || '';
+    if (deptId && !depts.some(function (dd) { return dd.id === deptId; })) depts.push({ id: deptId, name: e.dept || '(지금 목록에 없는 부서)', active: true }); // 고치기만 해도 부서가 지워지지 않게
     var times = ['종일', '아침', '1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '08:40', '13:00', '14:30', '15:00', '16:00', '방과후'];
     var tg = function (v, label) {
       var on = targets.indexOf(v) >= 0 || (v !== '교직원' && targets.indexOf('전체') >= 0);
@@ -1393,12 +1490,12 @@
       '<button type="button" class="icon-btn" data-action="ev-cancel" aria-label="닫기">' + icon('x') + '</button></div>' +
       '<p class="note">' + icon('info', 18) + '<span>한 번만 넣으면 연간 학사일정과 월별 계획에 함께 들어가요.</span></p>' +
       '<div class="form-grid2"><div class="field"><label class="label" for="ef-start">날짜</label><input id="ef-start" class="input" type="date" value="' + esc(start) + '"></div>' +
-      '<div class="field"><label class="label" for="ef-time">시간</label><input id="ef-time" class="input" list="ef-times" maxlength="20" value="' + esc(e.time || '') + '" placeholder="예: 5교시, 15:00">' +
+      '<div class="field"><label class="label" for="ef-time">시간</label><input id="ef-time" class="input" list="ef-times" maxlength="20" value="' + esc(vTime) + '" placeholder="예: 5교시, 15:00">' +
       '<datalist id="ef-times">' + times.map(function (t) { return '<option value="' + t + '">'; }).join('') + '</datalist></div></div>' +
       '<label class="check"><input type="checkbox" id="ef-multi"' + (multi ? ' checked' : '') + '>여러 날 이어지는 행사예요</label>' +
-      '<div class="field" id="ef-end-box"' + (multi ? '' : ' hidden') + '><label class="label" for="ef-end">끝나는 날</label><input id="ef-end" class="input" type="date" value="' + esc(multi ? e.end : '') + '"></div>' +
-      '<div class="field"><label class="label" for="ef-title">행사 이름 <span class="req">*</span></label><input id="ef-title" class="input" maxlength="60" value="' + esc(e.title || '') + '" autocomplete="off"></div>' +
-      '<label class="check imp-check"><input type="checkbox" id="ef-imp"' + (e.important ? ' checked' : '') + '>' + starHtml() + '중요 일정이에요 <span class="faint">(달력·홈에 눈에 띄게 보여요)</span></label>' +
+      '<div class="field" id="ef-end-box"' + (multi ? '' : ' hidden') + '><label class="label" for="ef-end">끝나는 날</label><input id="ef-end" class="input" type="date" value="' + esc(endV || '') + '"></div>' +
+      '<div class="field"><label class="label" for="ef-title">행사 이름 <span class="req">*</span></label><input id="ef-title" class="input" maxlength="60" value="' + esc(vTitle) + '" autocomplete="off"></div>' +
+      '<label class="check imp-check"><input type="checkbox" id="ef-imp"' + (vImp ? ' checked' : '') + '>' + starHtml() + '중요 일정이에요 <span class="faint">(달력·홈에 눈에 띄게 보여요)</span></label>' +
       '<div class="field"><span class="label">구분</span><div class="seg" role="group" aria-label="구분">' +
       ['행사', '교육활동', '휴업일', '공휴일'].map(function (k) {
         var lock = (k === '휴업일' || k === '공휴일') && !canOff;
@@ -1412,8 +1509,8 @@
       depts.filter(function (dd) { return dd.active || dd.id === deptId; }).map(function (dd) {
         return '<option value="' + esc(dd.id) + '"' + (dd.id === deptId ? ' selected' : '') + '>' + esc(dd.name) + '</option>';
       }).join('') + '</select></div>' +
-      '<div class="field"><label class="label" for="ef-place">장소</label><input id="ef-place" class="input" maxlength="40" value="' + esc(e.place || '') + '"></div></div>' +
-      '<div class="field"><label class="label" for="ef-memo">메모 (선택)</label><textarea id="ef-memo" class="input" maxlength="300" rows="2">' + esc(e.memo || '') + '</textarea></div>' +
+      '<div class="field"><label class="label" for="ef-place">장소</label><input id="ef-place" class="input" maxlength="40" value="' + esc(vPlace) + '"></div></div>' +
+      '<div class="field"><label class="label" for="ef-memo">메모 (선택)</label><textarea id="ef-memo" class="input" maxlength="300" rows="2">' + esc(vMemo) + '</textarea></div>' +
       '<div class="box" id="ef-preview"></div>' +
       '<p class="faint">입력하는 사람: ' + esc(S.me.name) + ' 선생님' + (S.me.group ? '(' + esc(S.me.group) + ')' : '') + ' · <button type="button" class="linkish" data-action="switch">바꾸기</button></p>' +
       '<p class="err" id="ef-err" role="alert"></p>' +
@@ -1454,7 +1551,7 @@
     qs('#ef-start', form).addEventListener('change', preview);
     qs('#ef-imp', form).addEventListener('change', preview);
     preview();
-    setTimeout(function () { var t = qs('#ef-title', form); if (t && !init.id) t.focus(); }, 30);
+    if (!dr) setTimeout(function () { var t = qs('#ef-title', form); if (t && !init.id) t.focus(); }, 30);
 
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
@@ -1478,6 +1575,7 @@
       busy(btn, true, '저장하는 중');
       server('sched.save', { id: init.id || '', fields: fields }, schedThen(fields.start)).then(function (saved) {
         S.sched.form = null;
+        patchEvent(saved);
         closeModal();
         var t = saved.start;
         if (S.screen === 'schedule' && S.sched.view !== 'year') { S.sched.y = +t.slice(0, 4); S.sched.m = +t.slice(5, 7); S.sched.week = mondayOf(t); S.sched.day = t; }
@@ -1488,6 +1586,7 @@
   }
 
   function cancelEventForm() {
+    if (pendingWrites && qs('#modal-form')) { toast('저장하는 중이에요. 끝나면 닫혀요'); return; }
     S.sched.form = null;
     if (qs('#side-form')) drawCal(); else closeModal();
   }
@@ -1497,6 +1596,7 @@
     confirmBox('일정 지우기', '"' + esc(e.title || '') + '"' + josa(e.title || '', '을', '를') + ' 지울까요? 지운 일정은 연구부장·부담당이 휴지통에서 되살릴 수 있어요.', '지우기', function () {
       return server('sched.delete', { id: id }, schedThen('')).then(function () {
         S.sched.form = null;
+        patchEvent(null, id);
         closeModal();
         reloadSched();
         toast('일정을 지웠어요');
@@ -1524,16 +1624,17 @@
 
   function moveMonth(n) {
     var sc = S.sched;
+    captureEventForm(); // 옆에서 쓰던 행사는 달을 옮겨도 그대로
     sc.m += n;
     if (sc.m < 1) { sc.m = 12; sc.y--; }
     if (sc.m > 12) { sc.m = 1; sc.y++; }
-    sc.form = null;
     var b = qs('#sched-body'); if (b) b.innerHTML = loadingHtml('일정을 불러오는 중이에요');
     loadSched();
   }
 
   function moveWeek(n) {
     var sc = S.sched;
+    captureEventForm();
     sc.week = addD(sc.week, 7 * n);
     sc.day = sc.week;
     var thu = addD(sc.week, 3);
@@ -1549,6 +1650,7 @@
 
   // 관리자 · 휴지통
   function adminTrash(panel) {
+    if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('휴지통을 불러오는 중이에요');
     Promise.all([server('admin.trash.list'), server('admin.trash.surveys'), server('admin.trash.library')]).then(function (res) {
       var list = res[0], surveys = res[1], libs = res[2];
@@ -1712,7 +1814,8 @@
 
   function respondView(d) {
     var c = d.card, l = S.survey.list || {};
-    var mine = d.myAnswer || { answers: {} };
+    var dr = S.survey.draft && S.survey.draft.id === c.id ? S.survey.draft : null; // 다시 그려도 아직 안 낸 답은 그대로
+    var mine = dr ? { answers: dr.answers } : d.myAnswer || { answers: {} };
     var closed = c.closed;
     var cannot = !c.inTarget;
     return '<section class="card sv-respond">' +
@@ -1724,9 +1827,11 @@
       (d.myAnswer ? '<p class="note">' + icon('check', 18) + '<span>' + esc(atText(d.myAnswer.at)) + '에 냈어요. ' + (closed ? '마감돼서 더 고칠 수 없어요.' : '고쳐서 다시 낼 수 있어요.') + '</span></p>' : '') +
       (closed ? '<p class="note warn">' + icon('info', 18) + '<span>마감된 조사예요.</span></p>' : '') +
       (cannot ? '<p class="note warn">' + icon('info', 18) + '<span>이 조사의 대상이 아니에요(' + esc(c.targetText) + ').</span></p>' : '') +
-      '<div class="who-card"><span class="avatar" aria-hidden="true">' + esc(S.me.name.charAt(0)) + '</span>' +
+      (S.me ? '<div class="who-card"><span class="avatar" aria-hidden="true">' + esc(S.me.name.charAt(0)) + '</span>' +
       '<span class="me-lines"><span class="faint">응답하는 사람</span><b>' + esc(S.me.name) + '</b><span class="faint">' + esc(S.me.group || '') + '</span></span>' +
-      '<button type="button" class="linkish" data-action="switch" style="margin-left:auto">바꾸기</button></div>' +
+      '<button type="button" class="linkish" data-action="switch" style="margin-left:auto">바꾸기</button></div>'
+        : '<div class="who-card"><span class="me-lines"><span class="faint">응답하려면 먼저 이름을 골라 주세요</span></span>' +
+      '<button type="button" class="linkish" data-action="switch" style="margin-left:auto">이름 고르기</button></div>') +
       '<form id="sv-form" class="form" novalidate>' +
       d.questions.map(function (q, i) { return questionInput(q, i, mine.answers[q.id], closed || cannot); }).join('') +
       '<p class="err" id="sv-err" role="alert"></p>' +
@@ -1739,6 +1844,22 @@
       '</section>';
   }
 
+  /** 응답 칸에 고른 답(아직 안 냄) */
+  function readAnswers(form, d) {
+    var answers = {};
+    d.questions.forEach(function (q) {
+      if (q.type === 'one') { var c = qs('input[name="ans-' + q.id + '"]:checked', form); if (c) answers[q.id] = c.value; }
+      else if (q.type === 'many') answers[q.id] = qsa('input[name="ans-' + q.id + '"]:checked', form).map(function (c) { return c.value; });
+      else { var el = qs('[name="ans-' + q.id + '"]', form); if (el && el.value.trim()) answers[q.id] = el.value.trim(); }
+    });
+    return answers;
+  }
+  /** 화면을 다시 그리기 전에 아직 안 낸 답을 담아 둔다 */
+  function keepSurveyDraft() {
+    var d = S.survey.detail, form = qs('#sv-form');
+    if (d && form) S.survey.draft = { id: d.card.id, answers: readAnswers(form, d) };
+  }
+
   function bindRespond(box, d) {
     var form = qs('#sv-form', box);
     if (!form) return;
@@ -1747,12 +1868,7 @@
     });
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
-      var answers = {};
-      d.questions.forEach(function (q) {
-        if (q.type === 'one') { var c = qs('input[name="ans-' + q.id + '"]:checked', form); if (c) answers[q.id] = c.value; }
-        else if (q.type === 'many') answers[q.id] = qsa('input[name="ans-' + q.id + '"]:checked', form).map(function (c) { return c.value; });
-        else { var el = qs('[name="ans-' + q.id + '"]', form); if (el && el.value.trim()) answers[q.id] = el.value.trim(); }
-      });
+      var answers = readAnswers(form, d);
       var err = qs('#sv-err', form);
       var miss = d.questions.filter(function (q) { var v = answers[q.id]; return q.required && (!v || (Array.isArray(v) && !v.length)); })[0];
       if (miss) { err.textContent = (d.questions.indexOf(miss) + 1) + '번 질문에 답해 주세요.'; qs('[data-q="' + miss.id + '"]', form).scrollIntoView({ block: 'center' }); return; }
@@ -1760,6 +1876,7 @@
       busy(btn, true, '내는 중');
       err.textContent = '';
       server('survey.respond', { id: d.card.id, answers: answers }, [['survey.list', {}], ['survey.get', { id: d.card.id }]]).then(function (r) {
+        S.survey.draft = null;
         toast(r.edited ? '고친 답을 냈어요' : '냈어요. 고맙습니다');
         S.survey.list = null;
         refreshSurveyList();
@@ -1892,10 +2009,18 @@
     if (!needMe('조사를 만들면')) return;
     var start = function (depts, people) { drawSurveyForm(edit, depts, people); };
     if (edit) return start(edit.depts || [], null);
-    // 부서 목록은 일정 화면과 같은 곳에서 받아 온다
-    server('sched.month', { year: +localToday().slice(0, 4), month: +localToday().slice(5, 7) }).then(function (m) { start(m.depts || [], null); })
-      .catch(function (e) { toast(e.message); });
+    // 부서 목록은 일정 화면과 같은 곳에서 받아 온다(미리 받아 둔 것이 있으면 바로)
+    var key = { year: +localToday().slice(0, 4), month: +localToday().slice(5, 7) };
+    var mm = MEMO[memoKey('sched.month', key)];
+    if (mm) return start(mm.data.depts || [], null);
+    if (surveyFormOpening) return; // 두 번 눌러도 한 번만(늦게 온 답이 쓰던 창을 다시 열지 않게)
+    surveyFormOpening = true;
+    var btn = qs('[data-action="sv-new"]');
+    busy(btn, true, '여는 중');
+    server('sched.month', key).then(function (m) { memoPut('sched.month', key, m); start(m.depts || [], null); }, function (e) { toast(e.message); })
+      .then(function () { surveyFormOpening = false; busy(btn, false); });
   }
+  var surveyFormOpening = false;
 
   function drawSurveyForm(edit, depts, people) {
     var d = edit || {};
@@ -1946,6 +2071,7 @@
       } else if (state.tt === 'people') {
         tbox.innerHTML = loadingHtml('명단을 불러오는 중이에요');
         server('staffPicker').then(function (list) {
+          if (state.tt !== 'people') return; // 그사이 다른 대상을 골랐으면 그대로
           tbox.innerHTML = '<div class="people pick" style="margin-top:8px">' + list.map(function (p) {
             var on = state.ids.indexOf(p.id) >= 0;
             return '<label class="opt' + (on ? ' on' : '') + '"><input type="checkbox" data-pid="' + esc(p.id) + '"' + (on ? ' checked' : '') + '><span>' + esc(p.name) +
@@ -2588,7 +2714,7 @@
         '누가 언제 무엇을 바꿨는지는 <b>관리자 › 수정 기록</b>에서 바뀌기 전·뒤까지 볼 수 있어요.',
         "전용 시트 메뉴 '온라인 교무실 › 4. 매일 자동 백업 켜기'를 켜 두면 매일 사본을 만들고 정한 개수만큼 남겨요.",
         '전용 시트를 직접 고칠 때는 1행(머리글)을 바꾸지 말고, 줄을 지우지 말아 주세요. 웹앱에서 지우면 되살릴 수 있어요.',
-        '시트를 직접 고친 내용은 웹앱에 늦어도 10분 뒤에 보여요. 바로 보려면 <b>관리자 › 점검 › 시트 새로 읽기</b>를 눌러요.'
+        '시트에서 칸을 직접 고치면 웹앱에 바로 보여요. 줄을 지우거나 정렬한 것은 조금 늦게(10분쯤) 보여요. 바로 보려면 <b>관리자 › 점검 › 시트 새로 읽기</b>를 눌러요.'
       ]);
   };
 
@@ -2690,6 +2816,7 @@
 
   // ------------------------------------------------------------ 관리자 · 새 학년도
   function adminYear(panel) {
+    if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('자료를 불러오는 중이에요');
     server('admin.year.preview').then(function (p) {
       panel.innerHTML = '<div class="stack">' +
@@ -3033,7 +3160,9 @@
 
   function upDate(r) {
     if (!r.start) return '<span class="faint">' + esc(r.raw.start || '(비어 있음)') + '</span>';
-    return esc(mdw(r.start) + (r.end ? ' – ' + mdw(r.end) : '')) + (r.start.slice(0, 4) !== String(S.up.year) && Number(r.start.slice(5, 7)) >= 3 ? ' <span class="faint">' + r.start.slice(0, 4) + '</span>' : '');
+    var sy = Number(S.up.year), y = Number(r.start.slice(0, 4)), m = Number(r.start.slice(5, 7));
+    var inYear = m >= 3 ? y === sy : y === sy + 1; // 학년도(3월~다음 해 2월) 밖이면 연도를 함께 보여 준다
+    return esc(mdw(r.start) + (r.end ? ' – ' + mdw(r.end) : '')) + (!inYear ? ' <span class="faint">' + y + '년</span>' : '');
   }
 
   function drawUploadPreview() {
@@ -3337,6 +3466,7 @@
 
   // ------------------------------------------------------------ 관리자 · 교직원 표
   function adminStaff(panel) {
+    if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('교직원 표를 불러오는 중이에요');
     server('admin.staff.list').then(function (r) {
       S.cache.staff = r.staff;
@@ -3347,14 +3477,10 @@
   }
 
   function drawStaff(panel) {
+    if (!panel) return;
     var all = S.cache.staff || [];
     var on = all.filter(function (x) { return x['사용 여부'] !== '사용 안 함'; });
     var noPin = on.filter(function (x) { return !x.hasPin; });
-    var q = S.staffSearch.trim();
-    var shown = all.filter(function (x) {
-      if (!S.showOff && x['사용 여부'] === '사용 안 함') return false;
-      return !q || [x['이름'], x['직위'], x['소속'], x.deptName, x['담당 업무'], x['내선']].join(' ').indexOf(q) >= 0;
-    });
     panel.innerHTML =
       '<div class="wrap" style="gap:16px">' +
       '<div class="counts"><span class="chip chip-ok">사용 ' + on.length + '명</span><span class="chip">사용 안 함 ' + (all.length - on.length) + '명</span>' +
@@ -3366,21 +3492,25 @@
       (S.cache.pinMode ? '<button type="button" class="btn btn-sm" data-action="staff-issue"' + (noPin.length ? '' : ' disabled') + '>' + icon('key', 18) + '번호 없는 분 번호 만들기</button>' : '') +
       '<button type="button" class="btn btn-sm" data-action="staff-import">' + icon('upload', 18) + '명단 한 번에 넣기</button>' +
       '<button type="button" class="btn btn-sm btn-primary" data-action="staff-add">' + icon('plus', 18) + '교직원 추가</button></div>' +
-      (shown.length
+      '<div id="staff-rows"></div>' +
+      '<p class="hint">' + icon('info', 16) + '<span>전출·휴직하면 지우지 말고 "사용 안 함"으로 바꿔 주세요. 이름 목록과 알림에서 빠지고, 기록은 그대로 남아요. 개인 연락처는 넣지 않아요(내선만).</span></p>' +
+      '</div>';
+    var rowsBox = qs('#staff-rows', panel);
+    function drawRows() {
+      var q = S.staffSearch.trim();
+      var shown = all.filter(function (x) {
+        if (!S.showOff && x['사용 여부'] === '사용 안 함') return false;
+        return !q || [x['이름'], x['직위'], x['소속'], x.deptName, x['담당 업무'], x['내선']].join(' ').indexOf(q) >= 0;
+      });
+      rowsBox.innerHTML = shown.length
         ? '<div class="rows" role="table" aria-label="교직원 표">' +
           '<div class="srow head" role="row"><span role="columnheader">이름·직위</span><span role="columnheader">소속·부서</span><span role="columnheader">담당 업무</span><span role="columnheader">내선</span><span role="columnheader" style="text-align:right">관리</span></div>' +
           shown.map(staffRow).join('') + '</div>'
-        : '<div class="card"><p class="empty">' + (all.length ? '찾는 교직원이 없어요.' : '아직 교직원이 없어요. "교직원 추가"로 넣어 주세요.') + '</p></div>') +
-      '<p class="hint">' + icon('info', 16) + '<span>전출·휴직하면 지우지 말고 "사용 안 함"으로 바꿔 주세요. 이름 목록과 알림에서 빠지고, 기록은 그대로 남아요. 개인 연락처는 넣지 않아요(내선만).</span></p>' +
-      '</div>';
-    var find = qs('#staff-find');
-    find.addEventListener('input', function () {
-      S.staffSearch = find.value;
-      var pos = find.selectionStart;
-      drawStaff(panel);
-      var f2 = qs('#staff-find'); f2.focus(); try { f2.setSelectionRange(pos, pos); } catch (e) {}
-    });
-    qs('#staff-off').addEventListener('change', function (e) { S.showOff = e.target.checked; drawStaff(panel); });
+        : '<div class="card"><p class="empty">' + (all.length ? '찾는 교직원이 없어요.' : '아직 교직원이 없어요. "교직원 추가"로 넣어 주세요.') + '</p></div>';
+    }
+    drawRows();
+    qs('#staff-find', panel).addEventListener('input', function (e) { S.staffSearch = e.target.value; drawRows(); }); // 찾기 칸은 그대로 두고 줄만(한글 입력이 끊기지 않게)
+    qs('#staff-off', panel).addEventListener('change', function (e) { S.showOff = e.target.checked; drawRows(); });
   }
 
   function staffRow(x) {
@@ -3571,6 +3701,7 @@
 
   // ------------------------------------------------------------ 관리자 · 분류
   function adminCat(panel) {
+    if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('분류를 불러오는 중이에요');
     server('admin.cat.list').then(function (groups) {
       S.cache.cats = groups;
@@ -3629,6 +3760,7 @@
 
   // ------------------------------------------------------------ 관리자 · 설정
   function adminSettings(panel) {
+    if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('설정을 불러오는 중이에요');
     server('admin.settings.get').then(function (list) { drawSettings(panel, list); })
       .catch(function (e) { panel.innerHTML = failHtml(e); });
@@ -3800,6 +3932,7 @@
   }
 
   function adminCheck(panel) {
+    if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('점검하는 중이에요');
     server('admin.check', { client: clientBuilds() }).then(function (r) {
       var label = { ok: '정상', warn: '확인 필요', bad: '문제' };
@@ -3825,7 +3958,7 @@
         '<button type="button" class="btn btn-sm" data-action="speed-run">' + icon('reload', 18) + '속도 재기</button></div>' +
         '<div id="speed-out"></div></section>' +
         '<section class="card"><div class="card-head"><div><h2>시트 새로 읽기</h2>' +
-        '<p class="faint" style="margin-top:4px">시트를 손으로 고쳤는데 웹앱에 바로 안 보이면 누르세요. 서버에 기억해 둔 내용을 버리고 시트에서 새로 읽어요. 누르지 않아도 늦어도 10분 뒤에는 바뀌어요.</p></div>' +
+        '<p class="faint" style="margin-top:4px">시트를 손으로 고쳤는데 웹앱에 바로 안 보이면 누르세요. 서버에 기억해 둔 내용을 버리고 시트에서 새로 읽어요. 칸을 고친 것은 바로, 줄 지우기·정렬은 누르지 않아도 10분쯤 뒤에 바뀌어요.</p></div>' +
         '<button type="button" class="btn btn-sm" data-action="cache-clear">' + icon('reload', 18) + '시트 새로 읽기</button></div></section>' +
         '</div>';
     }).catch(function (e) { panel.innerHTML = failHtml(e); });
@@ -3862,13 +3995,13 @@
           if (x.error) return '<tr><th scope="row">' + esc(x.label) + '</th><td colspan="3">' + esc(x.error) + '</td></tr>';
           return '<tr><th scope="row">' + esc(x.label) + '</th>' +
             '<td>' + secText(x.sheet.ms) + '<span class="faint"> · 시트 ' + x.sheet.reads + '번</span></td>' +
-            '<td>' + secText(x.memo.ms) + '<span class="faint"> · 기억 ' + x.memo.hits + '번' + (x.memo.reads ? '·시트 ' + x.memo.reads + '번' : '') + '</span></td>' +
+            '<td>' + secText(x.memo.ms) + '<span class="faint"> · 기억 ' + x.memo.hits + '탭' + (x.memo.memoCalls ? '·' + x.memo.memoCalls + '번에' : '') + (x.memo.reads ? '·시트 ' + x.memo.reads + '번' : '') + '</span></td>' +
             '<td><b>' + secText(x.memo.ms + best) + '</b></td></tr>';
         }).join('') + '</tbody></table></div>' +
         (r.memoOn ? '' : '<p class="warn-text">서버 기억을 쓸 수 없어서 늘 시트에서 읽고 있어요.</p>') +
         '<p class="hint">' + icon('info', 16) + '<span>어림 합계 = 빈 요청 왕복(가장 짧은 값) + 서버 기억에서 읽을 때. 메뉴를 열 때 기다리는 시간과 비슷해요(미리 받아 둔 메뉴는 기다리지 않아요). 이 화면을 사진으로 찍어 보내 주시면 더 빠르게 할 곳을 찾을 수 있어요.</span></p>' +
         (recent.length ? '<h3>이 기기에서 최근에 한 일</h3><ul class="speed-recent">' + recent.map(function (c) {
-          return '<li><span>' + esc(CALL_NAMES[c.action] || c.action) + '</span><b>' + secText(c.ms) + '</b></li>';
+          return '<li><span>' + esc(CALL_NAMES[c.action] || c.action) + (c.bg && c.action !== 'batch' ? ' (뒤에서)' : '') + '</span><b>' + secText(c.ms) + '</b></li>';
         }).join('') + '</ul>' : '') +
         '</div>';
     }).catch(function (e) { busy(btn, false); out.innerHTML = failHtml(e); });
@@ -3974,13 +4107,19 @@
   }
 
   // ============================================================ 창(모달)
-  var lastFocus = null;
+  var lastFocus = null, modalOpts = {};
+  /** 사람이 닫으려 할 때: 저장 중이면 닫지 않는다 */
+  function userCloseModal() {
+    if (pendingWrites) { toast('저장하는 중이에요. 끝나면 닫혀요'); return; }
+    closeModal();
+  }
   function openModal(html, opts) {
     opts = opts || {};
+    modalOpts = opts;
     lastFocus = document.activeElement;
     $modal.innerHTML = '<div class="modal-back" id="modal-back"><div class="modal' + (opts.wide ? ' wide' : '') + '" role="dialog" aria-modal="true" aria-labelledby="m-title">' + html + '</div></div>';
     var back = qs('#modal-back');
-    if (!opts.noBackdropClose) back.addEventListener('click', function (e) { if (e.target === back) closeModal(); });
+    if (!opts.noBackdropClose) back.addEventListener('click', function (e) { if (e.target === back) userCloseModal(); });
     var first = qs('.modal button, .modal input, .modal select', $modal);
     if (first) setTimeout(function () { first.focus(); }, 30);
   }
@@ -4024,7 +4163,7 @@
       case 'reload': location.reload(); break;
       case 'sheet': openSheet(); break;
       case 'close-sheet': closeSheet(); break;
-      case 'close-modal': closeModal(); break;
+      case 'close-modal': userCloseModal(); break;
       case 'close-pins': closeModal(); toast('번호 창을 닫았어요'); break;
       case 'print-slips': printSlips(); break;
       case 'pw-eye':
@@ -4038,23 +4177,26 @@
         closeSheet();
         stDel('gy.identity');
         S.me = null;
+        forgetScreens();
         showIdentity();
         break;
       case 'skip-identity':
         stSet('gy.skipIdentity', '1', false);
+        forgetScreens();
         renderApp();
         break;
       case 'logout':
         closeSheet();
         stDel('gy.login'); stDel('gy.identity'); stDel('gy.admin'); stDel('gy.skipIdentity');
         S.me = null; S.admin = false;
-        memoClear();
+        forgetScreens();
         showLogin();
         toast('나갔어요. 이 기기에 기억된 로그인도 지웠어요');
         break;
       case 'admin-out':
         stDel('gy.admin');
         S.admin = false;
+        forgetScreens();
         renderApp();
         break;
       case 'staff-add': openStaffForm(null); break;
@@ -4082,7 +4224,8 @@
       case 'm-next': moveMonth(1); break;
       case 'm-today':
         var td = localToday();
-        S.sched.y = +td.slice(0, 4); S.sched.m = +td.slice(5, 7); S.sched.week = mondayOf(td); S.sched.day = td; S.sched.form = null;
+        captureEventForm();
+        S.sched.y = +td.slice(0, 4); S.sched.m = +td.slice(5, 7); S.sched.week = mondayOf(td); S.sched.day = td;
         loadSched();
         break;
       case 'y-prev': S.sched.y--; loadSched(); break;
@@ -4099,7 +4242,7 @@
       case 'sv-new': openSurveyForm(null); break;
       case 'sv-edit': openSurveyForm(S.survey.detail); break;
       case 'sv-csv': surveyCsv(); break;
-      case 'sv-results': S.survey.showResults = !S.survey.showResults; drawSurveyDetail(); break;
+      case 'sv-results': keepSurveyDraft(); S.survey.showResults = !S.survey.showResults; drawSurveyDetail(); break;
       case 'sv-as-owner': S.survey.tab = 'mine'; drawSurvey(); break;
       case 'sv-copy':
         copyText(S.survey.detail.messenger).then(function (ok) { toast(ok ? '안내 문구를 복사했어요. 메신저에 붙여 넣으세요' : '복사하지 못했어요. 글을 길게 눌러 복사해 주세요'); });
@@ -4259,7 +4402,7 @@
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     if (qs('#sheet')) closeSheet();
-    else if ($modal.innerHTML && !qs('[data-action="close-pins"]')) closeModal();
+    else if ($modal.innerHTML && !qs('[data-action="close-pins"]') && !modalOpts.noBackdropClose) userCloseModal();
   });
 
   // 화면 크기 막대: 끄는 동안은 숫자만 바꾸고, 놓으면(또는 화살표 키) 적용한다
@@ -4285,7 +4428,15 @@
 
   // 화면 폭이 바뀌어 휴대폰/PC 모양이 달라지면 일정 화면을 다시 그린다
   var lastShape = isPhone() + '/' + isWide();
-  var resizeTimer;
+  var resizeTimer, shapeDirty = false;
+  /** 모양이 바뀐 화면을 다시 그린다. 창이 열려 있거나 입력하는 중이면 끝난 뒤로 미룬다(쓰던 것이 사라지지 않게) */
+  function reshape() {
+    if (!shapeDirty || !qs('.app')) return;
+    if ($modal.innerHTML || editingNow()) return;
+    shapeDirty = false;
+    captureEventForm();
+    renderApp();
+  }
   window.addEventListener('resize', function () {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(function () {
@@ -4293,7 +4444,7 @@
       var shape = isPhone() + '/' + isWide();
       if (shape === lastShape) return;
       lastShape = shape;
-      if ((S.screen === 'schedule' || S.screen === 'home') && qs('.app')) renderApp();
+      if (S.screen === 'schedule' || S.screen === 'home') { shapeDirty = true; reshape(); }
       updateTabHints();
     }, 200);
   });

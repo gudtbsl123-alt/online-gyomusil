@@ -13,7 +13,7 @@
 :root,:root[data-theme="light"]{--c-bg:#F2F4F6;--c-sub:#FFFFFF;--c-card:#FFFFFF;--c-card2:#F2F4F6;--c-pill:#F2F4F6;--c-line:#E5E8EB;--c-line2:#D1D6DB;--c-seg:#F2F4F6;--c-avatar:#E5E8EB;--c-t0:#191F28;--c-t1:#191F28;--c-t2:#4E5968;--c-t3:#606B78;--c-dot:#B0B8C1;--c-radio:#B0B8C1;--c-warnBg:#FFF4E5;--c-warnFg:#9A5200;--c-okBg:#E8F7EE;--c-okFg:#12784A;--c-red:#D92D20;--c-onAccent:#FFFFFF;--accent:#1B64DA;--accent-soft:rgba(27, 100, 218, 0.1);--accent-ring:rgba(27, 100, 218, 0.35);--accent-glow:rgba(27, 100, 218, 0.22);--hero-a:rgba(27, 100, 218, 0.14);--hero-b:rgba(27, 100, 218, 0.05);--scheme:light;--seg-light-bg:#FFFFFF;--seg-light-fg:#191F28;--seg-dark-bg:transparent;--seg-dark-fg:#606B78;--sun-display:none;--moon-display:block;--stage:#E5E8EB}
 :root[data-theme="dark"]{--c-bg:#0F1115;--c-sub:#15171C;--c-card:#1A1D24;--c-card2:#1F222A;--c-pill:#21232A;--c-line:#21232A;--c-line2:#2C2F37;--c-seg:#2C2F37;--c-avatar:#2C2F37;--c-t0:#F9FAFB;--c-t1:#F2F4F6;--c-t2:#B0B8C1;--c-t3:#8B95A1;--c-dot:#8B95A1;--c-radio:#4E5968;--c-warnBg:#2E1F00;--c-warnFg:#FFB547;--c-okBg:#0F2E1C;--c-okFg:#4ADE80;--c-red:#FF6B6B;--c-onAccent:#0F1115;--accent:#4795FF;--accent-soft:rgba(71, 149, 255, 0.14);--accent-ring:rgba(71, 149, 255, 0.32);--accent-glow:rgba(71, 149, 255, 0.18);--hero-a:rgba(71, 149, 255, 0.32);--hero-b:rgba(71, 149, 255, 0.14);--scheme:dark;--seg-light-bg:transparent;--seg-light-fg:#8B95A1;--seg-dark-bg:#2C2F37;--seg-dark-fg:#F2F4F6;--sun-display:block;--moon-display:none;--stage:#08090B}
 html{background:var(--c-bg)}
-:root{--gy-build:"2026-10-16c"} /* 판 표시(관리자 › 점검) */
+:root{--gy-build:"2026-10-16e"} /* 판 표시(관리자 › 점검) */
 body{margin:0;word-break:keep-all;background:var(--c-bg);color:var(--c-t1);font-family:Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased}
 a{color:inherit}
 input::placeholder,textarea::placeholder{color:currentColor;opacity:.7}
@@ -328,7 +328,7 @@ select.input{appearance:auto}
 .ev-off{background:transparent;color:var(--c-red);font-weight:700;padding-left:4px}
 .ev-pre{margin-right:4px;padding:0 4px;border-radius:4px;background:var(--c-pill);color:var(--c-t3);font-size:11px}
 .cal-more{align-self:flex-start;padding:2px 4px;border:0;background:none;color:var(--c-t3);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
-.side-form{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;padding:24px}
+.side-form{position:sticky;top:16px;max-height:calc((100vh - 32px) / var(--gy-zoom,1));overflow:auto;padding:24px}
 .side-form h2,#modal-form h2{margin:0;font-size:22px;font-weight:800}
 .note{display:flex;gap:8px;margin:0;padding:12px 14px;border-radius:12px;background:var(--accent-soft);color:var(--c-t1);font-size:15px;font-weight:600}
 .note svg{color:var(--accent);margin-top:2px}
@@ -936,6 +936,7 @@ select.input{appearance:auto}
     return out;
   };
   Range.prototype.getValue = function () { return this.getValues()[0][0]; };
+  Range.prototype.getSheet = function () { return this.s; };
   Range.prototype.setValues = function (vals) {
     if (vals.length !== this.nr || vals[0].length !== this.nc) throw new Error('setValues: 크기가 맞지 않음');
     for (var i = 0; i < this.nr; i++) for (var j = 0; j < this.nc; j++) this.s.put(this.r + i, this.c + j, vals[i][j]);
@@ -946,7 +947,16 @@ select.input{appearance:auto}
   Range.prototype.setBackground = function () { return this; };
   Range.prototype.setNumberFormat = function () { return this; };
 
-  function Sheet(name) { this.name = name; this.data = []; this.frozen = 0; }
+  /** 진짜 시트처럼 새 탭은 1000줄 × 26칸. appendRow·insertRowsAfter로 늘고, 그 밖을 가리키면 오류 */
+  function Sheet(name) { this.name = name; this.data = []; this.frozen = 0; this.maxRows = 1000; this.maxCols = 26; }
+  Sheet.prototype.getMaxRows = function () { return Math.max(this.maxRows, this.data.length); };
+  Sheet.prototype.getMaxColumns = function () {
+    var m = this.maxCols;
+    this.data.forEach(function (line) { if (line.length > m) m = line.length; });
+    return m;
+  };
+  Sheet.prototype.insertRowsAfter = function (after, n) { this.maxRows = this.getMaxRows() + n; return this; };
+  Sheet.prototype.insertColumnsAfter = function (after, n) { this.maxCols = this.getMaxColumns() + n; return this; };
   /** 진짜 시트처럼: ' 로 시작하면 글자로 저장하고 ' 는 뺀다. 아니면 숫자처럼 보이면 숫자로 바꾼다. */
   Sheet.prototype.put = function (r, c, v) {
     while (this.data.length < r) this.data.push([]);
@@ -970,10 +980,18 @@ select.input{appearance:auto}
     this.data.forEach(function (line) { for (var j = line.length; j > m; j--) if (line[j - 1] !== '') { m = j; break; } });
     return m;
   };
-  Sheet.prototype.getRange = function (r, c, nr, nc) { return new Range(this, r, c, nr || 1, nc || 1); };
+  Sheet.prototype.getRange = function (r, c, nr, nc) {
+    nr = nr || 1; nc = nc || 1;
+    if (r < 1 || c < 1 || r + nr - 1 > this.getMaxRows() || c + nc - 1 > this.getMaxColumns()) {
+      throw new Error('The coordinates of the range are outside the dimensions of the sheet.');
+    }
+    return new Range(this, r, c, nr, nc);
+  };
   Sheet.prototype.getDataRange = function () { return new Range(this, 1, 1, Math.max(1, this.getLastRow()), Math.max(1, this.getLastColumn())); };
   Sheet.prototype.appendRow = function (vals) {
     var r = this.getLastRow() + 1;
+    if (r > this.getMaxRows()) this.maxRows = r;
+    if (vals.length > this.getMaxColumns()) this.maxCols = vals.length;
     for (var j = 0; j < vals.length; j++) this.put(r, j + 1, vals[j]);
     return this;
   };
@@ -986,6 +1004,19 @@ select.input{appearance:auto}
   Spreadsheet.prototype.getSheets = function () { return this.sheets.slice(); };
 
   // ------------------------------------------------------------ 드라이브 (자료 파일·백업 폴더)
+  // gzip: Node(자동 시험)에서는 진짜 gzip, 브라우저(미리보기)에서는 표시만 붙인다(줄였다 푸는 길만 같으면 된다)
+  var zlib = null;
+  try { if (typeof require === 'function') zlib = require('zlib'); } catch (e) { zlib = null; }
+  function gzipBytes(bytes) {
+    if (zlib) return Array.prototype.slice.call(zlib.gzipSync(Buffer.from(bytes)));
+    return [0x47, 0x59, 0x5a].concat(bytes);
+  }
+  function gunzipBytes(bytes) {
+    if (zlib && bytes[0] === 0x1f && bytes[1] === 0x8b) return Array.prototype.slice.call(zlib.gunzipSync(Buffer.from(bytes)));
+    if (bytes[0] === 0x47 && bytes[1] === 0x59 && bytes[2] === 0x5a) return bytes.slice(3);
+    throw new Error('gzip이 아니에요');
+  }
+
   function makeBlob(bytes, type, name) {
     var b = unsigned(bytes || []);
     var blob = {
@@ -1102,7 +1133,10 @@ select.input{appearance:auto}
         getScriptProperties: function () {
           return {
             getProperty: function (k) { return Object.prototype.hasOwnProperty.call(props, k) ? props[k] : null; },
-            setProperty: function (k, v) { props[k] = String(v); return this; },
+            setProperty: function (k, v) {
+              if (utf8(String(k)).length + utf8(String(v)).length > 9 * 1024) throw new Error('Argument too large: value'); // 진짜처럼 한 칸 9KB
+              props[k] = String(v); return this;
+            },
             deleteProperty: function (k) { delete props[k]; return this; },
             getProperties: function () { return Object.assign({}, props); }
           };
@@ -1123,6 +1157,8 @@ select.input{appearance:auto}
         newBlob: function (bytes, type, name) { return makeBlob(typeof bytes === 'string' ? utf8(bytes) : bytes, type, name); },
         base64Encode: function (v) { return b64ws(toBytes(v), B64STD); },
         base64Decode: function (s) { return signed(unb64ws(String(s), B64STD)); },
+        gzip: function (blob) { return makeBlob(gzipBytes(unsigned(blob.getBytes())), 'application/x-gzip'); },
+        ungzip: function (blob) { return makeBlob(gunzipBytes(unsigned(blob.getBytes())), 'application/octet-stream'); },
         getUuid: uuid,
         formatDate: formatDate,
         sleep: function () { env._sleeps++; }
@@ -1183,8 +1219,8 @@ function include(name) {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-16d';
-function fileMark_Code_() { return '2026-10-16d'; }
+var APP_BUILD_ = '2026-10-16e';
+function fileMark_Code_() { return '2026-10-16e'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -1192,9 +1228,9 @@ function fileMark_Code_() { return '2026-10-16d'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-16d', 'Db': '2026-10-16d', 'Auth': '2026-10-16', 'Admin': '2026-10-16d', 'Schedule': '2026-10-16c',
-    'Survey': '2026-10-16', 'Library': '2026-10-16', 'Help': '2026-10-16', 'Setup': '2026-10-16d',
-    'App': '2026-10-16d', 'Styles': '2026-10-16c', 'Index': '2026-10-16'
+    'Code': '2026-10-16e', 'Db': '2026-10-16e', 'Auth': '2026-10-16e', 'Admin': '2026-10-16e', 'Schedule': '2026-10-16e',
+    'Survey': '2026-10-16e', 'Library': '2026-10-16e', 'Help': '2026-10-16', 'Setup': '2026-10-16e',
+    'App': '2026-10-16e', 'Styles': '2026-10-16e', 'Index': '2026-10-16'
   };
 }
 
@@ -1213,7 +1249,7 @@ function routes_() {
     'session': { need: 'login', fn: 'apiSession_' },
     'staffPicker': { need: 'login', fn: function () { return staffPicker_(); } },
     'verify': { need: 'login', fn: function (a) { return verifyPin_(a); } },
-    'adminLogin': { need: 'login', fn: function (a) { return adminLogin_(a); } },
+    'adminLogin': { need: 'login', fn: function (a, actor) { return adminLogin_(a, actor); } },
 
     'home': { need: 'login', fn: 'apiHome_' },
     'sched.month': { need: 'login', fn: 'apiSchedMonth_' },
@@ -1286,12 +1322,57 @@ function routes_() {
  */
 var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1 };
 
-/** req.then = [[읽기 이름, args], …] (max개까지, 기본 3) → [{ data } 또는 null, …]. 하나가 안 되면 그것만 null(화면이 따로 다시 부른다) */
+/**
+ * 요청마다 읽는 탭(서버 기억에서 한 번에 꺼내 두기, 속도). 로그인·본인 확인에서 늘 설정·교직원·분류를 읽는다.
+ * 여기 없는 탭을 읽어도 그 탭만 따로 꺼내 오니 틀리지는 않고 조금 느릴 뿐이다(시험이 목록이 맞는지 본다)
+ */
+var BASE_TABS_ = ['설정', '교직원', '분류'];
+var ROUTE_TABS_ = {
+  'start': [], 'staffPicker': [], 'staff.list': [],
+  'session': ['응답', '알림', '조사', '공지'],
+  'home': ['일정', '월별중점', '학생수', '응답', '알림', '조사', '자료', '공지'],
+  'sched.month': ['일정', '월별중점'],
+  'sched.year': ['일정'],
+  'survey.list': ['조사', '응답', '알림'],
+  'survey.get': ['조사', '응답', '알림'],
+  'lib.list': ['자료'],
+  'notice.list': ['공지'],
+  'help.list': ['도움말'],
+  'search': ['일정', '자료', '도움말', '공지', '조사', '응답', '알림']
+};
+
+/** 요청이 읽을 탭 목록. boot·batch·이어 읽기(then)는 합친다 */
+function routeTabs_(action, args, then) {
+  var out = BASE_TABS_.slice();
+  var add = function (name, a) {
+    if (name === 'boot') { add('start'); add('session'); if (a && a.home) add('home'); return; }
+    if (name === 'batch') {
+      (a && Array.isArray(a.reads) ? a.reads : []).slice(0, 8).forEach(function (x) { if (Array.isArray(x)) add(String(x[0])); });
+      return;
+    }
+    (ROUTE_TABS_[name] || []).forEach(function (t) { if (out.indexOf(t) < 0) out.push(t); });
+  };
+  add(action, args);
+  (Array.isArray(then) ? then : []).slice(0, 3).forEach(function (x) { if (Array.isArray(x)) add(String(x[0])); });
+  return out;
+}
+
+/** 서버 기억에서 탭들을 한 번에 꺼내 둔다(Db.gs가 예전 것이면 그냥 넘어간다) */
+function preloadTabs_(tabs) {
+  var f = tabs && globalFn_('memoPreload_');
+  if (f) f(tabs);
+}
+
+/**
+ * req.then = [[읽기 이름, args], …] (max개까지, 기본 3) → [{ data } 또는 null, …]. 하나가 안 되면 그것만 null(화면이 따로 다시 부른다)
+ * 로그인을 확인한 요청에서만 읽는다(로그인이 필요 없는 요청에 then을 붙여 몰래 읽지 못하게)
+ */
 function thenReads_(list, actor, ctx, max) {
   if (!Array.isArray(list)) return undefined;
   var routes = routes_();
   return list.slice(0, max || 3).map(function (x) {
     try {
+      if (!ctx || ctx.login !== true) return null;
       var name = Array.isArray(x) ? String(x[0]) : '';
       var r = THEN_READS_[name] ? routes[name] : null;
       if (!r || r.need !== 'login') return null;
@@ -1314,6 +1395,7 @@ function api(reqText) {
   PERF_ = newPerf_();
   try {
     var req = JSON.parse(String(reqText || '{}'));
+    MEMO_RECHECK_ = !!req.bg; // 화면이 뒤에서 보낸 요청(기다리는 사람 없음): 오래된 서버 기억은 시트와 다시 맞춘다
     var route = routes_()[req.action];
     if (!route) throw userError_('알 수 없는 요청이에요. 화면을 새로 고쳐 주세요.');
     var fn = typeof route.fn === 'string' ? globalFn_(route.fn) : route.fn;
@@ -1321,6 +1403,9 @@ function api(reqText) {
       throw userError_('이 기능의 코드 파일이 빠졌거나 예전 것이에요(' + route.fn + '). 연구부장·부담당이 관리자 › 점검에서 확인해 주세요.', 'MISSING');
     }
     var t = req.tokens || {};
+    // 읽기 요청은 읽을 탭을 모두, 그 밖(쓰기 등)은 로그인 확인에 쓰는 탭만 서버 기억에서 한 번에 꺼낸다. 빈 요청(ping)·로그인은 꺼내지 않는다
+    var a = req.action;
+    preloadTabs_(ROUTE_TABS_[a] || a === 'boot' || a === 'batch' ? routeTabs_(a, req.args, req.then) : (route.need === 'public' ? null : BASE_TABS_));
     var ctx = { login: false, identity: null, admin: false, tokens: t };
     if (route.need !== 'public') {
       ctx.login = checkLogin_(t.login);
@@ -1337,7 +1422,10 @@ function api(reqText) {
       : { id: '', name: ctx.admin ? '관리자(본인 확인 전)' : '' };
     var data = fn(req.args || {}, actor, ctx);
     var out = { ok: true, data: data === undefined ? null : data };
-    if (req.then) out.then = thenReads_(req.then, actor, ctx);
+    if (req.then && ctx.login === true) {
+      preloadTabs_(routeTabs_('', null, req.then)); // 쓴 뒤라면 바뀐 판으로 다시 꺼낸다(이미 읽은 탭은 빼고)
+      out.then = thenReads_(req.then, actor, ctx);
+    }
     return JSON.stringify(out);
   } catch (err) {
     if (err && err.userMessage) return JSON.stringify({ ok: false, error: err.userMessage, code: err.code });
@@ -1426,7 +1514,7 @@ function deptOptions_() {
  * - 시트에 쓸 때는 잠금(LockService)을 걸어 동시에 저장해도 꼬이지 않게 한다.
  */
 
-function fileMark_Db_() { return '2026-10-16d'; } // 판 표시(관리자 › 점검)
+function fileMark_Db_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 /** 모든 표(기록·설정 제외)에 붙는 입력·수정·삭제 칸 */
 function auditCols_() {
@@ -1477,7 +1565,7 @@ var DB_SS_ = null; // 한 번 실행하는 동안만 쓰는 캐시
 
 /** 속도 재기(관리자 › 점검): 한 요청 안에서 시트 열기·시트 읽기·서버 기억 읽기에 걸린 시간 */
 var PERF_ = newPerf_();
-function newPerf_() { return { openMs: 0, reads: 0, readMs: 0, hits: 0, memoMs: 0 }; }
+function newPerf_() { return { openMs: 0, reads: 0, readMs: 0, hits: 0, memoMs: 0, memoCalls: 0 }; }
 
 function ss_() {
   if (DB_SS_) return DB_SS_;
@@ -1506,12 +1594,17 @@ function dbReset_() {
   DB_CACHE_ = {};
   DB_SHEETS_ = {};
   MEMO_EP_ = null;
+  MEMO_PRE_ = {};
 }
 
-/** 탭에 쓴 뒤 부른다(tab을 비우면 이 요청에서 읽어 둔 값을 모두 버림). 쓴 탭은 잠금을 풀기 전에 서버 기억의 판을 바꾼다 */
+/**
+ * 탭에 쓴 뒤 부른다(tab을 비우면 이 요청에서 읽어 둔 값을 모두 버림). 쓴 탭은 잠금을 풀기 전에 서버 기억의 판을 바꾼다.
+ * 서버 기억에서 미리 꺼내 둔 것(MEMO_PRE_)도 함께 버린다(쓰기 전 판이라서)
+ */
 function dirty_(tab) {
-  if (!tab) { DB_CACHE_ = {}; return; }
+  if (!tab) { DB_CACHE_ = {}; MEMO_PRE_ = {}; return; }
   delete DB_CACHE_[tab];
+  delete MEMO_PRE_[tab];
   if (DB_LOCK_DEPTH_ > 0) DB_WRITTEN_[tab] = true;
   else memoBump_([tab]); // 잠금 밖에서 쓴 경우
 }
@@ -1544,16 +1637,24 @@ function sheetValues_(tab) {
 // 탭 내용을 구글 서버의 임시 기억(CacheService)에 글자로 넣어 두고, 시트를 열지 않고 읽는다.
 // - 웹앱으로 쓰면(잠금 안 + dirty_) 잠금을 풀기 전에 시트에 확정(flush)하고 그 탭의 판을 바꿔 옛 기억을 버린다
 // - 잠금 안(쓰기)에서는 기억을 쓰지 않고 시트에서 바로 읽는다(쓰기는 늘 최신 값으로)
-// - 시트를 손으로 고치면 onEdit(Setup.gs)가 전체 판을 바꾼다. 그게 안 되는 환경이어도 기억은 10분이면 사라진다
+// - 시트를 손으로 고치면 onEdit(Setup.gs)가 그 탭의 판을 바꾼다
+// - 줄 지우기·정렬처럼 onEdit가 오지 않는 바꿈: 화면이 뒤에서 보내는 요청(req.bg: 미리 받기·뒤에서 새로 받기)은
+//   담은 지 10분(MEMO_FRESH_)이 넘은 기억을 쓰지 않고 시트에서 다시 읽어 담는다. 기다리는 요청은 기억을 그대로 쓴다(빠르게)
 // - 관리자 › 점검 '시트 새로 읽기'로 언제든 모두 버린다
-var MEMO_TTL_ = 600;        // 탭 내용 기억 시간(초)
+var MEMO_TTL_ = 21600;      // 탭 내용 기억 시간(초, 최대 6시간). 판이 맞을 때만 쓰므로 웹앱으로 바꾼 것은 곧바로 보인다
+var MEMO_FRESH_ = 600;      // 뒤에서 보내는 요청이 시트와 다시 맞추는 나이(초)
+var MEMO_RECHECK_ = false;  // 이번 요청이 뒤에서 보내는 요청인지(api가 req.bg로 정한다)
 var MEMO_KEEP_ = 21600;     // 판 표시 기억 시간(초, 최대 6시간)
 var MEMO_CHUNK_ = 30000;    // 한 칸에 넣는 글자 수(한 칸 100KB 한도, 한글은 3바이트)
 var MEMO_MAX_CHUNKS_ = 20;  // 이보다 큰 탭은 기억하지 않는다
+var MEMO_ZIP_MIN_ = 100000; // 이보다 긴 탭은 줄여서(gzip) 담는다. 응답 탭처럼 해마다 느는 탭도 기억에 들어가고, 한 번에 꺼낼 수 있다(작은 탭은 풀 일이 없게 그대로)
+var MEMO_ZIP_CHUNK_ = 90000; // 줄인 글(영문·숫자뿐, 1글자 1바이트)은 한 칸에 이만큼 넣는다(한 칸 100KB 한도)
 var MEMO_SKIP_ = { '기록': 1 }; // 크고 쓸 때마다 늘어나 기억하지 않는 탭
 var MEMO_EP_ = null;        // 이번 요청에서 읽은 전체 판
 var MEMO_BYPASS_ = false;   // 속도 재기에서 '시트에서 읽을 때'를 잴 때만 켠다
 var DB_WRITTEN_ = {};       // 이번 잠금 안에서 쓴 탭
+var MEMO_PRE_ = {};         // 이번 요청에서 미리 꺼내 둔 탭 기억 { 탭: { v, chunks: [첫 칸, …] } } (memoPreload_)
+var MEMO_PRE_CHUNKS_ = 4;   // 미리 꺼낼 때 탭마다 앞에서부터 이만큼 칸을 함께 꺼낸다(없는 칸은 그냥 비어 온다)
 
 function memoCache_() {
   try { return CacheService.getScriptCache(); } catch (e) { return null; }
@@ -1563,6 +1664,50 @@ function memoToken_() {
   return Utilities.getUuid().replace(/-/g, '').slice(0, 10);
 }
 
+/** 전체 판(gy:ep)을 받아 둔다. 없으면 새로 정한다 */
+function memoTakeEp_(cache, got) {
+  MEMO_EP_ = got['gy:ep'] || null;
+  if (!MEMO_EP_) { MEMO_EP_ = memoToken_(); PERF_.memoCalls++; cache.put('gy:ep', MEMO_EP_, MEMO_KEEP_); }
+}
+
+/**
+ * 이 요청이 읽을 탭들의 판과 기억(앞쪽 칸)을 서버 기억에서 한 번에 꺼내 둔다(탭마다 따로 다녀오지 않게, 속도).
+ * 판이 없는 탭은 여기서 한 번에 판을 정한다(시트를 읽기 전에 정해야 옛 값이 새 판으로 기억되지 않는다).
+ * 이미 읽었거나 꺼내 둔 탭, '기록' 탭, 잠금 안(쓰기)에서는 꺼내지 않는다. 꺼내 둔 것은 memoLookup_이 한 번 쓰고 버린다
+ */
+function memoPreload_(tabs) {
+  if (DB_LOCK_DEPTH_ > 0 || MEMO_BYPASS_ || !tabs || !tabs.length) return;
+  var defs = tabs_(), want = [];
+  tabs.forEach(function (t) {
+    if (defs[t] && !MEMO_SKIP_[t] && !DB_CACHE_[t] && !MEMO_PRE_[t] && want.indexOf(t) < 0) want.push(t);
+  });
+  if (!want.length) return;
+  var cache = memoCache_();
+  if (!cache) return;
+  var t0 = Date.now();
+  try {
+    var keys = MEMO_EP_ ? [] : ['gy:ep'];
+    want.forEach(function (t) {
+      keys.push('gy:v:' + t);
+      for (var i = 0; i < MEMO_PRE_CHUNKS_; i++) keys.push('gy:d:' + t + ':' + i);
+    });
+    PERF_.memoCalls++;
+    var got = cache.getAll(keys);
+    if (!MEMO_EP_) memoTakeEp_(cache, got);
+    var fresh = {}, pre = {};
+    want.forEach(function (t) {
+      var v = got['gy:v:' + t] || null;
+      if (!v) { v = memoToken_(); fresh['gy:v:' + t] = v; }
+      var chunks = [];
+      for (var i = 0; i < MEMO_PRE_CHUNKS_; i++) chunks.push(got['gy:d:' + t + ':' + i]);
+      pre[t] = { v: v, chunks: chunks };
+    });
+    if (Object.keys(fresh).length) { PERF_.memoCalls++; cache.putAll(fresh, MEMO_KEEP_); }
+    want.forEach(function (t) { MEMO_PRE_[t] = pre[t]; });
+  } catch (e) { /* 꺼내지 못하면 탭마다 찾는다 */ }
+  PERF_.memoMs += Date.now() - t0;
+}
+
 /** 탭 기억 찾기 → { ep, v, vals(없으면 null) }. 서버 기억을 쓸 수 없으면 null */
 function memoLookup_(tab) {
   if (MEMO_SKIP_[tab]) return null;
@@ -1570,28 +1715,39 @@ function memoLookup_(tab) {
   if (!cache) return null;
   try {
     var kv = 'gy:v:' + tab, k0 = 'gy:d:' + tab + ':0';
-    var got = cache.getAll(MEMO_EP_ ? [kv, k0] : ['gy:ep', kv, k0]);
-    if (!MEMO_EP_) {
-      MEMO_EP_ = got['gy:ep'] || null;
-      if (!MEMO_EP_) { MEMO_EP_ = memoToken_(); cache.put('gy:ep', MEMO_EP_, MEMO_KEEP_); }
+    var pre = MEMO_PRE_[tab], v, chunks;
+    if (pre) {
+      delete MEMO_PRE_[tab]; // 한 번만 쓴다(그 뒤로는 이 요청의 DB_CACHE_가 들고 있다)
+      v = pre.v;
+      chunks = pre.chunks;
+    } else {
+      PERF_.memoCalls++;
+      var got = cache.getAll(MEMO_EP_ ? [kv, k0] : ['gy:ep', kv, k0]);
+      if (!MEMO_EP_) memoTakeEp_(cache, got);
+      v = got[kv] || null;
+      chunks = [got[k0]];
+      if (!v) { v = memoToken_(); PERF_.memoCalls++; cache.put(kv, v, MEMO_KEEP_); }
     }
-    var out = { ep: MEMO_EP_, v: got[kv] || null, vals: null };
-    if (!out.v) { out.v = memoToken_(); cache.put(kv, out.v, MEMO_KEEP_); return out; }
-    var c0 = got[k0];
-    if (!c0) return out;
+    var out = { ep: MEMO_EP_, v: v, vals: null };
+    var c0 = chunks[0];
+    if (typeof c0 !== 'string') return out;
     var nl = c0.indexOf('\n');
     var meta = JSON.parse(c0.slice(0, nl));
     if (meta.ep !== out.ep || meta.v !== out.v) return out;
+    if (MEMO_RECHECK_ && !(meta.at > Date.now() - MEMO_FRESH_ * 1000)) return out; // 뒤에서 보내는 요청: 오래된 기억은 시트와 다시 맞춘다
     var text = c0.slice(nl + 1);
     if (meta.n > 1) {
-      var keys = [];
-      for (var i = 1; i < meta.n; i++) keys.push('gy:d:' + tab + ':' + i);
-      var rest = cache.getAll(keys);
-      for (var j = 0; j < keys.length; j++) {
-        if (typeof rest[keys[j]] !== 'string') return out; // 한 칸이라도 사라졌으면 시트에서
-        text += rest[keys[j]];
+      // 둘째 칸부터는 앞에 판 표시가 붙어 있다. 다른 판의 칸이 섞이면(그사이 누가 새로 담음) 쓰지 않는다
+      var tag = meta.ep + '.' + meta.v + '\n', need = [], rest = {};
+      for (var i = 1; i < meta.n; i++) if (typeof chunks[i] !== 'string') need.push('gy:d:' + tab + ':' + i);
+      if (need.length) { PERF_.memoCalls++; rest = cache.getAll(need); }
+      for (var j = 1; j < meta.n; j++) {
+        var s = typeof chunks[j] === 'string' ? chunks[j] : rest['gy:d:' + tab + ':' + j];
+        if (typeof s !== 'string' || s.slice(0, tag.length) !== tag) return out; // 사라졌거나 다른 판이면 시트에서
+        text += s.slice(tag.length);
       }
     }
+    if (meta.z) text = Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(text), 'application/x-gzip')).getDataAsString('UTF-8');
     out.vals = JSON.parse(text);
     return out;
   } catch (e) {
@@ -1604,14 +1760,28 @@ function memoStore_(tab, vals, look) {
   var cache = memoCache_();
   if (!cache) return;
   try {
-    var text = JSON.stringify(vals);
-    var n = Math.max(1, Math.ceil(text.length / MEMO_CHUNK_));
+    var text = JSON.stringify(vals), z = 0, size = MEMO_CHUNK_;
+    if (text.length > MEMO_ZIP_MIN_) {
+      text = Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(text, 'application/json')).getBytes());
+      z = 1;
+      size = MEMO_ZIP_CHUNK_;
+    }
+    var parts = [], pos = 0;
+    while (pos < text.length || !parts.length) {
+      var end = Math.min(text.length, pos + size);
+      var hi = end < text.length ? text.charCodeAt(end - 1) : 0;
+      if (hi >= 0xD800 && hi <= 0xDBFF) end--; // 이모지처럼 두 글자로 된 문자를 칸 경계에서 반으로 자르지 않는다
+      parts.push(text.slice(pos, end));
+      pos = end;
+    }
+    var n = parts.length;
     if (n > MEMO_MAX_CHUNKS_) return;
+    var tag = look.ep + '.' + look.v + '\n';
     var put = {};
     for (var i = 0; i < n; i++) {
-      var part = text.slice(i * MEMO_CHUNK_, (i + 1) * MEMO_CHUNK_);
-      put['gy:d:' + tab + ':' + i] = i ? part : JSON.stringify({ ep: look.ep, v: look.v, n: n }) + '\n' + part;
+      put['gy:d:' + tab + ':' + i] = (i ? tag : JSON.stringify({ ep: look.ep, v: look.v, n: n, at: Date.now(), z: z }) + '\n') + parts[i];
     }
+    PERF_.memoCalls++;
     cache.putAll(put, MEMO_TTL_);
   } catch (e) { /* 기억하지 못해도 읽기는 된다 */ }
 }
@@ -1633,6 +1803,7 @@ function memoBump_(tabs) {
 /** 기억을 모두 버린다(전체 판을 바꾼다): 처음 설정 뒤, 관리자 › 점검 '시트 새로 읽기' */
 function memoClearAll_() {
   MEMO_EP_ = null;
+  MEMO_PRE_ = {};
   var cache = memoCache_();
   if (!cache) return false;
   try {
@@ -1745,7 +1916,10 @@ function withLock_(fn) {
     var written = Object.keys(DB_WRITTEN_);
     DB_WRITTEN_ = {};
     try {
-      if (written.length) memoBump_(written); // 잠금을 풀기 전에: 시트에 확정하고 서버 기억의 판을 바꾼다
+      if (written.length) {
+        try { SpreadsheetApp.flush(); } catch (e0) { /* 아래 판 바꾸기에서 한 번 더 */ } // 서버 기억을 못 써도 잠금을 풀기 전에 시트에 확정한다
+        memoBump_(written); // 잠금을 풀기 전에: 서버 기억의 판을 바꾼다
+      }
     } finally {
       lock.releaseLock();
     }
@@ -1754,6 +1928,32 @@ function withLock_(fn) {
 
 function headOf_(tab) {
   return sheetValues_(tab)[0].map(cellText_);
+}
+
+/** 머리글만(기록 탭처럼 아주 큰 탭은 1행만 읽는다) */
+function headRowOnly_(tab) {
+  if (!MEMO_SKIP_[tab] || DB_CACHE_[tab]) return headOf_(tab);
+  var sh = sheet_(tab);
+  return sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getValues()[0].map(cellText_);
+}
+
+/** 끝에서부터 n줄만 읽어 [{머리글: 값, _row}] (기록 탭처럼 계속 느는 탭을 볼 때) */
+function tailRows_(tab, n) {
+  var sh = sheet_(tab);
+  var last = sh.getLastRow(), cols = Math.max(1, sh.getLastColumn());
+  if (last < 2) return [];
+  var head = sh.getRange(1, 1, 1, cols).getValues()[0].map(cellText_);
+  var from = Math.max(2, last - n + 1);
+  return sh.getRange(from, 1, last - from + 1, cols).getValues().map(function (line, i) {
+    var o = { _row: from + i }, empty = true;
+    head.forEach(function (h, j) { if (!h) return; o[h] = cellText_(line[j]); if (o[h] !== '') empty = false; });
+    return empty ? null : o;
+  }).filter(Boolean);
+}
+
+/** 머리글 차례에 맞춘 한 줄(시트에 쓸 글자). 칸 위치를 머리글 이름으로 찾는다 */
+function rowByHead_(tab, obj) {
+  return headOf_(tab).map(function (h) { return cellWrite_(h && obj[h] !== undefined ? obj[h] : ''); });
 }
 
 /** 나중에 더한 탭이 시트에 없으면 처음 설정과 같은 모양(머리글·굵게·1행 고정)으로 만든다 */
@@ -1774,11 +1974,16 @@ function ensureTab_(tab) {
 
 /** 나중에 더한 칸이 시트에 없으면 머리글 끝에 붙인다(있는 데이터는 그대로) */
 function ensureCols_(tab) {
+  var want = tabs_()[tab];
+  var head0 = headOf_(tab); // 잠금 밖에서는 서버 기억으로 먼저 본다. 대부분 빠진 칸이 없어 잠그지 않고 끝난다
+  if (!want.some(function (h) { return head0.indexOf(h) < 0; })) return;
   withLock_(function () {
     var head = headOf_(tab);
     var missing = tabs_()[tab].filter(function (h) { return head.indexOf(h) < 0; });
     if (!missing.length) return;
-    sheet_(tab).getRange(1, head.length + 1, 1, missing.length).setValues([missing]);
+    var sh = sheet_(tab);
+    growCols_(sh, head.length + missing.length);
+    sh.getRange(1, head.length + 1, 1, missing.length).setValues([missing]);
     dirty_(tab);
   });
 }
@@ -1801,7 +2006,7 @@ function newId_(tab) {
 function insertRow_(tab, obj, actor, summary) {
   return withLock_(function () {
     var head = headOf_(tab);
-    var key = head[0];
+    var key = tabs_()[tab][0]; // ID 칸은 이름으로 찾는다(누가 앞에 칸을 끼워 넣어도)
     var rec = {};
     head.forEach(function (h) { if (obj[h] !== undefined) rec[h] = String(obj[h]); });
     rec[key] = newId_(tab);
@@ -1826,7 +2031,7 @@ function insertRows_(tab, list, actor, summary, keepAudit) {
   if (!list.length) return [];
   return withLock_(function () {
     var head = headOf_(tab);
-    var key = head[0];
+    var key = tabs_()[tab][0];
     var used = {};
     readRows_(tab).forEach(function (r) { used[r[key]] = true; });
     var now = nowText_();
@@ -1846,7 +2051,9 @@ function insertRows_(tab, list, actor, summary, keepAudit) {
       return rec;
     });
     var sh = sheet_(tab);
-    sh.getRange(sh.getLastRow() + 1, 1, recs.length, head.length)
+    var start = sh.getLastRow() + 1;
+    growRows_(sh, start + recs.length - 1);
+    sh.getRange(start, 1, recs.length, head.length)
       .setValues(recs.map(function (rec) { return head.map(function (h) { return cellWrite_(rec[h]); }); }));
     dirty_(tab);
     writeLog_(actor, tab, '', '추가', summary || (recs.length + '줄 추가'), null, { '줄 수': String(recs.length) });
@@ -1864,7 +2071,7 @@ function updateRow_(tab, id, patch, actor, summary, action) {
     if (!row) throw userError_('고칠 항목을 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
     var head = headOf_(tab);
     var raw = sheet_(tab).getRange(row._row, 1, 1, head.length).getValues()[0]; // 머리글 없는 칸은 손대지 않으려고
-    var locked = [head[0], '입력자ID', '입력 시각', '수정자ID', '수정 시각'];
+    var locked = [tabs_()[tab][0], '입력자ID', '입력 시각', '수정자ID', '수정 시각'];
     var before = {}, after = {}, changed = false;
     var next = {};
     head.forEach(function (h) { next[h] = row[h] === undefined ? '' : row[h]; });
@@ -1899,32 +2106,65 @@ function updateRowsSame_(tab, ids, patch, actor, summary, action) {
   if (!ids.length) return 0;
   return withLock_(function () {
     var head = headOf_(tab);
-    var key = head[0];
+    var key = tabs_()[tab][0];
     var want = {};
     ids.forEach(function (id) { want[id] = true; });
-    var sh = sheet_(tab);
-    var n = 0, before = {};
-    var deleting = '삭제 여부' in patch; // 숨기기·되살리기는 누가 했는지 수정자 칸에 남긴다(휴지통에 보이게)
-    var now = nowText_();
-    readRows_(tab).forEach(function (row) {
-      if (!want[row[key]]) return;
-      var next = {};
-      head.forEach(function (h) { next[h] = row[h] === undefined ? '' : row[h]; });
+    var vals = {};
+    Object.keys(patch).forEach(function (h) { if (head.indexOf(h) >= 0) vals[h] = String(patch[h]); });
+    if ('삭제 여부' in patch) { // 숨기기·되살리기는 누가 했는지 수정자 칸에 남긴다(휴지통에 보이게)
+      vals['수정자ID'] = actor.id || '';
+      vals['수정 시각'] = nowText_();
+    }
+    var rows = readRows_(tab).filter(function (row) { return want[row[key]]; });
+    var before = {};
+    rows.forEach(function (row) {
       Object.keys(patch).forEach(function (h) {
-        if (head.indexOf(h) >= 0) { before[h] = before[h] || {}; before[h][row[key]] = next[h]; next[h] = String(patch[h]); }
+        if (head.indexOf(h) >= 0) { before[h] = before[h] || {}; before[h][row[key]] = row[h] === undefined ? '' : row[h]; }
       });
-      if (deleting) { next['수정자ID'] = actor.id || ''; next['수정 시각'] = now; }
-      var raw = sh.getRange(row._row, 1, 1, head.length).getValues()[0];
-      sh.getRange(row._row, 1, 1, head.length).setValues([head.map(function (h, j) { return h ? cellWrite_(next[h]) : raw[j]; })]);
-      n++;
     });
-    dirty_(tab);
+    // 바꿀 칸만, 붙어 있는 줄·칸끼리 묶어 한 번에 쓴다(줄마다 읽고 쓰면 수백 번 시트를 불러 잠금이 길어진다)
+    var sh = sheet_(tab);
+    var cols = Object.keys(vals).filter(function (h) { return head.indexOf(h) >= 0; }).map(function (h) { return head.indexOf(h) + 1; });
+    var rowRuns = runs_(rows.map(function (r) { return r._row; })), colRuns = runs_(cols);
+    rowRuns.forEach(function (rr) {
+      colRuns.forEach(function (cc) {
+        var line = [];
+        for (var c = cc[0]; c <= cc[1]; c++) line.push(cellWrite_(vals[head[c - 1]]));
+        var block = [];
+        for (var r = rr[0]; r <= rr[1]; r++) block.push(line.slice());
+        sh.getRange(rr[0], cc[0], block.length, line.length).setValues(block);
+      });
+    });
+    if (rows.length) dirty_(tab);
     var after = {};
     Object.keys(patch).forEach(function (h) { after[h] = String(patch[h]); });
     after['ID 목록'] = ids.join(',');
-    writeLog_(actor, tab, '', action || '수정', summary || (n + '줄 고침'), before, after);
-    return n;
+    writeLog_(actor, tab, '', action || '수정', summary || (rows.length + '줄 고침'), before, after);
+    return rows.length;
   });
+}
+
+/** 숫자들을 붙어 있는 덩어리 [처음, 끝]으로 묶는다(작은 것부터) */
+function runs_(nums) {
+  var out = [];
+  nums.slice().sort(function (a, b) { return a - b; }).forEach(function (x) {
+    var last = out[out.length - 1];
+    if (last && x === last[1] + 1) last[1] = x;
+    else if (!last || x > last[1]) out.push([x, x]);
+  });
+  return out;
+}
+
+/** 시트의 줄 수가 모자라면 늘린다(새 탭은 1000줄이라, 한 번에 여러 줄을 쓸 때 범위를 벗어나지 않게) */
+function growRows_(sh, lastRow) {
+  var max = sh.getMaxRows();
+  if (lastRow > max) sh.insertRowsAfter(max, lastRow - max);
+}
+
+/** 시트의 칸 수가 모자라면 늘린다(머리글을 끝에 더할 때) */
+function growCols_(sh, lastCol) {
+  var max = sh.getMaxColumns();
+  if (lastCol > max) sh.insertColumnsAfter(max, lastCol - max);
 }
 
 /** 지우기 = 숨김 표시. 되살릴 수 있다. */
@@ -1977,7 +2217,7 @@ function writeLog_(actor, tab, id, action, summary, before, after) {
     summary || '',
     before ? JSON.stringify(before) : '',
     after ? JSON.stringify(after) : ''
-  ].map(cellWrite_));
+  ].map(function (v) { return cellWrite_(String(v).slice(0, 49000)); })); // 시트 한 칸은 5만 자까지
   dirty_('기록');
 }
 
@@ -2021,7 +2261,7 @@ function josa_(word, withBatchim, without) {
  *   ADMIN_PW_HASH, ADMIN_PW_SALT, ADMIN_PW_VER, ADMIN_FAILS, ADMIN_LOCK_UNTIL
  */
 
-function fileMark_Auth_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+function fileMark_Auth_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 var AUTH_LOGIN_HOURS_ = 12;   // '기억하기'를 끈 로그인·본인 확인이 유지되는 시간 (제안)
 var AUTH_ADMIN_HOURS_ = 2;    // 관리자 화면이 열려 있는 시간 (제안)
@@ -2159,11 +2399,49 @@ function expiry_(remember, hours) {
 
 // ---------------------------------------------------------------- 1) 공통 로그인
 
+// 웹앱 주소를 아는 누구나 공통 비밀번호를 넣어 볼 수 있으므로, 학교 전체에서 짧은 시간에 많이 틀리면 잠시 막는다.
+// 이미 로그인된(기억된) 기기는 그대로 쓴다. 숫자는 서버 기억(CacheService)에 두는 어림값이다
+var LOGIN_FAIL_WINDOW_ = 15 * 60; // 초
+var LOGIN_FAIL_MAX_ = 20;          // 이 시간 안에 이만큼 틀리면 남은 시간 동안 막는다
+
+/** 최근에 공통 비밀번호를 틀린 수 { n, at(처음 틀린 때) } */
+function loginFails_() {
+  try {
+    var v = CacheService.getScriptCache().get('gy:pwfail');
+    var f = v ? JSON.parse(v) : null;
+    if (f && f.at && Date.now() - f.at < LOGIN_FAIL_WINDOW_ * 1000) return f;
+  } catch (e) { /* 기억을 못 쓰면 막지 않는다 */ }
+  return { n: 0, at: 0 };
+}
+
+function addLoginFail_() {
+  try {
+    var f = loginFails_();
+    if (!f.at) f = { n: 0, at: Date.now() };
+    f.n++;
+    CacheService.getScriptCache().put('gy:pwfail', JSON.stringify(f), LOGIN_FAIL_WINDOW_);
+    return f.n;
+  } catch (e) {
+    return 0;
+  }
+}
+
 function login_(args) {
   if (!hasPassword_('common')) {
     throw userError_('아직 공통 비밀번호가 정해지지 않았어요. 연구부장·부담당에게 알려 주세요.', 'SETUP');
   }
+  var f = loginFails_();
+  if (f.n >= LOGIN_FAIL_MAX_) {
+    var left = Math.max(1, Math.ceil((f.at + LOGIN_FAIL_WINDOW_ * 1000 - Date.now()) / 60000));
+    throw userError_('비밀번호를 여러 번 틀린 기록이 있어서 로그인을 잠시 막았어요. ' + left + '분 뒤에 다시 해 주세요. 이미 로그인된 기기는 그대로 쓸 수 있어요.', 'LOCKED');
+  }
   if (!checkPassword_('common', args.password)) {
+    var n = addLoginFail_();
+    if (n === LOGIN_FAIL_MAX_) {
+      withLock_(function () {
+        writeLog_({ id: '', name: '' }, '설정', '', '잠김', '공통 비밀번호를 ' + Math.round(LOGIN_FAIL_WINDOW_ / 60) + '분 안에 ' + n + '번 틀려서 새 로그인을 잠시 막음', null, null);
+      });
+    }
     Utilities.sleep(1200); // 하나씩 맞춰 보는 것을 느리게
     throw userError_('비밀번호가 맞지 않아요. 다시 넣어 주세요.', 'BADPW');
   }
@@ -2312,18 +2590,28 @@ function meView_(row) {
 
 // ---------------------------------------------------------------- 3) 관리자
 
-function adminLogin_(args) {
+function adminLogin_(args, actor) {
   if (!hasPassword_('admin')) {
     throw userError_('아직 관리자 비밀번호가 정해지지 않았어요. 시트 메뉴 "온라인 교무실 > 관리자 비밀번호 정하기"에서 먼저 정해 주세요.', 'SETUP');
   }
+  checkAdminPwCounted_(args.password, actor);
+  return { admin: makeToken_({ k: 'A', v: pwVer_('admin'), exp: Date.now() + AUTH_ADMIN_HOURS_ * 3600 * 1000 }) };
+}
+
+/**
+ * 관리자 비밀번호 확인(틀린 횟수를 세고 여러 번 틀리면 잠근다). 관리자 들어가기와 관리자 비밀번호 바꾸기에서 함께 쓴다.
+ * 틀리면 오류를 던진다. 잠김 기록에는 고른 이름(있으면)을 남긴다
+ */
+function checkAdminPwCounted_(password, actor) {
   var rule = lockRule_();
   var p = props_();
+  var who = actor && actor.name ? { id: actor.id || '', name: actor.name } : { id: '', name: '' };
   var res = withLock_(function () {
     var until = Number(p.getProperty('ADMIN_LOCK_UNTIL') || 0);
     if (until > Date.now()) {
       return { ok: false, code: 'LOCKED', msg: '관리자 비밀번호를 여러 번 틀려서 잠겼어요. ' + Math.ceil((until - Date.now()) / 60000) + '분 뒤에 다시 해 주세요.' };
     }
-    if (checkPassword_('admin', args.password)) {
+    if (checkPassword_('admin', password)) {
       p.setProperty('ADMIN_FAILS', '0');
       return { ok: true };
     }
@@ -2331,7 +2619,7 @@ function adminLogin_(args) {
     if (fails >= rule.tries) {
       p.setProperty('ADMIN_FAILS', '0');
       p.setProperty('ADMIN_LOCK_UNTIL', String(Date.now() + rule.minutes * 60000));
-      writeLog_({ id: '', name: '' }, '설정', '', '잠김', '관리자 비밀번호를 ' + rule.tries + '번 틀려서 ' + rule.minutes + '분 잠김', null, null);
+      writeLog_(who, '설정', '', '잠김', '관리자 비밀번호를 ' + rule.tries + '번 틀려서 ' + rule.minutes + '분 잠김', null, null);
       return { ok: false, code: 'LOCKED', msg: '관리자 비밀번호를 ' + rule.tries + '번 틀려서 ' + rule.minutes + '분 동안 잠겼어요.' };
     }
     p.setProperty('ADMIN_FAILS', String(fails));
@@ -2341,7 +2629,6 @@ function adminLogin_(args) {
     Utilities.sleep(1200);
     throw userError_(res.msg, res.code);
   }
-  return { admin: makeToken_({ k: 'A', v: pwVer_('admin'), exp: Date.now() + AUTH_ADMIN_HOURS_ * 3600 * 1000 }) };
 }
 
 function checkAdmin_(token) {
@@ -2384,7 +2671,7 @@ function assignPin_(row, actor) {
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-16d'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -2399,8 +2686,8 @@ function settingDefs_() {
     { key: '2학기 끝일', def: '', type: 'date', label: '2학기 끝일', note: '확인 필요' },
     { key: '본인 확인 방식', def: '이름만', type: 'choice', options: ['이름만', '이름+개인 번호'], label: '본인 확인 방식', note: "'이름만'은 명단에서 이름만 골라요. 바꾸면 모든 기기에서 이름을 다시 골라야 해요" },
     { key: '기기 기억 일수', def: '365', type: 'int', min: 1, max: 400, label: '로그인·이름을 기기에 기억하는 기간', unit: '일' },
-    { key: '잠금 횟수', def: '5', type: 'int', min: 3, max: 10, label: '개인 번호를 몇 번 틀리면 잠글까요', unit: '번', note: "'이름+개인 번호'일 때만 써요" },
-    { key: '잠금 분', def: '10', type: 'int', min: 1, max: 120, label: '잠그는 시간', unit: '분', note: "'이름+개인 번호'일 때만 써요" },
+    { key: '잠금 횟수', def: '5', type: 'int', min: 3, max: 10, label: '관리자 비밀번호·개인 번호를 몇 번 틀리면 잠글까요', unit: '번', note: '관리자 비밀번호와(이름+개인 번호 방식이면) 개인 번호에 써요' },
+    { key: '잠금 분', def: '10', type: 'int', min: 1, max: 120, label: '잠그는 시간', unit: '분', note: '관리자 비밀번호와(이름+개인 번호 방식이면) 개인 번호에 써요' },
     { key: '백업 남길 개수', def: '30', type: 'int', min: 3, max: 365, label: '매일 백업을 몇 개까지 남길까요', unit: '개' },
     { key: '기존 시트 바로가기', def: '[]', type: 'links', label: "홈의 '아직 기존 시트에서 하는 일' 바로가기", note: '홈 화면 아래에 보여요' },
     { key: '파일 크기 한도', def: '10', type: 'int', min: 1, max: 50, label: '자료실에 올릴 수 있는 파일 크기', unit: 'MB', note: '확인 필요: 학교 PC·휴대폰에서 실제로 올려 보고 정해요. 더 큰 파일은 드라이브 링크로 넣어요' },
@@ -2439,10 +2726,12 @@ function putSetting_(key, value, actor) {
     var before = row ? row['값'] : '';
     if (before === String(value)) return;
     if (row) {
-      sh.getRange(row._row, 2).setValue(cellWrite_(value));
+      var col = headOf_('설정').indexOf('값') + 1; // 칸 위치는 머리글 이름으로(누가 칸을 끼워 넣어도)
+      if (col < 1) throw userError_("설정 탭에 '값' 칸이 없어요. 전용 시트 메뉴 '1. 처음 설정'을 눌러 주세요.", 'SETUP');
+      sh.getRange(row._row, col).setValue(cellWrite_(value));
     } else {
       var def = settingDefs_().filter(function (d) { return d.key === key; })[0];
-      sh.appendRow([key, value, def ? (def.note || def.label) : ''].map(cellWrite_));
+      sh.appendRow(rowByHead_('설정', { '키': key, '값': value, '설명': def ? (def.note || def.label) : '' }));
     }
     dirty_('설정');
     writeLog_(actor, '설정', key, '수정', key + ' 바꿈', { '값': before }, { '값': String(value) });
@@ -2624,7 +2913,9 @@ function adminStaffSetActive_(args, actor) {
   var row = findRow_('교직원', String(args.id || ''));
   if (!row || row['삭제 여부']) throw userError_('교직원을 찾지 못했어요.');
   var v = args.active ? '사용' : '사용 안 함';
-  updateRow_('교직원', row['교직원ID'], { '사용 여부': v }, actor, row['이름'] + ' 선생님 ' + v);
+  var patch = { '사용 여부': v };
+  if (!args.active) patch['번호 바꾼 날'] = String(Date.now()); // 이 분의 기억된 본인 확인을 끊는다(다시 사용으로 바꿔도 옛 기기는 이름을 다시 골라야)
+  updateRow_('교직원', row['교직원ID'], patch, actor, row['이름'] + ' 선생님 ' + v);
   return staffAdminView_(findRow_('교직원', row['교직원ID']), categoryNames_('부서'));
 }
 
@@ -2664,7 +2955,7 @@ function adminStaffUnlock_(args, actor) {
 
 function adminLogList_(args) {
   var tab = String(args.tab || '');
-  var rows = readRows_('기록');
+  var rows = tailRows_('기록', 5000); // 기록은 계속 늘어서 끝 5000줄만 본다(최근 200개를 보여 준다)
   var out = [];
   for (var i = rows.length - 1; i >= 0 && out.length < 200; i--) {
     var r = rows[i];
@@ -2692,7 +2983,7 @@ function adminChangeCommonPw_(args, actor) {
 }
 
 function adminChangeAdminPw_(args, actor) {
-  if (!checkPassword_('admin', args.current)) throw userError_('지금 관리자 비밀번호가 맞지 않아요.');
+  checkAdminPwCounted_(args.current, actor); // 틀린 횟수를 세어 여러 번 틀리면 잠근다(관리자 들어가기와 같이)
   if (args.newPw !== args.newPw2) throw userError_('새 비밀번호 두 칸이 서로 달라요.');
   setPassword_('admin', args.newPw);
   withLock_(function () { writeLog_(actor, '설정', '', '비밀번호 바꿈', '관리자 비밀번호를 바꿈', null, null); });
@@ -2714,9 +3005,13 @@ function adminCheck_(args) {
   var buildsFn = globalFn_('fileBuilds_');
   var builds = buildsFn ? buildsFn() : {};
   var want = function (f) { return builds[f] || APP_BUILD_; };
+  // 판 표시가 없어도 이 파일의 함수가 있으면 판 표시를 넣기 전(2026-10-15)의 예전 파일이다
+  var probe = { 'Code': 'api', 'Db': 'sheetValues_', 'Auth': 'checkLogin_', 'Admin': 'adminCheck_', 'Schedule': 'apiSchedMonth_',
+    'Survey': 'apiSurveyList_', 'Library': 'apiLibList_', 'Help': 'apiHelpList_', 'Setup': 'setupAll_' };
   ['Code', 'Db', 'Auth', 'Admin', 'Schedule', 'Survey', 'Library', 'Help', 'Setup'].forEach(function (f) {
     var mark = globalFn_('fileMark_' + f + '_');
-    if (!mark) add('코드 파일', f + '.gs', 'bad', '파일이 없거나 내용이 비어 있어요', paste(f));
+    if (!mark && globalFn_(probe[f])) add('코드 파일', f + '.gs', 'warn', '판 표시가 없는 예전 파일이에요(기능은 돌아가요)', paste(f));
+    else if (!mark) add('코드 파일', f + '.gs', 'bad', '파일이 없거나 내용이 비어 있어요', paste(f));
     else if (f === 'Code' && !buildsFn) add('코드 파일', 'Code.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
     else if (mark() !== want(f)) add('코드 파일', f + '.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
     else add('코드 파일', f + '.gs', 'ok', '최신 판 ' + mark());
@@ -2737,19 +3032,31 @@ function adminCheck_(args) {
   if (missing.length) add('코드 파일', '기능 연결', 'bad', '찾지 못한 기능 ' + missing.length + '개: ' + missing.slice(0, 5).join(', ') + (missing.length > 5 ? ' …' : ''), '위에서 문제로 나온 파일을 다시 붙여 넣어 주세요');
   else add('코드 파일', '기능 연결', 'ok', '기능 ' + n + '개가 모두 연결됐어요');
 
-  // 2) 시트 탭·칸 (나중에 더한 탭 중 처음 쓸 때 저절로 생기는 탭은 없어도 괜찮다)
+  // 2) 시트 탭·칸 (나중에 더한 탭·칸 중 처음 쓸 때 저절로 생기는 것은 없어도 괜찮다)
   var tabs = tabs_(), bad = 0;
   var autoTabs = { '학생수': '학생 수를 처음 넣을 때 저절로 생겨요' }, notYet = 0;
+  var autoCols = { // 저장할 때 ensureCols_가 붙이는 칸
+    '학생수': { cols: ['반별'], when: '학생 수를 저장할 때' },
+    '일정': { cols: ['중요'], when: '일정을 저장할 때' },
+    '자료': { cols: ['파일 이름', '파일 크기', '홈에 보이기', '원본 자료ID', '공통', '공통 순서'], when: '자료를 저장할 때' },
+    '도움말': { cols: ['파일ID', '파일 이름', '파일 크기'], when: '도움말을 저장할 때' },
+    '조사': { cols: ['설명', '결과 공개'], when: '조사를 저장할 때' }
+  };
   Object.keys(tabs).forEach(function (tab) {
     var head;
-    try { head = headOf_(tab); } catch (e) {
+    try { head = headRowOnly_(tab); } catch (e) {
       if (autoTabs[tab]) { notYet++; add('시트', tab + ' 탭', 'ok', '아직 없어요 · ' + autoTabs[tab]); return; }
       bad++;
       add('시트', tab + ' 탭', 'bad', '탭이 없어요', "전용 시트 메뉴 '온라인 교무실 → 1. 처음 설정'을 눌러 주세요");
       return;
     }
     var miss = tabs[tab].filter(function (h) { return head.indexOf(h) < 0; });
-    if (miss.length) { bad++; add('시트', tab + ' 탭', 'warn', '칸이 없어요: ' + miss.join(', '), "전용 시트 메뉴 '1. 처음 설정'을 한 번 더 눌러 주세요(있는 데이터는 그대로예요)"); }
+    var auto = autoCols[tab] ? miss.filter(function (h) { return autoCols[tab].cols.indexOf(h) >= 0; }) : [];
+    var rest = miss.filter(function (h) { return auto.indexOf(h) < 0; });
+    if (rest.length) { bad++; add('시트', tab + ' 탭', 'warn', '칸이 없어요: ' + rest.join(', '), "전용 시트 메뉴 '1. 처음 설정'을 한 번 더 눌러 주세요(있는 데이터는 그대로예요)"); }
+    else if (auto.length) {
+      add('시트', tab + ' 탭', 'ok', auto.map(function (h) { return "'" + h + "'"; }).join('·') + ' 칸은 ' + autoCols[tab].when + ' 저절로 생겨요');
+    }
   });
   if (!bad) add('시트', '탭과 칸', 'ok', '탭 ' + (Object.keys(tabs).length - notYet) + '개와 칸이 모두 있어요');
   try {
@@ -2762,6 +3069,11 @@ function adminCheck_(args) {
   // 3) 비밀번호
   add('비밀번호', '공통 비밀번호', hasPassword_('common') ? 'ok' : 'bad', hasPassword_('common') ? '정해져 있어요' : '아직 없어요', "전용 시트 메뉴 '2. 공통 비밀번호 정하기'");
   add('비밀번호', '관리자 비밀번호', hasPassword_('admin') ? 'ok' : 'bad', hasPassword_('admin') ? '정해져 있어요' : '아직 없어요', "전용 시트 메뉴 '3. 관리자 비밀번호 정하기'");
+  var lf = globalFn_('loginFails_') ? loginFails_() : { n: 0 };
+  var lfMax = typeof LOGIN_FAIL_MAX_ === 'number' ? LOGIN_FAIL_MAX_ : 20;
+  add('비밀번호', '로그인 시도', lf.n >= lfMax ? 'warn' : 'ok',
+    lf.n ? '최근 15분 동안 공통 비밀번호를 ' + lf.n + '번 틀렸어요' + (lf.n >= lfMax ? ' · 새 로그인을 잠시 막았어요(로그인된 기기는 그대로)' : '') : '최근 15분 동안 틀린 로그인이 없어요',
+    lf.n >= lfMax ? '모르는 사람이 비밀번호를 맞춰 보는 중일 수 있어요. 공통 비밀번호를 더 길게 바꾸는 것을 생각해 주세요(관리자 › 비밀번호)' : '');
 
   // 4) 매일 백업
   var trig = null;
@@ -2773,13 +3085,16 @@ function adminCheck_(args) {
   else if (!last || Date.now() - last > 2 * 86400000) add('백업', '매일 자동 백업', 'warn', '켜져 있지만 마지막 백업이 ' + lastText + '예요', "백업 폴더를 확인하고, 이상하면 '4. 매일 자동 백업 켜기'를 다시 눌러 주세요");
   else add('백업', '매일 자동 백업', 'ok', '켜져 있어요 · 마지막 백업 ' + lastText);
 
-  // 5) 속도: 서버 기억(CacheService)
+  // 5) 속도: 서버 기억(CacheService). 시트를 손으로 고친 것을 onEdit가 알아챘는지(마지막 시각)도 보여 준다
   var memoOk = false;
   try {
     var cache = memoCache_();
     if (cache) { cache.put('gy:check', '1', 60); memoOk = cache.get('gy:check') === '1'; }
   } catch (e) { memoOk = false; }
-  add('속도', '서버 기억', memoOk ? 'ok' : 'warn', memoOk ? '켜져 있어요 · 시트를 손으로 고친 내용은 늦어도 10분 뒤에 보여요' : '쓸 수 없어서 늘 시트에서 읽어요(느릴 수 있어요)',
+  var editAt = Number(PropertiesService.getScriptProperties().getProperty('SHEET_EDIT_AT') || 0);
+  var editText = editAt ? '바로 알아채요(마지막 ' + Utilities.formatDate(new Date(editAt), tz_(), 'M월 d일 HH:mm') + ')'
+    : '아직 없어요(시트에서 칸 하나를 고쳤다 되돌린 뒤 다시 점검하면, 바로 알아채는지 여기 보여요)';
+  add('속도', '서버 기억', memoOk ? 'ok' : 'warn', memoOk ? '켜져 있어요 · 시트를 손으로 고친 것: ' + editText : '쓸 수 없어서 늘 시트에서 읽어요(느릴 수 있어요)',
     memoOk ? '' : '잠시 뒤 다시 점검해 주세요. 계속 이러면 알려 주세요');
 
   // 6) 설정
@@ -2808,33 +3123,36 @@ function adminCheck_(args) {
  */
 function adminSpeed_(args, actor, ctx) {
   var t = todayYmd_();
-  var list = [
-    ['홈', 'apiHome_', {}],
-    ['일정(달력)', 'apiSchedMonth_', { year: Number(t.slice(0, 4)), month: Number(t.slice(5, 7)) }],
-    ['조사·신청', 'apiSurveyList_', {}],
-    ['자료실', 'apiLibList_', {}],
-    ['공지', 'apiNoticeList_', {}],
-    ['도움말', 'apiHelpList_', {}],
-    ['교직원', 'apiStaffDir_', {}]
+  var list = [ // [이름, 요청, 처리 함수, args]
+    ['홈', 'home', 'apiHome_', {}],
+    ['일정(달력)', 'sched.month', 'apiSchedMonth_', { year: Number(t.slice(0, 4)), month: Number(t.slice(5, 7)) }],
+    ['조사·신청', 'survey.list', 'apiSurveyList_', {}],
+    ['자료실', 'lib.list', 'apiLibList_', {}],
+    ['공지', 'notice.list', 'apiNoticeList_', {}],
+    ['도움말', 'help.list', 'apiHelpList_', {}],
+    ['교직원', 'staff.list', 'apiStaffDir_', {}]
   ];
+  var preload = globalFn_('memoPreload_'), tabsOf = globalFn_('routeTabs_');
   var once = function (fn, x, bypass) {
     SETTINGS_CACHE_ = null;
     DB_SS_ = null;
     dbReset_(); // 화면마다 처음부터(앞 화면이 읽어 둔 탭을 쓰지 않게)
+    delete ctx.manage; // 관리 권한도 요청마다 처음 따지는 것처럼
     PERF_ = newPerf_();
     MEMO_BYPASS_ = bypass;
     var t0 = Date.now();
     try {
-      fn(x[2], actor, ctx);
+      if (!bypass && preload && tabsOf) preload(tabsOf(x[1], x[3])); // 실제 요청처럼 읽을 탭을 한 번에 꺼낸다
+      fn(x[3], actor, ctx);
     } finally {
       MEMO_BYPASS_ = false;
     }
     var ms = Date.now() - t0;
     return { ms: ms, openMs: PERF_.openMs, reads: PERF_.reads, readMs: PERF_.readMs, hits: PERF_.hits, memoMs: PERF_.memoMs,
-      otherMs: Math.max(0, ms - PERF_.openMs - PERF_.readMs - PERF_.memoMs) };
+      memoCalls: PERF_.memoCalls || 0, otherMs: Math.max(0, ms - PERF_.openMs - PERF_.readMs - PERF_.memoMs) };
   };
   var items = list.map(function (x) {
-    var fn = globalFn_(x[1]);
+    var fn = globalFn_(x[2]);
     if (!fn) return { label: x[0], error: '코드 파일이 빠졌어요' };
     try {
       once(fn, x, false); // 기억이 비어 있으면 채워 둔다
@@ -2969,7 +3287,7 @@ function adminStaffImport_(args, actor) {
  * 고치기·지우기: 처음 넣은 사람, 역할이 '관리'인 분, 관리자 화면을 연 분만.
  */
 
-function fileMark_Schedule_() { return '2026-10-16c'; } // 판 표시(관리자 › 점검)
+function fileMark_Schedule_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 function schedKinds_() {
   return ['행사', '교육활동', '휴업일', '공휴일'];
@@ -3000,8 +3318,11 @@ function weekday_(s) {
   return new Date(ymdToUtc_(s)).getUTCDay();
 }
 
+var TODAY_MEMO_ = { at: 0, v: '' }; // 한 요청에서 여러 번 불러도 날짜 형식은 1초에 한 번
 function todayYmd_() {
-  return Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd');
+  var t = Date.now();
+  if (t - TODAY_MEMO_.at > 1000 || t < TODAY_MEMO_.at) TODAY_MEMO_ = { at: t, v: Utilities.formatDate(new Date(t), tz_(), 'yyyy-MM-dd') };
+  return TODAY_MEMO_.v;
 }
 
 /** 그 주 월요일 */
@@ -3050,10 +3371,15 @@ function sortEvents_(list) {
  * - 관리자 화면이 열린 기기(관리자 비밀번호)는 늘 관리
  * - 역할 '관리'는 '이름+개인 번호' 방식일 때만 관리. '이름만' 방식에서는 누구나 그 이름을 고를 수 있어서
  *   관리자 비밀번호 없이는 관리 권한을 주지 않는다(2026-10-15 교사 결정)
+ * 한 요청 안에서는 한 번만 따져 ctx.manage에 둔다. 관리자 표 확인은 스크립트 속성을 읽고 서명을 맞춰 보는 일이라
+ * 목록의 줄마다 하면 관리자 화면을 연 기기에서 홈·달력이 느려진다
  */
 function canManage_(ctx) {
-  if (ctx.tokens && ctx.tokens.admin && checkAdmin_(ctx.tokens.admin)) return true;
-  return !!(ctx.identity && ctx.identity['역할'] === '관리' && pinMode_());
+  if (ctx.manage === undefined) {
+    ctx.manage = !!(ctx.admin || (ctx.tokens && ctx.tokens.admin && checkAdmin_(ctx.tokens.admin)) ||
+      (ctx.identity && ctx.identity['역할'] === '관리' && pinMode_()));
+  }
+  return ctx.manage;
 }
 
 function canEditEvent_(e, ctx) {
@@ -3121,7 +3447,7 @@ function apiSchedMonth_(args, actor, ctx) {
     to: to,
     events: eventsBetween_(from, to, ctx),
     focus: focusOf_(sy, m),
-    monthDays: instructionalDays_(first, last),
+    monthDays: semesterIn_(sy) ? instructionalDays_(first, last) : null, // 이 달의 학년도에 학기 기간이 없으면 0일이 아니라 '없음'
     canManage: canManage_(ctx),
     depts: deptOptions_(),
     schoolYear: sy
@@ -3138,7 +3464,8 @@ function apiSchedYear_(args, actor, ctx) {
     today: todayYmd_(),
     events: eventsBetween_(r.from, r.to, ctx),
     days: semesterDays_(y),
-    canManage: canManage_(ctx)
+    canManage: canManage_(ctx),
+    depts: deptOptions_()
   };
 }
 
@@ -3150,6 +3477,10 @@ function apiHome_(args, actor, ctx) {
   var to = addDays_(mon, 6) > tomorrow ? addDays_(mon, 6) : tomorrow;
   var links = [];
   try { links = JSON.parse(setting_('기존 시트 바로가기') || '[]'); } catch (e) { links = []; }
+  // 시트에서 손으로 고친 값도 https 주소만 내보낸다(관리자 화면의 설정 저장과 같은 기준)
+  links = (Array.isArray(links) ? links : []).filter(function (l) {
+    return l && typeof l.url === 'string' && /^https:\/\//.test(l.url) && typeof l.name === 'string';
+  }).slice(0, 12).map(function (l) { return { name: l.name.slice(0, 20), url: l.url.slice(0, 500) }; });
   var m = Number(today.slice(5, 7)), y = Number(today.slice(0, 4));
   return {
     today: today,
@@ -3160,6 +3491,7 @@ function apiHome_(args, actor, ctx) {
     focus: focusOf_(m >= 3 ? y : y - 1, m),
     students: studentsOf_(m >= 3 ? y : y - 1),
     canManage: canManage_(ctx),
+    depts: deptOptions_(), // 홈에서 일정을 고칠 때 부서 목록
     todos: optional_('todoList_', [])(ctx),
     library: optional_('homeLibrary_', [])(ctx),
     notices: optional_('homeNotices_', { items: [], total: 0 })(ctx),
@@ -3198,7 +3530,7 @@ function cleanEvent_(f) {
 function cleanTarget_(t) {
   var list = Array.isArray(t) ? t : String(t || '').split(',');
   list = list.map(function (x) { return String(x).trim(); }).filter(Boolean);
-  if (list.indexOf('전체') >= 0) return '전체';
+  if (list.indexOf('전체') >= 0) return '전체' + (list.indexOf('교직원') >= 0 ? ',교직원' : ''); // 전체 + 교직원을 함께 고르면 둘 다
   var ok = schedTargets_();
   list = ok.filter(function (x) { return list.indexOf(x) >= 0; });
   var grades = list.filter(function (x) { return x !== '교직원'; });
@@ -3399,6 +3731,10 @@ function apiStudentsSave_(args, actor) {
   ensureCols_('학생수'); // 먼저 만든 탭에는 '반별' 칸이 없을 수 있다
   withLock_(function () {
     var cur = studentsOf_(sy);
+    // 창을 연 뒤 다른 분이 먼저 저장했으면 덮어쓰지 않는다(화면은 학년 전체를 함께 보낸다). base가 없는 예전 화면은 그대로
+    if (args.base !== undefined && String(args.base || '') !== String(cur.at || '')) {
+      throw userError_('그사이 다른 선생님이 학생 수를 먼저 고쳤어요. 창을 닫았다가 다시 열어, 바뀐 숫자에서 고쳐 주세요.', 'CONFLICT');
+    }
     if (cur.id) {
       updateRow_('학생수', cur.id, patch, actor, sy + '학년도 학생 수 고침');
     } else {
@@ -3428,6 +3764,12 @@ function instructionalDays_(from, to) {
     if (off[d]) removed++;
   }
   return { weekdays: weekdays, off: removed, days: weekdays - removed };
+}
+
+/** 그 학년도(3월~다음 해 2월)에 걸친 학기 기간이 설정에 있는지 */
+function semesterIn_(schoolYear) {
+  var r = schoolYearRange_(schoolYear);
+  return semesters_().some(function (s) { return s.to >= r.from && s.from <= r.to; });
 }
 
 /** 설정의 학기 기간(들어 있는 것만) */
@@ -3482,7 +3824,10 @@ function semesterDays_(year, extra) {
 
 function adminTrashList_() {
   var depts = categoryNames_('부서'), names = staffNames_();
-  return sortEvents_(readRows_('일정').filter(function (e) { return e['삭제 여부']; })).reverse().slice(0, 200).map(function (e) {
+  // 최근에 지운 것부터(올리기 되돌리기로 한꺼번에 숨긴 것이 많아도 방금 지운 것이 보이게)
+  var del = sortEvents_(readRows_('일정').filter(function (e) { return e['삭제 여부']; })).reverse();
+  del.sort(function (a, b) { var x = String(a['수정 시각'] || ''), y = String(b['수정 시각'] || ''); return x < y ? 1 : x > y ? -1 : 0; });
+  return del.slice(0, 200).map(function (e) {
     var v = eventView_(e, { identity: null, tokens: {} }, depts, names);
     v.deletedBy = names[e['수정자ID']] || '';
     v.deletedAt = e['수정 시각'];
@@ -3551,6 +3896,11 @@ function requireManage_(ctx) {
   if (!canManage_(ctx)) throw userError_('학사일정 올리기는 연구부장·부담당만 할 수 있어요.', 'FORBIDDEN');
 }
 
+/** 이름을 고르지 않고 관리자 화면에서 한 일은 기록에 '관리자(본인 확인 전)'으로 남긴다 */
+function manageActor_(actor) {
+  return actor && actor.name ? actor : { id: '', name: '관리자(본인 확인 전)' };
+}
+
 /** 머리글 이름 → 칸 */
 function uploadHeads_() {
   return {
@@ -3609,25 +3959,45 @@ function gridToRows_(grid) {
  * 읽는 모양: 2026-03-02, 2026.3.2., 2026/3/2, 2026년 3월 2일, 3/2, 3.2.(월), 3월 2일, 엑셀 날짜 숫자(46083)
  * 돌려주는 값: { ymd } 또는 { err }
  */
+var DAY_NAMES_ = ['일', '월', '화', '수', '목', '금', '토'];
+
+/**
+ * 날짜 칸 읽기 → { ymd, guessed(연도를 학년도로 채움), shifted(요일에 맞춰 다음 해로), warn } 또는 { err }
+ * '3. 2.(화)'처럼 연도가 없으면 학년도 설정으로 채운다. 적힌 요일이 맞지 않으면 다음 해(새 학년도 일정을 미리 올릴 때)를 맞춰 보고,
+ * 그래도 다르면 확인 필요로 알린다
+ */
 function parseDay_(v, schoolYear) {
-  var s = String(v || '').trim().replace(/\([^)]*\)/g, '').replace(/\s*(월|화|수|목|금|토|일)요일\s*$/, '').trim().replace(/\.$/, '');
+  var raw = String(v || '').trim();
+  var wm = /\(\s*(월|화|수|목|금|토|일)(?:요일)?\s*\)|(월|화|수|목|금|토|일)요일\s*$/.exec(raw);
+  var wday = wm ? DAY_NAMES_.indexOf(wm[1] || wm[2]) : -1;
+  var s = raw.replace(/\([^)]*\)/g, '').replace(/\s*(월|화|수|목|금|토|일)요일\s*$/, '').trim().replace(/\.$/, '');
   if (!s) return { err: '' };
-  var y, m, d, hit;
+  var y, m, d, hit, guessed = false;
   if (/^\d{5}(\.\d+)?$/.test(s)) {
     var t = Date.UTC(1899, 11, 30) + Math.floor(Number(s)) * 86400000;
     return { ymd: utcToYmd_(t) };
   }
   if ((hit = /^(\d{4})\s*[-.\/년]\s*(\d{1,2})\s*[-.\/월]\s*(\d{1,2})\s*일?$/.exec(s))) { y = +hit[1]; m = +hit[2]; d = +hit[3]; }
-  else if ((hit = /^(\d{1,2})\s*[-.\/월]\s*(\d{1,2})\s*일?$/.exec(s))) { m = +hit[1]; d = +hit[2]; y = m >= 3 ? schoolYear : schoolYear + 1; }
+  else if ((hit = /^(\d{1,2})\s*[-.\/월]\s*(\d{1,2})\s*일?$/.exec(s))) { m = +hit[1]; d = +hit[2]; y = m >= 3 ? schoolYear : schoolYear + 1; guessed = true; }
   else return { err: '날짜를 읽지 못했어요' };
-  var ymd = y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
-  if (!isDate_(ymd)) return { err: '없는 날짜예요(' + m + '월 ' + d + '일)' };
-  return { ymd: ymd };
+  var fmt = function (yy) { return yy + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2); };
+  var ymd = fmt(y);
+  if (!isDate_(ymd) && !(guessed && wday >= 0 && isDate_(fmt(y + 1)))) return { err: '없는 날짜예요(' + m + '월 ' + d + '일)' };
+  if (wday >= 0 && (!isDate_(ymd) || weekday_(ymd) !== wday)) {
+    if (guessed && isDate_(fmt(y + 1)) && weekday_(fmt(y + 1)) === wday) {
+      return { ymd: fmt(y + 1), guessed: true, shifted: true,
+        warn: '적힌 요일(' + DAY_NAMES_[wday] + ')에 맞춰 ' + (y + 1) + '년으로 읽었어요. 다음 학년도 일정이면 학년도 설정도 확인해 주세요' };
+    }
+    if (isDate_(ymd)) return { ymd: ymd, guessed: guessed, warn: '요일이 맞지 않아요: ' + y + '년 ' + m + '월 ' + d + '일은 ' + DAY_NAMES_[weekday_(ymd)] + '요일이에요' };
+    return { err: '없는 날짜예요(' + m + '월 ' + d + '일)' };
+  }
+  return { ymd: ymd, guessed: guessed };
 }
 
 /** '3·4학년', '3~6', '전교', '교직원' → '3,4' 같은 저장 글자 */
 function parseTargetText_(v) {
   var s = String(v || '').trim();
+  if (/^(전|모든)?(교직원|교원|교사)(전체|모두)?$/.test(s.replace(/[\s·,()]/g, ''))) return '교직원'; // 전교직원·전 교직원·교직원 전체 = 교직원만
   if (!s || /전체|전교|전학년/.test(s)) return /교직원|교원|교사/.test(s) ? '전체,교직원' : '전체';
   var list = [];
   s.replace(/([1-6])\s*[~\-–]\s*([1-6])/g, function (all, a, b) {
@@ -3652,10 +4022,30 @@ function titleKey_(s) {
   return String(s || '').replace(/\s+/g, '').toLowerCase();
 }
 
-/** 마지막으로 올린 묶음(되돌리기용) */
+/** 마지막으로 올린 묶음(되돌리기용). 바꾼(숨긴) 행사 ID 목록은 길 수 있어 LAST_UPLOAD_R1, R2…에 나눠 둔다(속성 한 칸 9KB 한도) */
 function lastUpload_() {
-  var s = PropertiesService.getScriptProperties().getProperty('LAST_UPLOAD');
-  return s ? safeParse_(s, null) : null;
+  var p = PropertiesService.getScriptProperties();
+  var s = p.getProperty('LAST_UPLOAD');
+  var info = s ? safeParse_(s, null) : null;
+  if (info && info.parts) {
+    var txt = '';
+    for (var i = 1; i <= info.parts; i++) txt += p.getProperty('LAST_UPLOAD_R' + i) || '';
+    info.replaced = safeParse_(txt, []);
+  }
+  return info;
+}
+
+function saveLastUpload_(info) {
+  var p = PropertiesService.getScriptProperties();
+  var old = safeParse_(p.getProperty('LAST_UPLOAD') || '', null);
+  var rep = JSON.stringify(info.replaced || []), parts = [];
+  for (var i = 0; i < rep.length; i += 8000) parts.push(rep.slice(i, i + 8000));
+  parts.forEach(function (x, j) { p.setProperty('LAST_UPLOAD_R' + (j + 1), x); });
+  for (var k = parts.length + 1; k <= ((old && old.parts) || 0); k++) p.deleteProperty('LAST_UPLOAD_R' + k);
+  var head = {};
+  Object.keys(info).forEach(function (key) { if (key !== 'replaced') head[key] = info[key]; });
+  head.parts = parts.length;
+  p.setProperty('LAST_UPLOAD', JSON.stringify(head));
 }
 
 /**
@@ -3678,8 +4068,11 @@ function uploadCheck_(rows) {
     var title = String(raw.title || '').trim();
     var a = parseDay_(raw.start, sy);
     var b = raw.end ? parseDay_(raw.end, sy) : { ymd: '' };
+    if (a.shifted && b.ymd && b.guessed && !b.shifted) b.ymd = (Number(b.ymd.slice(0, 4)) + 1) + b.ymd.slice(4); // 끝나는 날도 같은 해로
     if (!a.ymd) fail(a.err || '날짜가 비어 있어요');
     if (raw.end && !b.ymd) fail('끝나는 날: ' + (b.err || '읽지 못했어요'));
+    if (a.warn) warn(a.warn);
+    if (b.warn && !a.shifted) warn('끝나는 날: ' + b.warn);
     if (!title) fail('행사명이 비어 있어요');
     var kind = parseKind_(raw.kind);
     if (kind === '') { kind = '행사'; warn("구분이 비어 있어서 '행사'로 넣어요"); }
@@ -3776,6 +4169,7 @@ function apiUploadCheck_(args, actor, ctx) {
 
 function apiUploadSave_(args, actor, ctx) {
   requireManage_(ctx);
+  actor = manageActor_(actor);
   var rows = args.rows || [];
   if (rows.length > 1000) throw userError_('한 번에 1000줄까지 올릴 수 있어요. 나눠서 올려 주세요.');
   var mode = args.mode === 'replace' ? 'replace' : 'skip';
@@ -3788,7 +4182,7 @@ function apiUploadSave_(args, actor, ctx) {
     if (plan.replace.length) updateRowsSame_('일정', plan.replace, { '삭제 여부': '삭제' }, actor, '학사일정 올리기(' + batch + '): 전에 올린 같은 행사 ' + plan.replace.length + '개를 바꿈', '삭제');
     insertRows_('일정', recs, actor, '학사일정 올리기(' + batch + '): 행사 ' + recs.length + '개');
     var info = { batch: batch, count: recs.length, replaced: plan.replace, at: nowText_(), by: actor.name || '' };
-    PropertiesService.getScriptProperties().setProperty('LAST_UPLOAD', JSON.stringify(info));
+    saveLastUpload_(info);
     return { batch: batch, added: recs.length, replaced: plan.replace.length, skipped: plan.skipped, last: info };
   });
 }
@@ -3796,6 +4190,7 @@ function apiUploadSave_(args, actor, ctx) {
 /** 방금(마지막으로) 올린 묶음만 되돌린다: 올린 행사는 숨김 삭제, 바꿨던 전 행사는 되살림 */
 function apiUploadUndo_(args, actor, ctx) {
   requireManage_(ctx);
+  actor = manageActor_(actor);
   return withLock_(function () {
     var last = lastUpload_();
     if (!last || last.batch !== args.batch || last.undone) throw userError_('방금 올린 것만 되돌릴 수 있어요. 화면을 새로 고쳐 주세요.');
@@ -3803,7 +4198,7 @@ function apiUploadUndo_(args, actor, ctx) {
     var removed = updateRowsSame_('일정', ids, { '삭제 여부': '삭제' }, actor, '학사일정 올리기 되돌림(' + last.batch + '): ' + ids.length + '개 숨김', '삭제');
     var restored = updateRowsSame_('일정', last.replaced || [], { '삭제 여부': '' }, actor, '학사일정 올리기 되돌림(' + last.batch + '): 바꿨던 행사 되살림', '되살리기');
     last.undone = true;
-    PropertiesService.getScriptProperties().setProperty('LAST_UPLOAD', JSON.stringify(last));
+    saveLastUpload_(last);
     return { removed: removed, restored: restored };
   });
 }
@@ -3825,7 +4220,7 @@ function apiUploadInfo_(args, actor, ctx) {
  * - 결과(누가 뭐라고 답했는지): 만든 사람·관리자, 그리고 '결과 공개'를 켠 조사는 대상 교직원 모두
  */
 
-function fileMark_Survey_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+function fileMark_Survey_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 function qTypes_() {
   return { one: '하나 고르기', many: '여러 개 고르기', short: '짧은 글', long: '긴 글', number: '숫자', date: '날짜' };
@@ -3837,8 +4232,11 @@ function safeParse_(s, fallback) {
   try { var v = JSON.parse(s); return v === null || v === undefined ? fallback : v; } catch (e) { return fallback; }
 }
 
+var NOW_MIN_MEMO_ = { at: 0, v: '' }; // 조사마다 날짜 형식을 부르지 않게 1초 동안 같은 값을 쓴다
 function nowMin_() {
-  return Utilities.formatDate(new Date(), tz_(), 'yyyy-MM-dd HH:mm');
+  var t = Date.now();
+  if (t - NOW_MIN_MEMO_.at > 1000 || t < NOW_MIN_MEMO_.at) NOW_MIN_MEMO_ = { at: t, v: Utilities.formatDate(new Date(t), tz_(), 'yyyy-MM-dd HH:mm') };
+  return NOW_MIN_MEMO_.v;
 }
 
 /** 끝났는지: 손으로 끝냈거나 마감이 지났으면 */
@@ -4017,7 +4415,9 @@ function apiSurveyGet_(args, actor, ctx) {
       return { name: st['이름'] || '(알 수 없음)', group: st['소속'] || '', answers: safeParse_(r['답'], {}), note: r['하고 싶은 말'], at: r['고친 시각'] || r['낸 시각'], edited: !!r['고친 시각'] };
     }).sort(function (a, b) { return a.at < b.at ? -1 : 1; });
     out.summary = summarize_(questions, out.responses);
-    out.remindedCount = owner ? liveRows_('알림').filter(function (r) { return r['조사ID'] === s['조사ID']; }).length : 0;
+    var presses = {}; // 알림 줄은 사람마다 하나씩이라, 누른 횟수는 알린 시각으로 센다
+    if (owner) liveRows_('알림').forEach(function (r) { if (r['조사ID'] === s['조사ID']) presses[r['알린 시각']] = 1; });
+    out.remindedCount = Object.keys(presses).length;
   }
   if (owner) out.depts = deptOptions_();
   return out;
@@ -4113,6 +4513,9 @@ function apiSurveySave_(args, actor, ctx) {
   var questions = cleanQuestions_(f.questions);
   var target = cleanTargetJson_(f.target);
   var messenger = cleanText_(f.messenger, 500, '메신저 문구');
+  // 자동 문구는 저장하지 않고 읽을 때 만든다(제목·마감을 고치면 문구도 따라 바뀌게). 직접 고쳐 쓴 문구만 저장한다
+  var plain = function (t) { return String(t || '').replace(/\s+/g, ' ').trim(); };
+  if (plain(messenger) === plain(defaultMessenger_(title, depts[deptId] || '', deadline))) messenger = '';
   var rec = {
     '제목': title,
     '설명': cleanText_(f.description, 1000, '설명'),
@@ -4120,7 +4523,7 @@ function apiSurveySave_(args, actor, ctx) {
     '대상': JSON.stringify(target),
     '마감 일시': deadline,
     '질문': JSON.stringify(questions),
-    '메신저 문구': messenger || defaultMessenger_(title, depts[deptId] || '', deadline),
+    '메신저 문구': messenger,
     '결과 공개': f.showResults ? '예' : ''
   };
   ensureCols_('조사');
@@ -4131,8 +4534,9 @@ function apiSurveySave_(args, actor, ctx) {
     if (liveResponses_(s['조사ID']).length && !sameQuestions_(safeParse_(s['질문'], []), questions)) {
       throw userError_('이미 낸 답이 있어서 질문은 고칠 수 없어요. 제목·마감·대상·안내 문구만 고칠 수 있어요.', 'LOCKED');
     }
-    // 마감을 늦추면 다시 열린다
-    if (deadline > nowMin_() && s['상태'] === '끝남' && f.reopen) rec['상태'] = '진행 중';
+    if (plain(messenger) === plain(defaultMessenger_(s['제목'], depts[s['부서ID']] || '', s['마감 일시']))) rec['메신저 문구'] = ''; // 예전 자동 문구 그대로면 자동으로
+    // '지금 끝내기'로 끝낸 조사는 마감을 전보다 늦췄을 때만 다시 연다(글만 고쳐 저장하면 끝난 그대로)
+    if (s['상태'] === '끝남' && f.reopen && deadline > nowMin_() && deadline > String(s['마감 일시'] || '')) rec['상태'] = '진행 중';
     updateRow_('조사', s['조사ID'], rec, actor, '조사 고침: ' + title);
     return { id: s['조사ID'] };
   }
@@ -4256,7 +4660,7 @@ function apiSurveyCsv_(args, actor, ctx) {
   if (!d.canSeeResults) throw userError_('이 조사의 결과는 만든 분만 볼 수 있어요.', 'FORBIDDEN');
   var cell = function (v) {
     var t = Array.isArray(v) ? v.join(', ') : String(v === undefined || v === null ? '' : v);
-    if (/^[=+\-@]/.test(t)) t = "'" + t; // 엑셀 수식으로 읽히지 않게
+    if (/^[=+\-@\t\r]/.test(t) && !/^-?\d+(\.\d+)?$/.test(t)) t = "'" + t; // 엑셀 수식으로 읽히지 않게(음수 같은 숫자는 그대로)
     return '"' + t.replace(/"/g, '""') + '"';
   };
   var hasNote = d.responses.some(function (r) { return r.note; });
@@ -4272,7 +4676,9 @@ function apiSurveyCsv_(args, actor, ctx) {
 
 function adminSurveyTrash_() {
   var names = staffNames_();
-  return readRows_('조사').filter(function (s) { return s['삭제 여부']; }).reverse().slice(0, 100).map(function (s) {
+  var del = readRows_('조사').filter(function (s) { return s['삭제 여부']; }).reverse();
+  del.sort(function (a, b) { var x = String(a['수정 시각'] || ''), y = String(b['수정 시각'] || ''); return x < y ? 1 : x > y ? -1 : 0; }); // 최근에 지운 것부터
+  return del.slice(0, 100).map(function (s) {
     return { id: s['조사ID'], title: s['제목'], deadline: s['마감 일시'], by: names[s['입력자ID']] || '', deletedBy: names[s['수정자ID']] || '', deletedAt: s['수정 시각'] };
   });
 }
@@ -4337,7 +4743,7 @@ function seedTestSurveys_() {
  * - 파일은 지우지 않는다. 자료를 지우거나 파일을 바꿔도 드라이브 파일은 그대로 남고, 기록 탭에 파일ID가 남는다.
  */
 
-function fileMark_Library_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+function fileMark_Library_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 도구
 
@@ -4580,10 +4986,15 @@ function apiLibUnarchive_(args, actor, ctx) {
   var cur = libYear_();
   var c = libCache_();
   if (!libView_(row, ctx, c).archived) throw userError_('이미 지금 학년도 자료예요.');
-  // 지난 학년도 줄은 그대로 두고, 지금 학년도로 옮겨 적는다(새 학년도 넘기기와 같은 방식)
-  var copy = libCopyObj_(row, cur);
-  var added = insertRows_('자료', [copy], actor, '보관함에서 꺼냄: ' + libSummary_(row) + ' → ' + cur, true);
-  return libView_(findRow_('자료', added[0]['자료ID']), ctx, libCache_());
+  // 지난 학년도 줄은 그대로 두고, 지금 학년도로 옮겨 적는다(새 학년도 넘기기와 같은 방식).
+  // 이미 꺼낸 것이 있으면(두 번 누르거나 두 분이 함께 누름) 새로 만들지 않고 그것을 돌려준다
+  var id = withLock_(function () {
+    var dup = liveRows_('자료').filter(function (r) { return r['원본 자료ID'] === row['자료ID'] && String(r['학년도']) === String(cur) && r['보관 여부'] !== '보관'; })[0];
+    if (dup) return dup['자료ID'];
+    var added = insertRows_('자료', [libCopyObj_(row, cur)], actor, '보관함에서 꺼냄: ' + libSummary_(row) + ' → ' + cur, true);
+    return added[0]['자료ID'];
+  });
+  return libView_(findRow_('자료', id), ctx, libCache_());
 }
 
 function libCopyObj_(row, year) {
@@ -5012,15 +5423,21 @@ function seedTestNotices_() {
  * 메뉴 함수는 시트 안에서만 돌아간다(웹앱에서 부르면 requireSheetUi_()가 막는다).
  */
 
-function fileMark_Setup_() { return '2026-10-16d'; } // 판 표시(관리자 › 점검)
+function fileMark_Setup_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 /**
- * 시트를 손으로 고치면 웹앱이 서버에 기억해 둔 내용을 모두 버리게 한다(다음 요청은 시트에서 새로 읽는다).
- * 단순 트리거라 이 환경에서 안 되면(확인 필요) 기억은 10분 뒤에 저절로 사라진다.
+ * 시트를 손으로 고치면 고친 탭의 서버 기억을 버리게 한다(다음 요청은 그 탭만 시트에서 새로 읽는다).
+ * 단순 트리거라 이 환경에서 되는지는 관리자 › 점검 '서버 기억'에 보인다(손으로 고친 것을 알아챈 시각, 스크립트 속성 SHEET_EDIT_AT).
+ * 줄 지우기·정렬처럼 onEdit가 오지 않는 바꿈은, 화면이 뒤에서 보내는 요청이 10분 넘은 기억을 시트와 다시 맞춘다.
  * 이름이 '_'로 끝나지 않아 웹앱에서도 부를 수 있지만, 기억을 버리기만 하므로 괜찮다
  */
 function onEdit(e) {
-  try { CacheService.getScriptCache().put('gy:ep', Utilities.getUuid().replace(/-/g, '').slice(0, 10), 21600); } catch (err) { /* 무시 */ }
+  try {
+    var tab = '';
+    try { tab = e && e.range ? e.range.getSheet().getName() : ''; } catch (e1) { tab = ''; }
+    CacheService.getScriptCache().put(tab ? 'gy:v:' + tab : 'gy:ep', Utilities.getUuid().replace(/-/g, '').slice(0, 10), 21600);
+  } catch (err) { /* 무시 */ }
+  try { PropertiesService.getScriptProperties().setProperty('SHEET_EDIT_AT', String(Date.now())); } catch (err2) { /* 점검 화면 표시용이라 못 남겨도 괜찮다 */ }
 }
 
 function onOpen() {
@@ -5060,8 +5477,17 @@ function menuSetup() {
     '다음 차례: 메뉴 "2. 공통 비밀번호 정하기"', ui.ButtonSet.OK);
 }
 
-/** 여러 번 눌러도 괜찮다. 있는 탭·칸·값은 그대로 두고 없는 것만 더한다. */
+/** 여러 번 눌러도 괜찮다. 있는 탭·칸·값은 그대로 두고 없는 것만 더한다. 서버 기억을 쓰지 않고 늘 시트에서 읽는다 */
 function setupAll_() {
+  MEMO_BYPASS_ = true; // 시트에서 손으로 줄을 지운 직후여도 옛 기억으로 판단하지 않게
+  try {
+    return setupAllNow_();
+  } finally {
+    MEMO_BYPASS_ = false;
+  }
+}
+
+function setupAllNow_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var p = PropertiesService.getScriptProperties();
   p.setProperty('SHEET_ID', ss.getId());
@@ -5085,6 +5511,7 @@ function setupAll_() {
     var missing = head.filter(function (h) { return cur.indexOf(h) < 0; });
     if (missing.length) {
       var start = curUsed.length ? cur.length + 1 : 1;
+      growCols_(sh, start + missing.length - 1);
       sh.getRange(1, start, 1, missing.length).setValues([missing]);
       if (curUsed.length) extended.push(name);
     }
@@ -5098,12 +5525,13 @@ function setupAll_() {
   var sheet = sheet_('설정');
   var notes = {};
   settingDefs_().forEach(function (d) { notes[d.key] = d.note || d.label; });
+  var noteCol = headOf_('설정').indexOf('설명') + 1; // 칸 위치는 머리글 이름으로(누가 칸을 끼워 넣어도)
   readRows_('설정').forEach(function (r) {
     have[r['키']] = true;
-    if (notes[r['키']] !== undefined && r['설명'] !== notes[r['키']]) sheet.getRange(r._row, 3).setValue(cellWrite_(notes[r['키']]));
+    if (noteCol > 0 && notes[r['키']] !== undefined && r['설명'] !== notes[r['키']]) sheet.getRange(r._row, noteCol).setValue(cellWrite_(notes[r['키']]));
   });
   settingDefs_().forEach(function (d) {
-    if (!have[d.key]) sheet.appendRow([d.key, d.def, d.note || d.label].map(cellWrite_));
+    if (!have[d.key]) sheet.appendRow(rowByHead_('설정', { '키': d.key, '값': d.def, '설명': d.note || d.label }));
   });
   SETTINGS_CACHE_ = null;
   dbReset_();
@@ -5365,7 +5793,7 @@ function setPinForTest_(row, pin) {
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-16d'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-10-16e'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -5428,15 +5856,23 @@ function setPinForTest_(row, pin) {
   /**
    * then: [[읽기 이름, args], …] 를 함께 보내면 서버가 저장한 다음 그 화면들을 같은 요청으로 돌려준다(왕복 한 번).
    * 받은 것은 화면 기억에 넣어 두므로, 저장 뒤 평소처럼 화면을 다시 불러오면 기다리지 않고 바로 그려진다.
+   * bg: 뒤에서 보내는 요청(미리 받기·뒤에서 새로 받기). 기다리는 사람이 없으니 서버가 오래된 기억을 시트와 다시 맞춘다
    */
-  function server(action, args, then) {
+  var pendingWrites = 0; // 저장 같은 요청이 서버에 가 있는 동안에는 창을 닫지 않게(실패하면 쓰던 것과 안내가 사라지므로)
+  function server(action, args, then, bg) {
     var t0 = Date.now();
+    var writing = !READS[action];
+    if (writing) pendingWrites++;
+    var settled = false;
+    var settle = function () { if (!settled) { settled = true; if (writing) pendingWrites = Math.max(0, pendingWrites - 1); } };
     return new Promise(function (resolve, reject) {
       var payload = { action: action, args: args || {}, tokens: tokens() };
       if (then) payload.then = then;
+      if (bg) payload.bg = 1;
       var req = JSON.stringify(payload);
       function done(text) {
-        recentCalls.unshift({ action: action, ms: Date.now() - t0 });
+        settle();
+        recentCalls.unshift({ action: action, ms: Date.now() - t0, bg: !!bg });
         recentCalls.length = Math.min(recentCalls.length, 15);
         var r;
         try { r = JSON.parse(text); } catch (e) { r = { ok: false, error: '서버 답을 읽지 못했어요. 다시 해 주세요.', code: 'ERROR' }; }
@@ -5456,9 +5892,15 @@ function setPinForTest_(row, pin) {
       } else {
         google.script.run
           .withSuccessHandler(done)
-          .withFailureHandler(function () {
-            var err = new Error('서버에 닿지 못했어요. 인터넷 연결을 확인하고 다시 해 주세요.');
-            err.code = 'NET';
+          .withFailureHandler(function (e) {
+            settle();
+            // 연결이 끊긴 것과 서버가 처리하다 멈춘 것(시간 초과·권한 등)을 나눠 알린다
+            var msg = e && e.message ? String(e.message) : '';
+            var net = !msg || /NetworkError|HTTP 0|Failed to fetch|network/i.test(msg);
+            var err = new Error(net ? '서버에 닿지 못했어요. 인터넷 연결을 확인하고 다시 해 주세요.'
+              : '서버에서 처리하다 멈췄어요. 잠깐 뒤에 다시 해 주세요. 계속 안 되면 연구부장·부담당에게 알려 주세요.');
+            err.code = net ? 'NET' : 'ERROR';
+            err.detail = msg ? ((e.name ? e.name + ': ' : '') + msg).slice(0, 300) : '';
             reject(err);
           })
           .api(req);
@@ -5471,16 +5913,31 @@ function setPinForTest_(row, pin) {
     if (err.code === 'LOGIN') {
       stDel('gy.login'); stDel('gy.identity'); stDel('gy.admin');
       S.me = null; S.admin = false;
+      forgetScreens();
       setTimeout(function () { showLogin('다시 로그인해 주세요.'); }, 0);
     } else if (err.code === 'ADMIN') {
       stDel('gy.admin');
       S.admin = false;
+      forgetScreens();
       setTimeout(renderApp, 0);
     } else if (err.code === 'IDENTITY') {
       stDel('gy.identity');
       S.me = null;
+      forgetScreens();
       setTimeout(function () { showIdentity(); }, 0);
     }
+  }
+
+  /**
+   * 누구로 보는지(로그인·이름·관리자 화면)가 바뀌면 화면 기억과 들고 있던 화면 내용을 모두 버린다
+   * (그 권한으로만 보이던 조사 결과 같은 것이 남지 않게)
+   */
+  function forgetScreens() {
+    memoClear();
+    S.home = null; S.search = null;
+    S.sched.data = null; S.sched.yearData = null; S.sched.form = null;
+    S.survey.list = null; S.survey.detail = null; S.survey.showResults = false; S.survey.draft = null;
+    S.lib.data = null; S.dir.data = null; S.help.data = null; S.notice.data = null;
   }
 
   // ------------------------------------------------------------ 화면 기억(속도)
@@ -5503,6 +5960,7 @@ function setPinForTest_(row, pin) {
       (a.tagName === 'INPUT' && !/^(checkbox|radio|button|submit)$/.test(a.type))));
   }
   function flushPending() {
+    if (typeof reshape === 'function') reshape();
     if (!pendingDraw || editingNow()) return;
     var f = pendingDraw;
     pendingDraw = null;
@@ -5519,27 +5977,33 @@ function setPinForTest_(row, pin) {
    * 새 내용이 다르면 다시 draw(그사이 화면을 옮겼거나 쓰던 것이 있으면 그리지 않음, 창이 열려 있으면 닫은 뒤에).
    * 기억이 없으면 받아서 draw, 안 되면 fail(e).
    */
+  var paintN = {}; // 키마다 그린 횟수(같은 화면을 두 요청이 받아 와도 두 번째 답이 쓰던 것을 덮지 않게)
   function loadMemo(action, args, draw, fail) {
     var key = memoKey(action, args), m = MEMO[key], seq = navSeq;
-    if (m) { screenEdited = false; draw(m.data, true); }
+    var paint = function (d, fromMemo) { paintN[key] = (paintN[key] || 0) + 1; screenEdited = false; draw(d, fromMemo); };
+    if (m) paint(m.data, true);
+    var p0 = paintN[key] || 0;
     if (m && Date.now() - m.at < MEMO_FRESH) return;
     if (m) refreshing(true);
     var done = function () { if (m) refreshing(false); };
     var gen = memoGen;
-    server(action, args).then(function (d) {
+    server(action, args, null, !!m).then(function (d) {
       done();
-      if (gen !== memoGen) return; // 그사이 저장해서 기억을 비웠으면 이 답은 옛 내용(저장 뒤 화면이 새로 그린다)
-      var json = JSON.stringify(d);
-      var changed = !m || m.json !== json;
+      if (gen !== memoGen) { // 그사이 저장해서 기억을 비웠으면 이 답은 옛 내용
+        if (!m && seq === navSeq && (paintN[key] || 0) === p0) loadMemo(action, args, draw, fail); // 아직 아무것도 못 그렸으면 새로 받는다('불러오는 중'에 멈추지 않게)
+        return;
+      }
+      var json = JSON.stringify(d), prev = MEMO[key];
+      var changed = !prev || prev.json !== json;
       MEMO[key] = { data: d, json: json, at: Date.now() };
-      if (seq !== navSeq || !changed) return;
-      if (!m) { screenEdited = false; draw(d, false); return; }
-      if (screenEdited) return; // 쓰던 것이 있으면 그대로(다음에 열 때 새 내용으로)
-      var redraw = function () { if (seq === navSeq && !screenEdited) draw(d, false); };
+      if (seq !== navSeq) return;
+      if (!m && (paintN[key] || 0) === p0) { paint(d, false); return; } // 처음 그리기
+      if (!changed || screenEdited) return; // 같거나, 쓰던 것이 있으면 그대로(다음에 열 때 새 내용으로)
+      var redraw = function () { if (seq === navSeq && !screenEdited) { paintN[key] = (paintN[key] || 0) + 1; draw(d, false); } };
       if (editingNow()) pendingDraw = redraw; else redraw();
     }, function (e) {
       done();
-      if (!m && seq === navSeq && fail) fail(e);
+      if (!m && seq === navSeq && (paintN[key] || 0) === p0 && fail) fail(e);
     });
   }
 
@@ -5547,9 +6011,23 @@ function setPinForTest_(row, pin) {
   // 화면을 그린 뒤·저장한 뒤, 자주 여는 화면을 뒤에서 한 번에(batch) 받아 화면 기억에 넣는다 → 처음 누르는 메뉴도 바로 보인다
   var prefetchBusy = false, prefetchAgain = false;
   function prefetchList() {
-    var t = localToday();
-    return [['home', {}], ['sched.month', { year: +t.slice(0, 4), month: +t.slice(5, 7) }], ['survey.list', {}], ['lib.list', {}],
-      ['notice.list', {}], ['help.list', {}], ['staff.list', {}]].filter(function (x) { return !MEMO[memoKey(x[0], x[1])]; });
+    var t = localToday(), sc = S.sched;
+    var list = [['home', {}], ['sched.month', { year: +t.slice(0, 4), month: +t.slice(5, 7) }]];
+    if (S.screen === 'schedule' && sc.view !== 'year' && sc.y) {
+      // 달력·월별 계획을 보는 중이면 지난달·다음 달도 받아 둔다(달을 넘기면 바로 보이게)
+      [-1, 1].forEach(function (k) {
+        var d = new Date(Date.UTC(sc.y, sc.m - 1 + k, 1));
+        list.push(['sched.month', { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 }]);
+      });
+    }
+    list = list.concat([['survey.list', {}], ['lib.list', {}], ['notice.list', {}], ['help.list', {}], ['staff.list', {}]]);
+    var seen = {};
+    return list.filter(function (x) {
+      var k = memoKey(x[0], x[1]);
+      if (MEMO[k] || seen[k]) return false;
+      seen[k] = 1;
+      return true;
+    }).slice(0, 8); // 서버가 한 번에 8개까지 받는다
   }
   function prefetchScreens() {
     if (!qs('.app') || !stGet('gy.login')) return; // 앱 화면이 열려 있을 때만
@@ -5558,7 +6036,7 @@ function setPinForTest_(row, pin) {
     if (!reads.length) return;
     prefetchBusy = true;
     var gen = memoGen;
-    server('batch', { reads: reads }).then(function (res) {
+    server('batch', { reads: reads }, null, true).then(function (res) {
       if (gen !== memoGen) return; // 그사이 저장했으면 옛 내용이라 버린다(저장 뒤 다시 받는다)
       (res || []).forEach(function (x, i) {
         if (x && !MEMO[memoKey(reads[i][0], reads[i][1])]) memoPut(reads[i][0], reads[i][1], x.data);
@@ -5913,7 +6391,7 @@ function setPinForTest_(row, pin) {
         stDel('gy.skipIdentity');
         S.me = r.me;
         S.todoCount = 0;
-        if (S.survey) S.survey.list = null;
+        forgetScreens(); // 고른 이름으로 다시 받는다
         renderApp();
         toast(r.me.name + ' 선생님, 본인 확인이 됐어요');
         server('session').then(function (s2) { setTodoCount(s2.todoCount || 0); }).catch(function () {});
@@ -6062,7 +6540,11 @@ function setPinForTest_(row, pin) {
     return m ? m[1] : '';
   }
   function isPhone() { return window.matchMedia('(max-width: 899px)').matches; }
-  function isWide() { return window.innerWidth >= 1200; }
+  function isWide() { return window.innerWidth / zoomFactor() >= 1200; } // 화면 크기를 키우면 그만큼 좁은 화면처럼
+  function zoomFactor() {
+    var z = parseFloat(getComputedStyle(root).getPropertyValue('--gy-zoom'));
+    return z > 0 ? z : 1;
+  }
 
   /** 필터: grade('', '1'~'6', '교직원'), dept(부서ID), mine */
   function passFilter(e, f) {
@@ -6103,13 +6585,29 @@ function setPinForTest_(row, pin) {
       (e.target && e.target !== '전체' ? '<span class="chip">' + esc(targetText(e.target)) + '</span>' : '') + '</span></button>';
   }
 
+  /** 일정을 들고 있는 곳들. 지금 보는 화면의 것을 먼저 본다 */
+  function eventPools() {
+    var home = S.home && S.home.events, month = S.sched.data && S.sched.data.events, year = S.sched.yearData && S.sched.yearData.events,
+      found = S.search && S.search.events && S.search.events.items;
+    return S.screen === 'schedule' ? [month, year, found, home] : S.screen === 'search' ? [found, home, month, year] : [home, month, year, found];
+  }
   function eventById(id) {
-    var pools = [S.home && S.home.events, S.sched.data && S.sched.data.events, S.sched.yearData && S.sched.yearData.events, S.search && S.search.events.items];
+    var pools = eventPools();
     for (var i = 0; i < pools.length; i++) {
       var hit = (pools[i] || []).filter(function (e) { return e.id === id; })[0];
       if (hit) return hit;
     }
     return null;
+  }
+  /** 저장·지운 일정을 들고 있는 모든 곳에 바로 반영한다(다른 화면에서 다시 열어도 옛 내용이 나오지 않게) */
+  function patchEvent(saved, removedId) {
+    eventPools().forEach(function (list) {
+      if (!list) return;
+      for (var i = list.length - 1; i >= 0; i--) {
+        if (list[i].id !== (saved ? saved.id : removedId)) continue;
+        if (saved) list[i] = saved; else list.splice(i, 1);
+      }
+    });
   }
 
   // ============================================================ 홈
@@ -6186,7 +6684,7 @@ function setPinForTest_(row, pin) {
       (links.length ? '<section class="card dashed"><div class="card-head"><div><h2>아직 기존 시트에서 하는 일</h2>' +
         '<p class="faint" style="margin-top:4px">2차에 온라인 교무실로 옮겨 와요. 그 전까지는 바로가기로 들어가세요.</p></div>' +
         '<div class="row-btns">' + links.map(function (l) {
-          return '<a class="btn btn-sm" href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.name) + icon('ext', 16) + '</a>';
+          return '<a class="btn btn-sm" href="' + esc(safeUrl(l.url)) + '" target="_blank" rel="noopener">' + esc(l.name) + icon('ext', 16) + '</a>';
         }).join('') + '</div></div></section>' : '') +
       '</div>';
   }
@@ -6267,6 +6765,7 @@ function setPinForTest_(row, pin) {
   function editStudents(focusGrade) {
     var h = S.home || {}, st = h.students || {};
     var today = h.today || '';
+    var stuBase = st.at || ''; // 창을 열 때의 저장 시각: 그사이 다른 분이 저장했으면 서버가 알려 준다
     var model = {}; // { '1': [['12', '13'], …] } 입력 칸 글자 그대로
     var oldTotals = st.id && !st.classes ? (st.grades || null) : null; // 학년 합계만 넣었던 때: 맞춰 넣게 보여 준다
     for (var g = 1; g <= 6; g++) {
@@ -6378,12 +6877,18 @@ function setPinForTest_(row, pin) {
         classes[g] = model[g].map(function (c) { return [Number(c[0]), Number(c[1])]; });
       }
       busy(btn, true, '저장하는 중');
-      server('students.save', { date: qs('#stu-date').value, classes: classes }).then(function (r) {
+      server('students.save', { date: qs('#stu-date').value, classes: classes, base: stuBase }).then(function (r) {
         if (S.home) { S.home.students = r; memoPut('home', {}, S.home); }
         closeModal();
         drawHome();
         toast('학생 수를 저장했어요');
-      }).catch(function (e) { busy(btn, false); err.textContent = e.message; });
+      }).catch(function (e) {
+        busy(btn, false);
+        err.textContent = e.message;
+        if (e.code === 'CONFLICT') { // 다음에 열 때 새 숫자가 보이게 홈을 뒤에서 새로 받는다
+          server('home', {}, null, true).then(function (h2) { S.home = h2; memoPut('home', {}, h2); }, function () {});
+        }
+      });
     });
   }
 
@@ -6455,6 +6960,7 @@ function setPinForTest_(row, pin) {
         sc.day = wd(t) === 0 || wd(t) === 6 ? sc.week : t;
       }
       sc.view === 'plan' ? drawPlan() : drawCal();
+      setTimeout(prefetchScreens, 300); // 지난달·다음 달을 뒤에서 받아 둔다
     }, fail);
   }
 
@@ -6516,9 +7022,23 @@ function setPinForTest_(row, pin) {
   }
 
   // ------------------------------------------------------------ 달력
+  /** 행사 칸에 쓰던 값을 S.sched.form.draft에 담아 둔다(달 옮기기·필터·창 크기 바꾸기로 다시 그려도 그대로) */
+  function captureEventForm() {
+    var sc = S.sched, form = qs('#ev-form');
+    if (!sc.form || !form) return;
+    var kindBtn = qs('[data-kind][aria-pressed=true]', form);
+    sc.form.draft = {
+      start: qs('#ef-start', form).value, multi: qs('#ef-multi', form).checked, end: qs('#ef-end', form).value,
+      time: qs('#ef-time', form).value, title: qs('#ef-title', form).value, kind: kindBtn ? kindBtn.getAttribute('data-kind') : '행사',
+      target: qsa('[data-tg][aria-pressed=true]', form).map(function (o) { return o.getAttribute('data-tg'); }),
+      deptId: qs('#ef-dept', form).value, place: qs('#ef-place', form).value, memo: qs('#ef-memo', form).value, important: qs('#ef-imp', form).checked
+    };
+  }
+
   function drawCal() {
     var sc = S.sched, d = sc.data, body = qs('#sched-body');
     if (!body || !d) return;
+    if (qs('#side-form')) captureEventForm();
     var f = sc.filter;
     var shown = d.events.filter(function (e) { return passFilter(e, f); });
     var formSide = sc.form && isWide();
@@ -6538,6 +7058,7 @@ function setPinForTest_(row, pin) {
     if (phone) html += statCards();
     body.innerHTML = '<div class="wrap" style="gap:16px">' + html + '</div>';
     if (formSide) drawEventForm(qs('#side-form'), sc.form);
+    else if (sc.form && !$modal.innerHTML) { openModal('<div id="modal-form"></div>'); drawEventForm(qs('#modal-form'), sc.form); } // 창이 좁아졌으면 쓰던 것을 창으로
   }
 
   /** 달력 색 설명 */
@@ -6732,14 +7253,18 @@ function setPinForTest_(row, pin) {
 
   function drawEventForm(box, init) {
     var e = init.id ? eventById(init.id) || {} : {};
-    var start = e.start || init.start || localToday();
-    var multi = !!(e.end && e.end !== e.start);
+    var dr = init.draft || null; // 다시 그릴 때는 쓰던 값 그대로
+    var start = dr ? dr.start : e.start || init.start || localToday();
+    var multi = dr ? dr.multi : !!(e.end && e.end !== e.start);
+    var endV = dr ? dr.end : (multi ? e.end : '');
     var canOff = !!((S.sched.data && S.sched.data.canManage) || (S.home && S.home.canManage) || (S.sched.yearData && S.sched.yearData.canManage));
-    var kind = e.kind || '행사';
-    var targets = (e.target || '').split(',').filter(Boolean);
-    if (!init.id && !targets.length) targets = [];
-    var depts = (S.sched.data && S.sched.data.depts) || [];
-    var deptId = init.id ? e.deptId : (S.me && S.me.deptId) || '';
+    var kind = dr ? dr.kind : e.kind || '행사';
+    var targets = dr ? dr.target.slice() : (e.target || '').split(',').filter(Boolean);
+    var vTime = dr ? dr.time : e.time || '', vTitle = dr ? dr.title : e.title || '', vPlace = dr ? dr.place : e.place || '', vMemo = dr ? dr.memo : e.memo || '';
+    var vImp = dr ? dr.important : !!e.important;
+    var depts = ((S.sched.data && S.sched.data.depts) || (S.sched.yearData && S.sched.yearData.depts) || (S.home && S.home.depts) || []).slice();
+    var deptId = dr ? dr.deptId : init.id ? e.deptId : (S.me && S.me.deptId) || '';
+    if (deptId && !depts.some(function (dd) { return dd.id === deptId; })) depts.push({ id: deptId, name: e.dept || '(지금 목록에 없는 부서)', active: true }); // 고치기만 해도 부서가 지워지지 않게
     var times = ['종일', '아침', '1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '08:40', '13:00', '14:30', '15:00', '16:00', '방과후'];
     var tg = function (v, label) {
       var on = targets.indexOf(v) >= 0 || (v !== '교직원' && targets.indexOf('전체') >= 0);
@@ -6750,12 +7275,12 @@ function setPinForTest_(row, pin) {
       '<button type="button" class="icon-btn" data-action="ev-cancel" aria-label="닫기">' + icon('x') + '</button></div>' +
       '<p class="note">' + icon('info', 18) + '<span>한 번만 넣으면 연간 학사일정과 월별 계획에 함께 들어가요.</span></p>' +
       '<div class="form-grid2"><div class="field"><label class="label" for="ef-start">날짜</label><input id="ef-start" class="input" type="date" value="' + esc(start) + '"></div>' +
-      '<div class="field"><label class="label" for="ef-time">시간</label><input id="ef-time" class="input" list="ef-times" maxlength="20" value="' + esc(e.time || '') + '" placeholder="예: 5교시, 15:00">' +
+      '<div class="field"><label class="label" for="ef-time">시간</label><input id="ef-time" class="input" list="ef-times" maxlength="20" value="' + esc(vTime) + '" placeholder="예: 5교시, 15:00">' +
       '<datalist id="ef-times">' + times.map(function (t) { return '<option value="' + t + '">'; }).join('') + '</datalist></div></div>' +
       '<label class="check"><input type="checkbox" id="ef-multi"' + (multi ? ' checked' : '') + '>여러 날 이어지는 행사예요</label>' +
-      '<div class="field" id="ef-end-box"' + (multi ? '' : ' hidden') + '><label class="label" for="ef-end">끝나는 날</label><input id="ef-end" class="input" type="date" value="' + esc(multi ? e.end : '') + '"></div>' +
-      '<div class="field"><label class="label" for="ef-title">행사 이름 <span class="req">*</span></label><input id="ef-title" class="input" maxlength="60" value="' + esc(e.title || '') + '" autocomplete="off"></div>' +
-      '<label class="check imp-check"><input type="checkbox" id="ef-imp"' + (e.important ? ' checked' : '') + '>' + starHtml() + '중요 일정이에요 <span class="faint">(달력·홈에 눈에 띄게 보여요)</span></label>' +
+      '<div class="field" id="ef-end-box"' + (multi ? '' : ' hidden') + '><label class="label" for="ef-end">끝나는 날</label><input id="ef-end" class="input" type="date" value="' + esc(endV || '') + '"></div>' +
+      '<div class="field"><label class="label" for="ef-title">행사 이름 <span class="req">*</span></label><input id="ef-title" class="input" maxlength="60" value="' + esc(vTitle) + '" autocomplete="off"></div>' +
+      '<label class="check imp-check"><input type="checkbox" id="ef-imp"' + (vImp ? ' checked' : '') + '>' + starHtml() + '중요 일정이에요 <span class="faint">(달력·홈에 눈에 띄게 보여요)</span></label>' +
       '<div class="field"><span class="label">구분</span><div class="seg" role="group" aria-label="구분">' +
       ['행사', '교육활동', '휴업일', '공휴일'].map(function (k) {
         var lock = (k === '휴업일' || k === '공휴일') && !canOff;
@@ -6769,8 +7294,8 @@ function setPinForTest_(row, pin) {
       depts.filter(function (dd) { return dd.active || dd.id === deptId; }).map(function (dd) {
         return '<option value="' + esc(dd.id) + '"' + (dd.id === deptId ? ' selected' : '') + '>' + esc(dd.name) + '</option>';
       }).join('') + '</select></div>' +
-      '<div class="field"><label class="label" for="ef-place">장소</label><input id="ef-place" class="input" maxlength="40" value="' + esc(e.place || '') + '"></div></div>' +
-      '<div class="field"><label class="label" for="ef-memo">메모 (선택)</label><textarea id="ef-memo" class="input" maxlength="300" rows="2">' + esc(e.memo || '') + '</textarea></div>' +
+      '<div class="field"><label class="label" for="ef-place">장소</label><input id="ef-place" class="input" maxlength="40" value="' + esc(vPlace) + '"></div></div>' +
+      '<div class="field"><label class="label" for="ef-memo">메모 (선택)</label><textarea id="ef-memo" class="input" maxlength="300" rows="2">' + esc(vMemo) + '</textarea></div>' +
       '<div class="box" id="ef-preview"></div>' +
       '<p class="faint">입력하는 사람: ' + esc(S.me.name) + ' 선생님' + (S.me.group ? '(' + esc(S.me.group) + ')' : '') + ' · <button type="button" class="linkish" data-action="switch">바꾸기</button></p>' +
       '<p class="err" id="ef-err" role="alert"></p>' +
@@ -6811,7 +7336,7 @@ function setPinForTest_(row, pin) {
     qs('#ef-start', form).addEventListener('change', preview);
     qs('#ef-imp', form).addEventListener('change', preview);
     preview();
-    setTimeout(function () { var t = qs('#ef-title', form); if (t && !init.id) t.focus(); }, 30);
+    if (!dr) setTimeout(function () { var t = qs('#ef-title', form); if (t && !init.id) t.focus(); }, 30);
 
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
@@ -6835,6 +7360,7 @@ function setPinForTest_(row, pin) {
       busy(btn, true, '저장하는 중');
       server('sched.save', { id: init.id || '', fields: fields }, schedThen(fields.start)).then(function (saved) {
         S.sched.form = null;
+        patchEvent(saved);
         closeModal();
         var t = saved.start;
         if (S.screen === 'schedule' && S.sched.view !== 'year') { S.sched.y = +t.slice(0, 4); S.sched.m = +t.slice(5, 7); S.sched.week = mondayOf(t); S.sched.day = t; }
@@ -6845,6 +7371,7 @@ function setPinForTest_(row, pin) {
   }
 
   function cancelEventForm() {
+    if (pendingWrites && qs('#modal-form')) { toast('저장하는 중이에요. 끝나면 닫혀요'); return; }
     S.sched.form = null;
     if (qs('#side-form')) drawCal(); else closeModal();
   }
@@ -6854,6 +7381,7 @@ function setPinForTest_(row, pin) {
     confirmBox('일정 지우기', '"' + esc(e.title || '') + '"' + josa(e.title || '', '을', '를') + ' 지울까요? 지운 일정은 연구부장·부담당이 휴지통에서 되살릴 수 있어요.', '지우기', function () {
       return server('sched.delete', { id: id }, schedThen('')).then(function () {
         S.sched.form = null;
+        patchEvent(null, id);
         closeModal();
         reloadSched();
         toast('일정을 지웠어요');
@@ -6881,16 +7409,17 @@ function setPinForTest_(row, pin) {
 
   function moveMonth(n) {
     var sc = S.sched;
+    captureEventForm(); // 옆에서 쓰던 행사는 달을 옮겨도 그대로
     sc.m += n;
     if (sc.m < 1) { sc.m = 12; sc.y--; }
     if (sc.m > 12) { sc.m = 1; sc.y++; }
-    sc.form = null;
     var b = qs('#sched-body'); if (b) b.innerHTML = loadingHtml('일정을 불러오는 중이에요');
     loadSched();
   }
 
   function moveWeek(n) {
     var sc = S.sched;
+    captureEventForm();
     sc.week = addD(sc.week, 7 * n);
     sc.day = sc.week;
     var thu = addD(sc.week, 3);
@@ -6906,6 +7435,7 @@ function setPinForTest_(row, pin) {
 
   // 관리자 · 휴지통
   function adminTrash(panel) {
+    if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('휴지통을 불러오는 중이에요');
     Promise.all([server('admin.trash.list'), server('admin.trash.surveys'), server('admin.trash.library')]).then(function (res) {
       var list = res[0], surveys = res[1], libs = res[2];
@@ -7069,7 +7599,8 @@ function setPinForTest_(row, pin) {
 
   function respondView(d) {
     var c = d.card, l = S.survey.list || {};
-    var mine = d.myAnswer || { answers: {} };
+    var dr = S.survey.draft && S.survey.draft.id === c.id ? S.survey.draft : null; // 다시 그려도 아직 안 낸 답은 그대로
+    var mine = dr ? { answers: dr.answers } : d.myAnswer || { answers: {} };
     var closed = c.closed;
     var cannot = !c.inTarget;
     return '<section class="card sv-respond">' +
@@ -7081,9 +7612,11 @@ function setPinForTest_(row, pin) {
       (d.myAnswer ? '<p class="note">' + icon('check', 18) + '<span>' + esc(atText(d.myAnswer.at)) + '에 냈어요. ' + (closed ? '마감돼서 더 고칠 수 없어요.' : '고쳐서 다시 낼 수 있어요.') + '</span></p>' : '') +
       (closed ? '<p class="note warn">' + icon('info', 18) + '<span>마감된 조사예요.</span></p>' : '') +
       (cannot ? '<p class="note warn">' + icon('info', 18) + '<span>이 조사의 대상이 아니에요(' + esc(c.targetText) + ').</span></p>' : '') +
-      '<div class="who-card"><span class="avatar" aria-hidden="true">' + esc(S.me.name.charAt(0)) + '</span>' +
+      (S.me ? '<div class="who-card"><span class="avatar" aria-hidden="true">' + esc(S.me.name.charAt(0)) + '</span>' +
       '<span class="me-lines"><span class="faint">응답하는 사람</span><b>' + esc(S.me.name) + '</b><span class="faint">' + esc(S.me.group || '') + '</span></span>' +
-      '<button type="button" class="linkish" data-action="switch" style="margin-left:auto">바꾸기</button></div>' +
+      '<button type="button" class="linkish" data-action="switch" style="margin-left:auto">바꾸기</button></div>'
+        : '<div class="who-card"><span class="me-lines"><span class="faint">응답하려면 먼저 이름을 골라 주세요</span></span>' +
+      '<button type="button" class="linkish" data-action="switch" style="margin-left:auto">이름 고르기</button></div>') +
       '<form id="sv-form" class="form" novalidate>' +
       d.questions.map(function (q, i) { return questionInput(q, i, mine.answers[q.id], closed || cannot); }).join('') +
       '<p class="err" id="sv-err" role="alert"></p>' +
@@ -7096,6 +7629,22 @@ function setPinForTest_(row, pin) {
       '</section>';
   }
 
+  /** 응답 칸에 고른 답(아직 안 냄) */
+  function readAnswers(form, d) {
+    var answers = {};
+    d.questions.forEach(function (q) {
+      if (q.type === 'one') { var c = qs('input[name="ans-' + q.id + '"]:checked', form); if (c) answers[q.id] = c.value; }
+      else if (q.type === 'many') answers[q.id] = qsa('input[name="ans-' + q.id + '"]:checked', form).map(function (c) { return c.value; });
+      else { var el = qs('[name="ans-' + q.id + '"]', form); if (el && el.value.trim()) answers[q.id] = el.value.trim(); }
+    });
+    return answers;
+  }
+  /** 화면을 다시 그리기 전에 아직 안 낸 답을 담아 둔다 */
+  function keepSurveyDraft() {
+    var d = S.survey.detail, form = qs('#sv-form');
+    if (d && form) S.survey.draft = { id: d.card.id, answers: readAnswers(form, d) };
+  }
+
   function bindRespond(box, d) {
     var form = qs('#sv-form', box);
     if (!form) return;
@@ -7104,12 +7653,7 @@ function setPinForTest_(row, pin) {
     });
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
-      var answers = {};
-      d.questions.forEach(function (q) {
-        if (q.type === 'one') { var c = qs('input[name="ans-' + q.id + '"]:checked', form); if (c) answers[q.id] = c.value; }
-        else if (q.type === 'many') answers[q.id] = qsa('input[name="ans-' + q.id + '"]:checked', form).map(function (c) { return c.value; });
-        else { var el = qs('[name="ans-' + q.id + '"]', form); if (el && el.value.trim()) answers[q.id] = el.value.trim(); }
-      });
+      var answers = readAnswers(form, d);
       var err = qs('#sv-err', form);
       var miss = d.questions.filter(function (q) { var v = answers[q.id]; return q.required && (!v || (Array.isArray(v) && !v.length)); })[0];
       if (miss) { err.textContent = (d.questions.indexOf(miss) + 1) + '번 질문에 답해 주세요.'; qs('[data-q="' + miss.id + '"]', form).scrollIntoView({ block: 'center' }); return; }
@@ -7117,6 +7661,7 @@ function setPinForTest_(row, pin) {
       busy(btn, true, '내는 중');
       err.textContent = '';
       server('survey.respond', { id: d.card.id, answers: answers }, [['survey.list', {}], ['survey.get', { id: d.card.id }]]).then(function (r) {
+        S.survey.draft = null;
         toast(r.edited ? '고친 답을 냈어요' : '냈어요. 고맙습니다');
         S.survey.list = null;
         refreshSurveyList();
@@ -7249,10 +7794,18 @@ function setPinForTest_(row, pin) {
     if (!needMe('조사를 만들면')) return;
     var start = function (depts, people) { drawSurveyForm(edit, depts, people); };
     if (edit) return start(edit.depts || [], null);
-    // 부서 목록은 일정 화면과 같은 곳에서 받아 온다
-    server('sched.month', { year: +localToday().slice(0, 4), month: +localToday().slice(5, 7) }).then(function (m) { start(m.depts || [], null); })
-      .catch(function (e) { toast(e.message); });
+    // 부서 목록은 일정 화면과 같은 곳에서 받아 온다(미리 받아 둔 것이 있으면 바로)
+    var key = { year: +localToday().slice(0, 4), month: +localToday().slice(5, 7) };
+    var mm = MEMO[memoKey('sched.month', key)];
+    if (mm) return start(mm.data.depts || [], null);
+    if (surveyFormOpening) return; // 두 번 눌러도 한 번만(늦게 온 답이 쓰던 창을 다시 열지 않게)
+    surveyFormOpening = true;
+    var btn = qs('[data-action="sv-new"]');
+    busy(btn, true, '여는 중');
+    server('sched.month', key).then(function (m) { memoPut('sched.month', key, m); start(m.depts || [], null); }, function (e) { toast(e.message); })
+      .then(function () { surveyFormOpening = false; busy(btn, false); });
   }
+  var surveyFormOpening = false;
 
   function drawSurveyForm(edit, depts, people) {
     var d = edit || {};
@@ -7303,6 +7856,7 @@ function setPinForTest_(row, pin) {
       } else if (state.tt === 'people') {
         tbox.innerHTML = loadingHtml('명단을 불러오는 중이에요');
         server('staffPicker').then(function (list) {
+          if (state.tt !== 'people') return; // 그사이 다른 대상을 골랐으면 그대로
           tbox.innerHTML = '<div class="people pick" style="margin-top:8px">' + list.map(function (p) {
             var on = state.ids.indexOf(p.id) >= 0;
             return '<label class="opt' + (on ? ' on' : '') + '"><input type="checkbox" data-pid="' + esc(p.id) + '"' + (on ? ' checked' : '') + '><span>' + esc(p.name) +
@@ -7945,7 +8499,7 @@ function setPinForTest_(row, pin) {
         '누가 언제 무엇을 바꿨는지는 <b>관리자 › 수정 기록</b>에서 바뀌기 전·뒤까지 볼 수 있어요.',
         "전용 시트 메뉴 '온라인 교무실 › 4. 매일 자동 백업 켜기'를 켜 두면 매일 사본을 만들고 정한 개수만큼 남겨요.",
         '전용 시트를 직접 고칠 때는 1행(머리글)을 바꾸지 말고, 줄을 지우지 말아 주세요. 웹앱에서 지우면 되살릴 수 있어요.',
-        '시트를 직접 고친 내용은 웹앱에 늦어도 10분 뒤에 보여요. 바로 보려면 <b>관리자 › 점검 › 시트 새로 읽기</b>를 눌러요.'
+        '시트에서 칸을 직접 고치면 웹앱에 바로 보여요. 줄을 지우거나 정렬한 것은 조금 늦게(10분쯤) 보여요. 바로 보려면 <b>관리자 › 점검 › 시트 새로 읽기</b>를 눌러요.'
       ]);
   };
 
@@ -8047,6 +8601,7 @@ function setPinForTest_(row, pin) {
 
   // ------------------------------------------------------------ 관리자 · 새 학년도
   function adminYear(panel) {
+    if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('자료를 불러오는 중이에요');
     server('admin.year.preview').then(function (p) {
       panel.innerHTML = '<div class="stack">' +
@@ -8390,7 +8945,9 @@ function setPinForTest_(row, pin) {
 
   function upDate(r) {
     if (!r.start) return '<span class="faint">' + esc(r.raw.start || '(비어 있음)') + '</span>';
-    return esc(mdw(r.start) + (r.end ? ' – ' + mdw(r.end) : '')) + (r.start.slice(0, 4) !== String(S.up.year) && Number(r.start.slice(5, 7)) >= 3 ? ' <span class="faint">' + r.start.slice(0, 4) + '</span>' : '');
+    var sy = Number(S.up.year), y = Number(r.start.slice(0, 4)), m = Number(r.start.slice(5, 7));
+    var inYear = m >= 3 ? y === sy : y === sy + 1; // 학년도(3월~다음 해 2월) 밖이면 연도를 함께 보여 준다
+    return esc(mdw(r.start) + (r.end ? ' – ' + mdw(r.end) : '')) + (!inYear ? ' <span class="faint">' + y + '년</span>' : '');
   }
 
   function drawUploadPreview() {
@@ -8694,6 +9251,7 @@ function setPinForTest_(row, pin) {
 
   // ------------------------------------------------------------ 관리자 · 교직원 표
   function adminStaff(panel) {
+    if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('교직원 표를 불러오는 중이에요');
     server('admin.staff.list').then(function (r) {
       S.cache.staff = r.staff;
@@ -8704,14 +9262,10 @@ function setPinForTest_(row, pin) {
   }
 
   function drawStaff(panel) {
+    if (!panel) return;
     var all = S.cache.staff || [];
     var on = all.filter(function (x) { return x['사용 여부'] !== '사용 안 함'; });
     var noPin = on.filter(function (x) { return !x.hasPin; });
-    var q = S.staffSearch.trim();
-    var shown = all.filter(function (x) {
-      if (!S.showOff && x['사용 여부'] === '사용 안 함') return false;
-      return !q || [x['이름'], x['직위'], x['소속'], x.deptName, x['담당 업무'], x['내선']].join(' ').indexOf(q) >= 0;
-    });
     panel.innerHTML =
       '<div class="wrap" style="gap:16px">' +
       '<div class="counts"><span class="chip chip-ok">사용 ' + on.length + '명</span><span class="chip">사용 안 함 ' + (all.length - on.length) + '명</span>' +
@@ -8723,21 +9277,25 @@ function setPinForTest_(row, pin) {
       (S.cache.pinMode ? '<button type="button" class="btn btn-sm" data-action="staff-issue"' + (noPin.length ? '' : ' disabled') + '>' + icon('key', 18) + '번호 없는 분 번호 만들기</button>' : '') +
       '<button type="button" class="btn btn-sm" data-action="staff-import">' + icon('upload', 18) + '명단 한 번에 넣기</button>' +
       '<button type="button" class="btn btn-sm btn-primary" data-action="staff-add">' + icon('plus', 18) + '교직원 추가</button></div>' +
-      (shown.length
+      '<div id="staff-rows"></div>' +
+      '<p class="hint">' + icon('info', 16) + '<span>전출·휴직하면 지우지 말고 "사용 안 함"으로 바꿔 주세요. 이름 목록과 알림에서 빠지고, 기록은 그대로 남아요. 개인 연락처는 넣지 않아요(내선만).</span></p>' +
+      '</div>';
+    var rowsBox = qs('#staff-rows', panel);
+    function drawRows() {
+      var q = S.staffSearch.trim();
+      var shown = all.filter(function (x) {
+        if (!S.showOff && x['사용 여부'] === '사용 안 함') return false;
+        return !q || [x['이름'], x['직위'], x['소속'], x.deptName, x['담당 업무'], x['내선']].join(' ').indexOf(q) >= 0;
+      });
+      rowsBox.innerHTML = shown.length
         ? '<div class="rows" role="table" aria-label="교직원 표">' +
           '<div class="srow head" role="row"><span role="columnheader">이름·직위</span><span role="columnheader">소속·부서</span><span role="columnheader">담당 업무</span><span role="columnheader">내선</span><span role="columnheader" style="text-align:right">관리</span></div>' +
           shown.map(staffRow).join('') + '</div>'
-        : '<div class="card"><p class="empty">' + (all.length ? '찾는 교직원이 없어요.' : '아직 교직원이 없어요. "교직원 추가"로 넣어 주세요.') + '</p></div>') +
-      '<p class="hint">' + icon('info', 16) + '<span>전출·휴직하면 지우지 말고 "사용 안 함"으로 바꿔 주세요. 이름 목록과 알림에서 빠지고, 기록은 그대로 남아요. 개인 연락처는 넣지 않아요(내선만).</span></p>' +
-      '</div>';
-    var find = qs('#staff-find');
-    find.addEventListener('input', function () {
-      S.staffSearch = find.value;
-      var pos = find.selectionStart;
-      drawStaff(panel);
-      var f2 = qs('#staff-find'); f2.focus(); try { f2.setSelectionRange(pos, pos); } catch (e) {}
-    });
-    qs('#staff-off').addEventListener('change', function (e) { S.showOff = e.target.checked; drawStaff(panel); });
+        : '<div class="card"><p class="empty">' + (all.length ? '찾는 교직원이 없어요.' : '아직 교직원이 없어요. "교직원 추가"로 넣어 주세요.') + '</p></div>';
+    }
+    drawRows();
+    qs('#staff-find', panel).addEventListener('input', function (e) { S.staffSearch = e.target.value; drawRows(); }); // 찾기 칸은 그대로 두고 줄만(한글 입력이 끊기지 않게)
+    qs('#staff-off', panel).addEventListener('change', function (e) { S.showOff = e.target.checked; drawRows(); });
   }
 
   function staffRow(x) {
@@ -8928,6 +9486,7 @@ function setPinForTest_(row, pin) {
 
   // ------------------------------------------------------------ 관리자 · 분류
   function adminCat(panel) {
+    if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('분류를 불러오는 중이에요');
     server('admin.cat.list').then(function (groups) {
       S.cache.cats = groups;
@@ -8986,6 +9545,7 @@ function setPinForTest_(row, pin) {
 
   // ------------------------------------------------------------ 관리자 · 설정
   function adminSettings(panel) {
+    if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('설정을 불러오는 중이에요');
     server('admin.settings.get').then(function (list) { drawSettings(panel, list); })
       .catch(function (e) { panel.innerHTML = failHtml(e); });
@@ -9157,6 +9717,7 @@ function setPinForTest_(row, pin) {
   }
 
   function adminCheck(panel) {
+    if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('점검하는 중이에요');
     server('admin.check', { client: clientBuilds() }).then(function (r) {
       var label = { ok: '정상', warn: '확인 필요', bad: '문제' };
@@ -9182,7 +9743,7 @@ function setPinForTest_(row, pin) {
         '<button type="button" class="btn btn-sm" data-action="speed-run">' + icon('reload', 18) + '속도 재기</button></div>' +
         '<div id="speed-out"></div></section>' +
         '<section class="card"><div class="card-head"><div><h2>시트 새로 읽기</h2>' +
-        '<p class="faint" style="margin-top:4px">시트를 손으로 고쳤는데 웹앱에 바로 안 보이면 누르세요. 서버에 기억해 둔 내용을 버리고 시트에서 새로 읽어요. 누르지 않아도 늦어도 10분 뒤에는 바뀌어요.</p></div>' +
+        '<p class="faint" style="margin-top:4px">시트를 손으로 고쳤는데 웹앱에 바로 안 보이면 누르세요. 서버에 기억해 둔 내용을 버리고 시트에서 새로 읽어요. 칸을 고친 것은 바로, 줄 지우기·정렬은 누르지 않아도 10분쯤 뒤에 바뀌어요.</p></div>' +
         '<button type="button" class="btn btn-sm" data-action="cache-clear">' + icon('reload', 18) + '시트 새로 읽기</button></div></section>' +
         '</div>';
     }).catch(function (e) { panel.innerHTML = failHtml(e); });
@@ -9219,13 +9780,13 @@ function setPinForTest_(row, pin) {
           if (x.error) return '<tr><th scope="row">' + esc(x.label) + '</th><td colspan="3">' + esc(x.error) + '</td></tr>';
           return '<tr><th scope="row">' + esc(x.label) + '</th>' +
             '<td>' + secText(x.sheet.ms) + '<span class="faint"> · 시트 ' + x.sheet.reads + '번</span></td>' +
-            '<td>' + secText(x.memo.ms) + '<span class="faint"> · 기억 ' + x.memo.hits + '번' + (x.memo.reads ? '·시트 ' + x.memo.reads + '번' : '') + '</span></td>' +
+            '<td>' + secText(x.memo.ms) + '<span class="faint"> · 기억 ' + x.memo.hits + '탭' + (x.memo.memoCalls ? '·' + x.memo.memoCalls + '번에' : '') + (x.memo.reads ? '·시트 ' + x.memo.reads + '번' : '') + '</span></td>' +
             '<td><b>' + secText(x.memo.ms + best) + '</b></td></tr>';
         }).join('') + '</tbody></table></div>' +
         (r.memoOn ? '' : '<p class="warn-text">서버 기억을 쓸 수 없어서 늘 시트에서 읽고 있어요.</p>') +
         '<p class="hint">' + icon('info', 16) + '<span>어림 합계 = 빈 요청 왕복(가장 짧은 값) + 서버 기억에서 읽을 때. 메뉴를 열 때 기다리는 시간과 비슷해요(미리 받아 둔 메뉴는 기다리지 않아요). 이 화면을 사진으로 찍어 보내 주시면 더 빠르게 할 곳을 찾을 수 있어요.</span></p>' +
         (recent.length ? '<h3>이 기기에서 최근에 한 일</h3><ul class="speed-recent">' + recent.map(function (c) {
-          return '<li><span>' + esc(CALL_NAMES[c.action] || c.action) + '</span><b>' + secText(c.ms) + '</b></li>';
+          return '<li><span>' + esc(CALL_NAMES[c.action] || c.action) + (c.bg && c.action !== 'batch' ? ' (뒤에서)' : '') + '</span><b>' + secText(c.ms) + '</b></li>';
         }).join('') + '</ul>' : '') +
         '</div>';
     }).catch(function (e) { busy(btn, false); out.innerHTML = failHtml(e); });
@@ -9331,13 +9892,19 @@ function setPinForTest_(row, pin) {
   }
 
   // ============================================================ 창(모달)
-  var lastFocus = null;
+  var lastFocus = null, modalOpts = {};
+  /** 사람이 닫으려 할 때: 저장 중이면 닫지 않는다 */
+  function userCloseModal() {
+    if (pendingWrites) { toast('저장하는 중이에요. 끝나면 닫혀요'); return; }
+    closeModal();
+  }
   function openModal(html, opts) {
     opts = opts || {};
+    modalOpts = opts;
     lastFocus = document.activeElement;
     $modal.innerHTML = '<div class="modal-back" id="modal-back"><div class="modal' + (opts.wide ? ' wide' : '') + '" role="dialog" aria-modal="true" aria-labelledby="m-title">' + html + '</div></div>';
     var back = qs('#modal-back');
-    if (!opts.noBackdropClose) back.addEventListener('click', function (e) { if (e.target === back) closeModal(); });
+    if (!opts.noBackdropClose) back.addEventListener('click', function (e) { if (e.target === back) userCloseModal(); });
     var first = qs('.modal button, .modal input, .modal select', $modal);
     if (first) setTimeout(function () { first.focus(); }, 30);
   }
@@ -9381,7 +9948,7 @@ function setPinForTest_(row, pin) {
       case 'reload': location.reload(); break;
       case 'sheet': openSheet(); break;
       case 'close-sheet': closeSheet(); break;
-      case 'close-modal': closeModal(); break;
+      case 'close-modal': userCloseModal(); break;
       case 'close-pins': closeModal(); toast('번호 창을 닫았어요'); break;
       case 'print-slips': printSlips(); break;
       case 'pw-eye':
@@ -9395,23 +9962,26 @@ function setPinForTest_(row, pin) {
         closeSheet();
         stDel('gy.identity');
         S.me = null;
+        forgetScreens();
         showIdentity();
         break;
       case 'skip-identity':
         stSet('gy.skipIdentity', '1', false);
+        forgetScreens();
         renderApp();
         break;
       case 'logout':
         closeSheet();
         stDel('gy.login'); stDel('gy.identity'); stDel('gy.admin'); stDel('gy.skipIdentity');
         S.me = null; S.admin = false;
-        memoClear();
+        forgetScreens();
         showLogin();
         toast('나갔어요. 이 기기에 기억된 로그인도 지웠어요');
         break;
       case 'admin-out':
         stDel('gy.admin');
         S.admin = false;
+        forgetScreens();
         renderApp();
         break;
       case 'staff-add': openStaffForm(null); break;
@@ -9439,7 +10009,8 @@ function setPinForTest_(row, pin) {
       case 'm-next': moveMonth(1); break;
       case 'm-today':
         var td = localToday();
-        S.sched.y = +td.slice(0, 4); S.sched.m = +td.slice(5, 7); S.sched.week = mondayOf(td); S.sched.day = td; S.sched.form = null;
+        captureEventForm();
+        S.sched.y = +td.slice(0, 4); S.sched.m = +td.slice(5, 7); S.sched.week = mondayOf(td); S.sched.day = td;
         loadSched();
         break;
       case 'y-prev': S.sched.y--; loadSched(); break;
@@ -9456,7 +10027,7 @@ function setPinForTest_(row, pin) {
       case 'sv-new': openSurveyForm(null); break;
       case 'sv-edit': openSurveyForm(S.survey.detail); break;
       case 'sv-csv': surveyCsv(); break;
-      case 'sv-results': S.survey.showResults = !S.survey.showResults; drawSurveyDetail(); break;
+      case 'sv-results': keepSurveyDraft(); S.survey.showResults = !S.survey.showResults; drawSurveyDetail(); break;
       case 'sv-as-owner': S.survey.tab = 'mine'; drawSurvey(); break;
       case 'sv-copy':
         copyText(S.survey.detail.messenger).then(function (ok) { toast(ok ? '안내 문구를 복사했어요. 메신저에 붙여 넣으세요' : '복사하지 못했어요. 글을 길게 눌러 복사해 주세요'); });
@@ -9616,7 +10187,7 @@ function setPinForTest_(row, pin) {
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     if (qs('#sheet')) closeSheet();
-    else if ($modal.innerHTML && !qs('[data-action="close-pins"]')) closeModal();
+    else if ($modal.innerHTML && !qs('[data-action="close-pins"]') && !modalOpts.noBackdropClose) userCloseModal();
   });
 
   // 화면 크기 막대: 끄는 동안은 숫자만 바꾸고, 놓으면(또는 화살표 키) 적용한다
@@ -9642,7 +10213,15 @@ function setPinForTest_(row, pin) {
 
   // 화면 폭이 바뀌어 휴대폰/PC 모양이 달라지면 일정 화면을 다시 그린다
   var lastShape = isPhone() + '/' + isWide();
-  var resizeTimer;
+  var resizeTimer, shapeDirty = false;
+  /** 모양이 바뀐 화면을 다시 그린다. 창이 열려 있거나 입력하는 중이면 끝난 뒤로 미룬다(쓰던 것이 사라지지 않게) */
+  function reshape() {
+    if (!shapeDirty || !qs('.app')) return;
+    if ($modal.innerHTML || editingNow()) return;
+    shapeDirty = false;
+    captureEventForm();
+    renderApp();
+  }
   window.addEventListener('resize', function () {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(function () {
@@ -9650,7 +10229,7 @@ function setPinForTest_(row, pin) {
       var shape = isPhone() + '/' + isWide();
       if (shape === lastShape) return;
       lastShape = shape;
-      if ((S.screen === 'schedule' || S.screen === 'home') && qs('.app')) renderApp();
+      if (S.screen === 'schedule' || S.screen === 'home') { shapeDirty = true; reshape(); }
       updateTabHints();
     }, 200);
   });

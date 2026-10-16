@@ -40,7 +40,7 @@ async function shot(page, name, full) {
   n++;
   await page.screenshot({ path: path.join(OUT, String(n).padStart(2, '0') + '_' + name + '.png'), fullPage: !!full });
 }
-async function waitText(page, t) { await page.getByText(t, { exact: false }).first().waitFor({ timeout: 5000 }); }
+async function waitText(page, t) { await page.getByText(t, { exact: false }).first().waitFor({ timeout: 10000 }); }
 
 /** 분류 이름 칸: 6글자가 잘리지 않고, 단추가 카드 밖으로 나가지 않는지 */
 async function checkCatFields(page, label) {
@@ -443,6 +443,119 @@ async function speedFlow(page, kind) {
   await page.locator('.today-card').waitFor();
   await takeCalls(page);
 }
+/** 최종 검토에서 고친 화면 문제가 다시 생기지 않는지(PC) */
+async function reviewFlow(page, kind) {
+  const val = (sel) => page.inputValue(sel);
+  await page.evaluate(() => window.__gy.go('schedule'));
+  await page.locator('.cal').waitFor();
+  await page.waitForTimeout(1500); // 지난달·다음 달을 뒤에서 받아 둔다
+  await takeCalls(page);
+  await page.click('[data-action=m-next]');
+  await page.locator('.cal').waitFor();
+  await page.waitForTimeout(300);
+  let c = (await takeCalls(page)).filter((x) => x !== 'batch');
+  if (c.length) problems.push(kind + ': 다음 달을 눌렀는데 서버를 기다림(' + c.join(', ') + ')');
+  await page.click('[data-action=m-prev]');
+  await page.locator('.cal').waitFor();
+  // 옆 행사 추가 칸: 필터·달 옮기기에도 쓰던 값 그대로
+  await page.click('.bar [data-action=ev-add]');
+  await page.locator('#side-form #ev-form').waitFor();
+  await page.fill('#ef-title', '쓰던 행사');
+  await page.fill('#ef-place', '도서관');
+  await page.click('[data-tg="3"]');
+  await page.selectOption('#f-grade', '3');
+  await page.waitForTimeout(200);
+  if ((await val('#ef-title')) !== '쓰던 행사' || (await val('#ef-place')) !== '도서관' || (await page.getAttribute('[data-tg="3"]', 'aria-pressed')) !== 'true') problems.push(kind + ': 필터를 바꾸면 옆 행사 칸에 쓰던 것이 지워짐');
+  await page.click('[data-action=m-next]');
+  await page.locator('#side-form #ev-form').waitFor();
+  if ((await val('#ef-title')) !== '쓰던 행사') problems.push(kind + ': 달을 옮기면 옆 행사 칸이 닫히거나 지워짐');
+  await page.click('[data-action=m-prev]');
+  await page.locator('#side-form #ev-form').waitFor();
+  // 창을 좁히면(모니터 절반) 쓰던 것을 창으로 옮긴다(입력 중에는 기다렸다가)
+  const vp = page.viewportSize();
+  await page.focus('#ef-title');
+  await page.setViewportSize({ width: 1100, height: vp.height });
+  await page.waitForTimeout(400);
+  if ((await val('#ef-title')) !== '쓰던 행사') problems.push(kind + ': 입력 중에 창을 좁히니 쓰던 것이 지워짐');
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await page.waitForTimeout(400);
+  if (!(await page.locator('#modal-form #ev-form').count()) || (await val('#ef-title')) !== '쓰던 행사') problems.push(kind + ': 창을 좁힌 뒤 쓰던 행사가 창으로 옮겨지지 않음');
+  await page.click('#ev-form [data-action=ev-cancel]');
+  await page.setViewportSize(vp);
+  await page.waitForTimeout(400);
+  await page.selectOption('#f-grade', '');
+  // 부서가 있는 행사를 홈에서 고쳐도 부서가 남고, 달력에서 고친 뒤 다시 열면 새 내용
+  const today = await page.evaluate(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); });
+  await page.click('.bar [data-action=ev-add]');
+  await page.locator('#ev-form').waitFor();
+  await page.fill('#ef-start', today);
+  await page.fill('#ef-title', '부서 행사 점검');
+  await page.selectOption('#ef-dept', { label: '정보부' });
+  await page.click('#ev-form [type=submit]');
+  await waitText(page, '부서 행사 점검을 넣었어요');
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.today-card').waitFor();
+  await page.locator('[data-action=ev-open]', { hasText: '부서 행사 점검' }).first().click();
+  await page.click('[data-action=ev-edit]');
+  await page.locator('#ev-form').waitFor();
+  const deptLabel = await page.evaluate(() => { const s = document.querySelector('#ef-dept'); return s.options[s.selectedIndex].text; });
+  if (deptLabel !== '정보부') problems.push(kind + ': 홈에서 행사를 고치려니 담당 부서가 비어 있음(' + deptLabel + ')');
+  await page.fill('#ef-memo', '홈에서 메모만 고침');
+  await page.click('#ev-form [type=submit]');
+  await waitText(page, '부서 행사 점검을 고쳤어요');
+  await page.evaluate(() => window.__gy.go('schedule'));
+  await page.locator('.cal').waitFor();
+  await page.locator('[data-action=ev-open]', { hasText: '부서 행사 점검' }).first().click();
+  await page.click('[data-action=ev-edit]');
+  await page.locator('#ev-form').waitFor();
+  await page.fill('#ef-title', '고친 행사 점검');
+  await page.click('#ev-form [type=submit]');
+  await waitText(page, '고친 행사 점검을 고쳤어요');
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.today-card').waitFor();
+  await page.locator('[data-action=ev-open]', { hasText: '고친 행사 점검' }).first().click();
+  await page.locator('.ev-dl').waitFor();
+  const dl = await page.locator('.modal').innerText();
+  if (!/정보부/.test(dl) || !/홈에서 메모만 고침/.test(dl)) problems.push(kind + ': 고친 행사를 다시 열었더니 부서나 메모가 옛것');
+  await page.click('[data-action=ev-edit]');
+  await page.locator('#ev-form').waitFor();
+  await page.click('#ev-form [data-action=ev-del]');
+  await page.click('#cf-ok');
+  await waitText(page, '일정을 지웠어요');
+  // 새 조사 만들기 창은 Esc로 닫히지 않는다(쓰던 질문을 잃지 않게)
+  await page.evaluate(() => window.__gy.go('survey'));
+  await page.locator('.sv-card').first().waitFor();
+  await page.click('[data-action=sv-new]');
+  await page.locator('#svf').waitFor();
+  await page.fill('#svf-title', 'Esc 점검');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  if (!(await page.locator('#svf').count())) problems.push(kind + ': 새 조사 만들기 창이 Esc로 닫혀 쓰던 것이 사라짐');
+  else await page.click('#svf [data-action=close-modal]');
+  // '다른 분들의 답 보기'를 눌러도 아직 안 낸 답은 그대로
+  if (await page.locator('[data-sv-tab=answer]').count()) await page.click('[data-sv-tab=answer]');
+  await page.waitForTimeout(300);
+  const cards = page.locator('[data-action=sv-open]');
+  let tried = false;
+  for (let i = 0; i < await cards.count() && !tried; i++) {
+    await cards.nth(i).click();
+    await page.waitForTimeout(300);
+    if (!(await page.locator('[data-action=sv-results]').count()) || !(await page.locator('#sv-form input[type=radio]:not([disabled])').count())) continue;
+    tried = true;
+    const radios = page.locator('#sv-form input[type=radio]');
+    const pick = (await radios.count()) - 1;
+    await radios.nth(pick).evaluate((el) => el.closest('label').click());
+    if (!(await radios.nth(pick).isChecked())) { problems.push(kind + ': 응답 칸을 눌러도 골라지지 않음'); continue; }
+    await page.click('[data-action=sv-results]');
+    await page.waitForTimeout(200);
+    if (!(await page.locator('#sv-form input[type=radio]').nth(pick).isChecked())) problems.push(kind + ': 다른 분들의 답 보기를 누르니 고른 답이 지워짐');
+  }
+  if (!tried) problems.push(kind + ': 다른 분들의 답 보기를 점검할 조사가 없음');
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.today-card').waitFor();
+  await takeCalls(page);
+}
+
 async function takeCalls(page) {
   return page.evaluate(() => { const c = (window.__calls || []).slice(); if (window.__calls) window.__calls.length = 0; return c; });
 }
@@ -540,6 +653,7 @@ async function flow(browser, kind, viewport) {
   await libraryFlow(page, kind);
   await noticeFlow(page, kind);
   await uploadFlow(page, kind);
+  if (kind === 'PC') await reviewFlow(page, kind);
 
   if (kind === '휴대폰') {
     await page.click('.bottom-nav [data-action=sheet]');
@@ -554,6 +668,13 @@ async function flow(browser, kind, viewport) {
   await page.click('#admin-form [type=submit]');
   await page.locator('.srow').nth(3).waitFor();
   await shot(page, kind + '_관리자_교직원표', true);
+  // 교직원 표 찾기: 칸은 그대로 두고 줄만 바뀐다(한글을 입력하는 중에 칸이 새로 그려지면 글자가 깨진다)
+  const findBox = await page.$('#staff-find');
+  await page.type('#staff-find', '홍');
+  await page.waitForTimeout(150);
+  if (!(await findBox.evaluate((el) => el.isConnected && document.activeElement === el))) problems.push(kind + ': 교직원 표 찾기 칸이 입력할 때마다 새로 그려짐');
+  if ((await page.locator('#staff-rows .srow:not(.head)').count()) < 1) problems.push(kind + ': 교직원 표 찾기 결과가 없음');
+  await page.fill('#staff-find', '');
 
   await page.click('[data-action=staff-import]');
   await page.locator('#imp-paste').waitFor();

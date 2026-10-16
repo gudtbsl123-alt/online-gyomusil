@@ -29,8 +29,8 @@ function include(name) {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-16d';
-function fileMark_Code_() { return '2026-10-16d'; }
+var APP_BUILD_ = '2026-10-16e';
+function fileMark_Code_() { return '2026-10-16e'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -38,9 +38,9 @@ function fileMark_Code_() { return '2026-10-16d'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-16d', 'Db': '2026-10-16d', 'Auth': '2026-10-16', 'Admin': '2026-10-16d', 'Schedule': '2026-10-16c',
-    'Survey': '2026-10-16', 'Library': '2026-10-16', 'Help': '2026-10-16', 'Setup': '2026-10-16d',
-    'App': '2026-10-16d', 'Styles': '2026-10-16c', 'Index': '2026-10-16'
+    'Code': '2026-10-16e', 'Db': '2026-10-16e', 'Auth': '2026-10-16e', 'Admin': '2026-10-16e', 'Schedule': '2026-10-16e',
+    'Survey': '2026-10-16e', 'Library': '2026-10-16e', 'Help': '2026-10-16', 'Setup': '2026-10-16e',
+    'App': '2026-10-16e', 'Styles': '2026-10-16e', 'Index': '2026-10-16'
   };
 }
 
@@ -59,7 +59,7 @@ function routes_() {
     'session': { need: 'login', fn: 'apiSession_' },
     'staffPicker': { need: 'login', fn: function () { return staffPicker_(); } },
     'verify': { need: 'login', fn: function (a) { return verifyPin_(a); } },
-    'adminLogin': { need: 'login', fn: function (a) { return adminLogin_(a); } },
+    'adminLogin': { need: 'login', fn: function (a, actor) { return adminLogin_(a, actor); } },
 
     'home': { need: 'login', fn: 'apiHome_' },
     'sched.month': { need: 'login', fn: 'apiSchedMonth_' },
@@ -132,12 +132,57 @@ function routes_() {
  */
 var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1 };
 
-/** req.then = [[읽기 이름, args], …] (max개까지, 기본 3) → [{ data } 또는 null, …]. 하나가 안 되면 그것만 null(화면이 따로 다시 부른다) */
+/**
+ * 요청마다 읽는 탭(서버 기억에서 한 번에 꺼내 두기, 속도). 로그인·본인 확인에서 늘 설정·교직원·분류를 읽는다.
+ * 여기 없는 탭을 읽어도 그 탭만 따로 꺼내 오니 틀리지는 않고 조금 느릴 뿐이다(시험이 목록이 맞는지 본다)
+ */
+var BASE_TABS_ = ['설정', '교직원', '분류'];
+var ROUTE_TABS_ = {
+  'start': [], 'staffPicker': [], 'staff.list': [],
+  'session': ['응답', '알림', '조사', '공지'],
+  'home': ['일정', '월별중점', '학생수', '응답', '알림', '조사', '자료', '공지'],
+  'sched.month': ['일정', '월별중점'],
+  'sched.year': ['일정'],
+  'survey.list': ['조사', '응답', '알림'],
+  'survey.get': ['조사', '응답', '알림'],
+  'lib.list': ['자료'],
+  'notice.list': ['공지'],
+  'help.list': ['도움말'],
+  'search': ['일정', '자료', '도움말', '공지', '조사', '응답', '알림']
+};
+
+/** 요청이 읽을 탭 목록. boot·batch·이어 읽기(then)는 합친다 */
+function routeTabs_(action, args, then) {
+  var out = BASE_TABS_.slice();
+  var add = function (name, a) {
+    if (name === 'boot') { add('start'); add('session'); if (a && a.home) add('home'); return; }
+    if (name === 'batch') {
+      (a && Array.isArray(a.reads) ? a.reads : []).slice(0, 8).forEach(function (x) { if (Array.isArray(x)) add(String(x[0])); });
+      return;
+    }
+    (ROUTE_TABS_[name] || []).forEach(function (t) { if (out.indexOf(t) < 0) out.push(t); });
+  };
+  add(action, args);
+  (Array.isArray(then) ? then : []).slice(0, 3).forEach(function (x) { if (Array.isArray(x)) add(String(x[0])); });
+  return out;
+}
+
+/** 서버 기억에서 탭들을 한 번에 꺼내 둔다(Db.gs가 예전 것이면 그냥 넘어간다) */
+function preloadTabs_(tabs) {
+  var f = tabs && globalFn_('memoPreload_');
+  if (f) f(tabs);
+}
+
+/**
+ * req.then = [[읽기 이름, args], …] (max개까지, 기본 3) → [{ data } 또는 null, …]. 하나가 안 되면 그것만 null(화면이 따로 다시 부른다)
+ * 로그인을 확인한 요청에서만 읽는다(로그인이 필요 없는 요청에 then을 붙여 몰래 읽지 못하게)
+ */
 function thenReads_(list, actor, ctx, max) {
   if (!Array.isArray(list)) return undefined;
   var routes = routes_();
   return list.slice(0, max || 3).map(function (x) {
     try {
+      if (!ctx || ctx.login !== true) return null;
       var name = Array.isArray(x) ? String(x[0]) : '';
       var r = THEN_READS_[name] ? routes[name] : null;
       if (!r || r.need !== 'login') return null;
@@ -160,6 +205,7 @@ function api(reqText) {
   PERF_ = newPerf_();
   try {
     var req = JSON.parse(String(reqText || '{}'));
+    MEMO_RECHECK_ = !!req.bg; // 화면이 뒤에서 보낸 요청(기다리는 사람 없음): 오래된 서버 기억은 시트와 다시 맞춘다
     var route = routes_()[req.action];
     if (!route) throw userError_('알 수 없는 요청이에요. 화면을 새로 고쳐 주세요.');
     var fn = typeof route.fn === 'string' ? globalFn_(route.fn) : route.fn;
@@ -167,6 +213,9 @@ function api(reqText) {
       throw userError_('이 기능의 코드 파일이 빠졌거나 예전 것이에요(' + route.fn + '). 연구부장·부담당이 관리자 › 점검에서 확인해 주세요.', 'MISSING');
     }
     var t = req.tokens || {};
+    // 읽기 요청은 읽을 탭을 모두, 그 밖(쓰기 등)은 로그인 확인에 쓰는 탭만 서버 기억에서 한 번에 꺼낸다. 빈 요청(ping)·로그인은 꺼내지 않는다
+    var a = req.action;
+    preloadTabs_(ROUTE_TABS_[a] || a === 'boot' || a === 'batch' ? routeTabs_(a, req.args, req.then) : (route.need === 'public' ? null : BASE_TABS_));
     var ctx = { login: false, identity: null, admin: false, tokens: t };
     if (route.need !== 'public') {
       ctx.login = checkLogin_(t.login);
@@ -183,7 +232,10 @@ function api(reqText) {
       : { id: '', name: ctx.admin ? '관리자(본인 확인 전)' : '' };
     var data = fn(req.args || {}, actor, ctx);
     var out = { ok: true, data: data === undefined ? null : data };
-    if (req.then) out.then = thenReads_(req.then, actor, ctx);
+    if (req.then && ctx.login === true) {
+      preloadTabs_(routeTabs_('', null, req.then)); // 쓴 뒤라면 바뀐 판으로 다시 꺼낸다(이미 읽은 탭은 빼고)
+      out.then = thenReads_(req.then, actor, ctx);
+    }
     return JSON.stringify(out);
   } catch (err) {
     if (err && err.userMessage) return JSON.stringify({ ok: false, error: err.userMessage, code: err.code });

@@ -11,7 +11,7 @@
  * - 파일은 지우지 않는다. 자료를 지우거나 파일을 바꿔도 드라이브 파일은 그대로 남고, 기록 탭에 파일ID가 남는다.
  */
 
-function fileMark_Library_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+function fileMark_Library_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 도구
 
@@ -254,10 +254,15 @@ function apiLibUnarchive_(args, actor, ctx) {
   var cur = libYear_();
   var c = libCache_();
   if (!libView_(row, ctx, c).archived) throw userError_('이미 지금 학년도 자료예요.');
-  // 지난 학년도 줄은 그대로 두고, 지금 학년도로 옮겨 적는다(새 학년도 넘기기와 같은 방식)
-  var copy = libCopyObj_(row, cur);
-  var added = insertRows_('자료', [copy], actor, '보관함에서 꺼냄: ' + libSummary_(row) + ' → ' + cur, true);
-  return libView_(findRow_('자료', added[0]['자료ID']), ctx, libCache_());
+  // 지난 학년도 줄은 그대로 두고, 지금 학년도로 옮겨 적는다(새 학년도 넘기기와 같은 방식).
+  // 이미 꺼낸 것이 있으면(두 번 누르거나 두 분이 함께 누름) 새로 만들지 않고 그것을 돌려준다
+  var id = withLock_(function () {
+    var dup = liveRows_('자료').filter(function (r) { return r['원본 자료ID'] === row['자료ID'] && String(r['학년도']) === String(cur) && r['보관 여부'] !== '보관'; })[0];
+    if (dup) return dup['자료ID'];
+    var added = insertRows_('자료', [libCopyObj_(row, cur)], actor, '보관함에서 꺼냄: ' + libSummary_(row) + ' → ' + cur, true);
+    return added[0]['자료ID'];
+  });
+  return libView_(findRow_('자료', id), ctx, libCache_());
 }
 
 function libCopyObj_(row, year) {

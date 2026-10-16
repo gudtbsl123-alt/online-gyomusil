@@ -2,7 +2,7 @@
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-16d'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -17,8 +17,8 @@ function settingDefs_() {
     { key: '2학기 끝일', def: '', type: 'date', label: '2학기 끝일', note: '확인 필요' },
     { key: '본인 확인 방식', def: '이름만', type: 'choice', options: ['이름만', '이름+개인 번호'], label: '본인 확인 방식', note: "'이름만'은 명단에서 이름만 골라요. 바꾸면 모든 기기에서 이름을 다시 골라야 해요" },
     { key: '기기 기억 일수', def: '365', type: 'int', min: 1, max: 400, label: '로그인·이름을 기기에 기억하는 기간', unit: '일' },
-    { key: '잠금 횟수', def: '5', type: 'int', min: 3, max: 10, label: '개인 번호를 몇 번 틀리면 잠글까요', unit: '번', note: "'이름+개인 번호'일 때만 써요" },
-    { key: '잠금 분', def: '10', type: 'int', min: 1, max: 120, label: '잠그는 시간', unit: '분', note: "'이름+개인 번호'일 때만 써요" },
+    { key: '잠금 횟수', def: '5', type: 'int', min: 3, max: 10, label: '관리자 비밀번호·개인 번호를 몇 번 틀리면 잠글까요', unit: '번', note: '관리자 비밀번호와(이름+개인 번호 방식이면) 개인 번호에 써요' },
+    { key: '잠금 분', def: '10', type: 'int', min: 1, max: 120, label: '잠그는 시간', unit: '분', note: '관리자 비밀번호와(이름+개인 번호 방식이면) 개인 번호에 써요' },
     { key: '백업 남길 개수', def: '30', type: 'int', min: 3, max: 365, label: '매일 백업을 몇 개까지 남길까요', unit: '개' },
     { key: '기존 시트 바로가기', def: '[]', type: 'links', label: "홈의 '아직 기존 시트에서 하는 일' 바로가기", note: '홈 화면 아래에 보여요' },
     { key: '파일 크기 한도', def: '10', type: 'int', min: 1, max: 50, label: '자료실에 올릴 수 있는 파일 크기', unit: 'MB', note: '확인 필요: 학교 PC·휴대폰에서 실제로 올려 보고 정해요. 더 큰 파일은 드라이브 링크로 넣어요' },
@@ -57,10 +57,12 @@ function putSetting_(key, value, actor) {
     var before = row ? row['값'] : '';
     if (before === String(value)) return;
     if (row) {
-      sh.getRange(row._row, 2).setValue(cellWrite_(value));
+      var col = headOf_('설정').indexOf('값') + 1; // 칸 위치는 머리글 이름으로(누가 칸을 끼워 넣어도)
+      if (col < 1) throw userError_("설정 탭에 '값' 칸이 없어요. 전용 시트 메뉴 '1. 처음 설정'을 눌러 주세요.", 'SETUP');
+      sh.getRange(row._row, col).setValue(cellWrite_(value));
     } else {
       var def = settingDefs_().filter(function (d) { return d.key === key; })[0];
-      sh.appendRow([key, value, def ? (def.note || def.label) : ''].map(cellWrite_));
+      sh.appendRow(rowByHead_('설정', { '키': key, '값': value, '설명': def ? (def.note || def.label) : '' }));
     }
     dirty_('설정');
     writeLog_(actor, '설정', key, '수정', key + ' 바꿈', { '값': before }, { '값': String(value) });
@@ -242,7 +244,9 @@ function adminStaffSetActive_(args, actor) {
   var row = findRow_('교직원', String(args.id || ''));
   if (!row || row['삭제 여부']) throw userError_('교직원을 찾지 못했어요.');
   var v = args.active ? '사용' : '사용 안 함';
-  updateRow_('교직원', row['교직원ID'], { '사용 여부': v }, actor, row['이름'] + ' 선생님 ' + v);
+  var patch = { '사용 여부': v };
+  if (!args.active) patch['번호 바꾼 날'] = String(Date.now()); // 이 분의 기억된 본인 확인을 끊는다(다시 사용으로 바꿔도 옛 기기는 이름을 다시 골라야)
+  updateRow_('교직원', row['교직원ID'], patch, actor, row['이름'] + ' 선생님 ' + v);
   return staffAdminView_(findRow_('교직원', row['교직원ID']), categoryNames_('부서'));
 }
 
@@ -282,7 +286,7 @@ function adminStaffUnlock_(args, actor) {
 
 function adminLogList_(args) {
   var tab = String(args.tab || '');
-  var rows = readRows_('기록');
+  var rows = tailRows_('기록', 5000); // 기록은 계속 늘어서 끝 5000줄만 본다(최근 200개를 보여 준다)
   var out = [];
   for (var i = rows.length - 1; i >= 0 && out.length < 200; i--) {
     var r = rows[i];
@@ -310,7 +314,7 @@ function adminChangeCommonPw_(args, actor) {
 }
 
 function adminChangeAdminPw_(args, actor) {
-  if (!checkPassword_('admin', args.current)) throw userError_('지금 관리자 비밀번호가 맞지 않아요.');
+  checkAdminPwCounted_(args.current, actor); // 틀린 횟수를 세어 여러 번 틀리면 잠근다(관리자 들어가기와 같이)
   if (args.newPw !== args.newPw2) throw userError_('새 비밀번호 두 칸이 서로 달라요.');
   setPassword_('admin', args.newPw);
   withLock_(function () { writeLog_(actor, '설정', '', '비밀번호 바꿈', '관리자 비밀번호를 바꿈', null, null); });
@@ -332,9 +336,13 @@ function adminCheck_(args) {
   var buildsFn = globalFn_('fileBuilds_');
   var builds = buildsFn ? buildsFn() : {};
   var want = function (f) { return builds[f] || APP_BUILD_; };
+  // 판 표시가 없어도 이 파일의 함수가 있으면 판 표시를 넣기 전(2026-10-15)의 예전 파일이다
+  var probe = { 'Code': 'api', 'Db': 'sheetValues_', 'Auth': 'checkLogin_', 'Admin': 'adminCheck_', 'Schedule': 'apiSchedMonth_',
+    'Survey': 'apiSurveyList_', 'Library': 'apiLibList_', 'Help': 'apiHelpList_', 'Setup': 'setupAll_' };
   ['Code', 'Db', 'Auth', 'Admin', 'Schedule', 'Survey', 'Library', 'Help', 'Setup'].forEach(function (f) {
     var mark = globalFn_('fileMark_' + f + '_');
-    if (!mark) add('코드 파일', f + '.gs', 'bad', '파일이 없거나 내용이 비어 있어요', paste(f));
+    if (!mark && globalFn_(probe[f])) add('코드 파일', f + '.gs', 'warn', '판 표시가 없는 예전 파일이에요(기능은 돌아가요)', paste(f));
+    else if (!mark) add('코드 파일', f + '.gs', 'bad', '파일이 없거나 내용이 비어 있어요', paste(f));
     else if (f === 'Code' && !buildsFn) add('코드 파일', 'Code.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
     else if (mark() !== want(f)) add('코드 파일', f + '.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
     else add('코드 파일', f + '.gs', 'ok', '최신 판 ' + mark());
@@ -355,19 +363,31 @@ function adminCheck_(args) {
   if (missing.length) add('코드 파일', '기능 연결', 'bad', '찾지 못한 기능 ' + missing.length + '개: ' + missing.slice(0, 5).join(', ') + (missing.length > 5 ? ' …' : ''), '위에서 문제로 나온 파일을 다시 붙여 넣어 주세요');
   else add('코드 파일', '기능 연결', 'ok', '기능 ' + n + '개가 모두 연결됐어요');
 
-  // 2) 시트 탭·칸 (나중에 더한 탭 중 처음 쓸 때 저절로 생기는 탭은 없어도 괜찮다)
+  // 2) 시트 탭·칸 (나중에 더한 탭·칸 중 처음 쓸 때 저절로 생기는 것은 없어도 괜찮다)
   var tabs = tabs_(), bad = 0;
   var autoTabs = { '학생수': '학생 수를 처음 넣을 때 저절로 생겨요' }, notYet = 0;
+  var autoCols = { // 저장할 때 ensureCols_가 붙이는 칸
+    '학생수': { cols: ['반별'], when: '학생 수를 저장할 때' },
+    '일정': { cols: ['중요'], when: '일정을 저장할 때' },
+    '자료': { cols: ['파일 이름', '파일 크기', '홈에 보이기', '원본 자료ID', '공통', '공통 순서'], when: '자료를 저장할 때' },
+    '도움말': { cols: ['파일ID', '파일 이름', '파일 크기'], when: '도움말을 저장할 때' },
+    '조사': { cols: ['설명', '결과 공개'], when: '조사를 저장할 때' }
+  };
   Object.keys(tabs).forEach(function (tab) {
     var head;
-    try { head = headOf_(tab); } catch (e) {
+    try { head = headRowOnly_(tab); } catch (e) {
       if (autoTabs[tab]) { notYet++; add('시트', tab + ' 탭', 'ok', '아직 없어요 · ' + autoTabs[tab]); return; }
       bad++;
       add('시트', tab + ' 탭', 'bad', '탭이 없어요', "전용 시트 메뉴 '온라인 교무실 → 1. 처음 설정'을 눌러 주세요");
       return;
     }
     var miss = tabs[tab].filter(function (h) { return head.indexOf(h) < 0; });
-    if (miss.length) { bad++; add('시트', tab + ' 탭', 'warn', '칸이 없어요: ' + miss.join(', '), "전용 시트 메뉴 '1. 처음 설정'을 한 번 더 눌러 주세요(있는 데이터는 그대로예요)"); }
+    var auto = autoCols[tab] ? miss.filter(function (h) { return autoCols[tab].cols.indexOf(h) >= 0; }) : [];
+    var rest = miss.filter(function (h) { return auto.indexOf(h) < 0; });
+    if (rest.length) { bad++; add('시트', tab + ' 탭', 'warn', '칸이 없어요: ' + rest.join(', '), "전용 시트 메뉴 '1. 처음 설정'을 한 번 더 눌러 주세요(있는 데이터는 그대로예요)"); }
+    else if (auto.length) {
+      add('시트', tab + ' 탭', 'ok', auto.map(function (h) { return "'" + h + "'"; }).join('·') + ' 칸은 ' + autoCols[tab].when + ' 저절로 생겨요');
+    }
   });
   if (!bad) add('시트', '탭과 칸', 'ok', '탭 ' + (Object.keys(tabs).length - notYet) + '개와 칸이 모두 있어요');
   try {
@@ -380,6 +400,11 @@ function adminCheck_(args) {
   // 3) 비밀번호
   add('비밀번호', '공통 비밀번호', hasPassword_('common') ? 'ok' : 'bad', hasPassword_('common') ? '정해져 있어요' : '아직 없어요', "전용 시트 메뉴 '2. 공통 비밀번호 정하기'");
   add('비밀번호', '관리자 비밀번호', hasPassword_('admin') ? 'ok' : 'bad', hasPassword_('admin') ? '정해져 있어요' : '아직 없어요', "전용 시트 메뉴 '3. 관리자 비밀번호 정하기'");
+  var lf = globalFn_('loginFails_') ? loginFails_() : { n: 0 };
+  var lfMax = typeof LOGIN_FAIL_MAX_ === 'number' ? LOGIN_FAIL_MAX_ : 20;
+  add('비밀번호', '로그인 시도', lf.n >= lfMax ? 'warn' : 'ok',
+    lf.n ? '최근 15분 동안 공통 비밀번호를 ' + lf.n + '번 틀렸어요' + (lf.n >= lfMax ? ' · 새 로그인을 잠시 막았어요(로그인된 기기는 그대로)' : '') : '최근 15분 동안 틀린 로그인이 없어요',
+    lf.n >= lfMax ? '모르는 사람이 비밀번호를 맞춰 보는 중일 수 있어요. 공통 비밀번호를 더 길게 바꾸는 것을 생각해 주세요(관리자 › 비밀번호)' : '');
 
   // 4) 매일 백업
   var trig = null;
@@ -391,13 +416,16 @@ function adminCheck_(args) {
   else if (!last || Date.now() - last > 2 * 86400000) add('백업', '매일 자동 백업', 'warn', '켜져 있지만 마지막 백업이 ' + lastText + '예요', "백업 폴더를 확인하고, 이상하면 '4. 매일 자동 백업 켜기'를 다시 눌러 주세요");
   else add('백업', '매일 자동 백업', 'ok', '켜져 있어요 · 마지막 백업 ' + lastText);
 
-  // 5) 속도: 서버 기억(CacheService)
+  // 5) 속도: 서버 기억(CacheService). 시트를 손으로 고친 것을 onEdit가 알아챘는지(마지막 시각)도 보여 준다
   var memoOk = false;
   try {
     var cache = memoCache_();
     if (cache) { cache.put('gy:check', '1', 60); memoOk = cache.get('gy:check') === '1'; }
   } catch (e) { memoOk = false; }
-  add('속도', '서버 기억', memoOk ? 'ok' : 'warn', memoOk ? '켜져 있어요 · 시트를 손으로 고친 내용은 늦어도 10분 뒤에 보여요' : '쓸 수 없어서 늘 시트에서 읽어요(느릴 수 있어요)',
+  var editAt = Number(PropertiesService.getScriptProperties().getProperty('SHEET_EDIT_AT') || 0);
+  var editText = editAt ? '바로 알아채요(마지막 ' + Utilities.formatDate(new Date(editAt), tz_(), 'M월 d일 HH:mm') + ')'
+    : '아직 없어요(시트에서 칸 하나를 고쳤다 되돌린 뒤 다시 점검하면, 바로 알아채는지 여기 보여요)';
+  add('속도', '서버 기억', memoOk ? 'ok' : 'warn', memoOk ? '켜져 있어요 · 시트를 손으로 고친 것: ' + editText : '쓸 수 없어서 늘 시트에서 읽어요(느릴 수 있어요)',
     memoOk ? '' : '잠시 뒤 다시 점검해 주세요. 계속 이러면 알려 주세요');
 
   // 6) 설정
@@ -426,33 +454,36 @@ function adminCheck_(args) {
  */
 function adminSpeed_(args, actor, ctx) {
   var t = todayYmd_();
-  var list = [
-    ['홈', 'apiHome_', {}],
-    ['일정(달력)', 'apiSchedMonth_', { year: Number(t.slice(0, 4)), month: Number(t.slice(5, 7)) }],
-    ['조사·신청', 'apiSurveyList_', {}],
-    ['자료실', 'apiLibList_', {}],
-    ['공지', 'apiNoticeList_', {}],
-    ['도움말', 'apiHelpList_', {}],
-    ['교직원', 'apiStaffDir_', {}]
+  var list = [ // [이름, 요청, 처리 함수, args]
+    ['홈', 'home', 'apiHome_', {}],
+    ['일정(달력)', 'sched.month', 'apiSchedMonth_', { year: Number(t.slice(0, 4)), month: Number(t.slice(5, 7)) }],
+    ['조사·신청', 'survey.list', 'apiSurveyList_', {}],
+    ['자료실', 'lib.list', 'apiLibList_', {}],
+    ['공지', 'notice.list', 'apiNoticeList_', {}],
+    ['도움말', 'help.list', 'apiHelpList_', {}],
+    ['교직원', 'staff.list', 'apiStaffDir_', {}]
   ];
+  var preload = globalFn_('memoPreload_'), tabsOf = globalFn_('routeTabs_');
   var once = function (fn, x, bypass) {
     SETTINGS_CACHE_ = null;
     DB_SS_ = null;
     dbReset_(); // 화면마다 처음부터(앞 화면이 읽어 둔 탭을 쓰지 않게)
+    delete ctx.manage; // 관리 권한도 요청마다 처음 따지는 것처럼
     PERF_ = newPerf_();
     MEMO_BYPASS_ = bypass;
     var t0 = Date.now();
     try {
-      fn(x[2], actor, ctx);
+      if (!bypass && preload && tabsOf) preload(tabsOf(x[1], x[3])); // 실제 요청처럼 읽을 탭을 한 번에 꺼낸다
+      fn(x[3], actor, ctx);
     } finally {
       MEMO_BYPASS_ = false;
     }
     var ms = Date.now() - t0;
     return { ms: ms, openMs: PERF_.openMs, reads: PERF_.reads, readMs: PERF_.readMs, hits: PERF_.hits, memoMs: PERF_.memoMs,
-      otherMs: Math.max(0, ms - PERF_.openMs - PERF_.readMs - PERF_.memoMs) };
+      memoCalls: PERF_.memoCalls || 0, otherMs: Math.max(0, ms - PERF_.openMs - PERF_.readMs - PERF_.memoMs) };
   };
   var items = list.map(function (x) {
-    var fn = globalFn_(x[1]);
+    var fn = globalFn_(x[2]);
     if (!fn) return { label: x[0], error: '코드 파일이 빠졌어요' };
     try {
       once(fn, x, false); // 기억이 비어 있으면 채워 둔다

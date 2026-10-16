@@ -1249,7 +1249,7 @@ const HEAD = ['시작일', '끝일', '시간', '행사명', '대상', '담당 �
 
 test('올리기: 날짜 모양 여러 가지를 읽고, 없는 날짜는 막는다', () => {
   const g = freshName();
-  const d = (s) => plain(g.parseDay_(s, 2026));
+  const d = (s) => { const o = plain(g.parseDay_(s, 2026)); return o.err !== undefined ? o : { ymd: o.ymd }; };
   assert.deepStrictEqual(d('2026-03-02'), { ymd: '2026-03-02' });
   assert.deepStrictEqual(d('2026. 3. 2.'), { ymd: '2026-03-02' });
   assert.deepStrictEqual(d('2026년 3월 2일'), { ymd: '2026-03-02' });
@@ -1882,28 +1882,39 @@ test('서버 기억: 웹앱으로 저장하면 시트에 확정한 뒤 그 탭 �
   assert.ok(call(g, 'home', {}, who('흥부')).data.events.some((e) => e.title === '기억 시험 행사'));
 });
 
-test('서버 기억: 시트를 손으로 고치면 onEdit로 바로, 아니어도 10분 뒤나 시트 새로 읽기로 반영된다', () => {
+test('서버 기억: 시트를 손으로 고치면 onEdit로 그 탭만 바로, 줄 지우기처럼 onEdit가 없으면 뒤에서 보내는 요청이 10분 뒤 맞춘다', () => {
   const g = freshName();
   const { who } = ids(g);
   const me = who('심청');
   g.seedTestNotices_();
-  const title = () => call(g, 'notice.list', {}, me).data.items.map((n) => n.title);
+  const title = (bg) => JSON.parse(g.api(JSON.stringify({ action: 'notice.list', args: {}, tokens: me, bg: bg ? 1 : undefined }))).data.items.map((n) => n.title);
   const before = title();
   const sh = g._ss.getSheetByName('공지');
   const col = sh.data[0].indexOf('제목');
   const edit = (txt) => { sh.data[1][col] = txt; };
   edit('손으로 고친 제목 1');
   assert.deepStrictEqual(title(), before, 'onEdit가 없으면 아직 옛 기억');
+  assert.deepStrictEqual(title(true), before, '뒤에서 보내는 요청도 10분 안이면 기억 그대로');
   g.__clock.offset += 11 * 60 * 1000;
-  assert.ok(title().includes('손으로 고친 제목 1'), '10분이 지나면 시트에서 새로');
+  assert.deepStrictEqual(title(), before, '기다리는 요청은 10분이 지나도 기억을 그대로 써서 빠르다(판이 맞으면)');
+  assert.ok(title(true).includes('손으로 고친 제목 1'), '뒤에서 보내는 요청은 10분 넘은 기억을 시트와 다시 맞춘다');
+  assert.ok(title().includes('손으로 고친 제목 1'), '맞춘 뒤로는 기다리는 요청에도 보인다');
+  // 손으로 고친 칸: onEdit가 그 탭의 판만 바꾼다
+  call(g, 'home', {}, me);
   edit('손으로 고친 제목 2');
-  g.onEdit({ range: null });
-  assert.ok(title().includes('손으로 고친 제목 2'), 'onEdit가 불리면 바로');
+  g.onEdit({ range: sh.getRange(2, col + 1) });
+  const r2 = sheetReads(g, () => title());
+  assert.ok(r2.out.includes('손으로 고친 제목 2'), 'onEdit가 불리면 바로');
+  assert.deepStrictEqual(r2.tabs, ['공지'], '고친 탭만 다시 읽는다: ' + r2.tabs.join(','));
+  assert.ok(Number(g.PropertiesService.getScriptProperties().getProperty('SHEET_EDIT_AT')) > 0, '점검 화면이 볼 수 있게 알아챈 시각을 남긴다');
   edit('손으로 고친 제목 3');
+  g.onEdit({ range: null });
+  assert.ok(title().includes('손으로 고친 제목 3'), '어느 탭인지 모르면 모두 버린다');
+  edit('손으로 고친 제목 4');
   const { t } = adminTokens(g);
   assert.strictEqual(call(g, 'admin.cache.clear', {}, who('심청')).code, 'ADMIN');
   assert.strictEqual(call(g, 'admin.cache.clear', {}, t).data.done, true);
-  assert.ok(title().includes('손으로 고친 제목 3'), '시트 새로 읽기를 누르면 바로');
+  assert.ok(title().includes('손으로 고친 제목 4'), '시트 새로 읽기를 누르면 바로');
   assert.ok(g.readRows_('기록').some((r) => r['동작'] === '기억 비움'));
 });
 
@@ -1922,15 +1933,27 @@ test('서버 기억: 저장(잠금 안)은 늘 시트에서 읽어 손으로 고
   assert.strictEqual(String(sh.data[idx][head.indexOf('사용 여부')]).replace(/^'/, ''), '사용 안 함');
 });
 
-test('서버 기억: 큰 탭은 여러 칸에 나눠 담고, 아주 크면 담지 않고 시트에서 읽는다', () => {
+/** 잘 줄어들지 않는 글(무작위 한글 음절, 시작값이 같으면 같은 글) */
+function noise(n, seed) {
+  let a = (seed || 1) >>> 0, out = '';
+  for (let i = 0; i < n; i++) {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), a | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    out += String.fromCharCode(0xAC00 + (((t ^ (t >>> 14)) >>> 0) % 11172));
+  }
+  return out;
+}
+
+test('서버 기억: 큰 탭은 줄여서(gzip) 여러 칸에 나눠 담고, 아주 크면 담지 않고 시트에서 읽는다', () => {
   const g = freshName();
   const { who } = ids(g);
   const me = who('심청');
-  const long = '가'.repeat(2000);
-  for (let i = 0; i < 40; i++) call(g, 'notice.save', { fields: { '제목': '긴 공지 ' + i, '내용': long } }, me);
+  for (let i = 0; i < 60; i++) call(g, 'notice.save', { fields: { '제목': '긴 공지 ' + i, '내용': noise(2000, i + 1) } }, me);
   const a = call(g, 'notice.list', {}, me).data;
   const keys = Object.keys(g._cache._store).filter((k) => k.indexOf('gy:d:공지:') === 0);
-  assert.ok(keys.length >= 3, '여러 칸에 나눠 담음: ' + keys.length);
+  assert.ok(keys.length >= 2, '여러 칸에 나눠 담음: ' + keys.length);
+  assert.strictEqual(JSON.parse(g._cache._store['gy:d:공지:0'].v.split('\n')[0]).z, 1, '줄여서 담음');
   const b = sheetReads(g, () => call(g, 'notice.list', {}, me).data);
   assert.ok(!b.tabs.includes('공지'), '공지 탭은 기억에서');
   assert.deepStrictEqual(plain(b.out), plain(a));
@@ -1946,7 +1969,7 @@ test('서버 기억: 큰 탭은 여러 칸에 나눠 담고, 아주 크면 담�
     const row = head.map(() => '');
     row[head.indexOf('공지ID')] = 'GHUGE' + i;
     row[head.indexOf('제목')] = '아주 긴 공지 ' + i;
-    row[head.indexOf('내용')] = '나'.repeat(30000);
+    row[head.indexOf('내용')] = noise(45000, 100 + i);
     row[head.indexOf('입력 시각')] = g.nowText_();
     sh.data.push(row);
   }
@@ -1954,7 +1977,7 @@ test('서버 기억: 큰 탭은 여러 칸에 나눠 담고, 아주 크면 담�
   call(g, 'notice.list', {}, me);
   const d = sheetReads(g, () => call(g, 'notice.list', {}, me).data);
   assert.ok(d.tabs.includes('공지'), '너무 크면 늘 시트에서');
-  assert.ok(d.out.items.length >= 65);
+  assert.ok(d.out.items.length >= 85);
 });
 
 test('서버 기억: 기억을 쓸 수 없어도(없거나 오류) 시트에서 읽어 그대로 돌아간다', () => {
@@ -2003,6 +2026,446 @@ test('점검: 학생수 탭은 아직 없어도 문제로 보지 않는다', () 
   assert.match(by('학생수 탭').detail, /저절로/);
   assert.strictEqual(by('탭과 칸').state, 'ok');
   assert.ok(!r.items.some((x) => x.state === 'bad' && x.group === '시트'));
+});
+
+// ================================================================ 보완판 5: 관리 권한 한 번만, 서버 기억 한 번에 꺼내기
+
+test('서버 기억: 요청마다 읽을 탭을 한 번에 꺼낸다(두 번째부터 서버 기억을 한 번만 다녀오고, 목록에 빠진 탭이 없다)', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  g.seedTestSchedule_();
+  g.seedTestNotices_();
+  const me = who('심청');
+  const made = call(g, 'survey.save', { fields: sv(g) }, me);
+  assert.ok(made.ok, made.error);
+  assert.ok(call(g, 'lib.save', { fields: libFields(g) }, me).ok);
+  assert.ok(call(g, 'help.save', { fields: { '분류ID': cats(g, '도움말 분류')[0].id, '제목': '안내', '내용': '글' } }, me).ok);
+  const t = g.todayYmd_(), y = +t.slice(0, 4), m = +t.slice(5, 7);
+  const reads = [['home', {}], ['sched.month', { year: y, month: m }], ['survey.list', {}], ['lib.list', {}], ['notice.list', {}], ['help.list', {}], ['staff.list', {}]];
+  const list = [['start', {}, {}], ['staffPicker', {}, { login: me.login }], ['session', {}, me], ['boot', { home: true }, me], ['home', {}, me],
+    ['sched.month', { year: y, month: m }, me], ['sched.year', { year: m >= 3 ? y : y - 1 }, me], ['survey.list', {}, me], ['survey.get', { id: made.data.id }, me],
+    ['lib.list', {}, me], ['notice.list', {}, me], ['help.list', {}, me], ['staff.list', {}, me], ['search', { q: '안전' }, me], ['batch', { reads }, me],
+    ['home', {}, boss()], ['sched.month', { year: y, month: m }, boss()]];
+  list.forEach(([a, args, tk]) => {
+    assert.ok(call(g, a, args, tk).ok, a);
+    const r = call(g, a, args, tk);
+    assert.ok(r.ok, a);
+    assert.strictEqual(g.PERF_.reads, 0, a + ': 시트를 읽지 않음');
+    assert.strictEqual(g.PERF_.memoCalls, 1, a + ': 서버 기억은 한 번만 다녀옴(' + g.PERF_.memoCalls + '번)');
+  });
+  assert.strictEqual(call(g, 'ping', {}, {}).ok, true);
+  assert.strictEqual(g.PERF_.memoCalls, 0, 'ping은 서버 기억도 부르지 않는다');
+});
+
+test('관리자 화면을 연 기기: 관리 권한은 요청마다 한 번만 따진다(일정이 많아도 스크립트 속성을 더 읽지 않는다)', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const b = boss();
+  const me = who('심청');
+  const t = g.todayYmd_(), y = +t.slice(0, 4), m = +t.slice(5, 7);
+  const ym = t.slice(0, 8);
+  for (let i = 0; i < 30; i++) assert.ok(call(g, 'sched.save', { fields: { start: ym + String(1 + (i % 28)).padStart(2, '0'), title: '많은 행사 ' + i } }, i % 2 ? me : b).ok);
+  const real = g.PropertiesService;
+  let n = 0;
+  g.PropertiesService = { getScriptProperties() { const p = real.getScriptProperties(); return Object.assign({}, p, { getProperty(k) { n++; return p.getProperty(k); } }); } };
+  const count = (tk) => { n = 0; const r = call(g, 'sched.month', { year: y, month: m }, tk); return { n, r }; };
+  const a = count(b), c = count(me);
+  g.PropertiesService = real;
+  assert.ok(a.n <= 6, '관리자 화면을 연 기기: 스크립트 속성 ' + a.n + '번');
+  assert.ok(c.n <= 6, '보통 기기: ' + c.n + '번');
+  const mine = a.r.data.events.filter((e) => /^많은 행사/.test(e.title));
+  assert.strictEqual(mine.length, 30);
+  assert.ok(mine.every((e) => e.canEdit), '관리자 화면을 연 기기는 모두 고칠 수 있음');
+  const other = c.r.data.events.filter((e) => /^많은 행사/.test(e.title));
+  assert.strictEqual(other.filter((e) => e.canEdit).length, 15, '보통 기기는 자기가 넣은 것만');
+});
+
+test('서버 기억: 여러 칸 중 다른 판의 칸이 섞이면 쓰지 않고 시트에서 읽는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('심청');
+  for (let i = 0; i < 40; i++) call(g, 'notice.save', { fields: { '제목': '긴 공지 ' + i, '내용': noise(2000, i + 1) } }, me);
+  const a = call(g, 'notice.list', {}, me).data;
+  const store = g._cache._store;
+  const keys = Object.keys(store).filter((k) => k.indexOf('gy:d:공지:') === 0).sort();
+  assert.ok(keys.length >= 2);
+  // 둘째 칸을 다른 판이 담은 것처럼 바꾼다(그사이 다른 요청이 새로 담은 경우)
+  const k1 = 'gy:d:공지:1';
+  const nl = store[k1].v.indexOf('\n');
+  store[k1].v = store[k1].v.slice(0, nl - 3) + 'zzz' + store[k1].v.slice(nl);
+  const b = sheetReads(g, () => call(g, 'notice.list', {}, me).data);
+  assert.ok(b.tabs.includes('공지'), '섞인 기억은 쓰지 않고 시트에서');
+  assert.deepStrictEqual(plain(b.out), plain(a));
+});
+
+test('이어 읽기: 미리 꺼낸 기억이 있어도 저장한 뒤 이어 읽은 화면과 다음 화면은 새 내용이다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('심청');
+  const t = g.todayYmd_(), ym = { year: +t.slice(0, 4), month: +t.slice(5, 7) };
+  call(g, 'home', {}, me);
+  call(g, 'sched.month', ym, me);
+  const r = JSON.parse(g.api(JSON.stringify({ action: 'sched.save', args: { fields: { start: t, title: '이어 읽기 새 행사' } }, tokens: me, then: [['home', {}], ['sched.month', ym]] })));
+  assert.ok(r.ok, r.error);
+  assert.ok(r.then[0].data.events.some((e) => e.title === '이어 읽기 새 행사'), '이어 읽은 홈');
+  assert.ok(r.then[1].data.events.some((e) => e.title === '이어 읽기 새 행사'), '이어 읽은 달력');
+  assert.ok(call(g, 'sched.month', ym, who('흥부')).data.events.some((e) => e.title === '이어 읽기 새 행사'), '다른 선생님의 다음 요청');
+  const bg = JSON.parse(g.api(JSON.stringify({ action: 'batch', args: { reads: [['home', {}]] }, tokens: me, bg: 1 })));
+  assert.ok(bg.data[0].data.events.some((e) => e.title === '이어 읽기 새 행사'), '뒤에서 받은 것도');
+});
+
+test('점검: 판 표시만 없는 예전 파일은 예전 판(문제 아님), 정말 빠진 파일은 문제, 저절로 생기는 칸은 정상', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  g.fileMark_Auth_ = undefined;                        // 판 표시를 넣기 전 파일(기능은 있음)
+  g.fileMark_Help_ = undefined; g.apiHelpList_ = undefined; // 정말 빠진 파일
+  const sh = g._ss.getSheetByName('학생수');       // 반별 칸이 없던 때 만든 탭
+  if (sh) sh.data.forEach((row) => row.splice(sh.data[0].indexOf('반별'), 1));
+  else {
+    const head = g.tabs_()['학생수'].filter((h) => h !== '반별');
+    g._ss.insertSheet('학생수').getRange(1, 1, 1, head.length).setValues([head]);
+  }
+  g.memoClearAll_();
+  const b = g.fileBuilds_();
+  const r = call(g, 'admin.check', { client: { app: b.App, styles: b.Styles, index: b.Index } }, t).data;
+  const by = (label) => r.items.find((x) => x.label === label);
+  assert.strictEqual(by('Auth.gs').state, 'warn');
+  assert.match(by('Auth.gs').detail, /예전 파일/);
+  assert.strictEqual(by('Help.gs').state, 'bad');
+  assert.strictEqual(by('학생수 탭').state, 'ok');
+  assert.match(by('학생수 탭').detail, /반별.*저절로/);
+  assert.ok(!r.items.some((x) => x.group === '시트' && x.state !== 'ok'), '시트 묶음에 확인 필요 없음');
+  assert.match(by('서버 기억').detail, /아직 없어요/);
+  g.onEdit({ range: g._ss.getSheetByName('공지').getRange(1, 1) });
+  const r2 = call(g, 'admin.check', { client: { app: b.App, styles: b.Styles, index: b.Index } }, t).data;
+  assert.match(r2.items.find((x) => x.label === '서버 기억').detail, /바로 알아채요/);
+});
+
+test('속도 재기: 서버 기억에서 읽을 때도 실제 요청처럼 한 번에 꺼내 잰다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  g.seedTestSchedule_();
+  const r = call(g, 'admin.speed', {}, t);
+  assert.ok(r.ok, r.error);
+  r.data.items.forEach((x) => {
+    assert.ok(!x.error, x.label + ': ' + x.error);
+    assert.strictEqual(x.memo.reads, 0, x.label + ': 시트를 읽지 않음');
+    assert.strictEqual(x.memo.memoCalls, 1, x.label + ': 서버 기억 ' + x.memo.memoCalls + '번');
+  });
+});
+
+// ================================================================ 최종 검토(보완판 5)에서 고친 것
+
+test('보안: 로그인이 필요 없는 요청에 then을 붙여도 로그인 화면 내용을 읽지 못한다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  for (const action of ['ping', 'start', 'login']) {
+    const r = JSON.parse(g.api(JSON.stringify({ action, args: {}, tokens: { login: 'x.y' }, then: [['staff.list', {}], ['home', {}]] })));
+    assert.ok(!r.then || r.then.every((x) => x === null), action + ': ' + String(JSON.stringify(r.then)).slice(0, 80));
+  }
+  const ok = JSON.parse(g.api(JSON.stringify({ action: 'notice.list', args: {}, tokens: who('심청'), then: [['staff.list', {}]] })));
+  assert.ok(ok.then[0] && ok.then[0].data, '로그인한 요청은 그대로 이어 읽는다');
+});
+
+test('시트 줄 수: 새 탭(1000줄)을 넘겨 여러 줄을 한 번에 넣어도 된다', () => {
+  const g = freshName();
+  const sh = g._ss.getSheetByName('알림');
+  assert.strictEqual(sh.getMaxRows(), 1000);
+  const rows = Array.from({ length: 1200 }, (_, i) => ({ '조사ID': 'S1', '대상 교직원ID': 'T' + i, '알린 시각': g.nowText_() }));
+  const out = g.insertRows_('알림', rows, { id: '', name: '시험' }, '많이 넣기');
+  assert.strictEqual(out.length, 1200);
+  assert.strictEqual(g.liveRows_('알림').length, 1200);
+  assert.ok(sh.getMaxRows() >= 1201);
+});
+
+test('일괄 숨기기·되살리기는 줄마다 시트를 부르지 않는다(붙은 줄은 한 번에)', () => {
+  const g = freshName();
+  const rows = Array.from({ length: 300 }, (_, i) => ({ '시작일': '2026-10-' + String(1 + (i % 28)).padStart(2, '0'), '행사명': '많은 행사 ' + i, '구분': '행사' }));
+  const made = g.insertRows_('일정', rows, { id: '', name: '시험' }, '많이');
+  const sh = g._ss.getSheetByName('일정');
+  let calls = 0;
+  const gr = sh.getRange;
+  sh.getRange = function () { calls++; return gr.apply(this, arguments); };
+  const n = g.updateRowsSame_('일정', made.map((r) => r['일정ID']), { '삭제 여부': '삭제' }, { id: 'T1', name: '시험' }, '숨김', '삭제');
+  sh.getRange = gr;
+  assert.strictEqual(n, 300);
+  assert.ok(calls <= 5, '시트 범위 부르기 ' + calls + '번');
+  assert.strictEqual(g.liveRows_('일정').filter((r) => /^많은 행사/.test(r['행사명'])).length, 0);
+  const all = g.readRows_('일정').filter((r) => /^많은 행사/.test(r['행사명']));
+  assert.ok(all.every((r) => r['삭제 여부'] === '삭제' && r['수정자ID'] === 'T1' && r['수정 시각']), '숨긴 사람·시각이 남는다');
+  assert.ok(all.every((r) => r['행사명'] && r['시작일']), '다른 칸은 그대로');
+});
+
+test('칸 위치: 시트 맨 앞이나 설정 탭 가운데에 칸을 끼워 넣어도 이름으로 찾아 쓴다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('심청');
+  const sh = g._ss.getSheetByName('일정');
+  sh.data.forEach((row, i) => row.unshift(i ? '' : '번호'));
+  g.onEdit({ range: sh.getRange(1, 1) });
+  const t = g.todayYmd_();
+  const r = call(g, 'sched.save', { fields: { start: t, title: '칸 끼운 뒤 행사' } }, me);
+  assert.ok(r.ok, r.error);
+  const head = sh.data[0].map(String);
+  const line = sh.data.find((x) => String(x[head.indexOf('행사명')]) === '칸 끼운 뒤 행사');
+  assert.match(String(line[head.indexOf('일정ID')]), /^E/, 'ID는 일정ID 칸에');
+  assert.strictEqual(String(line[0]), '', '끼워 넣은 칸은 비워 둔다');
+  assert.ok(call(g, 'home', {}, me).data.events.some((e) => e.title === '칸 끼운 뒤 행사'));
+  const set = g._ss.getSheetByName('설정');
+  set.data.forEach((row, i) => row.splice(1, 0, i ? '' : '메모'));
+  g.putSetting_('학교명', '장도초(시험)', { id: '', name: '시험' });
+  const sh2 = set.data[0].map(String);
+  const row = set.data.find((x) => String(x[sh2.indexOf('키')]) === '학교명');
+  assert.strictEqual(String(row[sh2.indexOf('값')]), '장도초(시험)');
+  assert.strictEqual(String(row[sh2.indexOf('메모')]), '');
+});
+
+test('서버 기억: 이모지 같은 두 글자 문자를 칸 경계에서 반으로 자르지 않는다', () => {
+  const g = freshName();
+  const text = 'a'.repeat(29999 - 3) + '😀' + 'b'.repeat(500); // JSON 앞 3글자 [[" 다음, 30000번째 글자 경계에 이모지가 걸친다
+  const vals = [[text]];
+  g.memoStore_('공지', vals, { ep: 'E', v: 'V' });
+  const store = g._cache._store;
+  const c0 = store['gy:d:공지:0'].v;
+  const last = c0.charCodeAt(c0.length - 1);
+  assert.ok(!(last >= 0xD800 && last <= 0xDBFF), '첫 칸이 이모지 앞쪽 반으로 끝나지 않음');
+  g.MEMO_EP_ = 'E';
+  store['gy:v:공지'] = { v: 'V', exp: Date.now() + 60000 };
+  const look = g.memoLookup_('공지');
+  assert.strictEqual(look.vals[0][0], text);
+});
+
+test('처음 설정: 시트에서 설정 줄을 손으로 지운 직후에도 서버 기억이 아닌 시트를 보고 다시 넣는다', () => {
+  const g = freshName();
+  g.setting_('학교명');
+  call(g, 'start', {}, {});
+  const set = g._ss.getSheetByName('설정');
+  const k = set.data[0].map(String).indexOf('키');
+  const idx = set.data.findIndex((x) => String(x[k]) === '학년도');
+  set.data.splice(idx, 1); // onChange만 오고 onEdit는 오지 않는 줄 지우기
+  g.setupAll_();
+  assert.ok(set.data.some((x) => String(x[k]) === '학년도'), '지운 키를 다시 넣음');
+});
+
+test('보안: 공통 비밀번호를 학교 전체에서 15분에 20번 틀리면 새 로그인을 잠시 막고(맞는 비밀번호도), 기록·점검에 남긴다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  for (let i = 0; i < 20; i++) assert.strictEqual(call(g, 'login', { password: 'wrong-' + i }).code, 'BADPW', '틀림 ' + i);
+  const blocked = call(g, 'login', { password: COMMON });
+  assert.strictEqual(blocked.code, 'LOCKED');
+  assert.match(blocked.error, /로그인된 기기는 그대로/);
+  assert.ok(call(g, 'home', {}, { login: t.login }).ok, '이미 로그인된 기기는 그대로 쓴다');
+  assert.ok(g.readRows_('기록').some((r) => r['동작'] === '잠김' && /공통 비밀번호/.test(r['요약'])));
+  const b = g.fileBuilds_();
+  const chk = call(g, 'admin.check', { client: { app: b.App, styles: b.Styles, index: b.Index } }, t).data.items.find((x) => x.label === '로그인 시도');
+  assert.strictEqual(chk.state, 'warn');
+  g.__clock.offset += 16 * 60 * 1000;
+  assert.ok(call(g, 'login', { password: COMMON }).ok, '15분이 지나면 다시 된다');
+});
+
+test('보안: 관리자 비밀번호 잠김 기록에 고른 이름이 남고, 비밀번호 바꾸기의 지금 비밀번호도 틀린 횟수를 센다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('심청');
+  for (let i = 0; i < 5; i++) call(g, 'adminLogin', { password: 'x' + i }, me);
+  const row = g.readRows_('기록').filter((r) => r['동작'] === '잠김').pop();
+  assert.strictEqual(row['이름'], '심청');
+  g.__clock.offset += 11 * 60 * 1000;
+  const A = call(g, 'adminLogin', { password: ADMIN }, me).data.admin;
+  const t2 = Object.assign({}, me, { admin: A });
+  for (let i = 0; i < 4; i++) assert.strictEqual(call(g, 'admin.pw.admin', { current: 'y' + i, newPw: 'new-admin-1', newPw2: 'new-admin-1' }, t2).code, 'BADPW');
+  assert.strictEqual(call(g, 'admin.pw.admin', { current: 'y9', newPw: 'new-admin-1', newPw2: 'new-admin-1' }, t2).code, 'LOCKED');
+  assert.strictEqual(call(g, 'adminLogin', { password: ADMIN }, me).code, 'LOCKED', '맞춰 보기가 잠금으로 이어진다');
+});
+
+test('보안: 사용 안 함으로 바꾸면 그 분의 기억된 본인 확인이 끊기고, 다시 사용으로 바꿔도 옛 기기는 이름을 다시 고른다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const { who, staff } = ids(g);
+  const me = who('놀부');
+  assert.ok(call(g, 'home', {}, me).ok);
+  const id = staff.find((x) => x.name === '놀부').id;
+  assert.ok(call(g, 'admin.staff.setActive', { id, active: false }, t).ok);
+  assert.ok(call(g, 'admin.staff.setActive', { id, active: true }, t).ok);
+  assert.strictEqual(call(g, 'sched.save', { fields: { start: g.todayYmd_(), title: '옛 표로 저장' } }, me).code, 'IDENTITY');
+  assert.ok(call(g, 'sched.save', { fields: { start: g.todayYmd_(), title: '새로 고른 뒤 저장' } }, who('놀부')).ok);
+});
+
+test('학생 수: 창을 연 뒤 다른 분이 먼저 저장했으면 덮어쓰지 않고 알려 준다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const a = who('심청'), b = who('흥부');
+  const t = g.todayYmd_();
+  const cls = (n) => ({ 1: [[n, 10]], 2: [[10, 10]], 3: [[10, 10]], 4: [[10, 10]], 5: [[10, 10]], 6: [[10, 10]] });
+  const first = call(g, 'students.save', { date: t, classes: cls(10), base: '' }, a);
+  assert.ok(first.ok, first.error);
+  const base = call(g, 'home', {}, a).data.students.at;
+  g.__clock.offset += 2000;
+  assert.ok(call(g, 'students.save', { date: t, classes: cls(11), base }, a).ok, 'A가 1학년을 고침');
+  const late = call(g, 'students.save', { date: t, classes: cls(10), base }, b);
+  assert.strictEqual(late.code, 'CONFLICT', 'B는 A보다 먼저 연 창이라 덮어쓰지 않음');
+  assert.strictEqual(call(g, 'home', {}, a).data.students.classes['1'][0][0], 11, 'A가 넣은 숫자가 남음');
+  const fresh = call(g, 'home', {}, b).data.students.at;
+  assert.ok(call(g, 'students.save', { date: t, classes: cls(12), base: fresh }, b).ok, '다시 연 창에서는 저장됨');
+});
+
+test('올리기: 연도 없는 날짜는 적힌 요일로 다음 해를 알아채고, 요일이 틀리면 확인 필요로, 대상 전교직원은 교직원만', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  g.putSetting_('학년도', '2026', { id: '', name: '시험' });
+  const grid = [['날짜', '행사명', '구분', '대상'], ['3. 2.(화)', '입학식', '행사', '전교생'], ['5. 5.(수)', '어린이날', '공휴일', ''], ['2. 11.(금)', '졸업식', '행사', '6학년'],
+    ['3. 3.(금)', '요일 틀린 줄', '행사', ''], ['3. 4.', '교직원 연수', '교육활동', '전교직원'], ['3. 5.', '모두 함께', '행사', '전교생·교직원']];
+  const r = call(g, 'sched.upload.check', { grid }, t).data;
+  const by = (title) => r.rows.find((x) => x.title === title);
+  assert.strictEqual(by('입학식').start, '2027-03-02');
+  assert.strictEqual(by('입학식').status, 'warn');
+  assert.match(by('입학식').msgs.join(' '), /요일\(화\)에 맞춰 2027년/);
+  assert.strictEqual(by('어린이날').start, '2027-05-05');
+  assert.strictEqual(by('졸업식').start, '2028-02-11');
+  assert.strictEqual(by('요일 틀린 줄').start, '2026-03-03');
+  assert.match(by('요일 틀린 줄').msgs.join(' '), /요일이 맞지 않아요/);
+  assert.strictEqual(by('교직원 연수').target, '교직원');
+  assert.strictEqual(by('모두 함께').target, '전체,교직원');
+  const sv = call(g, 'sched.upload.save', { rows: r.rows.map((x) => Object.assign({}, x.raw, { include: true })), mode: 'skip' }, t);
+  assert.ok(sv.ok, sv.error);
+  const ev = g.liveRows_('일정');
+  assert.strictEqual(ev.find((e) => e['행사명'] === '교직원 연수')['대상 학년'], '교직원');
+  assert.strictEqual(ev.find((e) => e['행사명'] === '모두 함께')['대상 학년'], '전체,교직원');
+});
+
+test('일정: 전체와 교직원을 함께 고르면 둘 다 남는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const r = call(g, 'sched.save', { fields: { start: g.todayYmd_(), title: '모두와 교직원', target: ['전체', '1', '2', '3', '4', '5', '6', '교직원'] } }, who('심청'));
+  assert.ok(r.ok, r.error);
+  assert.strictEqual(g.liveRows_('일정').find((e) => e['행사명'] === '모두와 교직원')['대상 학년'], '전체,교직원');
+});
+
+test('올리기: 전에 올린 행사 800개를 바꾸고 되돌려도 되돌리기 정보가 속성 한 칸 한도(9KB)에 걸리지 않는다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const grid = [['날짜', '행사명', '구분']].concat(Array.from({ length: 800 }, (_, i) => [g.addDays_('2026-03-02', i % 300), '행사 ' + i, '행사']));
+  const r1 = call(g, 'sched.upload.check', { grid }, t).data;
+  assert.ok(call(g, 'sched.upload.save', { rows: r1.rows.map((x) => Object.assign({}, x.raw, { include: true })), mode: 'skip' }, t).ok);
+  const r2 = call(g, 'sched.upload.check', { grid, mode: 'replace' }, t).data;
+  const sv = call(g, 'sched.upload.save', { rows: r2.rows.map((x) => Object.assign({}, x.raw, { include: true })), mode: 'replace' }, t);
+  assert.ok(sv.ok, sv.error);
+  assert.strictEqual(sv.data.replaced, 800);
+  assert.strictEqual(g.lastUpload_().replaced.length, 800);
+  const un = call(g, 'sched.upload.undo', { batch: sv.data.batch }, t);
+  assert.ok(un.ok, un.error);
+  assert.strictEqual(un.data.restored, 800);
+  assert.strictEqual(g.liveRows_('일정').filter((e) => /^행사 \d+$/.test(e['행사명'])).length, 800, '처음 올린 800개가 다시 보인다');
+});
+
+test('조사: 지금 끝낸 조사는 글만 고쳐도 다시 열리지 않고, 마감을 늦추면 다시 열린다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('이몽룡');
+  const f = sv(g);
+  const id = call(g, 'survey.save', { fields: f }, owner).data.id;
+  call(g, 'survey.setOpen', { id, open: false }, owner);
+  const closed = () => call(g, 'survey.get', { id }, owner).data.card.closed;
+  assert.strictEqual(closed(), true);
+  assert.ok(call(g, 'survey.save', { id, fields: Object.assign({}, f, { title: '글만 고침', reopen: true }) }, owner).ok);
+  assert.strictEqual(closed(), true, '글만 고치면 끝난 그대로');
+  assert.ok(!call(g, 'home', {}, who('심청')).data.todos.some((x) => x.title === '글만 고침'), '안 낸 분 할 일에 다시 나오지 않음');
+  const later = g.addDays_(g.todayYmd_(), 5) + ' 17:00';
+  assert.ok(call(g, 'survey.save', { id, fields: Object.assign({}, f, { title: '글만 고침', deadline: later, reopen: true }) }, owner).ok);
+  assert.strictEqual(closed(), false, '마감을 늦추면 다시 열림');
+});
+
+test('조사: 안내 문구를 고치지 않았으면 제목·마감을 바꿀 때 문구도 따라 바뀌고, 직접 쓴 문구는 그대로', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('이몽룡');
+  const f = sv(g);
+  const id = call(g, 'survey.save', { fields: f }, owner).data.id;
+  const d1 = call(g, 'survey.get', { id }, owner).data;
+  const later = g.addDays_(g.todayYmd_(), 6) + ' 17:00';
+  assert.ok(call(g, 'survey.save', { id, fields: Object.assign({}, f, { deadline: later, messenger: d1.messenger }) }, owner).ok);
+  const d2 = call(g, 'survey.get', { id }, owner).data;
+  assert.notStrictEqual(d2.messenger, d1.messenger, '자동 문구는 새 마감으로');
+  assert.ok(d2.messenger.includes(d2.card.deadlineText), d2.messenger + ' / ' + d2.card.deadlineText);
+  assert.ok(call(g, 'survey.save', { id, fields: Object.assign({}, f, { deadline: later, messenger: '직접 쓴 안내예요' }) }, owner).ok);
+  assert.strictEqual(call(g, 'survey.get', { id }, owner).data.messenger, '직접 쓴 안내예요');
+});
+
+test('조사: 다시 알린 횟수는 누른 번수로 센다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('이몽룡');
+  const id = call(g, 'survey.save', { fields: sv(g) }, owner).data.id;
+  assert.ok(call(g, 'survey.remind', { id }, owner).ok);
+  assert.strictEqual(call(g, 'survey.get', { id }, owner).data.remindedCount, 1);
+  g.__clock.offset += 61 * 1000;
+  assert.ok(call(g, 'survey.remind', { id }, owner).ok);
+  assert.strictEqual(call(g, 'survey.get', { id }, owner).data.remindedCount, 2);
+});
+
+test('조사 CSV: 음수 같은 숫자 답은 숫자 그대로, =·+로 시작하는 글은 수식이 되지 않게', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('이몽룡');
+  const f = sv(g, { questions: [{ type: 'number', title: '온도' }, { type: 'short', title: '메모' }] });
+  const id = call(g, 'survey.save', { fields: f }, owner).data.id;
+  const q = call(g, 'survey.get', { id }, owner).data.questions;
+  assert.ok(call(g, 'survey.respond', { id, answers: { [q[0].id]: '-3', [q[1].id]: '=1+1' } }, who('심청')).ok);
+  const csv = call(g, 'survey.csv', { id }, owner).data.csv;
+  assert.ok(csv.includes('"-3"'), csv);
+  assert.ok(csv.includes(`"'=1+1"`), csv);
+});
+
+test('휴지통: 최근에 지운 일정이 맨 위에 보인다(한꺼번에 많이 숨긴 뒤에도)', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const { who } = ids(g);
+  const rows = Array.from({ length: 210 }, (_, i) => ({ '시작일': '2026-10-' + String(1 + (i % 28)).padStart(2, '0'), '행사명': '많은 행사 ' + i, '구분': '행사' }));
+  const made = g.insertRows_('일정', rows, { id: '', name: '시험' }, '많이');
+  g.updateRowsSame_('일정', made.map((r) => r['일정ID']), { '삭제 여부': '삭제' }, { id: '', name: '시험' }, '숨김', '삭제');
+  g.__clock.offset += 2000;
+  const me = who('심청');
+  const ev = call(g, 'sched.save', { fields: { start: '2026-03-10', title: '실수로 지운 행사' } }, me).data;
+  assert.ok(call(g, 'sched.delete', { id: ev.id }, me).ok);
+  const trash = call(g, 'admin.trash.list', {}, t).data;
+  assert.strictEqual(trash[0].title, '실수로 지운 행사');
+});
+
+test('달력: 학기 기간이 없는 학년도의 달은 수업일수 0일이 아니라 없음으로', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('심청');
+  g.putSetting_('1학기 시작일', '2026-03-02', { id: '', name: '시험' }); g.putSetting_('1학기 끝일', '2026-07-24', { id: '', name: '시험' });
+  g.putSetting_('2학기 시작일', '2026-08-17', { id: '', name: '시험' }); g.putSetting_('2학기 끝일', '2027-02-12', { id: '', name: '시험' });
+  assert.ok(call(g, 'sched.month', { year: 2026, month: 10 }, me).data.monthDays.days > 0);
+  assert.strictEqual(call(g, 'sched.month', { year: 2027, month: 3 }, me).data.monthDays, null);
+  assert.strictEqual(call(g, 'sched.month', { year: 2026, month: 8 }, me).data.monthDays !== null, true, '방학이 걸친 달은 그대로 셈');
+});
+
+test('자료: 보관함에서 꺼내기를 두 번 눌러도 한 개만 생긴다', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const me = who('심청');
+  const it = call(g, 'lib.save', { fields: libFields(g) }, me).data;
+  const b = boss();
+  const yr = call(g, 'admin.year.start', { year: 2027, keep: [] }, b);
+  assert.ok(yr.ok, yr.error);
+  const a1 = call(g, 'lib.unarchive', { id: it.id }, b);
+  const a2 = call(g, 'lib.unarchive', { id: it.id }, b);
+  assert.ok(a1.ok && a2.ok, (a1.error || '') + (a2.error || ''));
+  assert.strictEqual(a1.data.id, a2.data.id);
+  assert.strictEqual(g.liveRows_('자료').filter((r) => r['원본 자료ID'] === it.id).length, 1);
+});
+
+test('올리기: 이름을 고르지 않은 관리자 화면에서 올리면 기록에 관리자(본인 확인 전)으로 남는다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const admin = { login: t.login, admin: t.admin };
+  const r = call(g, 'sched.upload.check', { grid: [['날짜', '행사명'], ['2026-10-20', '관리자 올림']] }, admin).data;
+  assert.ok(call(g, 'sched.upload.save', { rows: r.rows.map((x) => Object.assign({}, x.raw, { include: true })), mode: 'skip' }, admin).ok);
+  const log = g.readRows_('기록').filter((x) => /학사일정 올리기/.test(x['요약'])).pop();
+  assert.strictEqual(log['이름'], '관리자(본인 확인 전)');
+  assert.strictEqual(g.lastUpload_().by, '관리자(본인 확인 전)');
 });
 
 console.log(results.join('\n'));

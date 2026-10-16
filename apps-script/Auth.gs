@@ -12,7 +12,7 @@
  *   ADMIN_PW_HASH, ADMIN_PW_SALT, ADMIN_PW_VER, ADMIN_FAILS, ADMIN_LOCK_UNTIL
  */
 
-function fileMark_Auth_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+function fileMark_Auth_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 var AUTH_LOGIN_HOURS_ = 12;   // '기억하기'를 끈 로그인·본인 확인이 유지되는 시간 (제안)
 var AUTH_ADMIN_HOURS_ = 2;    // 관리자 화면이 열려 있는 시간 (제안)
@@ -150,11 +150,49 @@ function expiry_(remember, hours) {
 
 // ---------------------------------------------------------------- 1) 공통 로그인
 
+// 웹앱 주소를 아는 누구나 공통 비밀번호를 넣어 볼 수 있으므로, 학교 전체에서 짧은 시간에 많이 틀리면 잠시 막는다.
+// 이미 로그인된(기억된) 기기는 그대로 쓴다. 숫자는 서버 기억(CacheService)에 두는 어림값이다
+var LOGIN_FAIL_WINDOW_ = 15 * 60; // 초
+var LOGIN_FAIL_MAX_ = 20;          // 이 시간 안에 이만큼 틀리면 남은 시간 동안 막는다
+
+/** 최근에 공통 비밀번호를 틀린 수 { n, at(처음 틀린 때) } */
+function loginFails_() {
+  try {
+    var v = CacheService.getScriptCache().get('gy:pwfail');
+    var f = v ? JSON.parse(v) : null;
+    if (f && f.at && Date.now() - f.at < LOGIN_FAIL_WINDOW_ * 1000) return f;
+  } catch (e) { /* 기억을 못 쓰면 막지 않는다 */ }
+  return { n: 0, at: 0 };
+}
+
+function addLoginFail_() {
+  try {
+    var f = loginFails_();
+    if (!f.at) f = { n: 0, at: Date.now() };
+    f.n++;
+    CacheService.getScriptCache().put('gy:pwfail', JSON.stringify(f), LOGIN_FAIL_WINDOW_);
+    return f.n;
+  } catch (e) {
+    return 0;
+  }
+}
+
 function login_(args) {
   if (!hasPassword_('common')) {
     throw userError_('아직 공통 비밀번호가 정해지지 않았어요. 연구부장·부담당에게 알려 주세요.', 'SETUP');
   }
+  var f = loginFails_();
+  if (f.n >= LOGIN_FAIL_MAX_) {
+    var left = Math.max(1, Math.ceil((f.at + LOGIN_FAIL_WINDOW_ * 1000 - Date.now()) / 60000));
+    throw userError_('비밀번호를 여러 번 틀린 기록이 있어서 로그인을 잠시 막았어요. ' + left + '분 뒤에 다시 해 주세요. 이미 로그인된 기기는 그대로 쓸 수 있어요.', 'LOCKED');
+  }
   if (!checkPassword_('common', args.password)) {
+    var n = addLoginFail_();
+    if (n === LOGIN_FAIL_MAX_) {
+      withLock_(function () {
+        writeLog_({ id: '', name: '' }, '설정', '', '잠김', '공통 비밀번호를 ' + Math.round(LOGIN_FAIL_WINDOW_ / 60) + '분 안에 ' + n + '번 틀려서 새 로그인을 잠시 막음', null, null);
+      });
+    }
     Utilities.sleep(1200); // 하나씩 맞춰 보는 것을 느리게
     throw userError_('비밀번호가 맞지 않아요. 다시 넣어 주세요.', 'BADPW');
   }
@@ -303,18 +341,28 @@ function meView_(row) {
 
 // ---------------------------------------------------------------- 3) 관리자
 
-function adminLogin_(args) {
+function adminLogin_(args, actor) {
   if (!hasPassword_('admin')) {
     throw userError_('아직 관리자 비밀번호가 정해지지 않았어요. 시트 메뉴 "온라인 교무실 > 관리자 비밀번호 정하기"에서 먼저 정해 주세요.', 'SETUP');
   }
+  checkAdminPwCounted_(args.password, actor);
+  return { admin: makeToken_({ k: 'A', v: pwVer_('admin'), exp: Date.now() + AUTH_ADMIN_HOURS_ * 3600 * 1000 }) };
+}
+
+/**
+ * 관리자 비밀번호 확인(틀린 횟수를 세고 여러 번 틀리면 잠근다). 관리자 들어가기와 관리자 비밀번호 바꾸기에서 함께 쓴다.
+ * 틀리면 오류를 던진다. 잠김 기록에는 고른 이름(있으면)을 남긴다
+ */
+function checkAdminPwCounted_(password, actor) {
   var rule = lockRule_();
   var p = props_();
+  var who = actor && actor.name ? { id: actor.id || '', name: actor.name } : { id: '', name: '' };
   var res = withLock_(function () {
     var until = Number(p.getProperty('ADMIN_LOCK_UNTIL') || 0);
     if (until > Date.now()) {
       return { ok: false, code: 'LOCKED', msg: '관리자 비밀번호를 여러 번 틀려서 잠겼어요. ' + Math.ceil((until - Date.now()) / 60000) + '분 뒤에 다시 해 주세요.' };
     }
-    if (checkPassword_('admin', args.password)) {
+    if (checkPassword_('admin', password)) {
       p.setProperty('ADMIN_FAILS', '0');
       return { ok: true };
     }
@@ -322,7 +370,7 @@ function adminLogin_(args) {
     if (fails >= rule.tries) {
       p.setProperty('ADMIN_FAILS', '0');
       p.setProperty('ADMIN_LOCK_UNTIL', String(Date.now() + rule.minutes * 60000));
-      writeLog_({ id: '', name: '' }, '설정', '', '잠김', '관리자 비밀번호를 ' + rule.tries + '번 틀려서 ' + rule.minutes + '분 잠김', null, null);
+      writeLog_(who, '설정', '', '잠김', '관리자 비밀번호를 ' + rule.tries + '번 틀려서 ' + rule.minutes + '분 잠김', null, null);
       return { ok: false, code: 'LOCKED', msg: '관리자 비밀번호를 ' + rule.tries + '번 틀려서 ' + rule.minutes + '분 동안 잠겼어요.' };
     }
     p.setProperty('ADMIN_FAILS', String(fails));
@@ -332,7 +380,6 @@ function adminLogin_(args) {
     Utilities.sleep(1200);
     throw userError_(res.msg, res.code);
   }
-  return { admin: makeToken_({ k: 'A', v: pwVer_('admin'), exp: Date.now() + AUTH_ADMIN_HOURS_ * 3600 * 1000 }) };
 }
 
 function checkAdmin_(token) {
