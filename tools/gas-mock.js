@@ -245,16 +245,53 @@
     };
   }
 
+  // ------------------------------------------------------------ 서버 기억(CacheService): 한 칸 100KB·키 250자·최대 6시간
+  function createCache(now, env) {
+    var store = {};
+    function alive(k) {
+      var e = store[k];
+      if (!e) return null;
+      if (e.exp <= now()) { delete store[k]; return null; }
+      return e.v;
+    }
+    function check(k, v) {
+      if (String(k).length > 250) throw new Error('Argument too large: key');
+      if (utf8(String(v)).length > 100 * 1024) throw new Error('Argument too large: value');
+    }
+    var cache = {
+      get: function (k) { env._cacheCalls++; return alive(k); },
+      getAll: function (keys) {
+        env._cacheCalls++;
+        var o = {};
+        keys.forEach(function (k) { var v = alive(k); if (v !== null) o[k] = v; });
+        return o;
+      },
+      put: function (k, v, ttl) { env._cacheCalls++; check(k, v); store[k] = { v: String(v), exp: now() + Math.min(ttl || 600, 21600) * 1000 }; },
+      putAll: function (m, ttl) {
+        env._cacheCalls++;
+        Object.keys(m).forEach(function (k) { check(k, m[k]); store[k] = { v: String(m[k]), exp: now() + Math.min(ttl || 600, 21600) * 1000 }; });
+      },
+      remove: function (k) { env._cacheCalls++; delete store[k]; },
+      removeAll: function (keys) { env._cacheCalls++; keys.forEach(function (k) { delete store[k]; }); },
+      _store: store
+    };
+    return cache;
+  }
+
   // ------------------------------------------------------------ 환경 만들기
   function createEnv(opts) {
     opts = opts || {};
+    var now = opts.now || function () { return Date.now(); };
     var ss = new Spreadsheet('mock-sheet-id');
     var props = {};
     var env = {
       _ss: ss,
       _props: props,
       _sleeps: 0,
+      _flushes: 0,
+      _cacheCalls: 0,
       SpreadsheetApp: {
+        flush: function () { env._flushes++; },
         getActiveSpreadsheet: function () { return ss; },
         openById: function (id) { if (id !== ss.id) throw new Error('없는 시트'); return ss; },
         getUi: function () { if (!opts.ui) throw new Error('Cannot call SpreadsheetApp.getUi() from this context.'); return opts.ui; }
@@ -291,9 +328,11 @@
       Session: { getScriptTimeZone: function () { return 'Asia/Seoul'; } },
       DriveApp: createDrive(),
       ScriptApp: { getProjectTriggers: function () { return env._triggers || []; } },
+      CacheService: { getScriptCache: function () { return env._cache; } },
       MimeType: { GOOGLE_SHEETS: 'application/vnd.google-apps.spreadsheet' },
       console: root.console
     };
+    env._cache = opts.noCache ? null : createCache(now, env);
     return env;
   }
 

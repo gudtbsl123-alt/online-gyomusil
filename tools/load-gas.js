@@ -13,9 +13,9 @@ const GAS_FILES = ['Code.gs', 'Db.gs', 'Auth.gs', 'Admin.gs', 'Schedule.gs', 'Su
 /** clock.offset(ms)를 바꾸면 서버 코드의 시계가 그만큼 앞으로 간다 */
 function loadGas(opts) {
   opts = opts || {};
-  const env = GasMock.createEnv(opts);
   const clock = { offset: 0 };
   const RealDate = Date;
+  const env = GasMock.createEnv(Object.assign({ now: () => RealDate.now() + clock.offset }, opts));
   class FakeDate extends RealDate {
     constructor(...a) {
       if (a.length === 0) super(RealDate.now() + clock.offset);

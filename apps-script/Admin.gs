@@ -2,7 +2,7 @@
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-16c'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-10-16d'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -391,14 +391,23 @@ function adminCheck_(args) {
   else if (!last || Date.now() - last > 2 * 86400000) add('백업', '매일 자동 백업', 'warn', '켜져 있지만 마지막 백업이 ' + lastText + '예요', "백업 폴더를 확인하고, 이상하면 '4. 매일 자동 백업 켜기'를 다시 눌러 주세요");
   else add('백업', '매일 자동 백업', 'ok', '켜져 있어요 · 마지막 백업 ' + lastText);
 
-  // 5) 설정
+  // 5) 속도: 서버 기억(CacheService)
+  var memoOk = false;
+  try {
+    var cache = memoCache_();
+    if (cache) { cache.put('gy:check', '1', 60); memoOk = cache.get('gy:check') === '1'; }
+  } catch (e) { memoOk = false; }
+  add('속도', '서버 기억', memoOk ? 'ok' : 'warn', memoOk ? '켜져 있어요 · 시트를 손으로 고친 내용은 늦어도 10분 뒤에 보여요' : '쓸 수 없어서 늘 시트에서 읽어요(느릴 수 있어요)',
+    memoOk ? '' : '잠시 뒤 다시 점검해 주세요. 계속 이러면 알려 주세요');
+
+  // 6) 설정
   var semOk = semesters_().length === 2;
   add('설정', '학기 기간', semOk ? 'ok' : 'warn', semOk ? '1·2학기 기간이 들어 있어요' : '비어 있는 학기가 있어 수업일수를 다 세지 못해요', '관리자 › 설정에서 1·2학기 시작일·끝일을 넣어 주세요');
   var days = rememberDays_();
   add('설정', '기기 기억 기간', days >= 365 ? 'ok' : 'warn', days + '일', days >= 365 ? '' : "정한 값은 365일이에요. 관리자 › 설정에서 바꿔 주세요");
   add('설정', '본인 확인 방식', 'ok', pinMode_() ? '이름+개인 번호' : "이름만 (관리 일은 관리자 화면을 연 기기에서만)");
 
-  // 6) 교직원·분류
+  // 7) 교직원·분류
   var staff = activeStaff_();
   var depts = categoryNames_('부서');
   var noDept = staff.filter(function (r) { return !depts[r['부서ID']]; }).length;
@@ -411,8 +420,9 @@ function adminCheck_(args) {
 // ---------------------------------------------------------------- 속도 재기 (관리자 › 점검)
 
 /**
- * 자주 여는 화면을 서버 안에서 하나씩 불러 보며 시간을 잰다(쓰지는 않는다).
- * 화면마다: 서버 처리 전체 · 시트 열기 · 탭 읽기(횟수·시간) · 그 밖(계산 등). 서버를 다녀오는 왕복 시간은 화면이 'ping'으로 따로 잰다
+ * 자주 여는 화면을 서버 안에서 불러 보며 시간을 잰다(쓰지는 않는다).
+ * 화면마다 두 번: 시트에서 읽을 때(서버 기억을 쓰지 않음)와 서버 기억에서 읽을 때.
+ * 서버를 다녀오는 왕복 시간은 화면이 'ping'으로 따로 잰다
  */
 function adminSpeed_(args, actor, ctx) {
   var t = todayYmd_();
@@ -425,23 +435,40 @@ function adminSpeed_(args, actor, ctx) {
     ['도움말', 'apiHelpList_', {}],
     ['교직원', 'apiStaffDir_', {}]
   ];
-  var items = list.map(function (x) {
-    var fn = globalFn_(x[1]);
-    if (!fn) return { label: x[0], error: '코드 파일이 빠졌어요' };
+  var once = function (fn, x, bypass) {
     SETTINGS_CACHE_ = null;
     DB_SS_ = null;
     dbReset_(); // 화면마다 처음부터(앞 화면이 읽어 둔 탭을 쓰지 않게)
     PERF_ = newPerf_();
+    MEMO_BYPASS_ = bypass;
     var t0 = Date.now();
     try {
       fn(x[2], actor, ctx);
+    } finally {
+      MEMO_BYPASS_ = false;
+    }
+    var ms = Date.now() - t0;
+    return { ms: ms, openMs: PERF_.openMs, reads: PERF_.reads, readMs: PERF_.readMs, hits: PERF_.hits, memoMs: PERF_.memoMs,
+      otherMs: Math.max(0, ms - PERF_.openMs - PERF_.readMs - PERF_.memoMs) };
+  };
+  var items = list.map(function (x) {
+    var fn = globalFn_(x[1]);
+    if (!fn) return { label: x[0], error: '코드 파일이 빠졌어요' };
+    try {
+      once(fn, x, false); // 기억이 비어 있으면 채워 둔다
+      return { label: x[0], sheet: once(fn, x, true), memo: once(fn, x, false) };
     } catch (e) {
       return { label: x[0], error: String(e && e.message || e).slice(0, 120) };
     }
-    var ms = Date.now() - t0;
-    return { label: x[0], ms: ms, openMs: PERF_.openMs, reads: PERF_.reads, readMs: PERF_.readMs, otherMs: Math.max(0, ms - PERF_.openMs - PERF_.readMs) };
   });
-  return { at: nowText_(), items: items };
+  return { at: nowText_(), items: items, memoOn: !!memoCache_() };
+}
+
+/** 관리자 › 점검 '시트 새로 읽기': 서버 기억을 모두 버린다(시트를 손으로 고친 뒤 바로 보이게) */
+function adminCacheClear_(args, actor) {
+  var ok = memoClearAll_();
+  withLock_(function () { writeLog_(actor, '설정', '', '기억 비움', '서버 기억을 비움(시트에서 새로 읽기)', null, null); });
+  return { done: ok };
 }
 
 // ---------------------------------------------------------------- 교직원 명단 한 번에 넣기 (관리자)

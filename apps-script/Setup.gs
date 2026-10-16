@@ -4,7 +4,16 @@
  * 메뉴 함수는 시트 안에서만 돌아간다(웹앱에서 부르면 requireSheetUi_()가 막는다).
  */
 
-function fileMark_Setup_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+function fileMark_Setup_() { return '2026-10-16d'; } // 판 표시(관리자 › 점검)
+
+/**
+ * 시트를 손으로 고치면 웹앱이 서버에 기억해 둔 내용을 모두 버리게 한다(다음 요청은 시트에서 새로 읽는다).
+ * 단순 트리거라 이 환경에서 안 되면(확인 필요) 기억은 10분 뒤에 저절로 사라진다.
+ * 이름이 '_'로 끝나지 않아 웹앱에서도 부를 수 있지만, 기억을 버리기만 하므로 괜찮다
+ */
+function onEdit(e) {
+  try { CacheService.getScriptCache().put('gy:ep', Utilities.getUuid().replace(/-/g, '').slice(0, 10), 21600); } catch (err) { /* 무시 */ }
+}
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('온라인 교무실')
@@ -90,6 +99,7 @@ function setupAll_() {
   });
   SETTINGS_CACHE_ = null;
   dbReset_();
+  memoClearAll_(); // 탭·칸을 바꿨으니 서버 기억을 모두 버린다
   return { created: created, extended: extended };
 }
 

@@ -1047,16 +1047,53 @@ select.input{appearance:auto}
     };
   }
 
+  // ------------------------------------------------------------ 서버 기억(CacheService): 한 칸 100KB·키 250자·최대 6시간
+  function createCache(now, env) {
+    var store = {};
+    function alive(k) {
+      var e = store[k];
+      if (!e) return null;
+      if (e.exp <= now()) { delete store[k]; return null; }
+      return e.v;
+    }
+    function check(k, v) {
+      if (String(k).length > 250) throw new Error('Argument too large: key');
+      if (utf8(String(v)).length > 100 * 1024) throw new Error('Argument too large: value');
+    }
+    var cache = {
+      get: function (k) { env._cacheCalls++; return alive(k); },
+      getAll: function (keys) {
+        env._cacheCalls++;
+        var o = {};
+        keys.forEach(function (k) { var v = alive(k); if (v !== null) o[k] = v; });
+        return o;
+      },
+      put: function (k, v, ttl) { env._cacheCalls++; check(k, v); store[k] = { v: String(v), exp: now() + Math.min(ttl || 600, 21600) * 1000 }; },
+      putAll: function (m, ttl) {
+        env._cacheCalls++;
+        Object.keys(m).forEach(function (k) { check(k, m[k]); store[k] = { v: String(m[k]), exp: now() + Math.min(ttl || 600, 21600) * 1000 }; });
+      },
+      remove: function (k) { env._cacheCalls++; delete store[k]; },
+      removeAll: function (keys) { env._cacheCalls++; keys.forEach(function (k) { delete store[k]; }); },
+      _store: store
+    };
+    return cache;
+  }
+
   // ------------------------------------------------------------ 환경 만들기
   function createEnv(opts) {
     opts = opts || {};
+    var now = opts.now || function () { return Date.now(); };
     var ss = new Spreadsheet('mock-sheet-id');
     var props = {};
     var env = {
       _ss: ss,
       _props: props,
       _sleeps: 0,
+      _flushes: 0,
+      _cacheCalls: 0,
       SpreadsheetApp: {
+        flush: function () { env._flushes++; },
         getActiveSpreadsheet: function () { return ss; },
         openById: function (id) { if (id !== ss.id) throw new Error('없는 시트'); return ss; },
         getUi: function () { if (!opts.ui) throw new Error('Cannot call SpreadsheetApp.getUi() from this context.'); return opts.ui; }
@@ -1093,9 +1130,11 @@ select.input{appearance:auto}
       Session: { getScriptTimeZone: function () { return 'Asia/Seoul'; } },
       DriveApp: createDrive(),
       ScriptApp: { getProjectTriggers: function () { return env._triggers || []; } },
+      CacheService: { getScriptCache: function () { return env._cache; } },
       MimeType: { GOOGLE_SHEETS: 'application/vnd.google-apps.spreadsheet' },
       console: root.console
     };
+    env._cache = opts.noCache ? null : createCache(now, env);
     return env;
   }
 
@@ -1110,7 +1149,8 @@ select.input{appearance:auto}
 (function () {
   var env = GasMock.createEnv({});
   var SpreadsheetApp = env.SpreadsheetApp, PropertiesService = env.PropertiesService, LockService = env.LockService,
-      Utilities = env.Utilities, Session = env.Session, DriveApp = env.DriveApp, MimeType = env.MimeType, ScriptApp = env.ScriptApp;
+      Utilities = env.Utilities, Session = env.Session, DriveApp = env.DriveApp, MimeType = env.MimeType, ScriptApp = env.ScriptApp,
+      CacheService = env.CacheService;
 /* ===== Code.gs ===== */
 /**
  * 인천장도초등학교 온라인 교무실 — Apps Script 웹앱
@@ -1143,8 +1183,8 @@ function include(name) {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-16c';
-function fileMark_Code_() { return '2026-10-16c'; }
+var APP_BUILD_ = '2026-10-16d';
+function fileMark_Code_() { return '2026-10-16d'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -1152,9 +1192,9 @@ function fileMark_Code_() { return '2026-10-16c'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-16c', 'Db': '2026-10-16c', 'Auth': '2026-10-16', 'Admin': '2026-10-16c', 'Schedule': '2026-10-16c',
-    'Survey': '2026-10-16', 'Library': '2026-10-16', 'Help': '2026-10-16', 'Setup': '2026-10-16',
-    'App': '2026-10-16c', 'Styles': '2026-10-16c', 'Index': '2026-10-16'
+    'Code': '2026-10-16d', 'Db': '2026-10-16d', 'Auth': '2026-10-16', 'Admin': '2026-10-16d', 'Schedule': '2026-10-16c',
+    'Survey': '2026-10-16', 'Library': '2026-10-16', 'Help': '2026-10-16', 'Setup': '2026-10-16d',
+    'App': '2026-10-16d', 'Styles': '2026-10-16c', 'Index': '2026-10-16'
   };
 }
 
@@ -1168,6 +1208,7 @@ function routes_() {
     'start': { need: 'public', fn: 'apiStart_' },
     'ping': { need: 'public', fn: function () { return { at: Date.now() }; } }, // 속도 재기: 시트를 읽지 않는 빈 요청
     'boot': { need: 'login', fn: 'apiBoot_' },
+    'batch': { need: 'login', fn: 'apiBatch_' }, // 미리 받기: 자주 여는 화면을 한 번에
     'login': { need: 'public', fn: function (a) { return login_(a); } },
     'session': { need: 'login', fn: 'apiSession_' },
     'staffPicker': { need: 'login', fn: function () { return staffPicker_(); } },
@@ -1233,6 +1274,7 @@ function routes_() {
     'admin.pw.admin': { need: 'admin', fn: 'adminChangeAdminPw_' },
     'admin.check': { need: 'admin', fn: 'adminCheck_' },
     'admin.speed': { need: 'admin', fn: 'adminSpeed_' },
+    'admin.cache.clear': { need: 'admin', fn: 'adminCacheClear_' },
     'admin.staff.importCheck': { need: 'admin', fn: 'adminStaffImportCheck_' },
     'admin.staff.import': { need: 'admin', fn: 'adminStaffImport_' }
   };
@@ -1244,11 +1286,11 @@ function routes_() {
  */
 var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1 };
 
-/** req.then = [[읽기 이름, args], …] (3개까지) → [{ data } 또는 null, …]. 하나가 안 되면 그것만 null(화면이 따로 다시 부른다) */
-function thenReads_(list, actor, ctx) {
+/** req.then = [[읽기 이름, args], …] (max개까지, 기본 3) → [{ data } 또는 null, …]. 하나가 안 되면 그것만 null(화면이 따로 다시 부른다) */
+function thenReads_(list, actor, ctx, max) {
   if (!Array.isArray(list)) return undefined;
   var routes = routes_();
-  return list.slice(0, 3).map(function (x) {
+  return list.slice(0, max || 3).map(function (x) {
     try {
       var name = Array.isArray(x) ? String(x[0]) : '';
       var r = THEN_READS_[name] ? routes[name] : null;
@@ -1322,7 +1364,7 @@ function globalFn_(name) {
 
 function apiStart_() {
   var ready = true;
-  try { sheet_('교직원'); } catch (e) { ready = false; }
+  try { headOf_('교직원'); } catch (e) { ready = false; } // 서버 기억에 있으면 시트를 열지 않는다
   return {
     school: ready ? setting_('학교명') : '인천장도초등학교',
     year: ready ? setting_('학년도') : '',
@@ -1330,6 +1372,11 @@ function apiStart_() {
     rememberDays: ready ? rememberDays_() : 365,
     pinMode: ready ? pinMode_() : false
   };
+}
+
+/** 미리 받기: 화면이 뒤에서 자주 여는 화면들을 한 번에 받아 둔다. args.reads = [[읽기 이름, args], …] (8개까지, 이어 읽기와 같은 읽기만) */
+function apiBatch_(args, actor, ctx) {
+  return thenReads_(args.reads, actor, ctx, 8) || [];
 }
 
 /** 처음 열기(로그인이 기억된 기기): 시작 정보·로그인 상태·홈을 한 번에. 홈은 화면이 곧바로 홈을 그릴 때만(args.home) */
@@ -1379,7 +1426,7 @@ function deptOptions_() {
  * - 시트에 쓸 때는 잠금(LockService)을 걸어 동시에 저장해도 꼬이지 않게 한다.
  */
 
-function fileMark_Db_() { return '2026-10-16c'; } // 판 표시(관리자 › 점검)
+function fileMark_Db_() { return '2026-10-16d'; } // 판 표시(관리자 › 점검)
 
 /** 모든 표(기록·설정 제외)에 붙는 입력·수정·삭제 칸 */
 function auditCols_() {
@@ -1428,9 +1475,9 @@ function hiddenCols_() {
 
 var DB_SS_ = null; // 한 번 실행하는 동안만 쓰는 캐시
 
-/** 속도 재기(관리자 › 점검): 한 요청 안에서 시트 열기·탭 읽기에 걸린 시간 */
-var PERF_ = { openMs: 0, reads: 0, readMs: 0 };
-function newPerf_() { return { openMs: 0, reads: 0, readMs: 0 }; }
+/** 속도 재기(관리자 › 점검): 한 요청 안에서 시트 열기·시트 읽기·서버 기억 읽기에 걸린 시간 */
+var PERF_ = newPerf_();
+function newPerf_() { return { openMs: 0, reads: 0, readMs: 0, hits: 0, memoMs: 0 }; }
 
 function ss_() {
   if (DB_SS_) return DB_SS_;
@@ -1450,7 +1497,7 @@ function openSs_() {
 }
 
 // ---------------------------------------------------------------- 한 요청 안에서 다시 읽지 않기(속도)
-// 탭마다 시트 값을 한 번만 읽어 두고, 그 탭에 쓰면 버린다. 잠금에 들어갈 때도 모두 버려
+// 탭마다 값을 한 번만 읽어 두고(글자로), 그 탭에 쓰면 버린다. 잠금에 들어갈 때도 모두 버려
 // 잠금 안에서는 늘 최신 값을 읽는다(다른 분이 그사이 저장했어도 꼬이지 않게).
 var DB_CACHE_ = {};
 var DB_SHEETS_ = {};
@@ -1458,22 +1505,143 @@ var DB_SHEETS_ = {};
 function dbReset_() {
   DB_CACHE_ = {};
   DB_SHEETS_ = {};
+  MEMO_EP_ = null;
 }
 
-/** 탭에 쓴 뒤 부른다(tab을 비우면 모두) */
+/** 탭에 쓴 뒤 부른다(tab을 비우면 이 요청에서 읽어 둔 값을 모두 버림). 쓴 탭은 잠금을 풀기 전에 서버 기억의 판을 바꾼다 */
 function dirty_(tab) {
-  if (tab) delete DB_CACHE_[tab];
-  else DB_CACHE_ = {};
+  if (!tab) { DB_CACHE_ = {}; return; }
+  delete DB_CACHE_[tab];
+  if (DB_LOCK_DEPTH_ > 0) DB_WRITTEN_[tab] = true;
+  else memoBump_([tab]); // 잠금 밖에서 쓴 경우
 }
 
+/** 탭 값(글자 2차원 배열). 서버 기억에 있으면 시트를 열지 않는다. 잠금 안(쓰기)에서는 늘 시트에서 */
 function sheetValues_(tab) {
-  if (!DB_CACHE_[tab]) {
-    var t0 = Date.now();
-    DB_CACHE_[tab] = sheet_(tab).getDataRange().getValues();
-    PERF_.reads++;
-    PERF_.readMs += Date.now() - t0;
+  if (DB_CACHE_[tab]) return DB_CACHE_[tab];
+  var t0 = Date.now();
+  var look = DB_LOCK_DEPTH_ > 0 || MEMO_BYPASS_ ? null : memoLookup_(tab);
+  var t1 = Date.now();
+  PERF_.memoMs += t1 - t0;
+  if (look && look.vals) {
+    PERF_.hits++;
+    DB_CACHE_[tab] = look.vals;
+    return look.vals;
   }
-  return DB_CACHE_[tab];
+  var vals = sheet_(tab).getDataRange().getValues().map(function (row) { return row.map(cellText_); });
+  PERF_.reads++;
+  PERF_.readMs += Date.now() - t1;
+  DB_CACHE_[tab] = vals;
+  if (look) {
+    var t2 = Date.now();
+    memoStore_(tab, vals, look);
+    PERF_.memoMs += Date.now() - t2;
+  }
+  return vals;
+}
+
+// ---------------------------------------------------------------- 서버 기억(속도)
+// 탭 내용을 구글 서버의 임시 기억(CacheService)에 글자로 넣어 두고, 시트를 열지 않고 읽는다.
+// - 웹앱으로 쓰면(잠금 안 + dirty_) 잠금을 풀기 전에 시트에 확정(flush)하고 그 탭의 판을 바꿔 옛 기억을 버린다
+// - 잠금 안(쓰기)에서는 기억을 쓰지 않고 시트에서 바로 읽는다(쓰기는 늘 최신 값으로)
+// - 시트를 손으로 고치면 onEdit(Setup.gs)가 전체 판을 바꾼다. 그게 안 되는 환경이어도 기억은 10분이면 사라진다
+// - 관리자 › 점검 '시트 새로 읽기'로 언제든 모두 버린다
+var MEMO_TTL_ = 600;        // 탭 내용 기억 시간(초)
+var MEMO_KEEP_ = 21600;     // 판 표시 기억 시간(초, 최대 6시간)
+var MEMO_CHUNK_ = 30000;    // 한 칸에 넣는 글자 수(한 칸 100KB 한도, 한글은 3바이트)
+var MEMO_MAX_CHUNKS_ = 20;  // 이보다 큰 탭은 기억하지 않는다
+var MEMO_SKIP_ = { '기록': 1 }; // 크고 쓸 때마다 늘어나 기억하지 않는 탭
+var MEMO_EP_ = null;        // 이번 요청에서 읽은 전체 판
+var MEMO_BYPASS_ = false;   // 속도 재기에서 '시트에서 읽을 때'를 잴 때만 켠다
+var DB_WRITTEN_ = {};       // 이번 잠금 안에서 쓴 탭
+
+function memoCache_() {
+  try { return CacheService.getScriptCache(); } catch (e) { return null; }
+}
+
+function memoToken_() {
+  return Utilities.getUuid().replace(/-/g, '').slice(0, 10);
+}
+
+/** 탭 기억 찾기 → { ep, v, vals(없으면 null) }. 서버 기억을 쓸 수 없으면 null */
+function memoLookup_(tab) {
+  if (MEMO_SKIP_[tab]) return null;
+  var cache = memoCache_();
+  if (!cache) return null;
+  try {
+    var kv = 'gy:v:' + tab, k0 = 'gy:d:' + tab + ':0';
+    var got = cache.getAll(MEMO_EP_ ? [kv, k0] : ['gy:ep', kv, k0]);
+    if (!MEMO_EP_) {
+      MEMO_EP_ = got['gy:ep'] || null;
+      if (!MEMO_EP_) { MEMO_EP_ = memoToken_(); cache.put('gy:ep', MEMO_EP_, MEMO_KEEP_); }
+    }
+    var out = { ep: MEMO_EP_, v: got[kv] || null, vals: null };
+    if (!out.v) { out.v = memoToken_(); cache.put(kv, out.v, MEMO_KEEP_); return out; }
+    var c0 = got[k0];
+    if (!c0) return out;
+    var nl = c0.indexOf('\n');
+    var meta = JSON.parse(c0.slice(0, nl));
+    if (meta.ep !== out.ep || meta.v !== out.v) return out;
+    var text = c0.slice(nl + 1);
+    if (meta.n > 1) {
+      var keys = [];
+      for (var i = 1; i < meta.n; i++) keys.push('gy:d:' + tab + ':' + i);
+      var rest = cache.getAll(keys);
+      for (var j = 0; j < keys.length; j++) {
+        if (typeof rest[keys[j]] !== 'string') return out; // 한 칸이라도 사라졌으면 시트에서
+        text += rest[keys[j]];
+      }
+    }
+    out.vals = JSON.parse(text);
+    return out;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** 시트에서 읽은 값을 기억에 넣는다. 판(look.v)은 시트를 읽기 전에 받아 둔 것이라, 그사이 누가 쓰면 이 기억은 저절로 버려진다 */
+function memoStore_(tab, vals, look) {
+  var cache = memoCache_();
+  if (!cache) return;
+  try {
+    var text = JSON.stringify(vals);
+    var n = Math.max(1, Math.ceil(text.length / MEMO_CHUNK_));
+    if (n > MEMO_MAX_CHUNKS_) return;
+    var put = {};
+    for (var i = 0; i < n; i++) {
+      var part = text.slice(i * MEMO_CHUNK_, (i + 1) * MEMO_CHUNK_);
+      put['gy:d:' + tab + ':' + i] = i ? part : JSON.stringify({ ep: look.ep, v: look.v, n: n }) + '\n' + part;
+    }
+    cache.putAll(put, MEMO_TTL_);
+  } catch (e) { /* 기억하지 못해도 읽기는 된다 */ }
+}
+
+/** 쓴 탭의 판을 바꾼다. 시트에 먼저 확정(flush)해서, 바뀐 판으로 옛 값을 기억하는 일이 없게 한다 */
+function memoBump_(tabs) {
+  var cache = memoCache_();
+  if (!cache) return;
+  try {
+    SpreadsheetApp.flush();
+    var put = {};
+    tabs.forEach(function (t) { put['gy:v:' + t] = memoToken_(); });
+    cache.putAll(put, MEMO_KEEP_);
+  } catch (e) {
+    memoClearAll_();
+  }
+}
+
+/** 기억을 모두 버린다(전체 판을 바꾼다): 처음 설정 뒤, 관리자 › 점검 '시트 새로 읽기' */
+function memoClearAll_() {
+  MEMO_EP_ = null;
+  var cache = memoCache_();
+  if (!cache) return false;
+  try {
+    try { SpreadsheetApp.flush(); } catch (e0) { /* 확정할 것이 없으면 그대로 */ }
+    cache.put('gy:ep', memoToken_(), MEMO_KEEP_);
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 function sheet_(tab) {
@@ -1569,11 +1737,18 @@ function withLock_(fn) {
   if (!lock.tryLock(20000)) throw userError_('다른 분이 저장하는 중이에요. 잠시 뒤에 다시 눌러 주세요.', 'BUSY');
   dirty_(); // 잠금 안에서는 최신 값을 다시 읽는다
   DB_LOCK_DEPTH_++;
+  DB_WRITTEN_ = {};
   try {
     return fn();
   } finally {
     DB_LOCK_DEPTH_--;
-    lock.releaseLock();
+    var written = Object.keys(DB_WRITTEN_);
+    DB_WRITTEN_ = {};
+    try {
+      if (written.length) memoBump_(written); // 잠금을 풀기 전에: 시트에 확정하고 서버 기억의 판을 바꾼다
+    } finally {
+      lock.releaseLock();
+    }
   }
 }
 
@@ -2209,7 +2384,7 @@ function assignPin_(row, actor) {
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-16c'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-10-16d'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -2598,14 +2773,23 @@ function adminCheck_(args) {
   else if (!last || Date.now() - last > 2 * 86400000) add('백업', '매일 자동 백업', 'warn', '켜져 있지만 마지막 백업이 ' + lastText + '예요', "백업 폴더를 확인하고, 이상하면 '4. 매일 자동 백업 켜기'를 다시 눌러 주세요");
   else add('백업', '매일 자동 백업', 'ok', '켜져 있어요 · 마지막 백업 ' + lastText);
 
-  // 5) 설정
+  // 5) 속도: 서버 기억(CacheService)
+  var memoOk = false;
+  try {
+    var cache = memoCache_();
+    if (cache) { cache.put('gy:check', '1', 60); memoOk = cache.get('gy:check') === '1'; }
+  } catch (e) { memoOk = false; }
+  add('속도', '서버 기억', memoOk ? 'ok' : 'warn', memoOk ? '켜져 있어요 · 시트를 손으로 고친 내용은 늦어도 10분 뒤에 보여요' : '쓸 수 없어서 늘 시트에서 읽어요(느릴 수 있어요)',
+    memoOk ? '' : '잠시 뒤 다시 점검해 주세요. 계속 이러면 알려 주세요');
+
+  // 6) 설정
   var semOk = semesters_().length === 2;
   add('설정', '학기 기간', semOk ? 'ok' : 'warn', semOk ? '1·2학기 기간이 들어 있어요' : '비어 있는 학기가 있어 수업일수를 다 세지 못해요', '관리자 › 설정에서 1·2학기 시작일·끝일을 넣어 주세요');
   var days = rememberDays_();
   add('설정', '기기 기억 기간', days >= 365 ? 'ok' : 'warn', days + '일', days >= 365 ? '' : "정한 값은 365일이에요. 관리자 › 설정에서 바꿔 주세요");
   add('설정', '본인 확인 방식', 'ok', pinMode_() ? '이름+개인 번호' : "이름만 (관리 일은 관리자 화면을 연 기기에서만)");
 
-  // 6) 교직원·분류
+  // 7) 교직원·분류
   var staff = activeStaff_();
   var depts = categoryNames_('부서');
   var noDept = staff.filter(function (r) { return !depts[r['부서ID']]; }).length;
@@ -2618,8 +2802,9 @@ function adminCheck_(args) {
 // ---------------------------------------------------------------- 속도 재기 (관리자 › 점검)
 
 /**
- * 자주 여는 화면을 서버 안에서 하나씩 불러 보며 시간을 잰다(쓰지는 않는다).
- * 화면마다: 서버 처리 전체 · 시트 열기 · 탭 읽기(횟수·시간) · 그 밖(계산 등). 서버를 다녀오는 왕복 시간은 화면이 'ping'으로 따로 잰다
+ * 자주 여는 화면을 서버 안에서 불러 보며 시간을 잰다(쓰지는 않는다).
+ * 화면마다 두 번: 시트에서 읽을 때(서버 기억을 쓰지 않음)와 서버 기억에서 읽을 때.
+ * 서버를 다녀오는 왕복 시간은 화면이 'ping'으로 따로 잰다
  */
 function adminSpeed_(args, actor, ctx) {
   var t = todayYmd_();
@@ -2632,23 +2817,40 @@ function adminSpeed_(args, actor, ctx) {
     ['도움말', 'apiHelpList_', {}],
     ['교직원', 'apiStaffDir_', {}]
   ];
-  var items = list.map(function (x) {
-    var fn = globalFn_(x[1]);
-    if (!fn) return { label: x[0], error: '코드 파일이 빠졌어요' };
+  var once = function (fn, x, bypass) {
     SETTINGS_CACHE_ = null;
     DB_SS_ = null;
     dbReset_(); // 화면마다 처음부터(앞 화면이 읽어 둔 탭을 쓰지 않게)
     PERF_ = newPerf_();
+    MEMO_BYPASS_ = bypass;
     var t0 = Date.now();
     try {
       fn(x[2], actor, ctx);
+    } finally {
+      MEMO_BYPASS_ = false;
+    }
+    var ms = Date.now() - t0;
+    return { ms: ms, openMs: PERF_.openMs, reads: PERF_.reads, readMs: PERF_.readMs, hits: PERF_.hits, memoMs: PERF_.memoMs,
+      otherMs: Math.max(0, ms - PERF_.openMs - PERF_.readMs - PERF_.memoMs) };
+  };
+  var items = list.map(function (x) {
+    var fn = globalFn_(x[1]);
+    if (!fn) return { label: x[0], error: '코드 파일이 빠졌어요' };
+    try {
+      once(fn, x, false); // 기억이 비어 있으면 채워 둔다
+      return { label: x[0], sheet: once(fn, x, true), memo: once(fn, x, false) };
     } catch (e) {
       return { label: x[0], error: String(e && e.message || e).slice(0, 120) };
     }
-    var ms = Date.now() - t0;
-    return { label: x[0], ms: ms, openMs: PERF_.openMs, reads: PERF_.reads, readMs: PERF_.readMs, otherMs: Math.max(0, ms - PERF_.openMs - PERF_.readMs) };
   });
-  return { at: nowText_(), items: items };
+  return { at: nowText_(), items: items, memoOn: !!memoCache_() };
+}
+
+/** 관리자 › 점검 '시트 새로 읽기': 서버 기억을 모두 버린다(시트를 손으로 고친 뒤 바로 보이게) */
+function adminCacheClear_(args, actor) {
+  var ok = memoClearAll_();
+  withLock_(function () { writeLog_(actor, '설정', '', '기억 비움', '서버 기억을 비움(시트에서 새로 읽기)', null, null); });
+  return { done: ok };
 }
 
 // ---------------------------------------------------------------- 교직원 명단 한 번에 넣기 (관리자)
@@ -4810,7 +5012,16 @@ function seedTestNotices_() {
  * 메뉴 함수는 시트 안에서만 돌아간다(웹앱에서 부르면 requireSheetUi_()가 막는다).
  */
 
-function fileMark_Setup_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+function fileMark_Setup_() { return '2026-10-16d'; } // 판 표시(관리자 › 점검)
+
+/**
+ * 시트를 손으로 고치면 웹앱이 서버에 기억해 둔 내용을 모두 버리게 한다(다음 요청은 시트에서 새로 읽는다).
+ * 단순 트리거라 이 환경에서 안 되면(확인 필요) 기억은 10분 뒤에 저절로 사라진다.
+ * 이름이 '_'로 끝나지 않아 웹앱에서도 부를 수 있지만, 기억을 버리기만 하므로 괜찮다
+ */
+function onEdit(e) {
+  try { CacheService.getScriptCache().put('gy:ep', Utilities.getUuid().replace(/-/g, '').slice(0, 10), 21600); } catch (err) { /* 무시 */ }
+}
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('온라인 교무실')
@@ -4896,6 +5107,7 @@ function setupAll_() {
   });
   SETTINGS_CACHE_ = null;
   dbReset_();
+  memoClearAll_(); // 탭·칸을 바꿨으니 서버 기억을 모두 버린다
   return { created: created, extended: extended };
 }
 
@@ -5153,7 +5365,7 @@ function setPinForTest_(row, pin) {
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-16c'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-10-16d'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -5205,7 +5417,7 @@ function setPinForTest_(row, pin) {
   // ------------------------------------------------------------ 서버 부르기
   // 읽기만 하는 요청. 이것 말고는 모두 무언가를 바꾸는 요청이라, 성공하면 화면 기억(MEMO)을 모두 잊는다
   var READS = {
-    start: 1, ping: 1, boot: 1, session: 1, staffPicker: 1, home: 1, search: 1, 'sched.month': 1, 'sched.year': 1,
+    start: 1, ping: 1, boot: 1, batch: 1, session: 1, staffPicker: 1, home: 1, search: 1, 'sched.month': 1, 'sched.year': 1,
     'sched.upload.info': 1, 'sched.upload.check': 1, 'survey.list': 1, 'survey.get': 1, 'survey.csv': 1, 'lib.list': 1, 'file.get': 1,
     'help.list': 1, 'staff.list': 1, 'notice.list': 1, 'admin.settings.get': 1, 'admin.cat.list': 1, 'admin.staff.list': 1,
     'admin.log.list': 1, 'admin.trash.list': 1, 'admin.trash.surveys': 1, 'admin.trash.library': 1, 'admin.year.preview': 1,
@@ -5229,7 +5441,7 @@ function setPinForTest_(row, pin) {
         var r;
         try { r = JSON.parse(text); } catch (e) { r = { ok: false, error: '서버 답을 읽지 못했어요. 다시 해 주세요.', code: 'ERROR' }; }
         if (r.ok) {
-          if (!READS[action]) memoClear();
+          if (!READS[action]) { memoClear(); setTimeout(prefetchScreens, 400); }
           if (then && r.then) then.forEach(function (x, i) { if (r.then[i]) memoPut(x[0], x[1], r.then[i].data); });
           return resolve(r.data);
         }
@@ -5280,9 +5492,10 @@ function setPinForTest_(row, pin) {
   var screenEdited = false; // 그린 뒤 화면에서 무언가 입력했으면 뒤에서 다시 그리지 않는다(쓰던 것이 지워지지 않게)
   var pendingDraw = null;   // 창이 열려 있거나 입력하는 중이라 미뤄 둔 다시 그리기
   var refreshN = 0;
+  var memoGen = 0;          // 기억을 비울 때마다 늘어난다(저장하기 전에 떠난 요청의 옛 답을 버리게)
   function memoKey(action, args) { return action + '|' + JSON.stringify(args || {}); }
   function memoPut(action, args, data) { MEMO[memoKey(action, args)] = { data: data, json: JSON.stringify(data), at: Date.now() }; }
-  function memoClear() { MEMO = {}; pendingDraw = null; }
+  function memoClear() { MEMO = {}; pendingDraw = null; memoGen++; }
   function editingNow() {
     if ($modal.innerHTML || qs('#sheet')) return true;
     var a = document.activeElement;
@@ -5312,8 +5525,10 @@ function setPinForTest_(row, pin) {
     if (m && Date.now() - m.at < MEMO_FRESH) return;
     if (m) refreshing(true);
     var done = function () { if (m) refreshing(false); };
+    var gen = memoGen;
     server(action, args).then(function (d) {
       done();
+      if (gen !== memoGen) return; // 그사이 저장해서 기억을 비웠으면 이 답은 옛 내용(저장 뒤 화면이 새로 그린다)
       var json = JSON.stringify(d);
       var changed = !m || m.json !== json;
       MEMO[key] = { data: d, json: json, at: Date.now() };
@@ -5325,6 +5540,32 @@ function setPinForTest_(row, pin) {
     }, function (e) {
       done();
       if (!m && seq === navSeq && fail) fail(e);
+    });
+  }
+
+  // ------------------------------------------------------------ 미리 받기(속도)
+  // 화면을 그린 뒤·저장한 뒤, 자주 여는 화면을 뒤에서 한 번에(batch) 받아 화면 기억에 넣는다 → 처음 누르는 메뉴도 바로 보인다
+  var prefetchBusy = false, prefetchAgain = false;
+  function prefetchList() {
+    var t = localToday();
+    return [['home', {}], ['sched.month', { year: +t.slice(0, 4), month: +t.slice(5, 7) }], ['survey.list', {}], ['lib.list', {}],
+      ['notice.list', {}], ['help.list', {}], ['staff.list', {}]].filter(function (x) { return !MEMO[memoKey(x[0], x[1])]; });
+  }
+  function prefetchScreens() {
+    if (!qs('.app') || !stGet('gy.login')) return; // 앱 화면이 열려 있을 때만
+    if (prefetchBusy) { prefetchAgain = true; return; }
+    var reads = prefetchList();
+    if (!reads.length) return;
+    prefetchBusy = true;
+    var gen = memoGen;
+    server('batch', { reads: reads }).then(function (res) {
+      if (gen !== memoGen) return; // 그사이 저장했으면 옛 내용이라 버린다(저장 뒤 다시 받는다)
+      (res || []).forEach(function (x, i) {
+        if (x && !MEMO[memoKey(reads[i][0], reads[i][1])]) memoPut(reads[i][0], reads[i][1], x.data);
+      });
+    }, function () { /* 미리 받기는 못 해도 괜찮다(누를 때 받는다) */ }).then(function () {
+      prefetchBusy = false;
+      if (prefetchAgain) { prefetchAgain = false; setTimeout(prefetchScreens, 300); }
     });
   }
 
@@ -5752,6 +5993,7 @@ function setPinForTest_(row, pin) {
     document.title = m.label + ' · 온라인 교무실';
     var $s = qs('#screen');
     (SCREENS[m.id] || soonScreen)($s, m);
+    setTimeout(prefetchScreens, 800); // 지금 화면을 먼저 받고, 나머지는 뒤에서
   }
 
   // ------------------------------------------------------------ 휴대폰 '전체' 메뉴
@@ -7702,7 +7944,8 @@ function setPinForTest_(row, pin) {
         '지운 일정·조사·자료·도움말은 <b>관리자 › 휴지통</b>에서 되살릴 수 있어요.',
         '누가 언제 무엇을 바꿨는지는 <b>관리자 › 수정 기록</b>에서 바뀌기 전·뒤까지 볼 수 있어요.',
         "전용 시트 메뉴 '온라인 교무실 › 4. 매일 자동 백업 켜기'를 켜 두면 매일 사본을 만들고 정한 개수만큼 남겨요.",
-        '전용 시트를 직접 고칠 때는 1행(머리글)을 바꾸지 말고, 줄을 지우지 말아 주세요. 웹앱에서 지우면 되살릴 수 있어요.'
+        '전용 시트를 직접 고칠 때는 1행(머리글)을 바꾸지 말고, 줄을 지우지 말아 주세요. 웹앱에서 지우면 되살릴 수 있어요.',
+        '시트를 직접 고친 내용은 웹앱에 늦어도 10분 뒤에 보여요. 바로 보려면 <b>관리자 › 점검 › 시트 새로 읽기</b>를 눌러요.'
       ]);
   };
 
@@ -8938,6 +9181,9 @@ function setPinForTest_(row, pin) {
         '<p class="faint" style="margin-top:4px">구글 서버를 다녀오는 시간과, 화면마다 서버가 일하는 시간을 재요. 10초쯤 걸려요.</p></div>' +
         '<button type="button" class="btn btn-sm" data-action="speed-run">' + icon('reload', 18) + '속도 재기</button></div>' +
         '<div id="speed-out"></div></section>' +
+        '<section class="card"><div class="card-head"><div><h2>시트 새로 읽기</h2>' +
+        '<p class="faint" style="margin-top:4px">시트를 손으로 고쳤는데 웹앱에 바로 안 보이면 누르세요. 서버에 기억해 둔 내용을 버리고 시트에서 새로 읽어요. 누르지 않아도 늦어도 10분 뒤에는 바뀌어요.</p></div>' +
+        '<button type="button" class="btn btn-sm" data-action="cache-clear">' + icon('reload', 18) + '시트 새로 읽기</button></div></section>' +
         '</div>';
     }).catch(function (e) { panel.innerHTML = failHtml(e); });
   }
@@ -8948,7 +9194,9 @@ function setPinForTest_(row, pin) {
     'sched.month': '일정(달력)', 'sched.year': '연간 학사일정', 'sched.save': '일정 저장', 'sched.delete': '일정 지우기', 'focus.save': '중점지도 저장',
     'students.save': '학생 수 저장', 'survey.list': '조사 목록', 'survey.get': '조사 보기', 'survey.respond': '조사 응답', 'survey.save': '조사 만들기·고치기',
     'lib.list': '자료실', 'lib.save': '자료 넣기·고치기', 'lib.delete': '자료 지우기', 'notice.list': '공지', 'notice.save': '공지 쓰기·고치기',
-    'help.list': '도움말', 'help.save': '도움말 쓰기·고치기', 'staff.list': '교직원', search: '찾기', 'admin.check': '점검', adminLogin: '관리자 들어가기', 'admin.staff.list': '교직원 표(관리자)', 'admin.staff.import': '명단 한 번에 넣기', 'admin.staff.importCheck': '명단 미리보기'
+    'help.list': '도움말', 'help.save': '도움말 쓰기·고치기', 'staff.list': '교직원', search: '찾기', 'admin.check': '점검', adminLogin: '관리자 들어가기', 'admin.staff.list': '교직원 표(관리자)', 'admin.staff.import': '명단 한 번에 넣기', 'admin.staff.importCheck': '명단 미리보기', batch: '미리 받기(뒤에서)',
+    'sched.upload.info': '학사일정 올리기 화면', 'sched.upload.check': '학사일정 미리보기', 'sched.upload.save': '학사일정 올리기',
+    'admin.cache.clear': '시트 새로 읽기', 'admin.settings.get': '설정(관리자)', 'admin.log.list': '수정 기록', 'survey.remind': '다시 알리기'
   };
   function secText(ms) { return (ms / 1000).toFixed(2) + '초'; }
   function speedRun() {
@@ -8966,13 +9214,16 @@ function setPinForTest_(row, pin) {
         '<p><b>빈 요청 왕복</b> ' + pings.map(secText).join(' · ') + '</p>' +
         '<p class="hint">' + icon('info', 16) + '<span>구글 서버를 한 번 다녀오는 기본 시간이에요. 단추를 누를 때마다 적어도 이만큼은 걸려요.</span></p>' +
         '<div class="speed-wrap"><table class="speed-table"><caption class="sr-only">화면마다 서버가 일한 시간</caption>' +
-        '<thead><tr><th scope="col">화면</th><th scope="col">서버 처리</th><th scope="col">시트 열기</th><th scope="col">탭 읽기</th><th scope="col">그 밖</th><th scope="col">어림 합계</th></tr></thead><tbody>' +
+        '<thead><tr><th scope="col">화면</th><th scope="col">시트에서 읽을 때</th><th scope="col">서버 기억에서 읽을 때</th><th scope="col">어림 합계</th></tr></thead><tbody>' +
         r.items.map(function (x) {
-          if (x.error) return '<tr><th scope="row">' + esc(x.label) + '</th><td colspan="5">' + esc(x.error) + '</td></tr>';
-          return '<tr><th scope="row">' + esc(x.label) + '</th><td>' + secText(x.ms) + '</td><td>' + secText(x.openMs) + '</td>' +
-            '<td>' + secText(x.readMs) + ' (' + x.reads + '번)</td><td>' + secText(x.otherMs) + '</td><td><b>' + secText(x.ms + best) + '</b></td></tr>';
+          if (x.error) return '<tr><th scope="row">' + esc(x.label) + '</th><td colspan="3">' + esc(x.error) + '</td></tr>';
+          return '<tr><th scope="row">' + esc(x.label) + '</th>' +
+            '<td>' + secText(x.sheet.ms) + '<span class="faint"> · 시트 ' + x.sheet.reads + '번</span></td>' +
+            '<td>' + secText(x.memo.ms) + '<span class="faint"> · 기억 ' + x.memo.hits + '번' + (x.memo.reads ? '·시트 ' + x.memo.reads + '번' : '') + '</span></td>' +
+            '<td><b>' + secText(x.memo.ms + best) + '</b></td></tr>';
         }).join('') + '</tbody></table></div>' +
-        '<p class="hint">' + icon('info', 16) + '<span>어림 합계 = 빈 요청 왕복(가장 짧은 값) + 서버 처리. 메뉴를 처음 열 때 걸리는 시간과 비슷해요. 이 화면을 사진으로 찍어 보내 주시면 더 빠르게 할 곳을 찾을 수 있어요.</span></p>' +
+        (r.memoOn ? '' : '<p class="warn-text">서버 기억을 쓸 수 없어서 늘 시트에서 읽고 있어요.</p>') +
+        '<p class="hint">' + icon('info', 16) + '<span>어림 합계 = 빈 요청 왕복(가장 짧은 값) + 서버 기억에서 읽을 때. 메뉴를 열 때 기다리는 시간과 비슷해요(미리 받아 둔 메뉴는 기다리지 않아요). 이 화면을 사진으로 찍어 보내 주시면 더 빠르게 할 곳을 찾을 수 있어요.</span></p>' +
         (recent.length ? '<h3>이 기기에서 최근에 한 일</h3><ul class="speed-recent">' + recent.map(function (c) {
           return '<li><span>' + esc(CALL_NAMES[c.action] || c.action) + '</span><b>' + secText(c.ms) + '</b></li>';
         }).join('') + '</ul>' : '') +
@@ -9318,6 +9569,11 @@ function setPinForTest_(row, pin) {
         break;
       case 'check-again': adminCheck(qs('#admin-panel')); break;
       case 'speed-run': speedRun(); break;
+      case 'cache-clear':
+        server('admin.cache.clear').then(function (r) {
+          toast(r.done ? '서버 기억을 비웠어요. 다음 화면부터 시트에서 새로 읽어요' : '서버 기억을 쓸 수 없어요. 늘 시트에서 읽고 있어요');
+        }).catch(function (e) { toast(e.message); });
+        break;
       case 'staff-import': openStaffImport(); break;
       case 'imp-template':
         saveBlob(templateXlsx(S.start && S.start.year, [['이름', '직위', '소속', '부서', '담당 업무', '내선', '역할', '순서'],

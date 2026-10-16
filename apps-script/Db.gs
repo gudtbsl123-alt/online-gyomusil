@@ -8,7 +8,7 @@
  * - 시트에 쓸 때는 잠금(LockService)을 걸어 동시에 저장해도 꼬이지 않게 한다.
  */
 
-function fileMark_Db_() { return '2026-10-16c'; } // 판 표시(관리자 › 점검)
+function fileMark_Db_() { return '2026-10-16d'; } // 판 표시(관리자 › 점검)
 
 /** 모든 표(기록·설정 제외)에 붙는 입력·수정·삭제 칸 */
 function auditCols_() {
@@ -57,9 +57,9 @@ function hiddenCols_() {
 
 var DB_SS_ = null; // 한 번 실행하는 동안만 쓰는 캐시
 
-/** 속도 재기(관리자 › 점검): 한 요청 안에서 시트 열기·탭 읽기에 걸린 시간 */
-var PERF_ = { openMs: 0, reads: 0, readMs: 0 };
-function newPerf_() { return { openMs: 0, reads: 0, readMs: 0 }; }
+/** 속도 재기(관리자 › 점검): 한 요청 안에서 시트 열기·시트 읽기·서버 기억 읽기에 걸린 시간 */
+var PERF_ = newPerf_();
+function newPerf_() { return { openMs: 0, reads: 0, readMs: 0, hits: 0, memoMs: 0 }; }
 
 function ss_() {
   if (DB_SS_) return DB_SS_;
@@ -79,7 +79,7 @@ function openSs_() {
 }
 
 // ---------------------------------------------------------------- 한 요청 안에서 다시 읽지 않기(속도)
-// 탭마다 시트 값을 한 번만 읽어 두고, 그 탭에 쓰면 버린다. 잠금에 들어갈 때도 모두 버려
+// 탭마다 값을 한 번만 읽어 두고(글자로), 그 탭에 쓰면 버린다. 잠금에 들어갈 때도 모두 버려
 // 잠금 안에서는 늘 최신 값을 읽는다(다른 분이 그사이 저장했어도 꼬이지 않게).
 var DB_CACHE_ = {};
 var DB_SHEETS_ = {};
@@ -87,22 +87,143 @@ var DB_SHEETS_ = {};
 function dbReset_() {
   DB_CACHE_ = {};
   DB_SHEETS_ = {};
+  MEMO_EP_ = null;
 }
 
-/** 탭에 쓴 뒤 부른다(tab을 비우면 모두) */
+/** 탭에 쓴 뒤 부른다(tab을 비우면 이 요청에서 읽어 둔 값을 모두 버림). 쓴 탭은 잠금을 풀기 전에 서버 기억의 판을 바꾼다 */
 function dirty_(tab) {
-  if (tab) delete DB_CACHE_[tab];
-  else DB_CACHE_ = {};
+  if (!tab) { DB_CACHE_ = {}; return; }
+  delete DB_CACHE_[tab];
+  if (DB_LOCK_DEPTH_ > 0) DB_WRITTEN_[tab] = true;
+  else memoBump_([tab]); // 잠금 밖에서 쓴 경우
 }
 
+/** 탭 값(글자 2차원 배열). 서버 기억에 있으면 시트를 열지 않는다. 잠금 안(쓰기)에서는 늘 시트에서 */
 function sheetValues_(tab) {
-  if (!DB_CACHE_[tab]) {
-    var t0 = Date.now();
-    DB_CACHE_[tab] = sheet_(tab).getDataRange().getValues();
-    PERF_.reads++;
-    PERF_.readMs += Date.now() - t0;
+  if (DB_CACHE_[tab]) return DB_CACHE_[tab];
+  var t0 = Date.now();
+  var look = DB_LOCK_DEPTH_ > 0 || MEMO_BYPASS_ ? null : memoLookup_(tab);
+  var t1 = Date.now();
+  PERF_.memoMs += t1 - t0;
+  if (look && look.vals) {
+    PERF_.hits++;
+    DB_CACHE_[tab] = look.vals;
+    return look.vals;
   }
-  return DB_CACHE_[tab];
+  var vals = sheet_(tab).getDataRange().getValues().map(function (row) { return row.map(cellText_); });
+  PERF_.reads++;
+  PERF_.readMs += Date.now() - t1;
+  DB_CACHE_[tab] = vals;
+  if (look) {
+    var t2 = Date.now();
+    memoStore_(tab, vals, look);
+    PERF_.memoMs += Date.now() - t2;
+  }
+  return vals;
+}
+
+// ---------------------------------------------------------------- 서버 기억(속도)
+// 탭 내용을 구글 서버의 임시 기억(CacheService)에 글자로 넣어 두고, 시트를 열지 않고 읽는다.
+// - 웹앱으로 쓰면(잠금 안 + dirty_) 잠금을 풀기 전에 시트에 확정(flush)하고 그 탭의 판을 바꿔 옛 기억을 버린다
+// - 잠금 안(쓰기)에서는 기억을 쓰지 않고 시트에서 바로 읽는다(쓰기는 늘 최신 값으로)
+// - 시트를 손으로 고치면 onEdit(Setup.gs)가 전체 판을 바꾼다. 그게 안 되는 환경이어도 기억은 10분이면 사라진다
+// - 관리자 › 점검 '시트 새로 읽기'로 언제든 모두 버린다
+var MEMO_TTL_ = 600;        // 탭 내용 기억 시간(초)
+var MEMO_KEEP_ = 21600;     // 판 표시 기억 시간(초, 최대 6시간)
+var MEMO_CHUNK_ = 30000;    // 한 칸에 넣는 글자 수(한 칸 100KB 한도, 한글은 3바이트)
+var MEMO_MAX_CHUNKS_ = 20;  // 이보다 큰 탭은 기억하지 않는다
+var MEMO_SKIP_ = { '기록': 1 }; // 크고 쓸 때마다 늘어나 기억하지 않는 탭
+var MEMO_EP_ = null;        // 이번 요청에서 읽은 전체 판
+var MEMO_BYPASS_ = false;   // 속도 재기에서 '시트에서 읽을 때'를 잴 때만 켠다
+var DB_WRITTEN_ = {};       // 이번 잠금 안에서 쓴 탭
+
+function memoCache_() {
+  try { return CacheService.getScriptCache(); } catch (e) { return null; }
+}
+
+function memoToken_() {
+  return Utilities.getUuid().replace(/-/g, '').slice(0, 10);
+}
+
+/** 탭 기억 찾기 → { ep, v, vals(없으면 null) }. 서버 기억을 쓸 수 없으면 null */
+function memoLookup_(tab) {
+  if (MEMO_SKIP_[tab]) return null;
+  var cache = memoCache_();
+  if (!cache) return null;
+  try {
+    var kv = 'gy:v:' + tab, k0 = 'gy:d:' + tab + ':0';
+    var got = cache.getAll(MEMO_EP_ ? [kv, k0] : ['gy:ep', kv, k0]);
+    if (!MEMO_EP_) {
+      MEMO_EP_ = got['gy:ep'] || null;
+      if (!MEMO_EP_) { MEMO_EP_ = memoToken_(); cache.put('gy:ep', MEMO_EP_, MEMO_KEEP_); }
+    }
+    var out = { ep: MEMO_EP_, v: got[kv] || null, vals: null };
+    if (!out.v) { out.v = memoToken_(); cache.put(kv, out.v, MEMO_KEEP_); return out; }
+    var c0 = got[k0];
+    if (!c0) return out;
+    var nl = c0.indexOf('\n');
+    var meta = JSON.parse(c0.slice(0, nl));
+    if (meta.ep !== out.ep || meta.v !== out.v) return out;
+    var text = c0.slice(nl + 1);
+    if (meta.n > 1) {
+      var keys = [];
+      for (var i = 1; i < meta.n; i++) keys.push('gy:d:' + tab + ':' + i);
+      var rest = cache.getAll(keys);
+      for (var j = 0; j < keys.length; j++) {
+        if (typeof rest[keys[j]] !== 'string') return out; // 한 칸이라도 사라졌으면 시트에서
+        text += rest[keys[j]];
+      }
+    }
+    out.vals = JSON.parse(text);
+    return out;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** 시트에서 읽은 값을 기억에 넣는다. 판(look.v)은 시트를 읽기 전에 받아 둔 것이라, 그사이 누가 쓰면 이 기억은 저절로 버려진다 */
+function memoStore_(tab, vals, look) {
+  var cache = memoCache_();
+  if (!cache) return;
+  try {
+    var text = JSON.stringify(vals);
+    var n = Math.max(1, Math.ceil(text.length / MEMO_CHUNK_));
+    if (n > MEMO_MAX_CHUNKS_) return;
+    var put = {};
+    for (var i = 0; i < n; i++) {
+      var part = text.slice(i * MEMO_CHUNK_, (i + 1) * MEMO_CHUNK_);
+      put['gy:d:' + tab + ':' + i] = i ? part : JSON.stringify({ ep: look.ep, v: look.v, n: n }) + '\n' + part;
+    }
+    cache.putAll(put, MEMO_TTL_);
+  } catch (e) { /* 기억하지 못해도 읽기는 된다 */ }
+}
+
+/** 쓴 탭의 판을 바꾼다. 시트에 먼저 확정(flush)해서, 바뀐 판으로 옛 값을 기억하는 일이 없게 한다 */
+function memoBump_(tabs) {
+  var cache = memoCache_();
+  if (!cache) return;
+  try {
+    SpreadsheetApp.flush();
+    var put = {};
+    tabs.forEach(function (t) { put['gy:v:' + t] = memoToken_(); });
+    cache.putAll(put, MEMO_KEEP_);
+  } catch (e) {
+    memoClearAll_();
+  }
+}
+
+/** 기억을 모두 버린다(전체 판을 바꾼다): 처음 설정 뒤, 관리자 › 점검 '시트 새로 읽기' */
+function memoClearAll_() {
+  MEMO_EP_ = null;
+  var cache = memoCache_();
+  if (!cache) return false;
+  try {
+    try { SpreadsheetApp.flush(); } catch (e0) { /* 확정할 것이 없으면 그대로 */ }
+    cache.put('gy:ep', memoToken_(), MEMO_KEEP_);
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 function sheet_(tab) {
@@ -198,11 +319,18 @@ function withLock_(fn) {
   if (!lock.tryLock(20000)) throw userError_('다른 분이 저장하는 중이에요. 잠시 뒤에 다시 눌러 주세요.', 'BUSY');
   dirty_(); // 잠금 안에서는 최신 값을 다시 읽는다
   DB_LOCK_DEPTH_++;
+  DB_WRITTEN_ = {};
   try {
     return fn();
   } finally {
     DB_LOCK_DEPTH_--;
-    lock.releaseLock();
+    var written = Object.keys(DB_WRITTEN_);
+    DB_WRITTEN_ = {};
+    try {
+      if (written.length) memoBump_(written); // 잠금을 풀기 전에: 시트에 확정하고 서버 기억의 판을 바꾼다
+    } finally {
+      lock.releaseLock();
+    }
   }
 }
 

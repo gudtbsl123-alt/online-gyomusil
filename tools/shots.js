@@ -94,7 +94,7 @@ async function scheduleFlow(page, kind) {
   await page.click('#ev-form [type=submit]');
   await waitText(page, '전교 다모임을 넣었어요');
   await page.locator('[data-action=ev-open]', { hasText: '전교 다모임' }).first().waitFor();
-  const saveCalls = await takeCalls(page);
+  const saveCalls = (await takeCalls(page)).filter((x) => x !== 'batch');
   if (saveCalls.join() !== 'sched.save') problems.push(kind + ': 일정 저장에 서버를 ' + saveCalls.length + '번 부름(' + saveCalls.join(', ') + ')');
   await page.waitForTimeout(400);
   // 넣은 행사 열어 보기 → 고치기 → 지우기
@@ -155,7 +155,7 @@ async function surveyFlow(page, kind) {
   await page.click('#cf-ok');
   await waitText(page, '다시 알렸어요');
   await page.locator('.sv-owner').waitFor();
-  const rCalls = await takeCalls(page);
+  const rCalls = (await takeCalls(page)).filter((x) => x !== 'batch');
   if (rCalls.join() !== 'survey.remind') problems.push(kind + ': 다시 알리기에 서버를 ' + rCalls.length + '번 부름(' + rCalls.join(', ') + ')');
   await page.click('[data-action=sv-csv]');
   await page.locator('#csv-dl').waitFor();
@@ -329,7 +329,7 @@ async function noticeFlow(page, kind) {
   await page.click('#notice-form [type=submit]');
   await waitText(page, '공지를 올렸어요');
   await page.locator('.notice-item').nth(2).waitFor();
-  const nCalls = await takeCalls(page);
+  const nCalls = (await takeCalls(page)).filter((x) => x !== 'batch');
   if (nCalls.join() !== 'notice.save') problems.push(kind + ': 공지 저장에 서버를 ' + nCalls.length + '번 부름(' + nCalls.join(', ') + ')');
   await shot(page, kind + '_공지', true);
   if (await page.locator('[data-dot=notice]:not([hidden])').count()) problems.push(kind + ': 공지를 봤는데 새 공지 점이 남음');
@@ -415,6 +415,18 @@ async function speedFlow(page, kind) {
   await page.waitForTimeout(300);
   let c = await takeCalls(page);
   if (c.join() !== 'boot') problems.push(kind + ': 다시 열 때 서버를 ' + c.length + '번 부름(' + c.join(', ') + ')');
+  // 미리 받기: 홈이 뜬 뒤 뒤에서 한 번(batch) → 처음 누르는 메뉴도 서버를 부르지 않고 바로
+  await page.waitForTimeout(1500);
+  c = await takeCalls(page);
+  if (c.join() !== 'batch') problems.push(kind + ': 미리 받기가 한 번이 아님(' + c.join(', ') + ')');
+  // (공지 화면은 열면 '본 공지'가 되어 뒤의 새 공지 점 점검이 달라지므로 여기서는 열지 않는다)
+  for (const [scr, sel] of [['survey', '.sv-card, .sv-detail'], ['library', '.lib-card'], ['help', '.help-item'], ['staff', '.dir-row:not(.head)']]) {
+    await page.evaluate((x) => window.__gy.go(x), scr);
+    await page.locator(sel).first().waitFor();
+    await page.waitForTimeout(150);
+    c = (await takeCalls(page)).filter((x) => x !== 'survey.get');
+    if (c.length) problems.push(kind + ': 미리 받은 ' + scr + ' 화면을 처음 열었는데 서버를 부름(' + c.join(', ') + ')');
+  }
   const cal = kind === '휴대폰' ? '.pweek' : '.cal';
   await page.evaluate(() => window.__gy.go('schedule'));
   await page.locator(cal).waitFor();

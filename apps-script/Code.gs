@@ -29,8 +29,8 @@ function include(name) {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-16c';
-function fileMark_Code_() { return '2026-10-16c'; }
+var APP_BUILD_ = '2026-10-16d';
+function fileMark_Code_() { return '2026-10-16d'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -38,9 +38,9 @@ function fileMark_Code_() { return '2026-10-16c'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-16c', 'Db': '2026-10-16c', 'Auth': '2026-10-16', 'Admin': '2026-10-16c', 'Schedule': '2026-10-16c',
-    'Survey': '2026-10-16', 'Library': '2026-10-16', 'Help': '2026-10-16', 'Setup': '2026-10-16',
-    'App': '2026-10-16c', 'Styles': '2026-10-16c', 'Index': '2026-10-16'
+    'Code': '2026-10-16d', 'Db': '2026-10-16d', 'Auth': '2026-10-16', 'Admin': '2026-10-16d', 'Schedule': '2026-10-16c',
+    'Survey': '2026-10-16', 'Library': '2026-10-16', 'Help': '2026-10-16', 'Setup': '2026-10-16d',
+    'App': '2026-10-16d', 'Styles': '2026-10-16c', 'Index': '2026-10-16'
   };
 }
 
@@ -54,6 +54,7 @@ function routes_() {
     'start': { need: 'public', fn: 'apiStart_' },
     'ping': { need: 'public', fn: function () { return { at: Date.now() }; } }, // 속도 재기: 시트를 읽지 않는 빈 요청
     'boot': { need: 'login', fn: 'apiBoot_' },
+    'batch': { need: 'login', fn: 'apiBatch_' }, // 미리 받기: 자주 여는 화면을 한 번에
     'login': { need: 'public', fn: function (a) { return login_(a); } },
     'session': { need: 'login', fn: 'apiSession_' },
     'staffPicker': { need: 'login', fn: function () { return staffPicker_(); } },
@@ -119,6 +120,7 @@ function routes_() {
     'admin.pw.admin': { need: 'admin', fn: 'adminChangeAdminPw_' },
     'admin.check': { need: 'admin', fn: 'adminCheck_' },
     'admin.speed': { need: 'admin', fn: 'adminSpeed_' },
+    'admin.cache.clear': { need: 'admin', fn: 'adminCacheClear_' },
     'admin.staff.importCheck': { need: 'admin', fn: 'adminStaffImportCheck_' },
     'admin.staff.import': { need: 'admin', fn: 'adminStaffImport_' }
   };
@@ -130,11 +132,11 @@ function routes_() {
  */
 var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1 };
 
-/** req.then = [[읽기 이름, args], …] (3개까지) → [{ data } 또는 null, …]. 하나가 안 되면 그것만 null(화면이 따로 다시 부른다) */
-function thenReads_(list, actor, ctx) {
+/** req.then = [[읽기 이름, args], …] (max개까지, 기본 3) → [{ data } 또는 null, …]. 하나가 안 되면 그것만 null(화면이 따로 다시 부른다) */
+function thenReads_(list, actor, ctx, max) {
   if (!Array.isArray(list)) return undefined;
   var routes = routes_();
-  return list.slice(0, 3).map(function (x) {
+  return list.slice(0, max || 3).map(function (x) {
     try {
       var name = Array.isArray(x) ? String(x[0]) : '';
       var r = THEN_READS_[name] ? routes[name] : null;
@@ -208,7 +210,7 @@ function globalFn_(name) {
 
 function apiStart_() {
   var ready = true;
-  try { sheet_('교직원'); } catch (e) { ready = false; }
+  try { headOf_('교직원'); } catch (e) { ready = false; } // 서버 기억에 있으면 시트를 열지 않는다
   return {
     school: ready ? setting_('학교명') : '인천장도초등학교',
     year: ready ? setting_('학년도') : '',
@@ -216,6 +218,11 @@ function apiStart_() {
     rememberDays: ready ? rememberDays_() : 365,
     pinMode: ready ? pinMode_() : false
   };
+}
+
+/** 미리 받기: 화면이 뒤에서 자주 여는 화면들을 한 번에 받아 둔다. args.reads = [[읽기 이름, args], …] (8개까지, 이어 읽기와 같은 읽기만) */
+function apiBatch_(args, actor, ctx) {
+  return thenReads_(args.reads, actor, ctx, 8) || [];
 }
 
 /** 처음 열기(로그인이 기억된 기기): 시작 정보·로그인 상태·홈을 한 번에. 홈은 화면이 곧바로 홈을 그릴 때만(args.home) */
