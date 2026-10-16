@@ -134,6 +134,8 @@ async function surveyFlow(page, kind) {
   // 새 조사 만들기
   await page.click('[data-action=sv-new]');
   await page.locator('#svf').waitFor();
+  // 창을 연 뒤 0.03초에 제목 칸으로 커서가 옮겨 온다. 그 전에 질문 칸에 글을 넣으면 글이 제목 칸에 붙으니 기다린다
+  await page.waitForFunction(() => document.activeElement && document.activeElement.id === 'svf-title');
   await page.fill('#svf-title', '학년 협의회 참석 여부');
   await page.fill('.q-edit [data-qf=title]', '참석할 수 있나요?');
   await page.fill('.q-edit [data-qf=opts]', '참석\n불참');
