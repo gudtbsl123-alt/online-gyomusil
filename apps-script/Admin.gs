@@ -2,7 +2,7 @@
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-10-16b'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -328,18 +328,22 @@ function adminCheck_(args) {
   var add = function (group, label, state, detail, fix) { items.push({ group: group, label: label, state: state, detail: detail || '', fix: fix || '' }); };
   var paste = function (f) { return "설치안내 표의 '" + f + "' 파일을 Copy raw file로 다시 붙여 넣고, 배포 관리 → 새 버전으로 배포해 주세요"; };
 
-  // 1) 코드 파일(빠진 파일·예전 파일)
+  // 1) 코드 파일(빠진 파일·예전 파일). 파일마다 있어야 할 판은 Code.gs의 fileBuilds_() 표에 있다
+  var buildsFn = globalFn_('fileBuilds_');
+  var builds = buildsFn ? buildsFn() : {};
+  var want = function (f) { return builds[f] || APP_BUILD_; };
   ['Code', 'Db', 'Auth', 'Admin', 'Schedule', 'Survey', 'Library', 'Help', 'Setup'].forEach(function (f) {
     var mark = globalFn_('fileMark_' + f + '_');
     if (!mark) add('코드 파일', f + '.gs', 'bad', '파일이 없거나 내용이 비어 있어요', paste(f));
-    else if (mark() !== APP_BUILD_) add('코드 파일', f + '.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
+    else if (f === 'Code' && !buildsFn) add('코드 파일', 'Code.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
+    else if (mark() !== want(f)) add('코드 파일', f + '.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
     else add('코드 파일', f + '.gs', 'ok', '최신 판 ' + mark());
   });
   var c = (args && args.client) || {};
   [['App.html', c.app], ['Styles.html', c.styles], ['Index.html', c.index]].forEach(function (x) {
     var f = x[0].replace('.html', '');
     if (!x[1]) add('코드 파일', x[0], 'warn', '판 표시를 찾지 못했어요(예전 파일일 수 있어요)', paste(f));
-    else if (x[1] !== APP_BUILD_) add('코드 파일', x[0], 'warn', '예전 판이에요(' + x[1] + ')', paste(f));
+    else if (x[1] !== want(f)) add('코드 파일', x[0], 'warn', '예전 판이에요(' + x[1] + ')', paste(f));
     else add('코드 파일', x[0], 'ok', '최신 판 ' + x[1]);
   });
   var routes = routes_(), missing = [], n = 0;
@@ -351,11 +355,13 @@ function adminCheck_(args) {
   if (missing.length) add('코드 파일', '기능 연결', 'bad', '찾지 못한 기능 ' + missing.length + '개: ' + missing.slice(0, 5).join(', ') + (missing.length > 5 ? ' …' : ''), '위에서 문제로 나온 파일을 다시 붙여 넣어 주세요');
   else add('코드 파일', '기능 연결', 'ok', '기능 ' + n + '개가 모두 연결됐어요');
 
-  // 2) 시트 탭·칸
+  // 2) 시트 탭·칸 (나중에 더한 탭 중 처음 쓸 때 저절로 생기는 탭은 없어도 괜찮다)
   var tabs = tabs_(), bad = 0;
+  var autoTabs = { '학생수': '학생 수를 처음 넣을 때 저절로 생겨요' }, notYet = 0;
   Object.keys(tabs).forEach(function (tab) {
     var head;
     try { head = headOf_(tab); } catch (e) {
+      if (autoTabs[tab]) { notYet++; add('시트', tab + ' 탭', 'ok', '아직 없어요 · ' + autoTabs[tab]); return; }
       bad++;
       add('시트', tab + ' 탭', 'bad', '탭이 없어요', "전용 시트 메뉴 '온라인 교무실 → 1. 처음 설정'을 눌러 주세요");
       return;
@@ -363,7 +369,7 @@ function adminCheck_(args) {
     var miss = tabs[tab].filter(function (h) { return head.indexOf(h) < 0; });
     if (miss.length) { bad++; add('시트', tab + ' 탭', 'warn', '칸이 없어요: ' + miss.join(', '), "전용 시트 메뉴 '1. 처음 설정'을 한 번 더 눌러 주세요(있는 데이터는 그대로예요)"); }
   });
-  if (!bad) add('시트', '탭과 칸', 'ok', '탭 ' + Object.keys(tabs).length + '개와 칸이 모두 있어요');
+  if (!bad) add('시트', '탭과 칸', 'ok', '탭 ' + (Object.keys(tabs).length - notYet) + '개와 칸이 모두 있어요');
   try {
     var vals = sheetValues_('교직원');
     var blank = 0;

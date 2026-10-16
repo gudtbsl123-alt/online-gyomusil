@@ -330,6 +330,91 @@ async function noticeFlow(page, kind) {
   await page.click('.modal [data-action=close-modal]');
 }
 
+/** 홈 '학생 수 현황': 빈 카드 → 넣기 창(숫자만 남기·합계·빈칸 막기) → 저장 → 카드(우리 학년 표시) */
+async function studentsFlow(page, kind) {
+  await page.evaluate(() => window.__gy.go('home'));
+  const card = page.locator('.stu-card');
+  await card.waitFor();
+  await card.scrollIntoViewIfNeeded();
+  await shot(page, kind + '_홈_학생수_비어있음');
+  await page.click('[data-action=students-edit]');
+  await page.locator('#stu-form').waitFor();
+  const vals = [58, 61, 63, 60, 62, 59]; // 미리보기용 가짜 숫자
+  for (let i = 0; i < 6; i++) await page.fill('#stu-' + (i + 1), String(vals[i]));
+  await page.fill('#stu-4', '6a0');
+  if ((await page.inputValue('#stu-4')) !== '60') problems.push(kind + ': 학생 수 칸에 숫자가 아닌 글자가 남음');
+  const sum = (await page.textContent('#stu-sum')).trim();
+  if (sum !== '363명') problems.push(kind + ': 넣기 창 전체 합계가 ' + sum);
+  await page.fill('#stu-2', '');
+  await page.click('#stu-save');
+  try {
+    await page.locator('#stu-err', { hasText: '2학년 학생 수를 숫자로' }).waitFor({ timeout: 5000 });
+  } catch (e) {
+    problems.push(kind + ': 빈칸으로 저장을 눌렀는데 안내가 안 나옴(창 ' + (await page.locator('#stu-form').count() ? '열림' : '닫힘') + ')');
+    if (!(await page.locator('#stu-form').count())) {
+      await page.click('[data-action=students-edit]');
+      await page.locator('#stu-form').waitFor();
+      for (let i = 0; i < 6; i++) await page.fill('#stu-' + (i + 1), String(vals[i]));
+    }
+  }
+  await page.fill('#stu-2', '61');
+  await shot(page, kind + '_학생수_넣기창');
+  await page.click('#stu-save');
+  await page.locator('.stu-grid').waitFor();
+  await card.scrollIntoViewIfNeeded();
+  if (!(await page.locator('.stu-g.mine', { hasText: '3학년' }).count())) problems.push(kind + ': 우리 학년(3학년) 표시가 없음');
+  const total = (await page.textContent('.stu-total-num')).trim();
+  if (total !== '363') problems.push(kind + ': 전체 학생 수가 ' + total);
+  await page.waitForTimeout(2400); // 알림 글이 사라진 뒤 찍기
+  await shot(page, kind + '_홈_학생수');
+}
+
+/** 화면 크기 막대: +로 끝까지(PC 130%, 휴대폰 120%), 막대로 가장 작게, 기억하기, 예전 '글자 크게' 이어받기 */
+async function zoomFlow(page, kind) {
+  const phone = kind === '휴대폰';
+  const zoomVar = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--gy-zoom').trim());
+  const box = phone ? '#sheet .zoom' : '.side .zoom';
+  const open = async () => {
+    if (!phone) return;
+    await page.click('.bottom-nav [data-action=sheet]');
+    await page.locator(box).waitFor();
+    await page.locator(box).scrollIntoViewIfNeeded();
+  };
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.today-card').waitFor();
+  await open();
+  for (let i = 0; i < 6; i++) {
+    const plus = page.locator(box + ' [data-action=zoom-in]');
+    if (await plus.isDisabled()) break;
+    await plus.click();
+  }
+  const max = phone ? '1.2' : '1.3';
+  if ((await zoomVar()) !== max) problems.push(kind + ': 화면 크기 최대가 ' + (await zoomVar()) + ' (기대 ' + max + ')');
+  if ((await page.textContent(box + ' .zoom-val')).trim() !== Math.round(Number(max) * 100) + '%') problems.push(kind + ': 화면 크기 숫자가 맞지 않음');
+  if (phone) {
+    await shot(page, kind + '_화면크기_전체메뉴');
+    await page.click('#sheet [data-action=close-sheet]');
+  } else {
+    const side = await page.evaluate(() => document.querySelector('.side').getBoundingClientRect().width);
+    if (Math.round(side) !== 248) problems.push(kind + ': 화면을 키웠는데 메뉴도 커짐(' + side + ')');
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot(page, kind + '_화면크기_' + Math.round(Number(max) * 100), true);
+  await open();
+  await page.locator(box + ' .zoom-range').fill('0');
+  if ((await zoomVar()) !== '0.9') problems.push(kind + ': 막대를 맨 왼쪽으로 옮겼는데 ' + (await zoomVar()));
+  if (phone) await page.click('#sheet [data-action=close-sheet]');
+  // 기억하기: 다시 열어도 그대로, 예전 '글자 크게'를 켠 기기는 110%로 이어받기
+  await page.reload();
+  await page.locator('#app > *').first().waitFor();
+  if ((await zoomVar()) !== '0.9') problems.push(kind + ': 다시 열었더니 화면 크기를 잊음(' + (await zoomVar()) + ')');
+  await page.evaluate(() => { localStorage.removeItem('gy.zoom'); localStorage.setItem('gy.big', '1'); });
+  await page.reload();
+  await page.locator('#app > *').first().waitFor();
+  if ((await zoomVar()) !== '1.1') problems.push(kind + ': 예전 글자 크게를 110%로 이어받지 못함(' + (await zoomVar()) + ')');
+  await page.evaluate(() => { localStorage.removeItem('gy.big'); localStorage.removeItem('gy.zoom'); });
+}
+
 async function login(page) {
   await page.fill('#login-pw', 'preview1');
   await page.click('#login-form [type=submit]');
@@ -370,6 +455,7 @@ async function flow(browser, kind, viewport) {
   await waitText(page, '오늘도 반가워요');
   await page.locator('.today-card').waitFor();
   await shot(page, kind + '_홈', true);
+  await studentsFlow(page, kind);
   await scheduleFlow(page, kind);
   await surveyFlow(page, kind);
   await libraryFlow(page, kind);
@@ -469,6 +555,10 @@ async function flow(browser, kind, viewport) {
   await page.evaluate(() => window.__gy.go('library'));
   await page.locator('.lib-card').first().waitFor();
   await shot(page, kind + '_어둡게_자료실');
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.stu-card').scrollIntoViewIfNeeded();
+  await shot(page, kind + '_어둡게_홈_학생수');
+  await zoomFlow(page, kind);
   await ctx.close();
 }
 
@@ -546,7 +636,7 @@ async function printCheck(browser) {
   await flow(browser, 'PC', { width: 1440, height: 900 });
   await flow(browser, '휴대폰', { width: 390, height: 844 });
   // 좁은 휴대폰·태블릿·구형 PC 폭에서도 넘치지 않는지
-  for (const vp of [{ width: 360, height: 740 }, { width: 768, height: 1024 }, { width: 900, height: 700 }, { width: 1024, height: 768 }, { width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
+  for (const vp of [{ width: 360, height: 740 }, { width: 768, height: 1024 }, { width: 900, height: 700 }, { width: 960, height: 1000 }, { width: 1024, height: 768 }, { width: 1280, height: 720 }, { width: 1366, height: 768 }, { width: 1920, height: 1080 }]) {
     const ctx = await newCtx(browser, { viewport: vp });
     const page = await ctx.newPage();
     await page.goto(FILE);
@@ -556,6 +646,14 @@ async function printCheck(browser) {
     await check(page, vp.width + ' 본인확인');
     await verify(page, '홍길동');
     await check(page, vp.width + ' 홈');
+    // 모니터 절반(960) 같은 좁은 PC 창: '내가 할 일'이 오늘 일정 옆에 좁게 끼지 않고 아래로
+    await page.locator('.home-top').waitFor();
+    const homeCols = await page.evaluate(() => getComputedStyle(document.querySelector('.home-top')).gridTemplateColumns.split(' ').length);
+    if (vp.width <= 1024 && homeCols !== 1) problems.push(vp.width + ' 홈: 내가 할 일이 오늘 일정 옆에 좁게 끼어 있음');
+    const weekCols = await page.evaluate(() => getComputedStyle(document.querySelector('.week')).gridTemplateColumns.split(' ').length);
+    if (vp.width <= 1024 && weekCols !== 1) problems.push(vp.width + ' 홈: 이번 주 5칸이 좁은 창에서 목록으로 바뀌지 않음');
+    if (vp.width >= 1280 && (homeCols !== 2 || weekCols !== 5)) problems.push(vp.width + ' 홈: 넓은 창인데 좁은 배치가 됨');
+    if (vp.width === 960) await shot(page, '960_홈_좁은창', true);
     await page.evaluate(() => window.__gy.go('schedule'));
     for (const v of ['cal', 'plan', 'year']) {
       await page.click('[data-sched-view=' + v + ']');
@@ -597,6 +695,27 @@ async function printCheck(browser) {
       await check(page, vp.width + ' 관리자 ' + t);
       if (t === 'cat') await checkCatFields(page, vp.width);
     }
+    // 화면을 그 폭에서 쓸 수 있는 가장 크게 키워도 넘치지 않는지(PC 130%·넓은 화면 150%·휴대폰 120%)
+    await page.evaluate(() => { localStorage.setItem('gy.zoom', '150'); window.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(400);
+    const zmax = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--gy-zoom').trim());
+    const want = vp.width < 900 ? '1.2' : vp.width >= 1600 ? '1.5' : '1.3';
+    if (zmax !== want) problems.push(vp.width + ': 가장 큰 화면 크기가 ' + zmax + ' (기대 ' + want + ')');
+    for (const [scr, sel] of [['home', '.today-card'], ['schedule', '[data-sched-view]'], ['survey', '.sv-card'], ['library', '.lib-card'], ['staff', '.dir-row:not(.head)'], ['notice', '.notice-item'], ['admin', '.tabs']]) {
+      await page.evaluate((x) => window.__gy.go(x), scr);
+      await page.locator(sel).first().waitFor();
+      await page.waitForTimeout(300);
+      if (scr === 'schedule') {
+        for (const v of ['cal', 'plan', 'year']) {
+          await page.click('[data-sched-view=' + v + ']');
+          await page.waitForTimeout(500);
+          await check(page, vp.width + ' 화면 ' + zmax + ' 일정 ' + v);
+        }
+      } else await check(page, vp.width + ' 화면 ' + zmax + ' ' + scr);
+    }
+    await page.evaluate(() => window.__gy.go('home'));
+    await page.locator('.today-card').waitFor();
+    if (vp.width === 1280 || vp.width === 1920) await shot(page, vp.width + '_화면크기_' + Math.round(Number(zmax) * 100), true);
     await ctx.close();
   }
   await pinModeCheck(browser);

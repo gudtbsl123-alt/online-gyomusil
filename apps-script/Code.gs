@@ -28,9 +28,21 @@ function include(name) {
   return HtmlService.createHtmlOutputFromFile(name).getContent();
 }
 
-/** 이 코드 묶음의 판(버전). 파일마다 fileMark_○○_()가 같은 판을 돌려주는지 관리자 › 점검에서 확인한다 */
-var APP_BUILD_ = '2026-10-16';
-function fileMark_Code_() { return '2026-10-16'; }
+/** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
+var APP_BUILD_ = '2026-10-16b';
+function fileMark_Code_() { return '2026-10-16b'; }
+
+/**
+ * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
+ * 파일을 고치면 그 파일의 판 표시와 여기 판을 함께 올린다 → 고친 파일만 다시 붙여 넣으면 된다.
+ */
+function fileBuilds_() {
+  return {
+    'Code': '2026-10-16b', 'Db': '2026-10-16b', 'Auth': '2026-10-16', 'Admin': '2026-10-16b', 'Schedule': '2026-10-16b',
+    'Survey': '2026-10-16', 'Library': '2026-10-16', 'Help': '2026-10-16', 'Setup': '2026-10-16',
+    'App': '2026-10-16b', 'Styles': '2026-10-16b', 'Index': '2026-10-16'
+  };
+}
 
 /**
  * 요청 목록
@@ -52,6 +64,7 @@ function routes_() {
     'sched.save': { need: 'identity', fn: 'apiSchedSave_' },
     'sched.delete': { need: 'identity', fn: 'apiSchedDelete_' },
     'focus.save': { need: 'identity', fn: 'apiFocusSave_' },
+    'students.save': { need: 'identity', fn: 'apiStudentsSave_' },
     'sched.upload.info': { need: 'login', fn: 'apiUploadInfo_' },
     'sched.upload.check': { need: 'login', fn: 'apiUploadCheck_' },
     'sched.upload.save': { need: 'login', fn: 'apiUploadSave_' },

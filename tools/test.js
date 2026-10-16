@@ -77,10 +77,10 @@ test('SHA-256·HMAC 가짜 구현이 Node crypto와 같다', () => {
   }
 });
 
-test('처음 설정: 탭 12개와 머리글, 설정 기본값을 만든다', () => {
+test('처음 설정: 탭 13개와 머리글, 설정 기본값을 만든다', () => {
   const g = loadGas();
   const r = g.setupAll_();
-  assert.strictEqual(r.created.length, 12);
+  assert.strictEqual(r.created.length, 13);
   const names = g._ss.sheets.map((s) => s.name);
   for (const t of Object.keys(g.tabs_())) assert.ok(names.includes(t), t);
   assert.deepStrictEqual(plain(g.headOf_('교직원')), plain(g.tabs_()['교직원']));
@@ -1496,10 +1496,11 @@ test('파일 하나가 빠져도 그 기능만 멈추고, 홈·세션은 열리�
 test('점검: 최신이면 문제 없음, 빠진 파일·예전 화면 파일·빈 학기·꺼진 백업을 알려 준다', () => {
   const g = freshName();
   const { t } = adminTokens(g);
-  const client = { app: g.APP_BUILD_, styles: g.APP_BUILD_, index: g.APP_BUILD_ };
+  const b = g.fileBuilds_();
+  const client = { app: b.App, styles: b.Styles, index: b.Index };
   let r = call(g, 'admin.check', { client }, t).data;
   const by = (label) => r.items.find((x) => x.label === label);
-  for (const f of ['Code.gs', 'Survey.gs', 'Help.gs', 'App.html', '기능 연결', '탭과 칸', '공통 비밀번호']) assert.strictEqual(by(f).state, 'ok', f);
+  for (const f of ['Code.gs', 'Db.gs', 'Survey.gs', 'Help.gs', 'App.html', 'Styles.html', 'Index.html', '기능 연결', '탭과 칸', '공통 비밀번호']) assert.strictEqual(by(f).state, 'ok', f);
   assert.strictEqual(by('학기 기간').state, 'warn');
   assert.strictEqual(by('매일 자동 백업').state, 'warn', '트리거 없음');
   assert.strictEqual(call(g, 'admin.check', { client }, ids(g).who('심청')).code, 'ADMIN');
@@ -1576,6 +1577,119 @@ test('새 공지 표시: 세션에 지금 걸린 공지 중 가장 최근 시각
   assert.strictEqual(call(g, 'session', {}, who('심청')).data.noticeLatest, '');
   const n = call(g, 'notice.save', { fields: { '제목': '새 안내' } }, who('심청')).data;
   assert.strictEqual(call(g, 'session', {}, who('흥부')).data.noticeLatest, n.at);
+});
+
+// ---------------------------------------------------------------- 학생 수 현황 (홈)
+
+test('판 표시: 파일마다 판 표의 판과 같다(고친 파일만 판을 올림)', () => {
+  const g = freshName();
+  const b = g.fileBuilds_();
+  for (const f of ['Code', 'Db', 'Auth', 'Admin', 'Schedule', 'Survey', 'Library', 'Help', 'Setup']) assert.strictEqual(g['fileMark_' + f + '_'](), b[f], f);
+  const read = (f) => fs.readFileSync(path.join(GAS_DIR, f), 'utf8');
+  assert.strictEqual(/var APP_FILE_BUILD = '([^']+)'/.exec(read('App.html'))[1], b.App);
+  assert.strictEqual(/--gy-build:"([^"]+)"/.exec(read('Styles.html'))[1], b.Styles);
+  assert.strictEqual(/<meta name="gy-build" content="([^"]+)">/.exec(read('Index.html'))[1], b.Index);
+  assert.ok(Object.keys(b).every((f) => b[f] <= g.APP_BUILD_), 'APP_BUILD_는 가장 최근 판');
+});
+
+test('학생 수: 탭이 없던 시트에서도 홈이 열리고, 처음 넣으면 탭이 생긴다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  g._ss.sheets = g._ss.sheets.filter((x) => x.name !== '학생수'); // 이 기능 전에 설치한 시트
+  let h = call(g, 'home', {}, who('심청'));
+  assert.ok(h.ok, h.error);
+  assert.strictEqual(h.data.students.id, '');
+  assert.strictEqual(h.data.students.total, null);
+  const today = g.todayYmd_();
+  const r = call(g, 'students.save', { date: today, grades: [60, 61, 62, 63, 64, 65] }, who('심청'));
+  assert.ok(r.ok, r.error);
+  assert.ok(g._ss.getSheetByName('학생수'), '탭이 생김');
+  assert.deepStrictEqual(plain(g.headOf_('학생수')), plain(g.tabs_()['학생수']));
+  assert.strictEqual(r.data.total, 375, '전체는 학년별을 더한 값');
+  h = call(g, 'home', {}, who('흥부')).data;
+  assert.deepStrictEqual(plain(h.students.grades), [60, 61, 62, 63, 64, 65]);
+  assert.strictEqual(h.students.date, today);
+  assert.strictEqual(h.students.by, '심청');
+});
+
+test('학생 수: 이름을 고른 교직원 누구나 고치고, 학년도마다 한 줄, 기록에 바뀌기 전·후가 남는다', () => {
+  const g = freshName();
+  const { L, who } = ids(g);
+  const today = g.todayYmd_();
+  assert.strictEqual(call(g, 'students.save', { date: today, grades: [1, 2, 3, 4, 5, 6] }, { login: L }).code, 'IDENTITY', '이름을 고르지 않으면 못 고침');
+  assert.strictEqual(call(g, 'students.save', { date: today, grades: [1, 2, 3, 4, 5, 6] }, {}).code, 'LOGIN');
+  assert.ok(call(g, 'students.save', { date: today, grades: [10, 20, 30, 40, 50, 60] }, who('심청')).ok);
+  const r = call(g, 'students.save', { date: today, grades: ['10', '20', '30', ' 41 ', '50', '060'] }, who('흥부')).data;
+  assert.deepStrictEqual(plain(r.grades), [10, 20, 30, 41, 50, 60], '띄어쓰기·앞자리 0은 정리');
+  assert.strictEqual(r.total, 211);
+  assert.strictEqual(r.by, '흥부');
+  assert.strictEqual(g.liveRows_('학생수').length, 1, '같은 학년도는 한 줄을 고침');
+  const log = g.readRows_('기록').filter((x) => x['탭'] === '학생수');
+  assert.strictEqual(log.length, 2);
+  assert.strictEqual(log[0]['동작'], '추가');
+  assert.strictEqual(log[1]['동작'], '수정');
+  assert.strictEqual(log[1]['이름'], '흥부');
+  assert.deepStrictEqual(JSON.parse(log[1]['바뀌기 전']), { '4학년': '40' });
+  assert.deepStrictEqual(JSON.parse(log[1]['바뀐 뒤']), { '4학년': '41' });
+  const before = g.readRows_('기록').length;
+  call(g, 'students.save', { date: today, grades: [10, 20, 30, 41, 50, 60] }, who('흥부'));
+  assert.strictEqual(g.readRows_('기록').length, before, '바뀐 것이 없으면 기록하지 않음');
+});
+
+test('학생 수: 숫자가 아니거나 범위를 벗어나면 저장하지 않는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('심청');
+  const today = g.todayYmd_();
+  const y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7));
+  const from = (m >= 3 ? y : y - 1) + '-03-01';
+  const bad = [
+    [{ date: today, grades: [1, 2, 3, 4, 5] }, /모두/],
+    [{ date: today, grades: [1, 'x', 3, 4, 5, 6] }, /2학년/],
+    [{ date: today, grades: [1, 2, 3, 4, 5, 1000] }, /6학년/],
+    [{ date: today, grades: [1, 2, -3, 4, 5, 6] }, /3학년/],
+    [{ date: today, grades: [1, 2, 3, '', 5, 6] }, /4학년/],
+    [{ date: today, grades: [1.5, 2, 3, 4, 5, 6] }, /1학년/],
+    [{ date: '', grades: [1, 2, 3, 4, 5, 6] }, /기준일/],
+    [{ date: g.addDays_(today, 1), grades: [1, 2, 3, 4, 5, 6] }, /오늘까지/],
+    [{ date: g.addDays_(from, -1), grades: [1, 2, 3, 4, 5, 6] }, /이번 학년도/],
+    [{ date: today }, /모두/]
+  ];
+  for (const [args, re] of bad) {
+    const r = call(g, 'students.save', args, me);
+    assert.strictEqual(r.ok, false, JSON.stringify(args));
+    assert.match(r.error, re, JSON.stringify(args));
+  }
+  assert.strictEqual(g.liveRows_('학생수').length, 0);
+  assert.ok(call(g, 'students.save', { date: from, grades: [0, 0, 0, 0, 0, 999] }, me).ok, '학년도 첫날·0명·999명은 괜찮음');
+});
+
+test('학생 수: 새 학년도가 되면 비어 있고, 지난 학년도 숫자는 시트에 그대로 남는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const today = g.todayYmd_();
+  call(g, 'students.save', { date: today, grades: [10, 20, 30, 40, 50, 60] }, who('심청'));
+  const y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7));
+  const nextYear = (m >= 3 ? y + 1 : y) + '-03-02';
+  g.__clock.offset = Date.parse(nextYear + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z');
+  assert.strictEqual(g.todayYmd_(), nextYear);
+  const h = call(g, 'home', {}, ids(g).who('흥부')).data;
+  assert.strictEqual(h.students.year, Number(nextYear.slice(0, 4)));
+  assert.strictEqual(h.students.id, '');
+  assert.strictEqual(g.liveRows_('학생수').length, 1);
+});
+
+test('점검: 학생수 탭은 아직 없어도 문제로 보지 않는다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  g._ss.sheets = g._ss.sheets.filter((x) => x.name !== '학생수');
+  const b = g.fileBuilds_();
+  const r = call(g, 'admin.check', { client: { app: b.App, styles: b.Styles, index: b.Index } }, t).data;
+  const by = (label) => r.items.find((x) => x.label === label);
+  assert.strictEqual(by('학생수 탭').state, 'ok');
+  assert.match(by('학생수 탭').detail, /저절로/);
+  assert.strictEqual(by('탭과 칸').state, 'ok');
+  assert.ok(!r.items.some((x) => x.state === 'bad' && x.group === '시트'));
 });
 
 console.log(results.join('\n'));

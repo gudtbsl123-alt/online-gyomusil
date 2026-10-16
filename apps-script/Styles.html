@@ -3,14 +3,15 @@
 :root,:root[data-theme="light"]{--c-bg:#F2F4F6;--c-sub:#FFFFFF;--c-card:#FFFFFF;--c-card2:#F2F4F6;--c-pill:#F2F4F6;--c-line:#E5E8EB;--c-line2:#D1D6DB;--c-seg:#F2F4F6;--c-avatar:#E5E8EB;--c-t0:#191F28;--c-t1:#191F28;--c-t2:#4E5968;--c-t3:#606B78;--c-dot:#B0B8C1;--c-radio:#B0B8C1;--c-warnBg:#FFF4E5;--c-warnFg:#9A5200;--c-okBg:#E8F7EE;--c-okFg:#12784A;--c-red:#D92D20;--c-onAccent:#FFFFFF;--accent:#1B64DA;--accent-soft:rgba(27, 100, 218, 0.1);--accent-ring:rgba(27, 100, 218, 0.35);--accent-glow:rgba(27, 100, 218, 0.22);--hero-a:rgba(27, 100, 218, 0.14);--hero-b:rgba(27, 100, 218, 0.05);--scheme:light;--seg-light-bg:#FFFFFF;--seg-light-fg:#191F28;--seg-dark-bg:transparent;--seg-dark-fg:#606B78;--sun-display:none;--moon-display:block;--stage:#E5E8EB}
 :root[data-theme="dark"]{--c-bg:#0F1115;--c-sub:#15171C;--c-card:#1A1D24;--c-card2:#1F222A;--c-pill:#21232A;--c-line:#21232A;--c-line2:#2C2F37;--c-seg:#2C2F37;--c-avatar:#2C2F37;--c-t0:#F9FAFB;--c-t1:#F2F4F6;--c-t2:#B0B8C1;--c-t3:#8B95A1;--c-dot:#8B95A1;--c-radio:#4E5968;--c-warnBg:#2E1F00;--c-warnFg:#FFB547;--c-okBg:#0F2E1C;--c-okFg:#4ADE80;--c-red:#FF6B6B;--c-onAccent:#0F1115;--accent:#4795FF;--accent-soft:rgba(71, 149, 255, 0.14);--accent-ring:rgba(71, 149, 255, 0.32);--accent-glow:rgba(71, 149, 255, 0.18);--hero-a:rgba(71, 149, 255, 0.32);--hero-b:rgba(71, 149, 255, 0.14);--scheme:dark;--seg-light-bg:transparent;--seg-light-fg:#8B95A1;--seg-dark-bg:#2C2F37;--seg-dark-fg:#F2F4F6;--sun-display:block;--moon-display:none;--stage:#08090B}
 html{background:var(--c-bg)}
-:root{--gy-build:"2026-10-16"} /* 판 표시(관리자 › 점검) */
+:root{--gy-build:"2026-10-16b"} /* 판 표시(관리자 › 점검) */
 body{margin:0;word-break:keep-all;background:var(--c-bg);color:var(--c-t1);font-family:Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased}
 a{color:inherit}
 input::placeholder,textarea::placeholder{color:currentColor;opacity:.7}
 button,input,select,textarea{font-family:inherit;letter-spacing:inherit}
 *,*::before,*::after{box-sizing:border-box}
 body{font-size:17px;line-height:1.5;letter-spacing:-0.02em}
-html.big body{zoom:1.12}
+/* 화면 크기(확대·축소): 본문과 창만 키운다. 메뉴는 그대로(막대가 손가락 밑에서 움직이지 않게). 값은 App.html이 정한다 */
+.main,.gate,.modal{zoom:var(--gy-zoom,1)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 :focus-visible{outline:3px solid var(--accent-ring);outline-offset:2px}
 svg{flex:none}
@@ -128,7 +129,7 @@ select.input{appearance:auto}
 .tab[aria-selected="true"]{color:var(--c-t1);border-bottom-color:var(--accent)}
 
 /* ---------- 로그인·본인 확인 ---------- */
-.gate{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:32px 16px}
+.gate{min-height:calc(100vh / var(--gy-zoom,1));min-height:calc(100dvh / var(--gy-zoom,1));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:32px 16px}
 .gate-card{width:min(460px,100%);background:var(--c-card);border:1px solid var(--c-line);border-radius:20px;padding:32px;display:flex;flex-direction:column;gap:20px;position:relative;overflow:hidden}
 .gate-card h1{margin:0;font-size:28px;line-height:1.25;font-weight:800;letter-spacing:-0.03em}
 .gate-top{width:min(460px,100%);display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -185,7 +186,7 @@ select.input{appearance:auto}
 
 /* ---------- 창(모달)·알림 ---------- */
 .modal-back{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.45)}
-.modal{width:min(560px,100%);max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;background:var(--c-card);border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:16px;box-shadow:0 24px 60px rgba(0,0,0,.25)}
+.modal{width:min(560px,100%);max-height:calc((100vh - 32px) / var(--gy-zoom,1));max-height:calc((100dvh - 32px) / var(--gy-zoom,1));overflow:auto;background:var(--c-card);border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:16px;box-shadow:0 24px 60px rgba(0,0,0,.25)}
 .modal h2{margin:0;font-size:22px;font-weight:800;letter-spacing:-0.03em}
 .modal-btns{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 .pin-big{margin:0;padding:22px 12px;border-radius:16px;background:var(--c-card2);text-align:center;font:800 52px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.3em;padding-left:calc(12px + .3em)}
@@ -260,7 +261,7 @@ select.input{appearance:auto}
   .main{padding:0!important}
   body.printing-slips #app,body.printing-slips #modal-root,body.printing-slips #toast{display:none!important}
   body.printing-slips .print-only{display:block!important}
-  html.big body{zoom:1}
+  .main,.gate,.modal{zoom:1!important}
 }
 /* ---------- 2단계: 홈·일정 ---------- */
 .home-top{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:24px}
@@ -686,5 +687,58 @@ select.input{appearance:auto}
   .lib-card,.dir-row,.guide-card{break-inside:avoid}
   .help-body{display:flex!important}
   .dir-row{padding:6px 10px;font-size:13px}
+}
+
+/* ---------- 화면 크기 막대 (사이드 메뉴 아래·휴대폰 '전체') ---------- */
+.zoom{display:flex;flex-direction:column;gap:4px;padding:2px 2px 0 14px}
+.zoom-top{display:flex;align-items:center;gap:12px;min-height:30px;color:var(--c-t2);font-size:15px;font-weight:600}
+.zoom-val{margin-left:auto;padding-right:10px;font-size:14px;font-weight:800;color:var(--c-t1);font-variant-numeric:tabular-nums}
+.zoom-row{display:flex;align-items:center;gap:2px}
+.zoom-btn{width:40px;height:40px;border-radius:10px}
+.zoom-btn:disabled{opacity:.35;cursor:default;background:transparent!important}
+.zoom-range{flex:1 1 auto;min-width:0;height:32px;margin:0 4px;accent-color:var(--accent);cursor:pointer}
+.sheet .zoom{padding-left:14px}
+.sheet .zoom-btn{width:44px;height:44px}
+
+/* ---------- 홈: 창이 좁거나 화면을 키워 본문이 좁아지면 휴대폰처럼 ---------- */
+/* '내가 할 일'은 오늘 일정 아래로, 이번 주 5칸은 날짜별 목록으로(칸이 좁아 행사 이름이 넘치지 않게) */
+.home-wrap{container:home / inline-size}
+@container home (max-width: 819px){
+  .home-top{grid-template-columns:minmax(0,1fr)}
+  .week{grid-template-columns:minmax(0,1fr)}
+  .wday{min-height:0;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:6px 12px;padding:12px 14px}
+  .wday-head{width:100%}
+  .wday .wev{flex:1 1 100%}
+}
+
+/* ---------- 홈 맨 아래: 중점지도(왼쪽) · 학생 수 현황(오른쪽) ---------- */
+.home-bottom>.card{flex:1 1 320px}
+.stu-card{container:stu / inline-size}
+.stu-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;min-width:0}
+.stu-total{margin:0;display:flex;align-items:baseline;gap:6px}
+.stu-total-label{margin-right:4px;font-size:15px;font-weight:700;color:var(--c-t3)}
+.stu-total-num{font-size:36px;line-height:1.15;font-weight:800;letter-spacing:-0.04em;font-variant-numeric:tabular-nums}
+.stu-unit{font-size:15px;font-weight:700;color:var(--c-t2)}
+.stu-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.stu-g{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;padding:12px 4px;border-radius:12px;background:var(--c-card2)}
+.stu-g-name{font-size:13px;font-weight:700;color:var(--c-t3);white-space:nowrap}
+.stu-g-num{font-size:20px;line-height:1.25;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stu-g-num .stu-unit{margin-left:1px;font-size:13px}
+.stu-g.mine{background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent) inset}
+.stu-g.mine .stu-g-name,.stu-g.mine .stu-g-num,.stu-g.mine .stu-unit{color:var(--accent)}
+@container stu (max-width: 399px){ .stu-grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
+.stu-inputs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.stu-in{display:flex;align-items:center;gap:8px}
+.stu-in .input{min-width:0;text-align:right;font-variant-numeric:tabular-nums}
+.stu-in span{flex:none;font-weight:700;color:var(--c-t2)}
+.stu-sum{margin:0;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:12px;background:var(--c-card2);font-weight:700;color:var(--c-t2)}
+.stu-sum b{font-size:20px;color:var(--c-t1);font-variant-numeric:tabular-nums}
+@media (max-width:599px){
+  .stu-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .stu-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stu-total-num{font-size:30px}
+}
+@media print{
+  .stu-g.mine{box-shadow:none}
 }
 </style>

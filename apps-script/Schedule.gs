@@ -7,7 +7,7 @@
  * 고치기·지우기: 처음 넣은 사람, 역할이 '관리'인 분, 관리자 화면을 연 분만.
  */
 
-function fileMark_Schedule_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+function fileMark_Schedule_() { return '2026-10-16b'; } // 판 표시(관리자 › 점검)
 
 function schedKinds_() {
   return ['행사', '교육활동', '휴업일', '공휴일'];
@@ -196,6 +196,7 @@ function apiHome_(args, actor, ctx) {
     events: eventsBetween_(mon < today ? mon : today, to, ctx),
     links: links,
     focus: focusOf_(m >= 3 ? y : y - 1, m),
+    students: studentsOf_(m >= 3 ? y : y - 1),
     canManage: canManage_(ctx),
     todos: optional_('todoList_', [])(ctx),
     library: optional_('homeLibrary_', [])(ctx),
@@ -302,6 +303,69 @@ function apiFocusSave_(args, actor, ctx) {
     insertRow_('월별중점', { '학년도': String(y), '월': String(m), '중점지도 내용': text }, actor, y + '학년도 ' + m + '월 중점지도 넣음');
   }
   return focusOf_(y, m);
+}
+
+// ---------------------------------------------------------------- 학생 수 현황 (홈)
+// 학년도마다 한 줄: 기준일과 1~6학년 학생 수. 전체는 학년별을 더해 만든다(따로 적지 않아 합이 어긋나지 않게).
+// 숫자만 다룬다(학생 이름 같은 개인정보는 넣지 않는다). 이름을 고른 교직원 누구나 고치고, 바뀌기 전·후는 기록 탭에 남는다.
+
+var STUDENT_GRADES_ = ['1학년', '2학년', '3학년', '4학년', '5학년', '6학년'];
+
+function studentsOf_(schoolYear) {
+  var empty = { year: schoolYear, date: '', grades: [], total: null, id: '', by: '', at: '' };
+  var rows;
+  try {
+    rows = liveRows_('학생수');
+  } catch (e) {
+    if (e && e.code === 'SETUP') return empty; // 탭이 아직 없으면(처음 넣을 때 만든다)
+    throw e;
+  }
+  rows = rows.filter(function (r) { return String(r['학년도']) === String(schoolYear); });
+  var r = rows[rows.length - 1];
+  if (!r) return empty;
+  var grades = STUDENT_GRADES_.map(function (g) { return /^\d+$/.test(r[g]) ? Number(r[g]) : null; });
+  var full = grades.every(function (n) { return n !== null; });
+  var by = r['수정자ID'] || r['입력자ID'];
+  return {
+    year: schoolYear,
+    date: r['기준일'],
+    grades: grades,
+    total: full ? grades.reduce(function (a, b) { return a + b; }, 0) : null,
+    id: r['학생수ID'],
+    by: by ? (staffNames_()[by] || '') : '',
+    at: r['수정 시각'] || r['입력 시각']
+  };
+}
+
+/** 학생 수 넣기·고치기: args = { date: '2026-10-16', grades: [1학년, …, 6학년] } */
+function apiStudentsSave_(args, actor) {
+  var today = todayYmd_();
+  var y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7));
+  var sy = m >= 3 ? y : y - 1; // 지금 학년도
+  var from = sy + '-03-01';
+  var date = checkYmd_(args.date, '기준일');
+  if (date < from || date > today) {
+    throw userError_('기준일은 이번 학년도 안에서 오늘까지 골라 주세요(' + from + ' ~ ' + today + ').');
+  }
+  var list = Array.isArray(args.grades) ? args.grades : [];
+  if (list.length !== STUDENT_GRADES_.length) throw userError_('1학년부터 6학년까지 학생 수를 모두 넣어 주세요.');
+  var patch = { '기준일': date };
+  list.forEach(function (v, i) {
+    var t = String(v === null || v === undefined ? '' : v).trim();
+    if (!/^\d{1,3}$/.test(t)) throw userError_(STUDENT_GRADES_[i] + ' 학생 수를 0부터 999까지 숫자로 넣어 주세요.');
+    patch[STUDENT_GRADES_[i]] = String(Number(t));
+  });
+  ensureTab_('학생수');
+  withLock_(function () {
+    var cur = studentsOf_(sy);
+    if (cur.id) {
+      updateRow_('학생수', cur.id, patch, actor, sy + '학년도 학생 수 고침');
+    } else {
+      patch['학년도'] = String(sy);
+      insertRow_('학생수', patch, actor, sy + '학년도 학생 수 넣음');
+    }
+  });
+  return studentsOf_(sy);
 }
 
 // ---------------------------------------------------------------- 수업일수

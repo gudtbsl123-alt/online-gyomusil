@@ -8,7 +8,7 @@
  * - 시트에 쓸 때는 잠금(LockService)을 걸어 동시에 저장해도 꼬이지 않게 한다.
  */
 
-function fileMark_Db_() { return '2026-10-16'; } // 판 표시(관리자 › 점검)
+function fileMark_Db_() { return '2026-10-16b'; } // 판 표시(관리자 › 점검)
 
 /** 모든 표(기록·설정 제외)에 붙는 입력·수정·삭제 칸 */
 function auditCols_() {
@@ -33,13 +33,14 @@ function tabs_() {
       .concat(['파일 이름', '파일 크기', '홈에 보이기', '원본 자료ID', '공통', '공통 순서']),
     '도움말': ['항목ID', '분류ID', '제목', '내용', '링크', '순서'].concat(A).concat(['파일ID', '파일 이름', '파일 크기']),
     '공지': ['공지ID', '제목', '내용', '링크', '부서ID', '게시 끝일', '고정'].concat(A),
+    '학생수': ['학생수ID', '학년도', '기준일', '1학년', '2학년', '3학년', '4학년', '5학년', '6학년'].concat(A),
     '기록': ['시각', '교직원ID', '이름', '탭', '대상ID', '동작', '요약', '바뀌기 전', '바뀐 뒤']
   };
 }
 
 /** ID 앞글자 */
 function idPrefix_(tab) {
-  return { '분류': 'C', '교직원': 'T', '일정': 'E', '월별중점': 'F', '조사': 'S', '응답': 'R', '알림': 'N', '자료': 'D', '도움말': 'H', '공지': 'G' }[tab] || 'X';
+  return { '분류': 'C', '교직원': 'T', '일정': 'E', '월별중점': 'F', '조사': 'S', '응답': 'R', '알림': 'N', '자료': 'D', '도움말': 'H', '공지': 'G', '학생수': 'P' }[tab] || 'X';
 }
 
 /** 기록에 남기지 않는 칸(개인 번호 해시 등) */
@@ -193,6 +194,22 @@ function withLock_(fn) {
 
 function headOf_(tab) {
   return sheetValues_(tab)[0].map(cellText_);
+}
+
+/** 나중에 더한 탭이 시트에 없으면 처음 설정과 같은 모양(머리글·굵게·1행 고정)으로 만든다 */
+function ensureTab_(tab) {
+  if (ss_().getSheetByName(tab)) return;
+  withLock_(function () {
+    var ss = ss_();
+    if (ss.getSheetByName(tab)) return; // 잠금을 기다리는 사이 다른 분이 만들었으면 그대로
+    var head = tabs_()[tab];
+    var sh = ss.insertSheet(tab);
+    sh.getRange(1, 1, 1, head.length).setValues([head]);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold').setBackground('#F2F4F6');
+    delete DB_SHEETS_[tab];
+    dirty_(tab);
+  });
 }
 
 /** 나중에 더한 칸이 시트에 없으면 머리글 끝에 붙인다(있는 데이터는 그대로) */

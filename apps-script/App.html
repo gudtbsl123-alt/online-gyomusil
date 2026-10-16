@@ -8,7 +8,7 @@
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-16'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-10-16b'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -133,6 +133,7 @@
     check: '<path d="m5 12.5 4.5 4.5L19 7.5"></path>',
     info: '<circle cx="12" cy="12" r="8.5"></circle><path d="M12 11v5M12 8v.2"></path>',
     plus: '<path d="M12 5v14M5 12h14"></path>',
+    minus: '<path d="M5 12h14"></path>',
     search: '<circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path>',
     key: '<circle cx="8" cy="15" r="4"></circle><path d="m11 12 8-8M16 7l2 2M14 9l2 2"></path>',
     print: '<path d="M7 9V4h10v5M7 17H5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2"></path><rect x="7" y="14" width="10" height="6" rx="1"></rect>',
@@ -194,16 +195,63 @@
     return MENU.concat(ADMIN_MENU).concat(HIDDEN_SCREENS).filter(function (m) { return m.id === id; })[0];
   }
 
-  // ============================================================ 밝기·글자 크기
+  // ============================================================ 밝기·화면 크기
   function setTheme(t) {
     root.setAttribute('data-theme', t);
     stSet('gy.theme', t, true);
     qsa('[data-theme-btn]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-theme-btn') === t ? 'true' : 'false'); });
   }
-  function setBig(on) {
-    root.classList.toggle('big', on);
-    stSet('gy.big', on ? '1' : '0', true);
-    qsa('[data-action="big"]').forEach(function (b) { b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+
+  /**
+   * 화면 크기(확대·축소): 본문과 창만 키운다(메뉴는 그대로라 막대가 손가락 밑에서 움직이지 않음).
+   * 칸마다 멈추는 값만 쓴다(이 값들로 넘침을 시험했다). 넓은 화면만 150%, 휴대폰은 120%까지. 기기마다 기억한다.
+   */
+  var ZOOMS = [90, 100, 110, 120, 130, 150];
+  function zoomSteps() {
+    var max = isPhone() ? 120 : window.innerWidth >= 1600 ? 150 : 130;
+    return ZOOMS.filter(function (z) { return z <= max; });
+  }
+  function zoomWanted() {
+    var z = Number(stGet('gy.zoom'));
+    if (ZOOMS.indexOf(z) >= 0) return z;
+    return stGet('gy.big') === '1' ? 110 : 100; // 예전 '글자 크게'를 켜 두었던 기기
+  }
+  /** 고른 값이 이 화면에서 너무 크면(창을 줄였을 때) 쓸 수 있는 가장 큰 값으로 */
+  function zoomNow() {
+    var steps = zoomSteps(), z = zoomWanted();
+    return Math.min(z, steps[steps.length - 1]);
+  }
+  function applyZoom() {
+    var z = zoomNow(), steps = zoomSteps(), i = steps.indexOf(z);
+    root.style.setProperty('--gy-zoom', String(z / 100));
+    qsa('.zoom').forEach(function (el) {
+      var r = qs('.zoom-range', el);
+      r.max = String(steps.length - 1);
+      r.value = String(i);
+      r.setAttribute('aria-valuetext', z + '%');
+      qs('.zoom-val', el).textContent = z + '%';
+      qs('[data-action="zoom-out"]', el).disabled = i <= 0;
+      qs('[data-action="zoom-in"]', el).disabled = i >= steps.length - 1;
+    });
+  }
+  function setZoom(z) {
+    stSet('gy.zoom', String(z), true);
+    stDel('gy.big');
+    applyZoom();
+  }
+  function stepZoom(n) {
+    var steps = zoomSteps(), i = steps.indexOf(zoomNow()) + n;
+    if (i >= 0 && i < steps.length) setZoom(steps[i]);
+  }
+  function zoomControl() {
+    var steps = zoomSteps(), z = zoomNow(), i = steps.indexOf(z);
+    return '<div class="zoom" role="group" aria-label="화면 크기">' +
+      '<div class="zoom-top">' + icon('textsize', 20) + '<span>화면 크기</span><b class="zoom-val" aria-hidden="true">' + z + '%</b></div>' +
+      '<div class="zoom-row">' +
+      '<button type="button" class="icon-btn zoom-btn" data-action="zoom-out" aria-label="화면 작게"' + (i <= 0 ? ' disabled' : '') + '>' + icon('minus', 18) + '</button>' +
+      '<input type="range" class="zoom-range" min="0" max="' + (steps.length - 1) + '" step="1" value="' + i + '" aria-label="화면 크기" aria-valuetext="' + z + '%">' +
+      '<button type="button" class="icon-btn zoom-btn" data-action="zoom-in" aria-label="화면 크게"' + (i >= steps.length - 1 ? ' disabled' : '') + '>' + icon('plus', 18) + '</button>' +
+      '</div></div>';
   }
   function themeSeg() {
     var t = root.getAttribute('data-theme');
@@ -215,7 +263,7 @@
   // ============================================================ 시작
   function init() {
     setTheme(stGet('gy.theme') === 'dark' ? 'dark' : 'light');
-    setBig(stGet('gy.big') === '1');
+    applyZoom();
     var h = (location.hash || '').replace('#', '');
     if (menuItem(h)) S.screen = h;
     server('start').then(function (st) {
@@ -436,7 +484,7 @@
       '<div class="nav">' + MENU.map(function (x) { return navButton(x); }).join('') + '</div>' +
       '<div class="nav-group"><span class="nav-label">관리 · 연구부장·부담당</span>' + ADMIN_MENU.map(function (x) { return navButton(x); }).join('') + '</div>' +
       '<div class="side-foot">' + themeSeg() +
-      '<button type="button" class="nav-item small" data-action="big" aria-pressed="' + root.classList.contains('big') + '">' + icon('textsize', 20) + '글자 크게</button>' +
+      zoomControl() +
       meCard() +
       '<button type="button" class="nav-item small" data-action="logout">' + icon('out', 20) + '나가기</button></div>' +
       '</nav>' +
@@ -468,7 +516,7 @@
       meCard() +
       '<div class="nav">' + MENU.concat(ADMIN_MENU).map(function (x) { return navButton(x); }).join('') + '</div>' +
       themeSeg() +
-      '<button type="button" class="nav-item small" data-action="big" aria-pressed="' + root.classList.contains('big') + '">' + icon('textsize', 20) + '글자 크게</button>' +
+      zoomControl() +
       '<button type="button" class="nav-item small" data-action="logout">' + icon('out', 20) + '나가기</button>' +
       '<button type="button" class="btn" data-action="close-sheet">닫기</button></div>';
     el.addEventListener('click', function (e) { if (e.target === el) closeSheet(); });
@@ -609,7 +657,8 @@
     var weekend = h.events.filter(function (e) { return e.start > addD(h.monday, 4) && e.end <= addD(h.monday, 6) && passFilter(e, f); });
     var links = h.links || [];
 
-    body.innerHTML = '<div class="wrap">' +
+    var bottom = homeFocusCard(h) + studentsCard(h);
+    body.innerHTML = '<div class="wrap home-wrap">' +
       '<div class="home-top">' +
       '<section class="card today-card"><span class="glow" aria-hidden="true"></span>' +
       '<div class="card-head"><div><p class="kicker">오늘 학교 일정</p>' +
@@ -641,13 +690,101 @@
       '</section>' +
 
       '<div class="home-row">' + (isPhone() ? '' : homeNoticeCard(h)) + quickLibCard(h.library || []) + '</div>' +
-      (h.focus && h.focus.text ? '<section class="card"><div class="card-head"><h2>' + h.focus.month + '월 중점지도</h2></div><p class="focus-text">' + esc(h.focus.text) + '</p></section>' : '') +
+      (bottom ? '<div class="home-row home-bottom">' + bottom + '</div>' : '') +
       (links.length ? '<section class="card dashed"><div class="card-head"><div><h2>아직 기존 시트에서 하는 일</h2>' +
         '<p class="faint" style="margin-top:4px">2차에 온라인 교무실로 옮겨 와요. 그 전까지는 바로가기로 들어가세요.</p></div>' +
         '<div class="row-btns">' + links.map(function (l) {
           return '<a class="btn btn-sm" href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.name) + icon('ext', 16) + '</a>';
         }).join('') + '</div></div></section>' : '') +
       '</div>';
+  }
+
+  function homeFocusCard(h) {
+    if (!h.focus || !h.focus.text) return '';
+    return '<section class="card"><div class="card-head"><h2>' + h.focus.month + '월 중점지도</h2></div><p class="focus-text">' + esc(h.focus.text) + '</p></section>';
+  }
+
+  // ------------------------------------------------------------ 홈 '학생 수 현황'
+  // 전체는 학년별을 더한 값. 이름을 고른 교직원 누구나 고치고, 고친 분과 바뀌기 전 숫자는 기록에 남는다
+  var STUDENT_GRADES = ['1학년', '2학년', '3학년', '4학년', '5학년', '6학년'];
+  function numText(n) {
+    return n === null || n === undefined || n === '' ? '–' : String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  function dayText(s, today) {
+    if (!s) return '';
+    return (today && s.slice(0, 4) !== today.slice(0, 4) ? Number(s.slice(0, 4)) + '년 ' : '') + md(s);
+  }
+  function studentsCard(h) {
+    var st = h.students;
+    if (!st) return ''; // 예전 서버 파일(Schedule.gs)이면 카드 없이
+    var mine = myGrade();
+    var btn = S.me ? '<button type="button" class="btn btn-sm print-hide" data-action="students-edit">' + (st.id ? '고치기' : icon('plus', 18) + '넣기') + '</button>' : '';
+    var head = '<div class="card-head"><div class="stu-head"><h2>학생 수 현황</h2>' +
+      (st.date ? '<span class="faint">' + esc(dayText(st.date, h.today)) + ' 기준</span>' : '') + '</div>' + btn + '</div>';
+    if (!st.id) {
+      return '<section class="card stu-card">' + head + '<p class="faint">아직 ' + esc(st.year) + '학년도 학생 수가 없어요. ' +
+        (S.me ? "'넣기'를 눌러 학년별 학생 수를 넣어 주세요." : '이름을 고르면 넣을 수 있어요.') + '</p></section>';
+    }
+    var g = st.grades || [];
+    return '<section class="card stu-card">' + head +
+      '<p class="stu-total"><span class="stu-total-label">전체</span><b class="stu-total-num">' + numText(st.total) + '</b><span class="stu-unit">명</span></p>' +
+      '<div class="stu-grid">' + STUDENT_GRADES.map(function (name, i) {
+        var mineOne = String(i + 1) === mine;
+        return '<div class="stu-g' + (mineOne ? ' mine' : '') + '"><span class="stu-g-name">' + name + (mineOne ? '<span class="sr-only"> (우리 학년)</span>' : '') + '</span>' +
+          '<b class="stu-g-num">' + numText(g[i]) + '<span class="stu-unit">명</span></b></div>';
+      }).join('') + '</div></section>';
+  }
+
+  /** 학생 수 넣기·고치기 (이름을 고른 교직원 누구나) */
+  function editStudents() {
+    var h = S.home || {}, st = h.students || {};
+    var g = st.grades || [];
+    var today = h.today || '';
+    openModal('<h2 id="m-title">' + (st.year ? esc(st.year) + '학년도 ' : '') + '학생 수 ' + (st.id ? '고치기' : '넣기') + '</h2>' +
+      '<form id="stu-form" class="form" novalidate>' +
+      '<p class="hint">' + icon('info', 16) + '<span>전학·입학으로 바뀌면 고쳐 주세요. 전체는 학년별을 더해 저절로 나와요. 고친 분과 바뀌기 전 숫자는 기록에 남아요.</span></p>' +
+      '<div class="field"><label class="label" for="stu-date">기준일</label><input id="stu-date" class="input" type="date" value="' + esc(st.date || today) + '"' +
+      (st.year ? ' min="' + esc(st.year) + '-03-01"' : '') + (today ? ' max="' + esc(today) + '"' : '') + '></div>' +
+      '<div class="stu-inputs">' + STUDENT_GRADES.map(function (name, i) {
+        var v = g[i] === null || g[i] === undefined ? '' : String(g[i]);
+        return '<div class="field"><label class="label" for="stu-' + (i + 1) + '">' + name + '</label>' +
+          '<div class="stu-in"><input id="stu-' + (i + 1) + '" class="input stu-n" inputmode="numeric" maxlength="3" autocomplete="off" value="' + esc(v) + '"><span>명</span></div></div>';
+      }).join('') + '</div>' +
+      '<p class="stu-sum"><span>전체</span><b id="stu-sum">–</b></p>' +
+      (st.by ? '<p class="faint">마지막으로 고친 분: ' + esc(st.by) + (st.at ? ' · ' + esc(dayText(st.at.slice(0, 10), today)) : '') + '</p>' : '') +
+      '<p class="err" id="stu-err" role="alert"></p>' +
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="submit" class="btn btn-primary" id="stu-save">저장</button></div>' +
+      '</form>');
+    var inputs = qsa('.stu-n');
+    function sum() {
+      var ok = true, t = 0;
+      inputs.forEach(function (x) { if (/^\d{1,3}$/.test(x.value)) t += Number(x.value); else ok = false; });
+      qs('#stu-sum').textContent = ok ? numText(t) + '명' : '–';
+    }
+    inputs.forEach(function (x) {
+      x.addEventListener('input', function () {
+        var v = x.value.replace(/[^0-9]/g, '').slice(0, 3);
+        if (v !== x.value) x.value = v;
+        sum();
+      });
+    });
+    sum();
+    qs('#stu-form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var err = qs('#stu-err'), btn = qs('#stu-save');
+      err.textContent = '';
+      var vals = inputs.map(function (x) { return x.value.trim(); });
+      for (var i = 0; i < vals.length; i++) {
+        if (!/^\d{1,3}$/.test(vals[i])) { err.textContent = STUDENT_GRADES[i] + ' 학생 수를 숫자로 넣어 주세요.'; inputs[i].focus(); return; }
+      }
+      busy(btn, true, '저장하는 중');
+      server('students.save', { date: qs('#stu-date').value, grades: vals }).then(function (r) {
+        if (S.home) S.home.students = r;
+        closeModal();
+        drawHome();
+        toast('학생 수를 저장했어요');
+      }).catch(function (e) { busy(btn, false); err.textContent = e.message; });
+    });
   }
 
   /** 홈 '내가 할 일': 아직 안 낸 조사(다시 알림 받은 것이 맨 위) */
@@ -2149,7 +2286,9 @@
       ]) +
       sec(2, '홈과 검색', [
         '홈에서 오늘 일정, 내가 낼 조사(내가 할 일), 이번 주 일정을 봐요.',
-        '홈 위의 <b>검색창</b>에 낱말을 넣으면 자료·일정·선생님·도움말·조사를 한 번에 찾아요.'
+        '홈 위의 <b>검색창</b>에 낱말을 넣으면 자료·일정·선생님·도움말·조사를 한 번에 찾아요.',
+        '홈 맨 아래 <b>학생 수 현황</b>은 전학·입학으로 바뀌면 누구나 고쳐요. 고친 분과 바뀌기 전 숫자는 기록에 남아요.',
+        "왼쪽 메뉴 아래(휴대폰은 '전체') <b>화면 크기</b> 막대로 화면을 키우고 줄여요. 기기마다 따로 기억해요."
       ]) +
       sec(3, '일정', [
         '<b>일정 › 행사 추가</b>로 넣어요. 한 번 넣으면 달력·월별 계획·연간 학사일정·홈에 함께 보여요.',
@@ -3548,7 +3687,9 @@
           t.setAttribute('aria-label', root.getAttribute('data-theme') === 'dark' ? '밝은 화면으로 바꾸기' : '어두운 화면으로 바꾸기');
         }
         break;
-      case 'big': setBig(!root.classList.contains('big')); break;
+      case 'zoom-in': stepZoom(1); break;
+      case 'zoom-out': stepZoom(-1); break;
+      case 'students-edit': editStudents(); break;
       case 'reload': location.reload(); break;
       case 'sheet': openSheet(); break;
       case 'close-sheet': closeSheet(); break;
@@ -3775,6 +3916,20 @@
     else if ($modal.innerHTML && !qs('[data-action="close-pins"]')) closeModal();
   });
 
+  // 화면 크기 막대: 끄는 동안은 숫자만 바꾸고, 놓으면(또는 화살표 키) 적용한다
+  document.addEventListener('input', function (e) {
+    if (!e.target.classList || !e.target.classList.contains('zoom-range')) return;
+    var z = zoomSteps()[Number(e.target.value)] || 100;
+    var box = e.target.closest('.zoom');
+    if (box) qs('.zoom-val', box).textContent = z + '%';
+    e.target.setAttribute('aria-valuetext', z + '%');
+  });
+  document.addEventListener('change', function (e) {
+    if (!e.target.classList || !e.target.classList.contains('zoom-range')) return;
+    var z = zoomSteps()[Number(e.target.value)];
+    if (z) setZoom(z);
+  });
+
   document.addEventListener('change', function (e) {
     var f = e.target.getAttribute && e.target.getAttribute('data-filter');
     if (!f) return;
@@ -3788,6 +3943,7 @@
   window.addEventListener('resize', function () {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(function () {
+      applyZoom(); // 창을 줄이면 화면 크기도 그 폭에서 쓸 수 있는 만큼만
       var shape = isPhone() + '/' + isWide();
       if (shape === lastShape) return;
       lastShape = shape;
