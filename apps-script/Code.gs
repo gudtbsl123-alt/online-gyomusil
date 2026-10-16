@@ -29,8 +29,8 @@ function include(name) {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-16b';
-function fileMark_Code_() { return '2026-10-16b'; }
+var APP_BUILD_ = '2026-10-16c';
+function fileMark_Code_() { return '2026-10-16c'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -38,9 +38,9 @@ function fileMark_Code_() { return '2026-10-16b'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-16b', 'Db': '2026-10-16b', 'Auth': '2026-10-16', 'Admin': '2026-10-16b', 'Schedule': '2026-10-16b',
+    'Code': '2026-10-16c', 'Db': '2026-10-16c', 'Auth': '2026-10-16', 'Admin': '2026-10-16c', 'Schedule': '2026-10-16c',
     'Survey': '2026-10-16', 'Library': '2026-10-16', 'Help': '2026-10-16', 'Setup': '2026-10-16',
-    'App': '2026-10-16b', 'Styles': '2026-10-16b', 'Index': '2026-10-16'
+    'App': '2026-10-16c', 'Styles': '2026-10-16c', 'Index': '2026-10-16'
   };
 }
 
@@ -52,6 +52,8 @@ function fileBuilds_() {
 function routes_() {
   return {
     'start': { need: 'public', fn: 'apiStart_' },
+    'ping': { need: 'public', fn: function () { return { at: Date.now() }; } }, // 속도 재기: 시트를 읽지 않는 빈 요청
+    'boot': { need: 'login', fn: 'apiBoot_' },
     'login': { need: 'public', fn: function (a) { return login_(a); } },
     'session': { need: 'login', fn: 'apiSession_' },
     'staffPicker': { need: 'login', fn: function () { return staffPicker_(); } },
@@ -116,19 +118,44 @@ function routes_() {
     'admin.pw.common': { need: 'admin', fn: 'adminChangeCommonPw_' },
     'admin.pw.admin': { need: 'admin', fn: 'adminChangeAdminPw_' },
     'admin.check': { need: 'admin', fn: 'adminCheck_' },
+    'admin.speed': { need: 'admin', fn: 'adminSpeed_' },
     'admin.staff.importCheck': { need: 'admin', fn: 'adminStaffImportCheck_' },
     'admin.staff.import': { need: 'admin', fn: 'adminStaffImport_' }
   };
 }
 
 /**
+ * 쓰기 뒤 같은 요청 안에서 이어 읽을 수 있는 화면(로그인만 있으면 되는 읽기만).
+ * 저장한 다음 목록을 다시 부르느라 서버를 한 번 더 다녀오지 않게 한다(속도).
+ */
+var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1 };
+
+/** req.then = [[읽기 이름, args], …] (3개까지) → [{ data } 또는 null, …]. 하나가 안 되면 그것만 null(화면이 따로 다시 부른다) */
+function thenReads_(list, actor, ctx) {
+  if (!Array.isArray(list)) return undefined;
+  var routes = routes_();
+  return list.slice(0, 3).map(function (x) {
+    try {
+      var name = Array.isArray(x) ? String(x[0]) : '';
+      var r = THEN_READS_[name] ? routes[name] : null;
+      if (!r || r.need !== 'login') return null;
+      var f = typeof r.fn === 'string' ? globalFn_(r.fn) : r.fn;
+      return f ? { data: f(x[1] || {}, actor, ctx) } : null;
+    } catch (e) {
+      return null;
+    }
+  });
+}
+
+/**
  * 화면에서 부르는 하나뿐인 창구. 주고받는 값은 JSON 글자다.
- * req = { action, args, tokens: { login, identity, admin } }
+ * req = { action, args, tokens: { login, identity, admin }, then: [[읽기 이름, args], …](없어도 됨) }
  */
 function api(reqText) {
   SETTINGS_CACHE_ = null;
   DB_SS_ = null;
   dbReset_();
+  PERF_ = newPerf_();
   try {
     var req = JSON.parse(String(reqText || '{}'));
     var route = routes_()[req.action];
@@ -153,7 +180,9 @@ function api(reqText) {
       ? { id: ctx.identity['교직원ID'], name: ctx.identity['이름'] }
       : { id: '', name: ctx.admin ? '관리자(본인 확인 전)' : '' };
     var data = fn(req.args || {}, actor, ctx);
-    return JSON.stringify({ ok: true, data: data === undefined ? null : data });
+    var out = { ok: true, data: data === undefined ? null : data };
+    if (req.then) out.then = thenReads_(req.then, actor, ctx);
+    return JSON.stringify(out);
   } catch (err) {
     if (err && err.userMessage) return JSON.stringify({ ok: false, error: err.userMessage, code: err.code });
     console.error(err && err.stack ? err.stack : err);
@@ -187,6 +216,18 @@ function apiStart_() {
     rememberDays: ready ? rememberDays_() : 365,
     pinMode: ready ? pinMode_() : false
   };
+}
+
+/** 처음 열기(로그인이 기억된 기기): 시작 정보·로그인 상태·홈을 한 번에. 홈은 화면이 곧바로 홈을 그릴 때만(args.home) */
+function apiBoot_(args, actor, ctx) {
+  var start = apiStart_();
+  if (!start.ready) return { start: start };
+  var out = { start: start, session: apiSession_(args, actor, ctx) };
+  if (args.home) {
+    var home = globalFn_('apiHome_');
+    if (home) out.home = home({}, actor, ctx);
+  }
+  return out;
 }
 
 function apiSession_(args, actor, ctx) {

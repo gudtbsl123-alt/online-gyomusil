@@ -13,7 +13,7 @@
 :root,:root[data-theme="light"]{--c-bg:#F2F4F6;--c-sub:#FFFFFF;--c-card:#FFFFFF;--c-card2:#F2F4F6;--c-pill:#F2F4F6;--c-line:#E5E8EB;--c-line2:#D1D6DB;--c-seg:#F2F4F6;--c-avatar:#E5E8EB;--c-t0:#191F28;--c-t1:#191F28;--c-t2:#4E5968;--c-t3:#606B78;--c-dot:#B0B8C1;--c-radio:#B0B8C1;--c-warnBg:#FFF4E5;--c-warnFg:#9A5200;--c-okBg:#E8F7EE;--c-okFg:#12784A;--c-red:#D92D20;--c-onAccent:#FFFFFF;--accent:#1B64DA;--accent-soft:rgba(27, 100, 218, 0.1);--accent-ring:rgba(27, 100, 218, 0.35);--accent-glow:rgba(27, 100, 218, 0.22);--hero-a:rgba(27, 100, 218, 0.14);--hero-b:rgba(27, 100, 218, 0.05);--scheme:light;--seg-light-bg:#FFFFFF;--seg-light-fg:#191F28;--seg-dark-bg:transparent;--seg-dark-fg:#606B78;--sun-display:none;--moon-display:block;--stage:#E5E8EB}
 :root[data-theme="dark"]{--c-bg:#0F1115;--c-sub:#15171C;--c-card:#1A1D24;--c-card2:#1F222A;--c-pill:#21232A;--c-line:#21232A;--c-line2:#2C2F37;--c-seg:#2C2F37;--c-avatar:#2C2F37;--c-t0:#F9FAFB;--c-t1:#F2F4F6;--c-t2:#B0B8C1;--c-t3:#8B95A1;--c-dot:#8B95A1;--c-radio:#4E5968;--c-warnBg:#2E1F00;--c-warnFg:#FFB547;--c-okBg:#0F2E1C;--c-okFg:#4ADE80;--c-red:#FF6B6B;--c-onAccent:#0F1115;--accent:#4795FF;--accent-soft:rgba(71, 149, 255, 0.14);--accent-ring:rgba(71, 149, 255, 0.32);--accent-glow:rgba(71, 149, 255, 0.18);--hero-a:rgba(71, 149, 255, 0.32);--hero-b:rgba(71, 149, 255, 0.14);--scheme:dark;--seg-light-bg:transparent;--seg-light-fg:#8B95A1;--seg-dark-bg:#2C2F37;--seg-dark-fg:#F2F4F6;--sun-display:block;--moon-display:none;--stage:#08090B}
 html{background:var(--c-bg)}
-:root{--gy-build:"2026-10-16b"} /* 판 표시(관리자 › 점검) */
+:root{--gy-build:"2026-10-16c"} /* 판 표시(관리자 › 점검) */
 body{margin:0;word-break:keep-all;background:var(--c-bg);color:var(--c-t1);font-family:Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased}
 a{color:inherit}
 input::placeholder,textarea::placeholder{color:currentColor;opacity:.7}
@@ -699,6 +699,23 @@ select.input{appearance:auto}
   .dir-row{padding:6px 10px;font-size:13px}
 }
 
+/* ---------- 화면 기억(속도): 뒤에서 새 내용을 받는 동안 맨 위의 가는 줄 ---------- */
+.refresh-bar{position:fixed;top:0;left:0;right:0;z-index:90;height:3px;pointer-events:none;background:linear-gradient(90deg,transparent,var(--accent),transparent) 0 0/40% 100% no-repeat;animation:gy-refresh 1.1s linear infinite}
+@keyframes gy-refresh{from{background-position:-40% 0}to{background-position:140% 0}}
+@media (prefers-reduced-motion:reduce){.refresh-bar{animation:none;background:var(--accent-soft)}}
+
+/* ---------- 관리자 › 점검 › 속도 재기 ---------- */
+.speed{display:flex;flex-direction:column;gap:12px}
+.speed p{margin:0}
+.speed h3{margin:4px 0 0;font-size:16px;font-weight:800}
+.speed-wrap{overflow-x:auto}
+.speed-table{width:100%;border-collapse:collapse;font-size:15px;font-variant-numeric:tabular-nums}
+.speed-table th,.speed-table td{padding:8px 10px;border-bottom:1px solid var(--c-line);text-align:right;white-space:nowrap}
+.speed-table th:first-child{text-align:left}
+.speed-table thead th{font-size:13px;font-weight:700;color:var(--c-t3)}
+.speed-recent{margin:0;padding:0;list-style:none;display:flex;flex-direction:column}
+.speed-recent li{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--c-line);font-variant-numeric:tabular-nums}
+
 /* ---------- 화면 크기 막대 (사이드 메뉴 아래·휴대폰 '전체') ---------- */
 .zoom{display:flex;flex-direction:column;gap:4px;padding:2px 2px 0 14px}
 .zoom-top{display:flex;align-items:center;gap:12px;min-height:30px;color:var(--c-t2);font-size:15px;font-weight:600}
@@ -730,23 +747,46 @@ select.input{appearance:auto}
 .stu-total-num{font-size:36px;line-height:1.15;font-weight:800;letter-spacing:-0.04em;font-variant-numeric:tabular-nums}
 .stu-unit{font-size:15px;font-weight:700;color:var(--c-t2)}
 .stu-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
-.stu-g{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;padding:12px 4px;border-radius:12px;background:var(--c-card2)}
+.stu-g{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;padding:12px 4px;border:0;border-radius:12px;background:var(--c-card2);color:var(--c-t1);font:inherit;cursor:pointer}
 .stu-g-name{font-size:13px;font-weight:700;color:var(--c-t3);white-space:nowrap}
 .stu-g-num{font-size:20px;line-height:1.25;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .stu-g-num .stu-unit{margin-left:1px;font-size:13px}
 .stu-g.mine{background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent) inset}
 .stu-g.mine .stu-g-name,.stu-g.mine .stu-g-num,.stu-g.mine .stu-unit{color:var(--accent)}
 @container stu (max-width: 399px){ .stu-grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
-.stu-inputs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-.stu-in{display:flex;align-items:center;gap:8px}
-.stu-in .input{min-width:0;text-align:right;font-variant-numeric:tabular-nums}
-.stu-in span{flex:none;font-weight:700;color:var(--c-t2)}
-.stu-sum{margin:0;display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:12px;background:var(--c-card2);font-weight:700;color:var(--c-t2)}
-.stu-sum b{font-size:20px;color:var(--c-t1);font-variant-numeric:tabular-nums}
+.stu-mf{margin-left:8px;font-size:14px;font-weight:700;color:var(--c-t3);font-variant-numeric:tabular-nums}
+.stu-tip{margin-top:-4px!important;font-size:13px}
+.stu-modal-date{margin-top:-10px!important}
+/* 학년 상세(반별 남·여) */
+.stu-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.stu-table th,.stu-table td{padding:10px 12px;border-bottom:1px solid var(--c-line);text-align:right;font-size:16px}
+.stu-table th:first-child{text-align:left}
+.stu-table thead th{font-size:14px;font-weight:700;color:var(--c-t3)}
+.stu-table tbody th{font-weight:700;color:var(--c-t2)}
+.stu-table tfoot th,.stu-table tfoot td{border-bottom:0;border-top:2px solid var(--c-line2);font-weight:800}
+/* 넣기 창: 학교 전체 한 창 */
+.stu-secs{display:flex;flex-direction:column;gap:12px}
+.stu-sec{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border:1px solid var(--c-line);border-radius:14px;scroll-margin-top:8px}
+.stu-sec-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}
+.stu-sec-head h3{margin:0;font-size:17px;font-weight:800}
+.stu-sec-sum{font-size:14px;font-weight:700;color:var(--c-t2);font-variant-numeric:tabular-nums}
+.stu-rows{display:flex;flex-direction:column;gap:6px}
+.stu-row{display:grid;grid-template-columns:40px minmax(0,1fr) minmax(0,1fr) 52px;align-items:center;gap:8px}
+.stu-cls{font-weight:700;color:var(--c-t2);font-variant-numeric:tabular-nums}
+.stu-mf-in{display:flex;align-items:center;gap:6px;min-width:0}
+.stu-mf-in span{flex:none;font-size:14px;font-weight:700;color:var(--c-t3)}
+.stu-mf-in .input{min-width:0;min-height:42px;padding:0 10px;text-align:right;font-variant-numeric:tabular-nums}
+.stu-row-sum{text-align:right;font-variant-numeric:tabular-nums}
+.stu-foot{position:sticky;bottom:-24px;z-index:1;margin:0 -24px -24px;padding:12px 24px 24px;display:flex;flex-direction:column;gap:10px;background:var(--c-card);border-top:1px solid var(--c-line)}
+.stu-sum{margin:0;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px;padding:10px 14px;border-radius:12px;background:var(--c-card2);font-weight:700;color:var(--c-t2)}
+.stu-sum b{font-size:17px;color:var(--c-t1);font-variant-numeric:tabular-nums}
+@media (hover:hover){ .stu-g:hover{box-shadow:0 0 0 1px var(--c-line2) inset} .stu-g.mine:hover{box-shadow:0 0 0 2px var(--accent) inset} }
+@media (max-width:899px){ .stu-foot{bottom:-20px;margin:0 -20px -20px;padding:12px 20px 20px} }
 @media (max-width:599px){
   .stu-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .stu-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}
   .stu-total-num{font-size:30px}
+  .stu-sec{padding:12px}
+  .stu-row{grid-template-columns:34px minmax(0,1fr) minmax(0,1fr) 44px;gap:6px}
 }
 @media print{
   .stu-g.mine{box-shadow:none}
@@ -1103,8 +1143,8 @@ function include(name) {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-16b';
-function fileMark_Code_() { return '2026-10-16b'; }
+var APP_BUILD_ = '2026-10-16c';
+function fileMark_Code_() { return '2026-10-16c'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -1112,9 +1152,9 @@ function fileMark_Code_() { return '2026-10-16b'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-16b', 'Db': '2026-10-16b', 'Auth': '2026-10-16', 'Admin': '2026-10-16b', 'Schedule': '2026-10-16b',
+    'Code': '2026-10-16c', 'Db': '2026-10-16c', 'Auth': '2026-10-16', 'Admin': '2026-10-16c', 'Schedule': '2026-10-16c',
     'Survey': '2026-10-16', 'Library': '2026-10-16', 'Help': '2026-10-16', 'Setup': '2026-10-16',
-    'App': '2026-10-16b', 'Styles': '2026-10-16b', 'Index': '2026-10-16'
+    'App': '2026-10-16c', 'Styles': '2026-10-16c', 'Index': '2026-10-16'
   };
 }
 
@@ -1126,6 +1166,8 @@ function fileBuilds_() {
 function routes_() {
   return {
     'start': { need: 'public', fn: 'apiStart_' },
+    'ping': { need: 'public', fn: function () { return { at: Date.now() }; } }, // 속도 재기: 시트를 읽지 않는 빈 요청
+    'boot': { need: 'login', fn: 'apiBoot_' },
     'login': { need: 'public', fn: function (a) { return login_(a); } },
     'session': { need: 'login', fn: 'apiSession_' },
     'staffPicker': { need: 'login', fn: function () { return staffPicker_(); } },
@@ -1190,19 +1232,44 @@ function routes_() {
     'admin.pw.common': { need: 'admin', fn: 'adminChangeCommonPw_' },
     'admin.pw.admin': { need: 'admin', fn: 'adminChangeAdminPw_' },
     'admin.check': { need: 'admin', fn: 'adminCheck_' },
+    'admin.speed': { need: 'admin', fn: 'adminSpeed_' },
     'admin.staff.importCheck': { need: 'admin', fn: 'adminStaffImportCheck_' },
     'admin.staff.import': { need: 'admin', fn: 'adminStaffImport_' }
   };
 }
 
 /**
+ * 쓰기 뒤 같은 요청 안에서 이어 읽을 수 있는 화면(로그인만 있으면 되는 읽기만).
+ * 저장한 다음 목록을 다시 부르느라 서버를 한 번 더 다녀오지 않게 한다(속도).
+ */
+var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1 };
+
+/** req.then = [[읽기 이름, args], …] (3개까지) → [{ data } 또는 null, …]. 하나가 안 되면 그것만 null(화면이 따로 다시 부른다) */
+function thenReads_(list, actor, ctx) {
+  if (!Array.isArray(list)) return undefined;
+  var routes = routes_();
+  return list.slice(0, 3).map(function (x) {
+    try {
+      var name = Array.isArray(x) ? String(x[0]) : '';
+      var r = THEN_READS_[name] ? routes[name] : null;
+      if (!r || r.need !== 'login') return null;
+      var f = typeof r.fn === 'string' ? globalFn_(r.fn) : r.fn;
+      return f ? { data: f(x[1] || {}, actor, ctx) } : null;
+    } catch (e) {
+      return null;
+    }
+  });
+}
+
+/**
  * 화면에서 부르는 하나뿐인 창구. 주고받는 값은 JSON 글자다.
- * req = { action, args, tokens: { login, identity, admin } }
+ * req = { action, args, tokens: { login, identity, admin }, then: [[읽기 이름, args], …](없어도 됨) }
  */
 function api(reqText) {
   SETTINGS_CACHE_ = null;
   DB_SS_ = null;
   dbReset_();
+  PERF_ = newPerf_();
   try {
     var req = JSON.parse(String(reqText || '{}'));
     var route = routes_()[req.action];
@@ -1227,7 +1294,9 @@ function api(reqText) {
       ? { id: ctx.identity['교직원ID'], name: ctx.identity['이름'] }
       : { id: '', name: ctx.admin ? '관리자(본인 확인 전)' : '' };
     var data = fn(req.args || {}, actor, ctx);
-    return JSON.stringify({ ok: true, data: data === undefined ? null : data });
+    var out = { ok: true, data: data === undefined ? null : data };
+    if (req.then) out.then = thenReads_(req.then, actor, ctx);
+    return JSON.stringify(out);
   } catch (err) {
     if (err && err.userMessage) return JSON.stringify({ ok: false, error: err.userMessage, code: err.code });
     console.error(err && err.stack ? err.stack : err);
@@ -1261,6 +1330,18 @@ function apiStart_() {
     rememberDays: ready ? rememberDays_() : 365,
     pinMode: ready ? pinMode_() : false
   };
+}
+
+/** 처음 열기(로그인이 기억된 기기): 시작 정보·로그인 상태·홈을 한 번에. 홈은 화면이 곧바로 홈을 그릴 때만(args.home) */
+function apiBoot_(args, actor, ctx) {
+  var start = apiStart_();
+  if (!start.ready) return { start: start };
+  var out = { start: start, session: apiSession_(args, actor, ctx) };
+  if (args.home) {
+    var home = globalFn_('apiHome_');
+    if (home) out.home = home({}, actor, ctx);
+  }
+  return out;
 }
 
 function apiSession_(args, actor, ctx) {
@@ -1298,7 +1379,7 @@ function deptOptions_() {
  * - 시트에 쓸 때는 잠금(LockService)을 걸어 동시에 저장해도 꼬이지 않게 한다.
  */
 
-function fileMark_Db_() { return '2026-10-16b'; } // 판 표시(관리자 › 점검)
+function fileMark_Db_() { return '2026-10-16c'; } // 판 표시(관리자 › 점검)
 
 /** 모든 표(기록·설정 제외)에 붙는 입력·수정·삭제 칸 */
 function auditCols_() {
@@ -1323,7 +1404,7 @@ function tabs_() {
       .concat(['파일 이름', '파일 크기', '홈에 보이기', '원본 자료ID', '공통', '공통 순서']),
     '도움말': ['항목ID', '분류ID', '제목', '내용', '링크', '순서'].concat(A).concat(['파일ID', '파일 이름', '파일 크기']),
     '공지': ['공지ID', '제목', '내용', '링크', '부서ID', '게시 끝일', '고정'].concat(A),
-    '학생수': ['학생수ID', '학년도', '기준일', '1학년', '2학년', '3학년', '4학년', '5학년', '6학년'].concat(A),
+    '학생수': ['학생수ID', '학년도', '기준일', '1학년', '2학년', '3학년', '4학년', '5학년', '6학년'].concat(A).concat(['반별']),
     '기록': ['시각', '교직원ID', '이름', '탭', '대상ID', '동작', '요약', '바뀌기 전', '바뀐 뒤']
   };
 }
@@ -1347,8 +1428,17 @@ function hiddenCols_() {
 
 var DB_SS_ = null; // 한 번 실행하는 동안만 쓰는 캐시
 
+/** 속도 재기(관리자 › 점검): 한 요청 안에서 시트 열기·탭 읽기에 걸린 시간 */
+var PERF_ = { openMs: 0, reads: 0, readMs: 0 };
+function newPerf_() { return { openMs: 0, reads: 0, readMs: 0 }; }
+
 function ss_() {
   if (DB_SS_) return DB_SS_;
+  var t0 = Date.now();
+  try { return openSs_(); } finally { PERF_.openMs += Date.now() - t0; }
+}
+
+function openSs_() {
   var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
   if (id) {
     DB_SS_ = SpreadsheetApp.openById(id);
@@ -1377,7 +1467,12 @@ function dirty_(tab) {
 }
 
 function sheetValues_(tab) {
-  if (!DB_CACHE_[tab]) DB_CACHE_[tab] = sheet_(tab).getDataRange().getValues();
+  if (!DB_CACHE_[tab]) {
+    var t0 = Date.now();
+    DB_CACHE_[tab] = sheet_(tab).getDataRange().getValues();
+    PERF_.reads++;
+    PERF_.readMs += Date.now() - t0;
+  }
   return DB_CACHE_[tab];
 }
 
@@ -2114,7 +2209,7 @@ function assignPin_(row, actor) {
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-16b'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-10-16c'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -2520,6 +2615,42 @@ function adminCheck_(args) {
   return { build: APP_BUILD_, at: nowText_(), items: items };
 }
 
+// ---------------------------------------------------------------- 속도 재기 (관리자 › 점검)
+
+/**
+ * 자주 여는 화면을 서버 안에서 하나씩 불러 보며 시간을 잰다(쓰지는 않는다).
+ * 화면마다: 서버 처리 전체 · 시트 열기 · 탭 읽기(횟수·시간) · 그 밖(계산 등). 서버를 다녀오는 왕복 시간은 화면이 'ping'으로 따로 잰다
+ */
+function adminSpeed_(args, actor, ctx) {
+  var t = todayYmd_();
+  var list = [
+    ['홈', 'apiHome_', {}],
+    ['일정(달력)', 'apiSchedMonth_', { year: Number(t.slice(0, 4)), month: Number(t.slice(5, 7)) }],
+    ['조사·신청', 'apiSurveyList_', {}],
+    ['자료실', 'apiLibList_', {}],
+    ['공지', 'apiNoticeList_', {}],
+    ['도움말', 'apiHelpList_', {}],
+    ['교직원', 'apiStaffDir_', {}]
+  ];
+  var items = list.map(function (x) {
+    var fn = globalFn_(x[1]);
+    if (!fn) return { label: x[0], error: '코드 파일이 빠졌어요' };
+    SETTINGS_CACHE_ = null;
+    DB_SS_ = null;
+    dbReset_(); // 화면마다 처음부터(앞 화면이 읽어 둔 탭을 쓰지 않게)
+    PERF_ = newPerf_();
+    var t0 = Date.now();
+    try {
+      fn(x[2], actor, ctx);
+    } catch (e) {
+      return { label: x[0], error: String(e && e.message || e).slice(0, 120) };
+    }
+    var ms = Date.now() - t0;
+    return { label: x[0], ms: ms, openMs: PERF_.openMs, reads: PERF_.reads, readMs: PERF_.readMs, otherMs: Math.max(0, ms - PERF_.openMs - PERF_.readMs) };
+  });
+  return { at: nowText_(), items: items };
+}
+
 // ---------------------------------------------------------------- 교직원 명단 한 번에 넣기 (관리자)
 
 function staffImportHeads_() {
@@ -2636,7 +2767,7 @@ function adminStaffImport_(args, actor) {
  * 고치기·지우기: 처음 넣은 사람, 역할이 '관리'인 분, 관리자 화면을 연 분만.
  */
 
-function fileMark_Schedule_() { return '2026-10-16b'; } // 판 표시(관리자 › 점검)
+function fileMark_Schedule_() { return '2026-10-16c'; } // 판 표시(관리자 › 점검)
 
 function schedKinds_() {
   return ['행사', '교육활동', '휴업일', '공휴일'];
@@ -2935,38 +3066,96 @@ function apiFocusSave_(args, actor, ctx) {
 }
 
 // ---------------------------------------------------------------- 학생 수 현황 (홈)
-// 학년도마다 한 줄: 기준일과 1~6학년 학생 수. 전체는 학년별을 더해 만든다(따로 적지 않아 합이 어긋나지 않게).
+// 학년도마다 한 줄: 기준일, 1~6학년 학생 수, '반별'(반마다 남·여, JSON). 학년 수는 반별을 더한 값이고, 전체는 학년을 더한다.
 // 숫자만 다룬다(학생 이름 같은 개인정보는 넣지 않는다). 이름을 고른 교직원 누구나 고치고, 바뀌기 전·후는 기록 탭에 남는다.
 
 var STUDENT_GRADES_ = ['1학년', '2학년', '3학년', '4학년', '5학년', '6학년'];
+var STUDENT_MAX_CLASSES_ = 20; // 한 학년 반 수 한도
+var STUDENT_MAX_PER_CLASS_ = 99; // 한 반 남(또는 여) 학생 수 한도
+
+/** '반별' 칸 → { '1': [[남, 여], …], …, '6': […] } (읽지 못하면 null) */
+function parseClasses_(text) {
+  if (!text) return null;
+  var o;
+  try { o = JSON.parse(text); } catch (e) { return null; }
+  if (!o || typeof o !== 'object') return null;
+  var out = {};
+  for (var g = 1; g <= 6; g++) {
+    var list = o[String(g)] || [];
+    if (!Array.isArray(list)) return null;
+    out[String(g)] = [];
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      if (!Array.isArray(c) || c.length !== 2) return null;
+      var m = Number(c[0]), f = Number(c[1]);
+      if (!(m >= 0 && f >= 0 && Math.floor(m) === m && Math.floor(f) === f)) return null;
+      out[String(g)].push([m, f]);
+    }
+  }
+  return out;
+}
+
+/** 교직원 소속('3학년 2반')에서 학년마다 가장 큰 반 번호 → 넣기 창의 처음 반 수(짐작하지 않고 명단에 있는 만큼만) */
+function classHints_() {
+  var hint = {};
+  readRows_('교직원').forEach(function (r) {
+    if (r['삭제 여부'] || r['사용 여부'] === '사용 안 함') return;
+    var m = /([1-6])\s*학년\s*(\d{1,2})\s*반/.exec(r['소속'] || '');
+    if (m) hint[m[1]] = Math.max(hint[m[1]] || 0, Number(m[2]));
+  });
+  return hint;
+}
 
 function studentsOf_(schoolYear) {
-  var empty = { year: schoolYear, date: '', grades: [], total: null, id: '', by: '', at: '' };
+  var empty = { year: schoolYear, date: '', grades: [], total: null, boys: null, girls: null, classes: null, id: '', by: '', at: '' };
   var rows;
   try {
     rows = liveRows_('학생수');
   } catch (e) {
-    if (e && e.code === 'SETUP') return empty; // 탭이 아직 없으면(처음 넣을 때 만든다)
+    if (e && e.code === 'SETUP') { empty.hints = classHints_(); return empty; } // 탭이 아직 없으면(처음 넣을 때 만든다)
     throw e;
   }
+  empty.hints = classHints_();
   rows = rows.filter(function (r) { return String(r['학년도']) === String(schoolYear); });
   var r = rows[rows.length - 1];
   if (!r) return empty;
   var grades = STUDENT_GRADES_.map(function (g) { return /^\d+$/.test(r[g]) ? Number(r[g]) : null; });
   var full = grades.every(function (n) { return n !== null; });
+  var classes = parseClasses_(r['반별']);
+  var boys = null, girls = null;
+  if (classes) {
+    boys = 0; girls = 0;
+    Object.keys(classes).forEach(function (g) { classes[g].forEach(function (c) { boys += c[0]; girls += c[1]; }); });
+  }
   var by = r['수정자ID'] || r['입력자ID'];
   return {
     year: schoolYear,
     date: r['기준일'],
     grades: grades,
     total: full ? grades.reduce(function (a, b) { return a + b; }, 0) : null,
+    boys: boys,
+    girls: girls,
+    classes: classes,
+    hints: empty.hints,
     id: r['학생수ID'],
     by: by ? (staffNames_()[by] || '') : '',
     at: r['수정 시각'] || r['입력 시각']
   };
 }
 
-/** 학생 수 넣기·고치기: args = { date: '2026-10-16', grades: [1학년, …, 6학년] } */
+/** 0~max 사이 정수(글자로 와도 됨). 아니면 null */
+function wholeNum_(v, max) {
+  var t = String(v === null || v === undefined ? '' : v).trim();
+  if (!/^\d{1,3}$/.test(t)) return null;
+  var n = Number(t);
+  return n <= max ? n : null;
+}
+
+/**
+ * 학생 수 넣기·고치기
+ * args = { date: '2026-10-16', classes: { '1': [[남, 여], …], …, '6': […] } }  ← 반별(지금 화면)
+ *   또는 { date, grades: [1학년, …, 6학년] }  ← 학년 합계만(예전 화면). 이때 반별은 비운다(합계와 어긋나지 않게)
+ */
 function apiStudentsSave_(args, actor) {
   var today = todayYmd_();
   var y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7));
@@ -2976,15 +3165,36 @@ function apiStudentsSave_(args, actor) {
   if (date < from || date > today) {
     throw userError_('기준일은 이번 학년도 안에서 오늘까지 골라 주세요(' + from + ' ~ ' + today + ').');
   }
-  var list = Array.isArray(args.grades) ? args.grades : [];
-  if (list.length !== STUDENT_GRADES_.length) throw userError_('1학년부터 6학년까지 학생 수를 모두 넣어 주세요.');
   var patch = { '기준일': date };
-  list.forEach(function (v, i) {
-    var t = String(v === null || v === undefined ? '' : v).trim();
-    if (!/^\d{1,3}$/.test(t)) throw userError_(STUDENT_GRADES_[i] + ' 학생 수를 0부터 999까지 숫자로 넣어 주세요.');
-    patch[STUDENT_GRADES_[i]] = String(Number(t));
-  });
+  if (args.classes && typeof args.classes === 'object') {
+    var norm = {};
+    for (var g = 1; g <= 6; g++) {
+      var list = args.classes[String(g)] || [];
+      if (!Array.isArray(list) || list.length > STUDENT_MAX_CLASSES_) throw userError_(g + '학년 반은 ' + STUDENT_MAX_CLASSES_ + '개까지 넣을 수 있어요.');
+      var sum = 0;
+      norm[String(g)] = list.map(function (c, i) {
+        var pair = Array.isArray(c) ? c : [];
+        var boy = wholeNum_(pair[0], STUDENT_MAX_PER_CLASS_), girl = wholeNum_(pair[1], STUDENT_MAX_PER_CLASS_);
+        if (boy === null) throw userError_(g + '학년 ' + (i + 1) + '반 남학생 수를 0부터 ' + STUDENT_MAX_PER_CLASS_ + '까지 숫자로 넣어 주세요.');
+        if (girl === null) throw userError_(g + '학년 ' + (i + 1) + '반 여학생 수를 0부터 ' + STUDENT_MAX_PER_CLASS_ + '까지 숫자로 넣어 주세요.');
+        sum += boy + girl;
+        return [boy, girl];
+      });
+      patch[STUDENT_GRADES_[g - 1]] = String(sum);
+    }
+    patch['반별'] = JSON.stringify(norm);
+  } else {
+    var gl = Array.isArray(args.grades) ? args.grades : [];
+    if (gl.length !== STUDENT_GRADES_.length) throw userError_('1학년부터 6학년까지 학생 수를 모두 넣어 주세요.');
+    gl.forEach(function (v, i) {
+      var n = wholeNum_(v, 999);
+      if (n === null) throw userError_(STUDENT_GRADES_[i] + ' 학생 수를 0부터 999까지 숫자로 넣어 주세요.');
+      patch[STUDENT_GRADES_[i]] = String(n);
+    });
+    patch['반별'] = '';
+  }
   ensureTab_('학생수');
+  ensureCols_('학생수'); // 먼저 만든 탭에는 '반별' 칸이 없을 수 있다
   withLock_(function () {
     var cur = studentsOf_(sy);
     if (cur.id) {
@@ -4943,7 +5153,7 @@ function setPinForTest_(row, pin) {
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-16b'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-10-16c'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -4993,13 +5203,36 @@ function setPinForTest_(row, pin) {
   }
 
   // ------------------------------------------------------------ 서버 부르기
-  function server(action, args) {
+  // 읽기만 하는 요청. 이것 말고는 모두 무언가를 바꾸는 요청이라, 성공하면 화면 기억(MEMO)을 모두 잊는다
+  var READS = {
+    start: 1, ping: 1, boot: 1, session: 1, staffPicker: 1, home: 1, search: 1, 'sched.month': 1, 'sched.year': 1,
+    'sched.upload.info': 1, 'sched.upload.check': 1, 'survey.list': 1, 'survey.get': 1, 'survey.csv': 1, 'lib.list': 1, 'file.get': 1,
+    'help.list': 1, 'staff.list': 1, 'notice.list': 1, 'admin.settings.get': 1, 'admin.cat.list': 1, 'admin.staff.list': 1,
+    'admin.log.list': 1, 'admin.trash.list': 1, 'admin.trash.surveys': 1, 'admin.trash.library': 1, 'admin.year.preview': 1,
+    'admin.check': 1, 'admin.speed': 1, 'admin.staff.importCheck': 1
+  };
+  var recentCalls = []; // 속도 재기: 이 창에서 최근에 서버를 다녀온 요청과 걸린 시간(ms)
+
+  /**
+   * then: [[읽기 이름, args], …] 를 함께 보내면 서버가 저장한 다음 그 화면들을 같은 요청으로 돌려준다(왕복 한 번).
+   * 받은 것은 화면 기억에 넣어 두므로, 저장 뒤 평소처럼 화면을 다시 불러오면 기다리지 않고 바로 그려진다.
+   */
+  function server(action, args, then) {
+    var t0 = Date.now();
     return new Promise(function (resolve, reject) {
-      var req = JSON.stringify({ action: action, args: args || {}, tokens: tokens() });
+      var payload = { action: action, args: args || {}, tokens: tokens() };
+      if (then) payload.then = then;
+      var req = JSON.stringify(payload);
       function done(text) {
+        recentCalls.unshift({ action: action, ms: Date.now() - t0 });
+        recentCalls.length = Math.min(recentCalls.length, 15);
         var r;
         try { r = JSON.parse(text); } catch (e) { r = { ok: false, error: '서버 답을 읽지 못했어요. 다시 해 주세요.', code: 'ERROR' }; }
-        if (r.ok) return resolve(r.data);
+        if (r.ok) {
+          if (!READS[action]) memoClear();
+          if (then && r.then) then.forEach(function (x, i) { if (r.then[i]) memoPut(x[0], x[1], r.then[i].data); });
+          return resolve(r.data);
+        }
         var err = new Error(r.error);
         err.code = r.code;
         err.detail = r.detail || '';
@@ -5036,6 +5269,63 @@ function setPinForTest_(row, pin) {
       S.me = null;
       setTimeout(function () { showIdentity(); }, 0);
     }
+  }
+
+  // ------------------------------------------------------------ 화면 기억(속도)
+  // 한 번 본 화면은 기억한 내용을 곧바로 그리고, 오래됐으면 뒤에서 새로 받아 바뀐 경우에만 다시 그린다.
+  // 이 창에서만 기억한다(창을 닫으면 사라져 함께 쓰는 PC에 남지 않는다). 무엇이든 저장하면 모두 잊는다(server).
+  var MEMO = {};
+  var MEMO_FRESH = 15000; // 이보다 최근에 받은 것은 다시 받지 않는다(서버를 덜 부르게)
+  var navSeq = 0;         // 화면을 새로 그릴 때마다 늘어난다(늦게 온 답이 다른 화면을 덮지 않게)
+  var screenEdited = false; // 그린 뒤 화면에서 무언가 입력했으면 뒤에서 다시 그리지 않는다(쓰던 것이 지워지지 않게)
+  var pendingDraw = null;   // 창이 열려 있거나 입력하는 중이라 미뤄 둔 다시 그리기
+  var refreshN = 0;
+  function memoKey(action, args) { return action + '|' + JSON.stringify(args || {}); }
+  function memoPut(action, args, data) { MEMO[memoKey(action, args)] = { data: data, json: JSON.stringify(data), at: Date.now() }; }
+  function memoClear() { MEMO = {}; pendingDraw = null; }
+  function editingNow() {
+    if ($modal.innerHTML || qs('#sheet')) return true;
+    var a = document.activeElement;
+    return !!(a && a.closest && a.closest('#screen') && (a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' ||
+      (a.tagName === 'INPUT' && !/^(checkbox|radio|button|submit)$/.test(a.type))));
+  }
+  function flushPending() {
+    if (!pendingDraw || editingNow()) return;
+    var f = pendingDraw;
+    pendingDraw = null;
+    f();
+  }
+  /** 뒤에서 새 내용을 받는 동안 화면 맨 위에 가는 줄 */
+  function refreshing(on) {
+    refreshN = Math.max(0, refreshN + (on ? 1 : -1));
+    var bar = qs('#refresh-bar');
+    if (bar) bar.hidden = !refreshN;
+  }
+  /**
+   * 기억이 있으면 곧바로 draw(data)하고, 15초보다 오래됐으면 뒤에서 새로 받는다.
+   * 새 내용이 다르면 다시 draw(그사이 화면을 옮겼거나 쓰던 것이 있으면 그리지 않음, 창이 열려 있으면 닫은 뒤에).
+   * 기억이 없으면 받아서 draw, 안 되면 fail(e).
+   */
+  function loadMemo(action, args, draw, fail) {
+    var key = memoKey(action, args), m = MEMO[key], seq = navSeq;
+    if (m) { screenEdited = false; draw(m.data, true); }
+    if (m && Date.now() - m.at < MEMO_FRESH) return;
+    if (m) refreshing(true);
+    var done = function () { if (m) refreshing(false); };
+    server(action, args).then(function (d) {
+      done();
+      var json = JSON.stringify(d);
+      var changed = !m || m.json !== json;
+      MEMO[key] = { data: d, json: json, at: Date.now() };
+      if (seq !== navSeq || !changed) return;
+      if (!m) { screenEdited = false; draw(d, false); return; }
+      if (screenEdited) return; // 쓰던 것이 있으면 그대로(다음에 열 때 새 내용으로)
+      var redraw = function () { if (seq === navSeq && !screenEdited) draw(d, false); };
+      if (editingNow()) pendingDraw = redraw; else redraw();
+    }, function (e) {
+      done();
+      if (!m && seq === navSeq && fail) fail(e);
+    });
   }
 
   /** 단추를 누르는 동안 막고 '…하는 중'을 보여 준다 */
@@ -5201,25 +5491,45 @@ function setPinForTest_(row, pin) {
     applyZoom();
     var h = (location.hash || '').replace('#', '');
     if (menuItem(h)) S.screen = h;
-    server('start').then(function (st) {
-      S.start = st;
-      if (!st.ready) return showNotReady();
-      if (!stGet('gy.login')) return showLogin();
-      return server('session').then(function (s) {
-        S.me = s.me;
-        S.admin = s.admin;
-        S.todoCount = s.todoCount || 0;
-        S.noticeLatest = s.noticeLatest || '';
-        if (!s.me) stDel('gy.identity');
-        if (!s.admin) stDel('gy.admin');
-        if (!S.me && stGet('gy.skipIdentity') !== '1') return showIdentity();
-        renderApp();
-      });
-    }).catch(function (e) {
+    // 로그인이 기억된 기기는 시작 정보·로그인 상태·홈을 한 번에(boot) 받는다. 안 되면(예전 서버 파일 등) 예전처럼 차례로
+    var first = stGet('gy.login')
+      ? server('boot', { home: S.screen === 'home' }).then(function (b) {
+        S.start = b.start;
+        if (!b.start.ready) return showNotReady();
+        if (b.home) memoPut('home', {}, b.home);
+        return afterSession(b.session);
+      }, function (e) {
+        if (e.code !== 'LOGIN') return startStepByStep();
+        // 로그인이 풀렸으면 로그인 화면은 authTrouble이 띄운다. 이름 고르기에 쓸 시작 정보만 받아 둔다
+        server('start').then(function (st) { S.start = st; }).catch(function () {});
+      })
+      : startStepByStep();
+    first.catch(function (e) {
       if (e.code === 'LOGIN') return;
       $app.innerHTML = gateWrap('<div class="gate-card"><h1>잠깐 문제가 생겼어요</h1><p class="muted" style="margin:0">' + esc(e.message) + '</p>' + detailHtml(e) +
         '<button type="button" class="btn btn-primary btn-block" data-action="reload">다시 열기</button></div>');
     });
+  }
+
+  /** 차례로 열기: 시작 → (로그인이 기억돼 있으면) 로그인 상태 */
+  function startStepByStep() {
+    return server('start').then(function (st) {
+      S.start = st;
+      if (!st.ready) return showNotReady();
+      if (!stGet('gy.login')) return showLogin();
+      return server('session').then(afterSession);
+    });
+  }
+
+  function afterSession(s) {
+    S.me = s.me;
+    S.admin = s.admin;
+    S.todoCount = s.todoCount || 0;
+    S.noticeLatest = s.noticeLatest || '';
+    if (!s.me) stDel('gy.identity');
+    if (!s.admin) stDel('gy.admin');
+    if (!S.me && stGet('gy.skipIdentity') !== '1') return showIdentity();
+    renderApp();
   }
 
   function gateWrap(inner, opts) {
@@ -5409,9 +5719,12 @@ function setPinForTest_(row, pin) {
 
   function renderApp() {
     closeModal();
+    navSeq++;
+    pendingDraw = null;
     var m = menuItem(S.screen) || MENU[0];
     var school = S.start ? S.start.school : '';
     $app.innerHTML =
+      '<div class="refresh-bar print-hide" id="refresh-bar" aria-hidden="true"' + (refreshN ? '' : ' hidden') + '></div>' +
       '<div class="app print-root">' +
       '<nav class="side print-hide" aria-label="주 메뉴">' +
       '<button type="button" class="brand" data-go="home"><span class="brand-mark">' + icon('book', 24) + '</span>' +
@@ -5460,6 +5773,7 @@ function setPinForTest_(row, pin) {
   function closeSheet() {
     var el = qs('#sheet');
     if (el) el.parentNode.removeChild(el);
+    setTimeout(flushPending, 0);
   }
 
   // ============================================================ 화면들
@@ -5562,12 +5876,13 @@ function setPinForTest_(row, pin) {
     $s.innerHTML = pageHead(todayText(), hello, '', homeSearchBox()) + introBanner() + '<div id="home-body">' + loadingHtml('오늘 일정을 불러오는 중이에요') + '</div>';
     bindHomeSearch();
     if (S.homeQ) { var q = S.homeQ; S.homeQ = ''; S.search = null; runSearch(q); return; }
-    server('home').then(function (h) {
+    loadMemo('home', {}, function (h) {
+      if (S.screen !== 'home') return;
       S.home = h;
       S.noticeLatest = h.noticeLatest || S.noticeLatest || '';
       updateNoticeDots();
       if (!S.homeQ) drawHome();
-    }).catch(function (e) { var b = qs('#home-body'); if (b && !S.homeQ) b.innerHTML = failHtml(e); });
+    }, function (e) { var b = qs('#home-body'); if (b && !S.homeQ) b.innerHTML = failHtml(e); });
   };
 
   /** 처음 쓰는 분을 위한 안내(시안). 닫으면 이 기기에서는 다시 안 보인다 */
@@ -5640,8 +5955,9 @@ function setPinForTest_(row, pin) {
   }
 
   // ------------------------------------------------------------ 홈 '학생 수 현황'
-  // 전체는 학년별을 더한 값. 이름을 고른 교직원 누구나 고치고, 고친 분과 바뀌기 전 숫자는 기록에 남는다
+  // 학년 수는 반별(남·여)을 더한 값, 전체는 학년을 더한 값. 이름을 고른 교직원 누구나 고치고, 고친 분과 바뀌기 전 숫자는 기록에 남는다
   var STUDENT_GRADES = ['1학년', '2학년', '3학년', '4학년', '5학년', '6학년'];
+  var STU_MAX_CLASSES = 20; // 한 학년 반 수 한도(서버 Schedule.gs와 같음). 한 반 남·여는 두 자리(0~99)까지
   function numText(n) {
     return n === null || n === undefined || n === '' ? '–' : String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
@@ -5658,64 +5974,170 @@ function setPinForTest_(row, pin) {
       (st.date ? '<span class="faint">' + esc(dayText(st.date, h.today)) + ' 기준</span>' : '') + '</div>' + btn + '</div>';
     if (!st.id) {
       return '<section class="card stu-card">' + head + '<p class="faint">아직 ' + esc(st.year) + '학년도 학생 수가 없어요. ' +
-        (S.me ? "'넣기'를 눌러 학년별 학생 수를 넣어 주세요." : '이름을 고르면 넣을 수 있어요.') + '</p></section>';
+        (S.me ? "'넣기'를 눌러 반마다 남·여 학생 수를 넣어 주세요." : '이름을 고르면 넣을 수 있어요.') + '</p></section>';
     }
     var g = st.grades || [];
+    var hasMf = st.boys !== null && st.boys !== undefined;
     return '<section class="card stu-card">' + head +
-      '<p class="stu-total"><span class="stu-total-label">전체</span><b class="stu-total-num">' + numText(st.total) + '</b><span class="stu-unit">명</span></p>' +
+      '<p class="stu-total"><span class="stu-total-label">전체</span><b class="stu-total-num">' + numText(st.total) + '</b><span class="stu-unit">명</span>' +
+      (hasMf ? '<span class="stu-mf">남 ' + numText(st.boys) + ' · 여 ' + numText(st.girls) + '</span>' : '') + '</p>' +
       '<div class="stu-grid">' + STUDENT_GRADES.map(function (name, i) {
         var mineOne = String(i + 1) === mine;
-        return '<div class="stu-g' + (mineOne ? ' mine' : '') + '"><span class="stu-g-name">' + name + (mineOne ? '<span class="sr-only"> (우리 학년)</span>' : '') + '</span>' +
-          '<b class="stu-g-num">' + numText(g[i]) + '<span class="stu-unit">명</span></b></div>';
-      }).join('') + '</div></section>';
+        return '<button type="button" class="stu-g' + (mineOne ? ' mine' : '') + '" data-action="students-grade" data-id="' + (i + 1) + '">' +
+          '<span class="stu-g-name">' + name + (mineOne ? '<span class="sr-only"> (우리 학년)</span>' : '') + '</span>' +
+          '<b class="stu-g-num">' + numText(g[i]) + '<span class="stu-unit">명</span></b></button>';
+      }).join('') + '</div>' +
+      '<p class="faint stu-tip print-hide">학년을 누르면 반별 남·여 학생 수가 보여요.</p></section>';
   }
 
-  /** 학생 수 넣기·고치기 (이름을 고른 교직원 누구나) */
-  function editStudents() {
+  /** 학년 하나의 반별 남·여 */
+  function studentsGrade(g) {
     var h = S.home || {}, st = h.students || {};
-    var g = st.grades || [];
+    var list = st.classes ? (st.classes[String(g)] || []) : null;
+    var total = st.grades ? st.grades[g - 1] : null;
+    var body;
+    if (list && list.length) {
+      var bs = 0, gs = 0;
+      body = '<table class="stu-table"><caption class="sr-only">' + g + '학년 반별 학생 수</caption>' +
+        '<thead><tr><th scope="col">반</th><th scope="col">남</th><th scope="col">여</th><th scope="col">계</th></tr></thead><tbody>' +
+        list.map(function (c, i) {
+          bs += c[0]; gs += c[1];
+          return '<tr><th scope="row">' + (i + 1) + '반</th><td>' + c[0] + '</td><td>' + c[1] + '</td><td><b>' + (c[0] + c[1]) + '</b></td></tr>';
+        }).join('') +
+        '</tbody><tfoot><tr><th scope="row">합계</th><td>' + bs + '</td><td>' + gs + '</td><td><b>' + (bs + gs) + '</b></td></tr></tfoot></table>';
+    } else if (list) {
+      body = '<p class="faint">' + g + '학년에 넣은 반이 없어요.</p>';
+    } else {
+      body = '<p class="faint">반별 숫자가 아직 없어요.' +
+        (total !== null && total !== undefined ? ' 지금은 ' + g + '학년 전체 ' + numText(total) + '명만 들어 있어요.' : '') +
+        (S.me ? " '고치기'에서 반마다 남·여 학생 수를 넣어 주세요." : '') + '</p>';
+    }
+    openModal('<h2 id="m-title">' + g + '학년 반별 학생 수</h2>' +
+      (st.date ? '<p class="faint stu-modal-date">' + esc(dayText(st.date, h.today)) + ' 기준</p>' : '') + body +
+      '<div class="modal-btns">' + (S.me ? '<button type="button" class="btn" data-action="students-edit" data-id="' + g + '">고치기</button>' : '') +
+      '<button type="button" class="btn btn-primary" data-action="close-modal">닫기</button></div>');
+  }
+
+  /**
+   * 학생 수 넣기·고치기: 학교 전체 한 창(반마다 남·여, 기준일 하나). focusGrade가 있으면 그 학년 자리로 바로 간다.
+   * 반별 숫자가 아직 없으면 교직원 명단 소속('3학년 2반')에 있는 반 수만큼 빈칸을 만든다(없으면 1반).
+   */
+  function editStudents(focusGrade) {
+    var h = S.home || {}, st = h.students || {};
     var today = h.today || '';
+    var model = {}; // { '1': [['12', '13'], …] } 입력 칸 글자 그대로
+    var oldTotals = st.id && !st.classes ? (st.grades || null) : null; // 학년 합계만 넣었던 때: 맞춰 넣게 보여 준다
+    for (var g = 1; g <= 6; g++) {
+      var have = st.classes && st.classes[String(g)];
+      model[g] = [];
+      if (have) {
+        have.forEach(function (c) { model[g].push([String(c[0]), String(c[1])]); });
+      } else {
+        var n = Math.max(1, Math.min(STU_MAX_CLASSES, (st.hints && st.hints[String(g)]) || 1));
+        for (var k = 0; k < n; k++) model[g].push(['', '']);
+      }
+    }
+    function rowsHtml(g) {
+      if (!model[g].length) return '<p class="faint">반이 없어요. \'반 더하기\'를 눌러 주세요.</p>';
+      return model[g].map(function (c, i) {
+        var base = 'stu-' + g + '-' + (i + 1);
+        var cell = function (k, label) {
+          return '<label class="stu-mf-in" for="' + base + '-' + k + '"><span>' + label + '</span>' +
+            '<input id="' + base + '-' + k + '" class="input stu-n" data-g="' + g + '" data-i="' + i + '" data-k="' + k + '" inputmode="numeric" maxlength="2" autocomplete="off" value="' + esc(c[k]) + '"' +
+            ' aria-label="' + g + '학년 ' + (i + 1) + '반 ' + label + '학생 수"></label>';
+        };
+        return '<div class="stu-row"><span class="stu-cls">' + (i + 1) + '반</span>' + cell(0, '남') + cell(1, '여') +
+          '<b class="stu-row-sum" id="' + base + '-sum">–</b></div>';
+      }).join('');
+    }
+    function secHtml(g) {
+      return '<section class="stu-sec" id="stu-sec-' + g + '" aria-labelledby="stu-h-' + g + '">' +
+        '<div class="stu-sec-head"><h3 id="stu-h-' + g + '">' + g + '학년</h3><span class="stu-sec-sum" id="stu-gsum-' + g + '">–</span></div>' +
+        (oldTotals && oldTotals[g - 1] !== null && oldTotals[g - 1] !== undefined ? '<p class="faint">지난번에 넣은 ' + g + '학년 전체: ' + numText(oldTotals[g - 1]) + '명</p>' : '') +
+        '<div class="stu-rows" id="stu-rows-' + g + '">' + rowsHtml(g) + '</div>' +
+        '<div class="row-btns"><button type="button" class="btn btn-sm" data-stu-add="' + g + '">' + icon('plus', 16) + '반 더하기</button>' +
+        '<button type="button" class="btn btn-sm btn-ghost" data-stu-del="' + g + '">' + icon('minus', 16) + '마지막 반 빼기</button></div></section>';
+    }
     openModal('<h2 id="m-title">' + (st.year ? esc(st.year) + '학년도 ' : '') + '학생 수 ' + (st.id ? '고치기' : '넣기') + '</h2>' +
       '<form id="stu-form" class="form" novalidate>' +
-      '<p class="hint">' + icon('info', 16) + '<span>전학·입학으로 바뀌면 고쳐 주세요. 전체는 학년별을 더해 저절로 나와요. 고친 분과 바뀌기 전 숫자는 기록에 남아요.</span></p>' +
+      '<p class="hint">' + icon('info', 16) + '<span>반마다 남·여 학생 수를 넣어 주세요. 학년·전체 수는 저절로 더해져요. 고친 분과 바뀌기 전 숫자는 기록에 남아요.</span></p>' +
       '<div class="field"><label class="label" for="stu-date">기준일</label><input id="stu-date" class="input" type="date" value="' + esc(st.date || today) + '"' +
       (st.year ? ' min="' + esc(st.year) + '-03-01"' : '') + (today ? ' max="' + esc(today) + '"' : '') + '></div>' +
-      '<div class="stu-inputs">' + STUDENT_GRADES.map(function (name, i) {
-        var v = g[i] === null || g[i] === undefined ? '' : String(g[i]);
-        return '<div class="field"><label class="label" for="stu-' + (i + 1) + '">' + name + '</label>' +
-          '<div class="stu-in"><input id="stu-' + (i + 1) + '" class="input stu-n" inputmode="numeric" maxlength="3" autocomplete="off" value="' + esc(v) + '"><span>명</span></div></div>';
-      }).join('') + '</div>' +
-      '<p class="stu-sum"><span>전체</span><b id="stu-sum">–</b></p>' +
+      '<div class="stu-secs">' + [1, 2, 3, 4, 5, 6].map(secHtml).join('') + '</div>' +
       (st.by ? '<p class="faint">마지막으로 고친 분: ' + esc(st.by) + (st.at ? ' · ' + esc(dayText(st.at.slice(0, 10), today)) : '') + '</p>' : '') +
+      '<div class="stu-foot"><p class="stu-sum"><span>전체</span><b id="stu-sum">–</b></p>' +
       '<p class="err" id="stu-err" role="alert"></p>' +
-      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="submit" class="btn btn-primary" id="stu-save">저장</button></div>' +
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="submit" class="btn btn-primary" id="stu-save">저장</button></div></div>' +
       '</form>');
-    var inputs = qsa('.stu-n');
-    function sum() {
-      var ok = true, t = 0;
-      inputs.forEach(function (x) { if (/^\d{1,3}$/.test(x.value)) t += Number(x.value); else ok = false; });
-      qs('#stu-sum').textContent = ok ? numText(t) + '명' : '–';
+    var form = qs('#stu-form');
+    var isNum = function (v) { return /^\d{1,2}$/.test(v); };
+    function sums() {
+      var all = [0, 0], ok = true;
+      for (var g = 1; g <= 6; g++) {
+        var gb = 0, gg = 0, gok = true;
+        model[g].forEach(function (c, i) {
+          var rowOk = isNum(c[0]) && isNum(c[1]);
+          var el = qs('#stu-' + g + '-' + (i + 1) + '-sum');
+          if (el) el.textContent = rowOk ? (Number(c[0]) + Number(c[1])) + '명' : '–';
+          if (rowOk) { gb += Number(c[0]); gg += Number(c[1]); } else gok = false;
+        });
+        qs('#stu-gsum-' + g).textContent = gok ? '남 ' + gb + ' · 여 ' + gg + ' · ' + (gb + gg) + '명' : '–';
+        if (gok) { all[0] += gb; all[1] += gg; } else ok = false;
+      }
+      qs('#stu-sum').textContent = ok ? '남 ' + numText(all[0]) + ' · 여 ' + numText(all[1]) + ' · ' + numText(all[0] + all[1]) + '명' : '–';
     }
-    inputs.forEach(function (x) {
-      x.addEventListener('input', function () {
-        var v = x.value.replace(/[^0-9]/g, '').slice(0, 3);
-        if (v !== x.value) x.value = v;
-        qs('#stu-err').textContent = ''; // 고치기 시작하면 지난 안내는 지운다
-        sum();
-      });
+    function redrawRows(g, focusLast) {
+      qs('#stu-rows-' + g).innerHTML = rowsHtml(g);
+      qs('[data-stu-del="' + g + '"]', form).disabled = !model[g].length;
+      qs('[data-stu-add="' + g + '"]', form).disabled = model[g].length >= STU_MAX_CLASSES;
+      sums();
+      if (focusLast && model[g].length) qs('#stu-' + g + '-' + model[g].length + '-0').focus();
+    }
+    form.addEventListener('input', function (e) {
+      var x = e.target;
+      if (!x.classList.contains('stu-n')) return;
+      var v = x.value.replace(/[^0-9]/g, '').slice(0, 2);
+      if (v !== x.value) x.value = v;
+      model[x.getAttribute('data-g')][Number(x.getAttribute('data-i'))][Number(x.getAttribute('data-k'))] = v;
+      qs('#stu-err').textContent = ''; // 고치기 시작하면 지난 안내는 지운다
+      sums();
     });
-    sum();
-    qs('#stu-form').addEventListener('submit', function (ev) {
+    form.addEventListener('click', function (e) {
+      var add = e.target.closest('[data-stu-add]'), del = e.target.closest('[data-stu-del]');
+      if (add) { var ga = add.getAttribute('data-stu-add'); if (model[ga].length < STU_MAX_CLASSES) { model[ga].push(['', '']); redrawRows(ga, true); } }
+      if (del) { var gd = del.getAttribute('data-stu-del'); if (model[gd].length) { model[gd].pop(); redrawRows(gd, false); } }
+    });
+    for (var gg = 1; gg <= 6; gg++) redrawRows(gg, false);
+    if (focusGrade) {
+      setTimeout(function () { // 창이 처음 칸에 손을 둔 뒤에 그 학년으로
+        var sec = qs('#stu-sec-' + focusGrade);
+        if (!sec) return;
+        sec.scrollIntoView({ block: 'start' });
+        var first = qs('.stu-n', sec);
+        if (first) first.focus({ preventScroll: true });
+      }, 80);
+    }
+    form.addEventListener('submit', function (ev) {
       ev.preventDefault();
       var err = qs('#stu-err'), btn = qs('#stu-save');
       err.textContent = '';
-      var vals = inputs.map(function (x) { return x.value.trim(); });
-      for (var i = 0; i < vals.length; i++) {
-        if (!/^\d{1,3}$/.test(vals[i])) { err.textContent = STUDENT_GRADES[i] + ' 학생 수를 숫자로 넣어 주세요.'; inputs[i].focus(); return; }
+      var classes = {};
+      for (var g = 1; g <= 6; g++) {
+        for (var i = 0; i < model[g].length; i++) {
+          for (var k = 0; k < 2; k++) {
+            if (!isNum(model[g][i][k])) {
+              err.textContent = g + '학년 ' + (i + 1) + '반 ' + (k ? '여' : '남') + '학생 수를 숫자로 넣어 주세요.';
+              var bad = qs('#stu-' + g + '-' + (i + 1) + '-' + k);
+              if (bad) bad.focus();
+              return;
+            }
+          }
+        }
+        classes[g] = model[g].map(function (c) { return [Number(c[0]), Number(c[1])]; });
       }
       busy(btn, true, '저장하는 중');
-      server('students.save', { date: qs('#stu-date').value, grades: vals }).then(function (r) {
-        if (S.home) S.home.students = r;
+      server('students.save', { date: qs('#stu-date').value, classes: classes }).then(function (r) {
+        if (S.home) { S.home.students = r; memoPut('home', {}, S.home); }
         closeModal();
         drawHome();
         toast('학생 수를 저장했어요');
@@ -5770,16 +6192,20 @@ function setPinForTest_(row, pin) {
   function loadSched() {
     var sc = S.sched, body = qs('#sched-body');
     if (!body) return;
+    var fail = function (e) { var b = qs('#sched-body'); if (b) b.innerHTML = failHtml(e); };
     if (sc.view === 'year') {
       var sy = sc.m >= 3 ? sc.y : sc.y - 1;
-      if (sc.yearData && sc.yearData.year === sy) return drawYear();
-      server('sched.year', { year: sy }).then(function (d) { sc.yearData = d; drawYear(); })
-        .catch(function (e) { body.innerHTML = failHtml(e); });
+      loadMemo('sched.year', { year: sy }, function (d) {
+        if (S.screen !== 'schedule' || sc.view !== 'year' || (sc.m >= 3 ? sc.y : sc.y - 1) !== sy) return;
+        sc.yearData = d;
+        drawYear();
+      }, fail);
       return;
     }
-    if (sc.data && sc.data.y === sc.y && sc.data.m === sc.m) return sc.view === 'plan' ? drawPlan() : drawCal();
-    server('sched.month', { year: sc.y, month: sc.m }).then(function (d) {
-      d.y = sc.y; d.m = sc.m;
+    var y = sc.y, m = sc.m;
+    loadMemo('sched.month', { year: y, month: m }, function (d) {
+      if (S.screen !== 'schedule' || sc.view === 'year' || sc.y !== y || sc.m !== m) return; // 그사이 다른 달로 옮겼으면 그리지 않는다
+      d.y = y; d.m = m;
       sc.data = d;
       if (!sc.week || sc.week < d.from || sc.week > d.to) {
         var t = d.today >= d.from && d.today <= d.to && Number(d.today.slice(5, 7)) === sc.m ? d.today : sc.y + '-' + ('0' + sc.m).slice(-2) + '-01';
@@ -5787,7 +6213,19 @@ function setPinForTest_(row, pin) {
         sc.day = wd(t) === 0 || wd(t) === 6 ? sc.week : t;
       }
       sc.view === 'plan' ? drawPlan() : drawCal();
-    }).catch(function (e) { body.innerHTML = failHtml(e); });
+    }, fail);
+  }
+
+  /**
+   * 일정을 저장·지울 때 같은 요청으로 받아 올 화면(왕복 한 번). start: 저장한 날짜(달력은 그 달로 간다)
+   * 받은 것은 화면 기억에 들어가서, 뒤이은 reloadSched()가 기다리지 않고 바로 그린다
+   */
+  function schedThen(start) {
+    var sc = S.sched;
+    if (S.screen === 'home') return [['home', {}]];
+    if (S.screen !== 'schedule') return null;
+    if (sc.view === 'year') return [['sched.year', { year: sc.m >= 3 ? sc.y : sc.y - 1 }]];
+    return [['sched.month', start ? { year: +start.slice(0, 4), month: +start.slice(5, 7) } : { year: sc.y, month: sc.m }]];
   }
 
   function reloadSched() {
@@ -6153,7 +6591,7 @@ function setPinForTest_(row, pin) {
       if (!fields.title.trim()) { err.textContent = '행사 이름을 적어 주세요.'; qs('#ef-title', form).focus(); return; }
       var btn = form.querySelector('[type=submit]');
       busy(btn, true, '저장하는 중');
-      server('sched.save', { id: init.id || '', fields: fields }).then(function (saved) {
+      server('sched.save', { id: init.id || '', fields: fields }, schedThen(fields.start)).then(function (saved) {
         S.sched.form = null;
         closeModal();
         var t = saved.start;
@@ -6172,7 +6610,7 @@ function setPinForTest_(row, pin) {
   function deleteEvent(id) {
     var e = eventById(id) || {};
     confirmBox('일정 지우기', '"' + esc(e.title || '') + '"' + josa(e.title || '', '을', '를') + ' 지울까요? 지운 일정은 연구부장·부담당이 휴지통에서 되살릴 수 있어요.', '지우기', function () {
-      return server('sched.delete', { id: id }).then(function () {
+      return server('sched.delete', { id: id }, schedThen('')).then(function () {
         S.sched.form = null;
         closeModal();
         reloadSched();
@@ -6191,7 +6629,7 @@ function setPinForTest_(row, pin) {
     qs('#fc-save').addEventListener('click', function () {
       var btn = qs('#fc-save');
       busy(btn, true, '저장하는 중');
-      server('focus.save', { year: d.schoolYear, month: sc.m, text: qs('#fc-text').value }).then(function () {
+      server('focus.save', { year: d.schoolYear, month: sc.m, text: qs('#fc-text').value }, schedThen('')).then(function () {
         closeModal();
         reloadSched();
         toast('중점지도를 저장했어요');
@@ -6303,11 +6741,12 @@ function setPinForTest_(row, pin) {
     var sv = S.survey;
     $s.innerHTML = pageHead('', '조사·신청', '', S.me ? '<button type="button" class="btn print-hide" data-action="sv-new">' + icon('plus', 18) + '새 조사 만들기</button>' : '') +
       '<div id="sv-body">' + loadingHtml('조사를 불러오는 중이에요') + '</div>';
-    server('survey.list').then(function (l) {
+    loadMemo('survey.list', {}, function (l) {
+      if (S.screen !== 'survey') return;
       sv.list = l;
       setTodoCount(l.todoCount);
       drawSurvey();
-    }).catch(function (e) { var b = qs('#sv-body'); if (b) b.innerHTML = failHtml(e); });
+    }, function (e) { var b = qs('#sv-body'); if (b) b.innerHTML = failHtml(e); });
   };
 
   function setTodoCount(n) {
@@ -6346,11 +6785,11 @@ function setPinForTest_(row, pin) {
 
   function loadSurveyDetail() {
     var sv = S.survey, id = sv.sel;
-    server('survey.get', { id: id }).then(function (d) {
-      if (S.survey.sel !== id) return;
+    loadMemo('survey.get', { id: id }, function (d) {
+      if (S.screen !== 'survey' || S.survey.sel !== id) return;
       sv.detail = d;
       drawSurveyDetail();
-    }).catch(function (e) { var b = qs('#sv-detail'); if (b) b.innerHTML = failHtml(e); });
+    }, function (e) { var b = qs('#sv-detail'); if (b) b.innerHTML = failHtml(e); });
   }
 
   function drawSurveyDetail() {
@@ -6435,7 +6874,7 @@ function setPinForTest_(row, pin) {
       var btn = form.querySelector('[type=submit]');
       busy(btn, true, '내는 중');
       err.textContent = '';
-      server('survey.respond', { id: d.card.id, answers: answers }).then(function (r) {
+      server('survey.respond', { id: d.card.id, answers: answers }, [['survey.list', {}], ['survey.get', { id: d.card.id }]]).then(function (r) {
         toast(r.edited ? '고친 답을 냈어요' : '냈어요. 고맙습니다');
         S.survey.list = null;
         refreshSurveyList();
@@ -6444,11 +6883,11 @@ function setPinForTest_(row, pin) {
   }
 
   function refreshSurveyList() {
-    server('survey.list').then(function (l) {
+    loadMemo('survey.list', {}, function (l) {
       S.survey.list = l;
       setTodoCount(l.todoCount);
       if (S.screen === 'survey') drawSurvey();
-    }).catch(function (e) { toast(e.message); });
+    }, function (e) { toast(e.message); });
   }
 
   // ------------------------------------------------------------ 만든 사람 화면(제출 현황)
@@ -6730,7 +7169,7 @@ function setPinForTest_(row, pin) {
       if (!fields.title.trim()) { err.textContent = '제목을 적어 주세요.'; qs('#svf-title').focus(); return; }
       var btn = form.querySelector('[type=submit]');
       busy(btn, true, '저장하는 중');
-      server('survey.save', { id: edit ? c.id : '', fields: fields }).then(function (r) {
+      server('survey.save', { id: edit ? c.id : '', fields: fields }, [['survey.list', {}]].concat(edit ? [['survey.get', { id: c.id }]] : [])).then(function (r) {
         closeModal();
         toast(edit ? '조사를 고쳤어요' : '조사를 만들었어요. 메신저 문구를 복사해 알려 주세요');
         S.survey.tab = 'mine';
@@ -6840,11 +7279,12 @@ function setPinForTest_(row, pin) {
   SCREENS.library = function ($s) {
     $s.innerHTML = pageHead('', '자료실', '', '<button type="button" class="btn btn-primary print-hide" data-action="lib-new">' + icon('plus', 18) + '자료 넣기</button>') +
       '<div id="lib-body" class="stack">' + loadingHtml('자료를 불러오는 중이에요') + '</div>';
-    server('lib.list').then(function (d) {
+    loadMemo('lib.list', {}, function (d) {
+      if (S.screen !== 'library') return;
       S.lib.data = d;
       drawLib();
       if (S.lib.openId) { var id = S.lib.openId; S.lib.openId = ''; openLib(id); }
-    }).catch(function (e) { var b = qs('#lib-body'); if (b) b.innerHTML = failHtml(e); });
+    }, function (e) { var b = qs('#lib-body'); if (b) b.innerHTML = failHtml(e); });
   };
 
   function libYears() {
@@ -7049,8 +7489,8 @@ function setPinForTest_(row, pin) {
   SCREENS.staff = function ($s) {
     $s.innerHTML = pageHead('', '교직원', '', '<button type="button" class="btn btn-sm print-hide" data-action="print">' + icon('print', 18) + '인쇄</button>') +
       '<div id="dir-body" class="stack">' + loadingHtml('명단을 불러오는 중이에요') + '</div>';
-    server('staff.list').then(function (d) { S.dir.data = d; drawDir(); })
-      .catch(function (e) { var b = qs('#dir-body'); if (b) b.innerHTML = failHtml(e); });
+    loadMemo('staff.list', {}, function (d) { if (S.screen !== 'staff') return; S.dir.data = d; drawDir(); },
+      function (e) { var b = qs('#dir-body'); if (b) b.innerHTML = failHtml(e); });
   };
 
   function drawDir() {
@@ -7095,7 +7535,8 @@ function setPinForTest_(row, pin) {
   SCREENS.help = function ($s) {
     $s.innerHTML = pageHead('', '도움말', '', '<button type="button" class="btn btn-primary print-hide" data-action="help-new">' + icon('plus', 18) + '도움말 쓰기</button>') +
       '<div id="help-body" class="stack">' + loadingHtml('도움말을 불러오는 중이에요') + '</div>';
-    server('help.list').then(function (d) {
+    loadMemo('help.list', {}, function (d) {
+      if (S.screen !== 'help') return;
       S.help.data = d;
       drawHelp();
       if (S.help.openId) {
@@ -7103,7 +7544,7 @@ function setPinForTest_(row, pin) {
         S.help.openId = '';
         if (el) { el.open = true; el.scrollIntoView({ block: 'start' }); }
       }
-    }).catch(function (e) { var b = qs('#help-body'); if (b) b.innerHTML = failHtml(e); });
+    }, function (e) { var b = qs('#help-body'); if (b) b.innerHTML = failHtml(e); });
   };
 
   function drawHelp() {
@@ -7194,11 +7635,11 @@ function setPinForTest_(row, pin) {
       var btn = form.querySelector('[type=submit]');
       busy(btn, true, f ? '올리는 중' : '저장하는 중');
       (f ? readFile(f, d.maxMb) : Promise.resolve(null)).then(function (file) {
-        return server('help.save', { id: edit ? edit.id : '', fields: fields, file: file });
+        return server('help.save', { id: edit ? edit.id : '', fields: fields, file: file }, [['help.list', {}]]);
       }).then(function () {
         closeModal();
         toast('도움말을 ' + (edit ? '고쳤어요' : '넣었어요'));
-        return server('help.list').then(function (d2) { S.help.data = d2; drawHelpList(); });
+        loadMemo('help.list', {}, function (d2) { S.help.data = d2; drawHelpList(); }, function (e) { toast(e.message); });
       }).catch(function (e) { busy(btn, false); err.textContent = e.message; });
     });
   }
@@ -7223,7 +7664,7 @@ function setPinForTest_(row, pin) {
       sec(2, '홈과 검색', [
         '홈에서 오늘 일정, 내가 낼 조사(내가 할 일), 이번 주 일정을 봐요.',
         '홈 위의 <b>검색창</b>에 낱말을 넣으면 자료·일정·선생님·도움말·조사를 한 번에 찾아요.',
-        '홈 맨 아래 <b>학생 수 현황</b>은 전학·입학으로 바뀌면 누구나 고쳐요. 고친 분과 바뀌기 전 숫자는 기록에 남아요.',
+        '홈 맨 아래 <b>학생 수 현황</b>에서 학년을 누르면 반별 남·여 학생 수가 보여요. 전학·입학으로 바뀌면 누구나 고쳐요. 고친 분과 바뀌기 전 숫자는 기록에 남아요.',
         "왼쪽 메뉴 아래(휴대폰은 '전체') <b>화면 크기</b> 막대로 화면을 키우고 줄여요. 기기마다 따로 기억해요."
       ]) +
       sec(3, '일정', [
@@ -7245,7 +7686,8 @@ function setPinForTest_(row, pin) {
         '<b>관리자</b> 메뉴에서 관리자 비밀번호를 넣어요. 2시간 동안 열려 있고 기기에 기억하지 않아요.',
         '교직원 표: 전입·전출·휴직은 지우지 말고 "사용 안 함"으로 바꿔요.',
         '다른 분의 일정·조사·자료를 고치거나 비공개 조사 결과를 볼 때, 학사일정을 올릴 때는 먼저 <b>관리자 화면</b>을 열어 두세요. 이름만 고르는 방식이라 관리자 비밀번호가 있어야 관리 일을 할 수 있어요.',
-        '분류: 부서·자료 분류·도움말 분류 이름을 한곳에서 바꿔요.'
+        '분류: 부서·자료 분류·도움말 분류 이름을 한곳에서 바꿔요.',
+        "느리다는 말이 나오면 <b>관리자 › 점검 › 속도 재기</b>로 서버 왕복과 화면별 처리 시간을 볼 수 있어요."
       ]) +
       sec(7, '학기 초에 할 일', [
         '설정에서 1·2학기 시작일·끝일을 넣어요(수업일수 계산에 써요).',
@@ -7840,9 +8282,22 @@ function setPinForTest_(row, pin) {
     });
   };
 
+  /** 공지를 저장·지울 때 같은 요청으로 받아 올 화면 */
+  function noticeThen() {
+    return S.screen === 'home' ? [['home', {}]] : S.screen === 'notice' ? [['notice.list', {}]] : null;
+  }
+
+  /** 공지 목록(처음 그린 뒤에 끝나는 약속을 돌려준다) */
   function loadNotices() {
-    return server('notice.list').then(function (d) { S.notice.data = d; drawNotices(); markNoticesSeen(d.items); })
-      .catch(function (e) { var b = qs('#notice-body'); if (b) b.innerHTML = failHtml(e); });
+    return new Promise(function (resolve) {
+      loadMemo('notice.list', {}, function (d) {
+        if (S.screen !== 'notice') return resolve();
+        S.notice.data = d;
+        drawNotices();
+        markNoticesSeen(d.items);
+        resolve();
+      }, function (e) { var b = qs('#notice-body'); if (b) b.innerHTML = failHtml(e); resolve(); });
+    });
   }
 
   function noticeMeta(n) {
@@ -7915,11 +8370,12 @@ function setPinForTest_(row, pin) {
       if (fields['링크'] && !/^https:\/\//.test(fields['링크'])) { err.textContent = '링크는 https:// 로 시작하는 주소를 넣어 주세요.'; return; }
       var btn = ev.target.querySelector('[type=submit]');
       busy(btn, true, '저장하는 중');
-      server('notice.save', { id: edit ? edit.id : '', fields: fields }).then(function () {
+      server('notice.save', { id: edit ? edit.id : '', fields: fields }, noticeThen()).then(function () {
         closeModal();
         S.home = null;
         toast(edit ? '공지를 고쳤어요' : '공지를 올렸어요');
         S.notice.view = 'now';
+        if (S.screen === 'home') return SCREENS.home(qs('#screen'));
         return loadNotices();
       }).catch(function (e) { busy(btn, false); err.textContent = e.message; });
     });
@@ -8477,8 +8933,51 @@ function setPinForTest_(row, pin) {
               '<div class="check-main"><b>' + esc(x.label) + '</b><span class="faint">' + esc(x.detail) + '</span>' +
               (x.state !== 'ok' && x.fix ? '<span class="check-fix">' + icon('chev', 16) + esc(x.fix) + '</span>' : '') + '</div></div>';
           }).join('') + '</div></section>';
-        }).join('') + '</div>';
+        }).join('') +
+        '<section class="card"><div class="card-head"><div><h2>속도 재기</h2>' +
+        '<p class="faint" style="margin-top:4px">구글 서버를 다녀오는 시간과, 화면마다 서버가 일하는 시간을 재요. 10초쯤 걸려요.</p></div>' +
+        '<button type="button" class="btn btn-sm" data-action="speed-run">' + icon('reload', 18) + '속도 재기</button></div>' +
+        '<div id="speed-out"></div></section>' +
+        '</div>';
     }).catch(function (e) { panel.innerHTML = failHtml(e); });
+  }
+
+  // ------------------------------------------------------------ 관리자 · 점검 › 속도 재기
+  var CALL_NAMES = {
+    start: '시작', boot: '처음 열기', session: '로그인 확인', login: '로그인', verify: '이름 고르기', home: '홈',
+    'sched.month': '일정(달력)', 'sched.year': '연간 학사일정', 'sched.save': '일정 저장', 'sched.delete': '일정 지우기', 'focus.save': '중점지도 저장',
+    'students.save': '학생 수 저장', 'survey.list': '조사 목록', 'survey.get': '조사 보기', 'survey.respond': '조사 응답', 'survey.save': '조사 만들기·고치기',
+    'lib.list': '자료실', 'lib.save': '자료 넣기·고치기', 'lib.delete': '자료 지우기', 'notice.list': '공지', 'notice.save': '공지 쓰기·고치기',
+    'help.list': '도움말', 'help.save': '도움말 쓰기·고치기', 'staff.list': '교직원', search: '찾기', 'admin.check': '점검', adminLogin: '관리자 들어가기', 'admin.staff.list': '교직원 표(관리자)', 'admin.staff.import': '명단 한 번에 넣기', 'admin.staff.importCheck': '명단 미리보기'
+  };
+  function secText(ms) { return (ms / 1000).toFixed(2) + '초'; }
+  function speedRun() {
+    var out = qs('#speed-out'), btn = qs('[data-action="speed-run"]');
+    if (!out) return;
+    var recent = recentCalls.filter(function (c) { return c.action !== 'ping' && c.action !== 'admin.speed'; });
+    busy(btn, true, '재는 중');
+    out.innerHTML = loadingHtml('재는 중이에요');
+    var pings = [];
+    var ping = function () { var t0 = Date.now(); return server('ping').then(function () { pings.push(Date.now() - t0); }); };
+    ping().then(ping).then(ping).then(function () { return server('admin.speed'); }).then(function (r) {
+      busy(btn, false);
+      var best = Math.min.apply(null, pings);
+      out.innerHTML = '<div class="speed">' +
+        '<p><b>빈 요청 왕복</b> ' + pings.map(secText).join(' · ') + '</p>' +
+        '<p class="hint">' + icon('info', 16) + '<span>구글 서버를 한 번 다녀오는 기본 시간이에요. 단추를 누를 때마다 적어도 이만큼은 걸려요.</span></p>' +
+        '<div class="speed-wrap"><table class="speed-table"><caption class="sr-only">화면마다 서버가 일한 시간</caption>' +
+        '<thead><tr><th scope="col">화면</th><th scope="col">서버 처리</th><th scope="col">시트 열기</th><th scope="col">탭 읽기</th><th scope="col">그 밖</th><th scope="col">어림 합계</th></tr></thead><tbody>' +
+        r.items.map(function (x) {
+          if (x.error) return '<tr><th scope="row">' + esc(x.label) + '</th><td colspan="5">' + esc(x.error) + '</td></tr>';
+          return '<tr><th scope="row">' + esc(x.label) + '</th><td>' + secText(x.ms) + '</td><td>' + secText(x.openMs) + '</td>' +
+            '<td>' + secText(x.readMs) + ' (' + x.reads + '번)</td><td>' + secText(x.otherMs) + '</td><td><b>' + secText(x.ms + best) + '</b></td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<p class="hint">' + icon('info', 16) + '<span>어림 합계 = 빈 요청 왕복(가장 짧은 값) + 서버 처리. 메뉴를 처음 열 때 걸리는 시간과 비슷해요. 이 화면을 사진으로 찍어 보내 주시면 더 빠르게 할 곳을 찾을 수 있어요.</span></p>' +
+        (recent.length ? '<h3>이 기기에서 최근에 한 일</h3><ul class="speed-recent">' + recent.map(function (c) {
+          return '<li><span>' + esc(CALL_NAMES[c.action] || c.action) + '</span><b>' + secText(c.ms) + '</b></li>';
+        }).join('') + '</ul>' : '') +
+        '</div>';
+    }).catch(function (e) { busy(btn, false); out.innerHTML = failHtml(e); });
   }
 
   // ------------------------------------------------------------ 관리자 · 교직원 명단 한 번에 넣기
@@ -8597,6 +9096,7 @@ function setPinForTest_(row, pin) {
     $modal.innerHTML = '';
     clearPins();
     if (lastFocus && document.body.contains(lastFocus)) { try { lastFocus.focus(); } catch (e) {} }
+    setTimeout(flushPending, 0);
   }
 
   // ============================================================ 누르기 처리 (한곳에서)
@@ -8625,7 +9125,8 @@ function setPinForTest_(row, pin) {
         break;
       case 'zoom-in': stepZoom(1); break;
       case 'zoom-out': stepZoom(-1); break;
-      case 'students-edit': editStudents(); break;
+      case 'students-edit': editStudents(id ? Number(id) : 0); break;
+      case 'students-grade': studentsGrade(Number(id)); break;
       case 'reload': location.reload(); break;
       case 'sheet': openSheet(); break;
       case 'close-sheet': closeSheet(); break;
@@ -8653,6 +9154,7 @@ function setPinForTest_(row, pin) {
         closeSheet();
         stDel('gy.login'); stDel('gy.identity'); stDel('gy.admin'); stDel('gy.skipIdentity');
         S.me = null; S.admin = false;
+        memoClear();
         showLogin();
         toast('나갔어요. 이 기기에 기억된 로그인도 지웠어요');
         break;
@@ -8711,7 +9213,7 @@ function setPinForTest_(row, pin) {
       case 'sv-close':
         var reopen = t.getAttribute('data-open') === '1';
         confirmBox(reopen ? '조사 다시 열기' : '조사 지금 끝내기', reopen ? '다시 열면 마감 전까지 다시 낼 수 있어요.' : '끝내면 더 이상 내거나 고칠 수 없어요. 나중에 다시 열 수 있어요.', reopen ? '다시 열기' : '끝내기', function () {
-          return server('survey.setOpen', { id: S.survey.sel, open: reopen }).then(function () {
+          return server('survey.setOpen', { id: S.survey.sel, open: reopen }, [['survey.list', {}], ['survey.get', { id: S.survey.sel }]]).then(function () {
             closeModal(); toast(reopen ? '조사를 다시 열었어요' : '조사를 끝냈어요');
             if (!reopen) S.survey.tab = 'past';
             refreshSurveyList();
@@ -8720,13 +9222,13 @@ function setPinForTest_(row, pin) {
         break;
       case 'sv-del':
         confirmBox('조사 지우기', '"' + esc(S.survey.detail.card.title) + '" 조사를 지울까요? 낸 답도 함께 숨겨져요. 연구부장·부담당이 휴지통에서 되살릴 수 있어요.', '지우기', function () {
-          return server('survey.delete', { id: S.survey.sel }).then(function () { closeModal(); toast('조사를 지웠어요'); S.survey.sel = ''; refreshSurveyList(); });
+          return server('survey.delete', { id: S.survey.sel }, [['survey.list', {}]]).then(function () { closeModal(); toast('조사를 지웠어요'); S.survey.sel = ''; refreshSurveyList(); });
         }, true);
         break;
       case 'sv-remind':
         var nd = (S.survey.detail.notDone || []).length;
         confirmBox('안 낸 분께 다시 알리기', '안 낸 ' + nd + '명의 홈 화면 \'내가 할 일\' 맨 위에 이 조사가 다시 보여요. 메신저로도 알리려면 위의 안내 문구를 복사해 보내 주세요.', nd + '명에게 알리기', function () {
-          return server('survey.remind', { id: S.survey.sel }).then(function (r) { closeModal(); toast(r.count + '명에게 다시 알렸어요'); loadSurveyDetail(); });
+          return server('survey.remind', { id: S.survey.sel }, [['survey.get', { id: S.survey.sel }]]).then(function (r) { closeModal(); toast(r.count + '명에게 다시 알렸어요'); loadSurveyDetail(); });
         });
         break;
       case 'todo-open': S.survey.tab = 'answer'; S.survey.sel = id; go('survey'); break;
@@ -8807,10 +9309,15 @@ function setPinForTest_(row, pin) {
       case 'notice-del':
         var nd2 = noticeById(id);
         confirmBox('공지 지우기', '"' + esc(nd2.title) + '" 공지를 지울까요? 연구부장·부담당이 휴지통에서 되살릴 수 있어요.', '지우기', function () {
-          return server('notice.delete', { id: id }).then(function () { closeModal(); S.home = null; toast('공지를 지웠어요'); return loadNotices(); });
+          return server('notice.delete', { id: id }, noticeThen()).then(function () {
+            closeModal(); S.home = null; toast('공지를 지웠어요');
+            if (S.screen === 'home') return SCREENS.home(qs('#screen'));
+            return loadNotices();
+          });
         }, true);
         break;
       case 'check-again': adminCheck(qs('#admin-panel')); break;
+      case 'speed-run': speedRun(); break;
       case 'staff-import': openStaffImport(); break;
       case 'imp-template':
         saveBlob(templateXlsx(S.start && S.start.year, [['이름', '직위', '소속', '부서', '담당 업무', '내선', '역할', '순서'],
@@ -8845,6 +9352,10 @@ function setPinForTest_(row, pin) {
       case 'link-del': readLinks(); S.cache.links.splice(Number(t.getAttribute('data-i')), 1); drawLinks(); break;
     }
   });
+
+  // 화면에서 무언가 입력하면 뒤에서 받은 새 내용으로 다시 그리지 않는다(쓰던 것이 지워지지 않게)
+  document.addEventListener('input', function (e) { if (e.target.closest && e.target.closest('#screen')) screenEdited = true; }, true);
+  document.addEventListener('focusout', function () { setTimeout(flushPending, 0); });
 
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
@@ -8904,7 +9415,7 @@ function setPinForTest_(row, pin) {
   }
 
   // 미리보기·자동 점검에서 쓰는 창구
-  window.__gy = { S: S, go: go, renderApp: renderApp, server: server };
+  window.__gy = { S: S, go: go, renderApp: renderApp, server: server, init: init, memoClear: memoClear };
 
   init();
 })();

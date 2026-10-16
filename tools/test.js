@@ -1679,6 +1679,159 @@ test('학생 수: 새 학년도가 되면 비어 있고, 지난 학년도 숫자
   assert.strictEqual(g.liveRows_('학생수').length, 1);
 });
 
+test('학생 수 반별: 반마다 남·여를 넣으면 학년·전체·남녀 합계가 맞고, 반별 칸에 남는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const today = g.todayYmd_();
+  const classes = { 1: [[12, 13], [11, 14]], 2: [[10, 10]], 3: [[14, 15], [16, 10], [11, 12]], 4: [[13, 14]], 5: [], 6: [[0, 0]] };
+  const r = call(g, 'students.save', { date: today, classes }, who('심청'));
+  assert.ok(r.ok, r.error);
+  assert.deepStrictEqual(plain(r.data.grades), [50, 20, 78, 27, 0, 0]);
+  assert.strictEqual(r.data.total, 175);
+  assert.strictEqual(r.data.boys, 87);
+  assert.strictEqual(r.data.girls, 88);
+  assert.deepStrictEqual(plain(r.data.classes['3']), [[14, 15], [16, 10], [11, 12]]);
+  assert.deepStrictEqual(plain(r.data.classes['5']), []);
+  const row = g.liveRows_('학생수')[0];
+  assert.strictEqual(row['3학년'], '78');
+  assert.deepStrictEqual(JSON.parse(row['반별'])['1'], [[12, 13], [11, 14]]);
+  const h = call(g, 'home', {}, who('흥부')).data;
+  assert.strictEqual(h.students.boys, 87);
+  // 숫자를 글자로 보내도(화면 입력 그대로) 된다
+  assert.ok(call(g, 'students.save', { date: today, classes: { 1: [['12', '13']], 2: [], 3: [], 4: [], 5: [], 6: [] } }, who('심청')).ok);
+});
+
+test('학생 수 반별: 숫자가 아니거나 한도를 넘으면 몇 학년 몇 반인지 알려 주고 저장하지 않는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('심청');
+  const today = g.todayYmd_();
+  const base = () => ({ 1: [[1, 1]], 2: [[1, 1]], 3: [[1, 1], [2, 2]], 4: [[1, 1]], 5: [[1, 1]], 6: [[1, 1]] });
+  const cases = [
+    [(c) => { c[3][1] = [2, 'x']; }, /3학년 2반 여학생/],
+    [(c) => { c[1][0] = ['', 1]; }, /1학년 1반 남학생/],
+    [(c) => { c[6][0] = [100, 1]; }, /6학년 1반 남학생 수를 0부터 99까지/],
+    [(c) => { c[2][0] = [-1, 1]; }, /2학년 1반 남학생/],
+    [(c) => { c[4][0] = [1.5, 1]; }, /4학년 1반 남학생/],
+    [(c) => { c[5][0] = [1]; }, /5학년 1반 여학생/],
+    [(c) => { c[1] = Array.from({ length: 21 }, () => [1, 1]); }, /1학년 반은 20개까지/],
+    [(c) => { c[2] = 'abc'; }, /2학년 반은 20개까지/]
+  ];
+  for (const [bad, re] of cases) {
+    const c = base();
+    bad(c);
+    const r = call(g, 'students.save', { date: today, classes: c }, me);
+    assert.strictEqual(r.ok, false, String(re));
+    assert.match(r.error, re);
+  }
+  assert.strictEqual(g.liveRows_('학생수').length, 0);
+});
+
+test('학생 수 반별: 학년 합계만 넣는 예전 화면으로 저장하면 반별은 비워서 합계와 어긋나지 않게', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const today = g.todayYmd_();
+  call(g, 'students.save', { date: today, classes: { 1: [[12, 13]], 2: [], 3: [], 4: [], 5: [], 6: [] } }, who('심청'));
+  const r = call(g, 'students.save', { date: today, grades: [30, 20, 20, 20, 20, 20] }, who('심청')).data;
+  assert.strictEqual(r.classes, null);
+  assert.strictEqual(r.boys, null);
+  assert.strictEqual(r.total, 130);
+  assert.strictEqual(g.liveRows_('학생수')[0]['반별'], '');
+});
+
+test('학생 수 반별: 반별 칸이 없는 예전 학생수 탭이면 처음 저장할 때 칸을 더한다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const sh = g._ss.getSheetByName('학생수');
+  const head = g.tabs_()['학생수'].filter((h) => h !== '반별');
+  sh.data = [head.slice()]; // 지난 판으로 만든 탭(반별 칸 없음)
+  const today = g.todayYmd_();
+  const r = call(g, 'students.save', { date: today, classes: { 1: [[5, 6]], 2: [], 3: [], 4: [], 5: [], 6: [] } }, who('심청'));
+  assert.ok(r.ok, r.error);
+  assert.ok(g.headOf_('학생수').includes('반별'));
+  assert.deepStrictEqual(plain(r.data.classes['1']), [[5, 6]]);
+});
+
+test('학생 수 반별: 넣기 창의 처음 반 수는 교직원 소속(○학년 ○반)에서만 가져온다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const h = call(g, 'home', {}, who('심청')).data;
+  // 가짜 명단: 3학년 1·2반, 4학년 1반, 5학년 1반, 6학년 2반, 2학년 1반, 1학년 1반
+  assert.deepStrictEqual(plain(h.students.hints), { 1: 1, 2: 1, 3: 2, 4: 1, 5: 1, 6: 2 });
+});
+
+// ---------------------------------------------------------------- 속도: 왕복 줄이기
+
+test('속도: ping은 로그인 없이 시트를 읽지 않고 답한다', () => {
+  const g = freshName();
+  g._ss.sheets.forEach((x) => { x.reads = 0; });
+  const r = call(g, 'ping', {});
+  assert.ok(r.ok);
+  assert.ok(r.data.at > 0);
+  assert.strictEqual(g._ss.sheets.reduce((n, x) => n + (x.reads || 0), 0), 0);
+});
+
+test('속도: boot 한 번으로 시작 정보·로그인 상태·홈을 받는다(로그인이 없으면 LOGIN)', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  g.seedTestSchedule_();
+  const me = who('심청');
+  const b = call(g, 'boot', { home: true }, me);
+  assert.ok(b.ok, b.error);
+  assert.strictEqual(b.data.start.ready, true);
+  assert.strictEqual(b.data.session.me.name, '심청');
+  assert.ok(Array.isArray(b.data.home.events));
+  assert.deepStrictEqual(plain(b.data.home), plain(call(g, 'home', {}, me).data), '홈과 같은 내용');
+  assert.strictEqual(call(g, 'boot', {}, me).data.home, undefined, '홈을 바로 그리지 않을 때는 홈 없이');
+  assert.strictEqual(call(g, 'boot', {}, {}).code, 'LOGIN');
+  assert.strictEqual(call(g, 'boot', {}, { login: 'x.y' }).code, 'LOGIN');
+});
+
+test('속도: 저장하면서 이어 읽을 화면(then)을 같은 요청으로 받는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('심청');
+  const today = g.todayYmd_();
+  const y = +today.slice(0, 4), m = +today.slice(5, 7);
+  const r = JSON.parse(g.api(JSON.stringify({ action: 'sched.save', args: { fields: { start: today, title: '이어 읽기 시험' } }, tokens: me,
+    then: [['sched.month', { year: y, month: m }], ['home', {}]] })));
+  assert.ok(r.ok, r.error);
+  assert.strictEqual(r.then.length, 2);
+  assert.ok(r.then[0].data.events.some((e) => e.title === '이어 읽기 시험'), '방금 넣은 일정이 달력에');
+  assert.ok(r.then[1].data.events.some((e) => e.title === '이어 읽기 시험'), '홈에도');
+  // 쓰기·관리자 요청은 이어서 부를 수 없다(읽기만), 모르는 이름도 null
+  const r2 = JSON.parse(g.api(JSON.stringify({ action: 'notice.save', args: { fields: { '제목': '공지 시험' } }, tokens: me,
+    then: [['sched.save', { fields: { start: today, title: '몰래 넣기' } }], ['admin.settings.get', {}], ['notice.list', {}]] })));
+  assert.ok(r2.ok, r2.error);
+  assert.strictEqual(r2.then[0], null);
+  assert.strictEqual(r2.then[1], null);
+  assert.ok(r2.then[2].data.items.some((n) => n.title === '공지 시험'));
+  const r3 = JSON.parse(g.api(JSON.stringify({ action: 'notice.list', args: {}, tokens: me, then: [['없는 요청', {}], 'x', ['home', {}], ['home', {}]] })));
+  assert.strictEqual(r3.then.length, 3, '이어 읽기는 3개까지');
+  assert.strictEqual(r3.then[0], null);
+  assert.strictEqual(r3.then[1], null);
+  assert.ok(r3.then[2].data.events);
+  assert.ok(!g.liveRows_('일정').some((e) => e['행사명'] === '몰래 넣기'), '이어 읽기로는 저장되지 않음');
+  // then이 없으면 예전처럼
+  assert.strictEqual(JSON.parse(g.api(JSON.stringify({ action: 'notice.list', args: {}, tokens: me }))).then, undefined);
+});
+
+test('속도 재기(관리자): 화면마다 서버 처리·시트 열기·탭 읽기를 잰다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  assert.strictEqual(call(g, 'admin.speed', {}, ids(g).who('심청')).code, 'ADMIN');
+  const r = call(g, 'admin.speed', {}, t);
+  assert.ok(r.ok, r.error);
+  const labels = r.data.items.map((x) => x.label);
+  assert.deepStrictEqual(labels, ['홈', '일정(달력)', '조사·신청', '자료실', '공지', '도움말', '교직원']);
+  for (const x of r.data.items) {
+    assert.ok(!x.error, x.label + ' ' + x.error);
+    assert.ok(x.reads >= 1, x.label + ' 탭 읽기 ' + x.reads);
+    assert.ok(x.ms >= x.openMs + x.readMs - 1 || x.otherMs === 0, x.label);
+  }
+  assert.strictEqual(r.data.items[0].reads, 11, '홈은 탭 11개');
+});
+
 test('점검: 학생수 탭은 아직 없어도 문제로 보지 않는다', () => {
   const g = freshName();
   const { t } = adminTokens(g);

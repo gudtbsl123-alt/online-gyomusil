@@ -8,7 +8,7 @@
  * - 시트에 쓸 때는 잠금(LockService)을 걸어 동시에 저장해도 꼬이지 않게 한다.
  */
 
-function fileMark_Db_() { return '2026-10-16b'; } // 판 표시(관리자 › 점검)
+function fileMark_Db_() { return '2026-10-16c'; } // 판 표시(관리자 › 점검)
 
 /** 모든 표(기록·설정 제외)에 붙는 입력·수정·삭제 칸 */
 function auditCols_() {
@@ -33,7 +33,7 @@ function tabs_() {
       .concat(['파일 이름', '파일 크기', '홈에 보이기', '원본 자료ID', '공통', '공통 순서']),
     '도움말': ['항목ID', '분류ID', '제목', '내용', '링크', '순서'].concat(A).concat(['파일ID', '파일 이름', '파일 크기']),
     '공지': ['공지ID', '제목', '내용', '링크', '부서ID', '게시 끝일', '고정'].concat(A),
-    '학생수': ['학생수ID', '학년도', '기준일', '1학년', '2학년', '3학년', '4학년', '5학년', '6학년'].concat(A),
+    '학생수': ['학생수ID', '학년도', '기준일', '1학년', '2학년', '3학년', '4학년', '5학년', '6학년'].concat(A).concat(['반별']),
     '기록': ['시각', '교직원ID', '이름', '탭', '대상ID', '동작', '요약', '바뀌기 전', '바뀐 뒤']
   };
 }
@@ -57,8 +57,17 @@ function hiddenCols_() {
 
 var DB_SS_ = null; // 한 번 실행하는 동안만 쓰는 캐시
 
+/** 속도 재기(관리자 › 점검): 한 요청 안에서 시트 열기·탭 읽기에 걸린 시간 */
+var PERF_ = { openMs: 0, reads: 0, readMs: 0 };
+function newPerf_() { return { openMs: 0, reads: 0, readMs: 0 }; }
+
 function ss_() {
   if (DB_SS_) return DB_SS_;
+  var t0 = Date.now();
+  try { return openSs_(); } finally { PERF_.openMs += Date.now() - t0; }
+}
+
+function openSs_() {
   var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
   if (id) {
     DB_SS_ = SpreadsheetApp.openById(id);
@@ -87,7 +96,12 @@ function dirty_(tab) {
 }
 
 function sheetValues_(tab) {
-  if (!DB_CACHE_[tab]) DB_CACHE_[tab] = sheet_(tab).getDataRange().getValues();
+  if (!DB_CACHE_[tab]) {
+    var t0 = Date.now();
+    DB_CACHE_[tab] = sheet_(tab).getDataRange().getValues();
+    PERF_.reads++;
+    PERF_.readMs += Date.now() - t0;
+  }
   return DB_CACHE_[tab];
 }
 

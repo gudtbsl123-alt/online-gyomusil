@@ -7,7 +7,7 @@
  * 고치기·지우기: 처음 넣은 사람, 역할이 '관리'인 분, 관리자 화면을 연 분만.
  */
 
-function fileMark_Schedule_() { return '2026-10-16b'; } // 판 표시(관리자 › 점검)
+function fileMark_Schedule_() { return '2026-10-16c'; } // 판 표시(관리자 › 점검)
 
 function schedKinds_() {
   return ['행사', '교육활동', '휴업일', '공휴일'];
@@ -306,38 +306,96 @@ function apiFocusSave_(args, actor, ctx) {
 }
 
 // ---------------------------------------------------------------- 학생 수 현황 (홈)
-// 학년도마다 한 줄: 기준일과 1~6학년 학생 수. 전체는 학년별을 더해 만든다(따로 적지 않아 합이 어긋나지 않게).
+// 학년도마다 한 줄: 기준일, 1~6학년 학생 수, '반별'(반마다 남·여, JSON). 학년 수는 반별을 더한 값이고, 전체는 학년을 더한다.
 // 숫자만 다룬다(학생 이름 같은 개인정보는 넣지 않는다). 이름을 고른 교직원 누구나 고치고, 바뀌기 전·후는 기록 탭에 남는다.
 
 var STUDENT_GRADES_ = ['1학년', '2학년', '3학년', '4학년', '5학년', '6학년'];
+var STUDENT_MAX_CLASSES_ = 20; // 한 학년 반 수 한도
+var STUDENT_MAX_PER_CLASS_ = 99; // 한 반 남(또는 여) 학생 수 한도
+
+/** '반별' 칸 → { '1': [[남, 여], …], …, '6': […] } (읽지 못하면 null) */
+function parseClasses_(text) {
+  if (!text) return null;
+  var o;
+  try { o = JSON.parse(text); } catch (e) { return null; }
+  if (!o || typeof o !== 'object') return null;
+  var out = {};
+  for (var g = 1; g <= 6; g++) {
+    var list = o[String(g)] || [];
+    if (!Array.isArray(list)) return null;
+    out[String(g)] = [];
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      if (!Array.isArray(c) || c.length !== 2) return null;
+      var m = Number(c[0]), f = Number(c[1]);
+      if (!(m >= 0 && f >= 0 && Math.floor(m) === m && Math.floor(f) === f)) return null;
+      out[String(g)].push([m, f]);
+    }
+  }
+  return out;
+}
+
+/** 교직원 소속('3학년 2반')에서 학년마다 가장 큰 반 번호 → 넣기 창의 처음 반 수(짐작하지 않고 명단에 있는 만큼만) */
+function classHints_() {
+  var hint = {};
+  readRows_('교직원').forEach(function (r) {
+    if (r['삭제 여부'] || r['사용 여부'] === '사용 안 함') return;
+    var m = /([1-6])\s*학년\s*(\d{1,2})\s*반/.exec(r['소속'] || '');
+    if (m) hint[m[1]] = Math.max(hint[m[1]] || 0, Number(m[2]));
+  });
+  return hint;
+}
 
 function studentsOf_(schoolYear) {
-  var empty = { year: schoolYear, date: '', grades: [], total: null, id: '', by: '', at: '' };
+  var empty = { year: schoolYear, date: '', grades: [], total: null, boys: null, girls: null, classes: null, id: '', by: '', at: '' };
   var rows;
   try {
     rows = liveRows_('학생수');
   } catch (e) {
-    if (e && e.code === 'SETUP') return empty; // 탭이 아직 없으면(처음 넣을 때 만든다)
+    if (e && e.code === 'SETUP') { empty.hints = classHints_(); return empty; } // 탭이 아직 없으면(처음 넣을 때 만든다)
     throw e;
   }
+  empty.hints = classHints_();
   rows = rows.filter(function (r) { return String(r['학년도']) === String(schoolYear); });
   var r = rows[rows.length - 1];
   if (!r) return empty;
   var grades = STUDENT_GRADES_.map(function (g) { return /^\d+$/.test(r[g]) ? Number(r[g]) : null; });
   var full = grades.every(function (n) { return n !== null; });
+  var classes = parseClasses_(r['반별']);
+  var boys = null, girls = null;
+  if (classes) {
+    boys = 0; girls = 0;
+    Object.keys(classes).forEach(function (g) { classes[g].forEach(function (c) { boys += c[0]; girls += c[1]; }); });
+  }
   var by = r['수정자ID'] || r['입력자ID'];
   return {
     year: schoolYear,
     date: r['기준일'],
     grades: grades,
     total: full ? grades.reduce(function (a, b) { return a + b; }, 0) : null,
+    boys: boys,
+    girls: girls,
+    classes: classes,
+    hints: empty.hints,
     id: r['학생수ID'],
     by: by ? (staffNames_()[by] || '') : '',
     at: r['수정 시각'] || r['입력 시각']
   };
 }
 
-/** 학생 수 넣기·고치기: args = { date: '2026-10-16', grades: [1학년, …, 6학년] } */
+/** 0~max 사이 정수(글자로 와도 됨). 아니면 null */
+function wholeNum_(v, max) {
+  var t = String(v === null || v === undefined ? '' : v).trim();
+  if (!/^\d{1,3}$/.test(t)) return null;
+  var n = Number(t);
+  return n <= max ? n : null;
+}
+
+/**
+ * 학생 수 넣기·고치기
+ * args = { date: '2026-10-16', classes: { '1': [[남, 여], …], …, '6': […] } }  ← 반별(지금 화면)
+ *   또는 { date, grades: [1학년, …, 6학년] }  ← 학년 합계만(예전 화면). 이때 반별은 비운다(합계와 어긋나지 않게)
+ */
 function apiStudentsSave_(args, actor) {
   var today = todayYmd_();
   var y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7));
@@ -347,15 +405,36 @@ function apiStudentsSave_(args, actor) {
   if (date < from || date > today) {
     throw userError_('기준일은 이번 학년도 안에서 오늘까지 골라 주세요(' + from + ' ~ ' + today + ').');
   }
-  var list = Array.isArray(args.grades) ? args.grades : [];
-  if (list.length !== STUDENT_GRADES_.length) throw userError_('1학년부터 6학년까지 학생 수를 모두 넣어 주세요.');
   var patch = { '기준일': date };
-  list.forEach(function (v, i) {
-    var t = String(v === null || v === undefined ? '' : v).trim();
-    if (!/^\d{1,3}$/.test(t)) throw userError_(STUDENT_GRADES_[i] + ' 학생 수를 0부터 999까지 숫자로 넣어 주세요.');
-    patch[STUDENT_GRADES_[i]] = String(Number(t));
-  });
+  if (args.classes && typeof args.classes === 'object') {
+    var norm = {};
+    for (var g = 1; g <= 6; g++) {
+      var list = args.classes[String(g)] || [];
+      if (!Array.isArray(list) || list.length > STUDENT_MAX_CLASSES_) throw userError_(g + '학년 반은 ' + STUDENT_MAX_CLASSES_ + '개까지 넣을 수 있어요.');
+      var sum = 0;
+      norm[String(g)] = list.map(function (c, i) {
+        var pair = Array.isArray(c) ? c : [];
+        var boy = wholeNum_(pair[0], STUDENT_MAX_PER_CLASS_), girl = wholeNum_(pair[1], STUDENT_MAX_PER_CLASS_);
+        if (boy === null) throw userError_(g + '학년 ' + (i + 1) + '반 남학생 수를 0부터 ' + STUDENT_MAX_PER_CLASS_ + '까지 숫자로 넣어 주세요.');
+        if (girl === null) throw userError_(g + '학년 ' + (i + 1) + '반 여학생 수를 0부터 ' + STUDENT_MAX_PER_CLASS_ + '까지 숫자로 넣어 주세요.');
+        sum += boy + girl;
+        return [boy, girl];
+      });
+      patch[STUDENT_GRADES_[g - 1]] = String(sum);
+    }
+    patch['반별'] = JSON.stringify(norm);
+  } else {
+    var gl = Array.isArray(args.grades) ? args.grades : [];
+    if (gl.length !== STUDENT_GRADES_.length) throw userError_('1학년부터 6학년까지 학생 수를 모두 넣어 주세요.');
+    gl.forEach(function (v, i) {
+      var n = wholeNum_(v, 999);
+      if (n === null) throw userError_(STUDENT_GRADES_[i] + ' 학생 수를 0부터 999까지 숫자로 넣어 주세요.');
+      patch[STUDENT_GRADES_[i]] = String(n);
+    });
+    patch['반별'] = '';
+  }
   ensureTab_('학생수');
+  ensureCols_('학생수'); // 먼저 만든 탭에는 '반별' 칸이 없을 수 있다
   withLock_(function () {
     var cur = studentsOf_(sy);
     if (cur.id) {

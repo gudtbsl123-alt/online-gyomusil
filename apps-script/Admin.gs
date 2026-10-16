@@ -2,7 +2,7 @@
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-16b'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-10-16c'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -406,6 +406,42 @@ function adminCheck_(args) {
   if (noDept) add('교직원', '부서 없는 분', 'warn', noDept + '명', '교직원 표에서 부서를 골라 주세요(내 담당·조사 대상에 쓰여요)');
 
   return { build: APP_BUILD_, at: nowText_(), items: items };
+}
+
+// ---------------------------------------------------------------- 속도 재기 (관리자 › 점검)
+
+/**
+ * 자주 여는 화면을 서버 안에서 하나씩 불러 보며 시간을 잰다(쓰지는 않는다).
+ * 화면마다: 서버 처리 전체 · 시트 열기 · 탭 읽기(횟수·시간) · 그 밖(계산 등). 서버를 다녀오는 왕복 시간은 화면이 'ping'으로 따로 잰다
+ */
+function adminSpeed_(args, actor, ctx) {
+  var t = todayYmd_();
+  var list = [
+    ['홈', 'apiHome_', {}],
+    ['일정(달력)', 'apiSchedMonth_', { year: Number(t.slice(0, 4)), month: Number(t.slice(5, 7)) }],
+    ['조사·신청', 'apiSurveyList_', {}],
+    ['자료실', 'apiLibList_', {}],
+    ['공지', 'apiNoticeList_', {}],
+    ['도움말', 'apiHelpList_', {}],
+    ['교직원', 'apiStaffDir_', {}]
+  ];
+  var items = list.map(function (x) {
+    var fn = globalFn_(x[1]);
+    if (!fn) return { label: x[0], error: '코드 파일이 빠졌어요' };
+    SETTINGS_CACHE_ = null;
+    DB_SS_ = null;
+    dbReset_(); // 화면마다 처음부터(앞 화면이 읽어 둔 탭을 쓰지 않게)
+    PERF_ = newPerf_();
+    var t0 = Date.now();
+    try {
+      fn(x[2], actor, ctx);
+    } catch (e) {
+      return { label: x[0], error: String(e && e.message || e).slice(0, 120) };
+    }
+    var ms = Date.now() - t0;
+    return { label: x[0], ms: ms, openMs: PERF_.openMs, reads: PERF_.reads, readMs: PERF_.readMs, otherMs: Math.max(0, ms - PERF_.openMs - PERF_.readMs) };
+  });
+  return { at: nowText_(), items: items };
 }
 
 // ---------------------------------------------------------------- 교직원 명단 한 번에 넣기 (관리자)

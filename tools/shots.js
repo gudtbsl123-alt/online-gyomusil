@@ -90,8 +90,12 @@ async function scheduleFlow(page, kind) {
   await page.fill('#ef-place', '강당');
   await page.check('#ef-imp');
   await shot(page, kind + '_행사추가', !phone);
+  await takeCalls(page);
   await page.click('#ev-form [type=submit]');
   await waitText(page, '전교 다모임을 넣었어요');
+  await page.locator('[data-action=ev-open]', { hasText: '전교 다모임' }).first().waitFor();
+  const saveCalls = await takeCalls(page);
+  if (saveCalls.join() !== 'sched.save') problems.push(kind + ': 일정 저장에 서버를 ' + saveCalls.length + '번 부름(' + saveCalls.join(', ') + ')');
   await page.waitForTimeout(400);
   // 넣은 행사 열어 보기 → 고치기 → 지우기
   await page.locator('[data-action=ev-open]', { hasText: '전교 다모임' }).first().click();
@@ -147,8 +151,12 @@ async function surveyFlow(page, kind) {
   await page.click('[data-action=sv-copy]');
   await waitText(page, '복사');
   await page.click('[data-action=sv-remind]');
+  await takeCalls(page);
   await page.click('#cf-ok');
   await waitText(page, '다시 알렸어요');
+  await page.locator('.sv-owner').waitFor();
+  const rCalls = await takeCalls(page);
+  if (rCalls.join() !== 'survey.remind') problems.push(kind + ': 다시 알리기에 서버를 ' + rCalls.length + '번 부름(' + rCalls.join(', ') + ')');
   await page.click('[data-action=sv-csv]');
   await page.locator('#csv-dl').waitFor();
   await shot(page, kind + '_조사_엑셀');
@@ -317,9 +325,12 @@ async function noticeFlow(page, kind) {
   await page.fill('#nf-title', '다음 주 교직원 협의회 장소 변경');
   await page.fill('#nf-body', '회의실 대신 도서실에서 해요.');
   await shot(page, kind + '_공지_쓰기');
+  await takeCalls(page);
   await page.click('#notice-form [type=submit]');
   await waitText(page, '공지를 올렸어요');
   await page.locator('.notice-item').nth(2).waitFor();
+  const nCalls = await takeCalls(page);
+  if (nCalls.join() !== 'notice.save') problems.push(kind + ': 공지 저장에 서버를 ' + nCalls.length + '번 부름(' + nCalls.join(', ') + ')');
   await shot(page, kind + '_공지', true);
   if (await page.locator('[data-dot=notice]:not([hidden])').count()) problems.push(kind + ': 공지를 봤는데 새 공지 점이 남음');
   await page.evaluate(() => window.__gy.go('home'));
@@ -330,7 +341,7 @@ async function noticeFlow(page, kind) {
   await page.click('.modal [data-action=close-modal]');
 }
 
-/** 홈 '학생 수 현황': 빈 카드 → 넣기 창(숫자만 남기·합계·빈칸 막기) → 저장 → 카드(우리 학년 표시) */
+/** 홈 '학생 수 현황': 빈 카드 → 학교 전체 넣기 창(반마다 남·여) → 카드 → 학년 누르면 반별 → 고치기는 그 학년으로 */
 async function studentsFlow(page, kind) {
   await page.evaluate(() => window.__gy.go('home'));
   const card = page.locator('.stu-card');
@@ -339,35 +350,89 @@ async function studentsFlow(page, kind) {
   await shot(page, kind + '_홈_학생수_비어있음');
   await page.click('[data-action=students-edit]');
   await page.locator('#stu-form').waitFor();
-  const vals = [58, 61, 63, 60, 62, 59]; // 미리보기용 가짜 숫자
-  for (let i = 0; i < 6; i++) await page.fill('#stu-' + (i + 1), String(vals[i]));
-  await page.fill('#stu-4', '6a0');
-  if ((await page.inputValue('#stu-4')) !== '60') problems.push(kind + ': 학생 수 칸에 숫자가 아닌 글자가 남음');
-  const sum = (await page.textContent('#stu-sum')).trim();
-  if (sum !== '363명') problems.push(kind + ': 넣기 창 전체 합계가 ' + sum);
-  await page.fill('#stu-2', '');
+  // 처음 반 수는 교직원 소속에서만: 가짜 명단은 3학년 1·2반, 6학년 2반 → 3학년 2반, 6학년 2반, 나머지 1반
+  const counts = await page.evaluate(() => [1, 2, 3, 4, 5, 6].map((g) => document.querySelectorAll('#stu-rows-' + g + ' .stu-row').length));
+  if (counts.join() !== '1,1,2,1,1,2') problems.push(kind + ': 넣기 창의 처음 반 수가 ' + counts.join());
+  // 4학년에 반 하나 더하고 빼 보기
+  await page.click('[data-stu-add="4"]');
+  if ((await page.locator('#stu-rows-4 .stu-row').count()) !== 2) problems.push(kind + ': 반 더하기가 안 됨');
+  await page.click('[data-stu-del="4"]');
+  if ((await page.locator('#stu-rows-4 .stu-row').count()) !== 1) problems.push(kind + ': 마지막 반 빼기가 안 됨');
+  // 미리보기용 가짜 숫자: 칸마다 10~16
+  const n = await page.locator('.stu-n').count();
+  for (let i = 0; i < n; i++) await page.locator('.stu-n').nth(i).fill(String(10 + (i % 7)));
+  await page.fill('#stu-1-1-0', '1a');
+  if ((await page.inputValue('#stu-1-1-0')) !== '1') problems.push(kind + ': 학생 수 칸에 숫자가 아닌 글자가 남음');
+  await page.fill('#stu-1-1-0', '12');
+  const sumNow = () => page.evaluate(() => Array.from(document.querySelectorAll('.stu-n')).reduce((a, x) => a + Number(x.value || 0), 0));
+  let sum = await sumNow();
+  const total = (await page.textContent('#stu-sum')).trim();
+  if (!total.endsWith(' · ' + sum + '명')) problems.push(kind + ': 넣기 창 전체 합계가 ' + total + ' (기대 ' + sum + '명)');
+  await page.fill('#stu-3-2-1', '');
   await page.click('#stu-save');
   try {
-    await page.locator('#stu-err', { hasText: '2학년 학생 수를 숫자로' }).waitFor({ timeout: 5000 });
-  } catch (e) {
-    problems.push(kind + ': 빈칸으로 저장을 눌렀는데 안내가 안 나옴(창 ' + (await page.locator('#stu-form').count() ? '열림' : '닫힘') + ')');
-    if (!(await page.locator('#stu-form').count())) {
-      await page.click('[data-action=students-edit]');
-      await page.locator('#stu-form').waitFor();
-      for (let i = 0; i < 6; i++) await page.fill('#stu-' + (i + 1), String(vals[i]));
-    }
-  }
-  await page.fill('#stu-2', '61');
+    await page.locator('#stu-err', { hasText: '3학년 2반 여학생 수를 숫자로' }).waitFor({ timeout: 5000 });
+  } catch (e) { problems.push(kind + ': 빈칸으로 저장을 눌렀는데 몇 학년 몇 반인지 안내가 안 나옴'); }
+  await page.fill('#stu-3-2-1', '13');
   if ((await page.textContent('#stu-err')).trim()) problems.push(kind + ': 숫자를 고쳤는데 지난 안내가 남아 있음');
+  sum = await sumNow();
+  await page.locator('#stu-sec-3').scrollIntoViewIfNeeded();
   await shot(page, kind + '_학생수_넣기창');
   await page.click('#stu-save');
   await page.locator('.stu-grid').waitFor();
   await card.scrollIntoViewIfNeeded();
   if (!(await page.locator('.stu-g.mine', { hasText: '3학년' }).count())) problems.push(kind + ': 우리 학년(3학년) 표시가 없음');
-  const total = (await page.textContent('.stu-total-num')).trim();
-  if (total !== '363') problems.push(kind + ': 전체 학생 수가 ' + total);
+  const shown = Number((await page.textContent('.stu-total-num')).replace(/,/g, ''));
+  if (shown !== sum) problems.push(kind + ': 전체 학생 수가 ' + shown + ' (기대 ' + sum + ')');
   await page.waitForTimeout(2400); // 알림 글이 사라진 뒤 찍기
   await shot(page, kind + '_홈_학생수');
+  // 학년을 누르면 반별 남·여
+  await page.click('[data-action=students-grade][data-id="3"]');
+  await page.locator('.stu-table').waitFor();
+  if ((await page.locator('.stu-table tbody tr').count()) !== 2) problems.push(kind + ': 3학년 반별 줄이 2개가 아님');
+  await shot(page, kind + '_학생수_3학년반별');
+  await page.click('.modal [data-action=students-edit]');
+  await page.locator('#stu-form').waitFor();
+  await page.waitForTimeout(300);
+  const off = await page.evaluate(() => Math.round(document.querySelector('#stu-sec-3').getBoundingClientRect().top - document.querySelector('.modal').getBoundingClientRect().top));
+  if (off > 40) problems.push(kind + ': 학년 상세에서 고치기를 눌렀는데 그 학년으로 가지 않음(' + off + ')');
+  await page.click('#stu-form [data-action=close-modal]');
+}
+
+/** 속도: 다시 열기는 boot 한 번, 15초 안에 다시 연 메뉴는 서버를 부르지 않음 */
+async function speedFlow(page, kind) {
+  await page.evaluate(() => {
+    if (!window.__countOn) {
+      const o = window.__previewServer;
+      window.__calls = [];
+      window.__previewServer = (req) => { window.__calls.push(JSON.parse(req).action); return o(req); };
+      window.__countOn = true;
+    }
+    window.__calls.length = 0;
+  });
+  await page.evaluate(() => { window.__gy.memoClear(); window.__gy.S.screen = 'home'; document.getElementById('app').innerHTML = ''; window.__gy.init(); });
+  await page.locator('.today-card').waitFor();
+  await page.waitForTimeout(300);
+  let c = await takeCalls(page);
+  if (c.join() !== 'boot') problems.push(kind + ': 다시 열 때 서버를 ' + c.length + '번 부름(' + c.join(', ') + ')');
+  const cal = kind === '휴대폰' ? '.pweek' : '.cal';
+  await page.evaluate(() => window.__gy.go('schedule'));
+  await page.locator(cal).waitFor();
+  await page.waitForTimeout(300);
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.today-card').waitFor();
+  await takeCalls(page);
+  await page.evaluate(() => window.__gy.go('schedule'));
+  await page.locator(cal).waitFor();
+  await page.waitForTimeout(300);
+  c = await takeCalls(page);
+  if (c.length) problems.push(kind + ': 방금 본 일정을 다시 열었는데 서버를 부름(' + c.join(', ') + ')');
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.today-card').waitFor();
+  await takeCalls(page);
+}
+async function takeCalls(page) {
+  return page.evaluate(() => { const c = (window.__calls || []).slice(); if (window.__calls) window.__calls.length = 0; return c; });
 }
 
 /** 화면 크기 막대: +로 끝까지(PC 130%, 휴대폰 120%), 막대로 가장 작게, 기억하기, 예전 '글자 크게' 이어받기 */
@@ -457,6 +522,7 @@ async function flow(browser, kind, viewport) {
   await page.locator('.today-card').waitFor();
   await shot(page, kind + '_홈', true);
   await studentsFlow(page, kind);
+  await speedFlow(page, kind);
   await scheduleFlow(page, kind);
   await surveyFlow(page, kind);
   await libraryFlow(page, kind);
@@ -489,6 +555,11 @@ async function flow(browser, kind, viewport) {
   await page.locator('.check-row').first().waitFor();
   await shot(page, kind + '_관리자_점검', true);
   if (await page.locator('.check-row.bad').count()) problems.push(kind + ': 점검에 문제 항목이 있음 ' + (await page.locator('.check-row.bad').first().innerText()).replace(/\s+/g, ' '));
+  await page.click('[data-action=speed-run]');
+  await page.locator('.speed-table').waitFor();
+  if ((await page.locator('.speed-table tbody tr').count()) !== 7) problems.push(kind + ': 속도 재기 표가 7줄이 아님');
+  await page.locator('#speed-out').scrollIntoViewIfNeeded();
+  await shot(page, kind + '_속도재기');
   await page.click('[data-admin-tab=staff]');
   await page.locator('.srow').nth(3).waitFor();
   await page.click('[data-action=staff-add]');
