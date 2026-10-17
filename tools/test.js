@@ -1609,6 +1609,39 @@ test('교표: Styles.html의 교표 그림(--gy-emblem)이 잘리지 않은 PNG�
   assert.ok(/\.gi-logo\{[^}]*var\(--gy-emblem\)/.test(idx) && !/BOOK/.test(idx), '여는 그림의 로고도 교표');
 });
 
+test('여는 그림 인사: 응원 문장 20개 중 하나를 열 때마다 고르고, 바로 전 문장은 다시 나오지 않는다(이름이 와도 같은 문장)', () => {
+  const vm = require('vm');
+  const src = fs.readFileSync(path.join(GAS_DIR, 'Index.html'), 'utf8');
+  const head = 'window.__gyIntroU = (function () {', tail = 'return U;\n})();';
+  const a = src.indexOf(head), b = src.indexOf(tail, a);
+  assert.ok(a > 0 && b > a, '인트로 도구 묶음');
+  const code = src.slice(a, b + tail.length);
+  const store = {};
+  const sb = { window: {}, localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } } };
+  vm.createContext(sb);
+  // 늘 같은 결과가 나오게 정해진 난수(mulberry32)를 쓴다
+  vm.runInContext('var __s = 7; Math.random = function () { __s = (__s + 0x6D2B79F5) | 0; var t = Math.imul(__s ^ (__s >>> 15), 1 | __s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };', sb);
+  let prev = null;
+  const seen = new Set();
+  for (let k = 0; k < 300; k++) { // 열 때마다 새로 읽힌다
+    vm.runInContext(code, sb);
+    const U = sb.window.__gyIntroU;
+    const g = U.hello('');
+    assert.strictEqual(U.hello('성춘향'), '성춘향 선생님, ' + g, '이름이 와도 같은 문장');
+    assert.notStrictEqual(g, prev, '바로 전 문장이 또 나옴: ' + g);
+    prev = g;
+    seen.add(g);
+  }
+  const H = sb.window.__gyIntroU.HELLOS;
+  assert.strictEqual(H.length, 20);
+  assert.strictEqual(new Set(H).size, 20, '겹치는 문장 없음');
+  assert.strictEqual(seen.size, 20, '20개가 모두 나온다');
+  assert.ok(H.every((x) => x.length <= 17 && !/수고|아침|오후|저녁|반가워요/.test(x)), '짧고, 시간에 매이지 않고, 홈 제목(오늘도 반가워요)과 겹치지 않는 문장');
+  store['gy.helloLast'] = '엉뚱한 값';
+  vm.runInContext(code, sb);
+  assert.ok(H.indexOf(sb.window.__gyIntroU.hello('')) >= 0, '기억한 값이 이상해도 20개 중에서 고른다');
+});
+
 test('학생 수: 탭이 없던 시트에서도 홈이 열리고, 처음 넣으면 탭이 생긴다', () => {
   const g = freshName();
   const { who } = ids(g);

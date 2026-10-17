@@ -4,7 +4,7 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="gy-build" content="2026-10-17e">
+<meta name="gy-build" content="2026-10-17f">
 <title>온라인 교무실</title>
 <script>
 /* 여는 그림(인트로) ①: 그림이 처음 보이기 전에 밝기와 보여 주는 방식을 정한다(어두운 화면을 쓰는 분은 처음부터 어둡게)
@@ -937,10 +937,26 @@ window.__gyIntroU = (function () {
         { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + s + ')', boxShadow: '0 0 0 0 transparent' }
       ], { duration: dur, delay: delay, easing: 'cubic-bezier(.65,0,.25,1)', fill: 'forwards' });
     },
-    /** 시간에 맞는 인사 */
+    /** 인사: 오늘 하루를 응원하는 문장 20개(교사 확인, 판 2026-10-17f). 시간과 상관없이 열 때마다 하나를 무작위로 고른다 */
+    HELLOS: [
+      '오늘 하루도 힘차게 응원해요', '오늘도 좋은 하루 보내세요', '오늘도 멋진 하루가 될 거예요', '오늘도 파이팅이에요',
+      '기분 좋게 시작해 볼까요', '반짝반짝 빛나는 하루예요', '작은 행복이 함께하길 바라요', '좋은 일이 생길 것 같아요',
+      '아이들과 즐거운 하루 보내세요', '오늘 수업도 즐겁길 바라요', '교실에 웃음이 가득하길 바라요', '오늘도 아이들이 반가워할 거예요',
+      '마음 편안한 하루가 되길 바라요', '차 한 잔의 여유도 챙기세요', '지금도 충분히 잘하고 계세요', '하나씩 차근차근 잘될 거예요',
+      '함께여서 든든해요', '오늘도 곁에서 도와 드릴게요', '즐거운 마음으로 함께해요', '우리 학교의 오늘을 응원해요'
+    ],
+    helloAt: -1,
+    /** 이번에 열 때의 인사(이름이 나중에 와도 같은 문장). 바로 전에 나온 문장은 빼고 고르고, 고른 번호는 기기에 기억(gy.helloLast) */
     hello: function (name) {
-      var h = new Date().getHours();
-      var g = h >= 5 && h < 11 ? '좋은 아침이에요' : h >= 11 && h < 17 ? '좋은 오후예요' : '오늘도 수고 많으셨어요';
+      if (U.helloAt < 0) {
+        var n = U.HELLOS.length, last = -1, i;
+        try { last = parseInt(localStorage.getItem('gy.helloLast'), 10); } catch (e) { /* 그대로 */ }
+        if (last >= 0 && last < n) { i = Math.floor(Math.random() * (n - 1)); if (i >= last) i++; }
+        else i = Math.floor(Math.random() * n);
+        U.helloAt = i;
+        try { localStorage.setItem('gy.helloLast', String(i)); } catch (e) { /* 기억만 안 됨 */ }
+      }
+      var g = U.HELLOS[U.helloAt];
       return name ? name + ' 선생님, ' + g : g;
     }
   };
@@ -1879,8 +1895,8 @@ function include(name) {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-17e';
-function fileMark_Code_() { return '2026-10-17e'; }
+var APP_BUILD_ = '2026-10-17f';
+function fileMark_Code_() { return '2026-10-17f'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -1888,9 +1904,9 @@ function fileMark_Code_() { return '2026-10-17e'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-17e', 'Db': '2026-10-16e', 'Auth': '2026-10-16e', 'Admin': '2026-10-16e', 'Schedule': '2026-10-16e',
+    'Code': '2026-10-17f', 'Db': '2026-10-16e', 'Auth': '2026-10-16e', 'Admin': '2026-10-16e', 'Schedule': '2026-10-16e',
     'Survey': '2026-10-16e', 'Library': '2026-10-16e', 'Help': '2026-10-16', 'Setup': '2026-10-16e',
-    'App': '2026-10-17e', 'Styles': '2026-10-17e', 'Index': '2026-10-17e'
+    'App': '2026-10-17e', 'Styles': '2026-10-17e', 'Index': '2026-10-17f'
   };
 }
 

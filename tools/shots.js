@@ -1111,6 +1111,43 @@ async function emblemCheck(browser) {
   await ctx.close();
 }
 
+/** 여는 그림 인사(판 2026-10-17f): 열 때마다 응원 문장 20개 중 하나이고 바로 전 문장과 다르며, 가장 긴 문장에 이름을 붙여도
+ * PC는 한 줄, 휴대폰은 두 줄 안에 들어가는지 본다(줄 수는 글자를 잠깐 바꿔 넣고 재고 되돌린다) */
+let helloInfo = '';
+async function helloCheck(browser) {
+  const out = [];
+  for (const [label, vp, phone] of [['PC', { width: 1280, height: 800 }, false], ['휴대폰 390', { width: 390, height: 844 }, true], ['휴대폰 360', { width: 360, height: 740 }, true]]) {
+    const ctx = await newCtx(browser, { viewport: vp, hasTouch: phone, isMobile: phone }, true);
+    await slowServer(ctx, 1500);
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => problems.push('인사 ' + label + ' 페이지 오류: ' + e.message));
+    let prev = null;
+    const shown = [];
+    for (let k = 0; k < (phone ? 3 : 6); k++) {
+      await page.goto(FILE);
+      await page.locator('#gy-intro .gib-hello').waitFor({ state: 'attached', timeout: 5000 });
+      const r = await page.evaluate(() => {
+        const el = document.querySelector('#gy-intro .gib-hello'), H = window.__gyIntroU.HELLOS;
+        const now = el.textContent, lh = parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.2;
+        let most = 0, worst = '';
+        H.forEach((x) => { el.textContent = '홍길동 선생님, ' + x; const n = Math.round(el.getBoundingClientRect().height / lh); if (n > most) { most = n; worst = x; } });
+        el.textContent = now;
+        return { now, ok: H.indexOf(now) >= 0, most, worst };
+      });
+      if (!r.ok) problems.push('인사 ' + label + ': 응원 문장 20개 중 하나가 아님(' + r.now + ')');
+      if (r.now === prev) problems.push('인사 ' + label + ': 바로 전과 같은 문장이 또 나옴(' + r.now + ')');
+      if (r.most > (phone ? 2 : 1)) problems.push('인사 ' + label + ': 이름을 붙인 문장이 ' + r.most + '줄(' + r.worst + ')');
+      if (k === 0) out.push(label + ' 가장 많은 줄 ' + r.most + '줄');
+      prev = r.now;
+      shown.push(r.now);
+      await page.waitForFunction(() => !document.getElementById('gy-intro'), null, { timeout: 12000 }).catch(() => problems.push('인사 ' + label + ': 여는 그림이 걷히지 않음'));
+    }
+    if (label === 'PC') out.push('PC에서 연 ' + shown.length + '번: ' + shown.join(' / '));
+    await ctx.close();
+  }
+  helloInfo = '인사: ' + out.join(', ');
+}
+
 /** 가짜 서버를 늦춘다(웹앱 준비가 늦은 경우 흉내): 기기의 gy.testDelay(밀리초), 없으면 def만큼 기다렸다가 답한다 */
 async function slowServer(ctx, def) {
   await ctx.addInitScript((d) => {
@@ -1195,6 +1232,8 @@ async function introFlow(browser, kind, viewport) {
   await page.waitForTimeout(120);
   const hello = await page.locator('#gy-intro .gib-hello').textContent().catch(() => '');
   if (!/성춘향/.test(hello || '')) problems.push(kind + ' 인트로: 인사에 고른 이름이 없음(' + hello + ')');
+  const hellos = await page.evaluate(() => (window.__gyIntroU && window.__gyIntroU.HELLOS) || []);
+  if (!hellos.some((x) => hello === '성춘향 선생님, ' + x)) problems.push(kind + ' 인트로: 인사가 응원 문장 20개 중 하나가 아님(' + hello + ')');
   await snap(kind + '_인트로_5_이름인사');
   await page.waitForFunction(() => window.__gyIntroStats && window.__gyIntroStats.finishAt > 0, null, { timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(400);
@@ -1376,10 +1415,12 @@ async function introReducedMotionCheck(browser) {
   await printCheck(browser);
   await dragCheck(browser);
   await emblemCheck(browser);
-  const intro =[await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
+  await helloCheck(browser);
+  const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
   await browser.close();
   console.log('인트로: ' + intro.join(' / '));
   if (planInfo) console.log(planInfo);
+  if (helloInfo) console.log(helloInfo);
   console.log('사진 ' + n + '장 → ' + OUT);
   if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; }
   else console.log('넘침·오류 없음');
