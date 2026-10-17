@@ -8,7 +8,7 @@ const vm = require('vm');
 const GasMock = require('./gas-mock.js');
 
 const GAS_DIR = path.join(__dirname, '..', 'apps-script');
-const GAS_FILES = ['Code.gs', 'Db.gs', 'Auth.gs', 'Admin.gs', 'Schedule.gs', 'Survey.gs', 'Library.gs', 'Help.gs', 'Setup.gs'];
+const GAS_FILES = ['Code.gs', 'Db.gs', 'Auth.gs', 'Admin.gs', 'Schedule.gs', 'Survey.gs', 'Library.gs', 'Help.gs', 'Setup.gs', 'Table.gs'];
 
 /** clock.offset(ms)를 바꾸면 서버 코드의 시계가 그만큼 앞으로 간다 */
 function loadGas(opts) {

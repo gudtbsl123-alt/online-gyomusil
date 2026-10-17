@@ -2,7 +2,7 @@
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-10-17h'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -338,8 +338,8 @@ function adminCheck_(args) {
   var want = function (f) { return builds[f] || APP_BUILD_; };
   // 판 표시가 없어도 이 파일의 함수가 있으면 판 표시를 넣기 전(2026-10-15)의 예전 파일이다
   var probe = { 'Code': 'api', 'Db': 'sheetValues_', 'Auth': 'checkLogin_', 'Admin': 'adminCheck_', 'Schedule': 'apiSchedMonth_',
-    'Survey': 'apiSurveyList_', 'Library': 'apiLibList_', 'Help': 'apiHelpList_', 'Setup': 'setupAll_' };
-  ['Code', 'Db', 'Auth', 'Admin', 'Schedule', 'Survey', 'Library', 'Help', 'Setup'].forEach(function (f) {
+    'Survey': 'apiSurveyList_', 'Library': 'apiLibList_', 'Help': 'apiHelpList_', 'Setup': 'setupAll_', 'Table': 'apiTableList_' };
+  ['Code', 'Db', 'Auth', 'Admin', 'Schedule', 'Survey', 'Library', 'Help', 'Setup', 'Table'].forEach(function (f) {
     var mark = globalFn_('fileMark_' + f + '_');
     if (!mark && globalFn_(probe[f])) add('코드 파일', f + '.gs', 'warn', '판 표시가 없는 예전 파일이에요(기능은 돌아가요)', paste(f));
     else if (!mark) add('코드 파일', f + '.gs', 'bad', '파일이 없거나 내용이 비어 있어요', paste(f));
@@ -365,7 +365,7 @@ function adminCheck_(args) {
 
   // 2) 시트 탭·칸 (나중에 더한 탭·칸 중 처음 쓸 때 저절로 생기는 것은 없어도 괜찮다)
   var tabs = tabs_(), bad = 0;
-  var autoTabs = { '학생수': '학생 수를 처음 넣을 때 저절로 생겨요' }, notYet = 0;
+  var autoTabs = { '학생수': '학생 수를 처음 넣을 때 저절로 생겨요', '함께표': '함께 쓰는 표를 처음 만들 때 저절로 생겨요', '함께표줄': '함께 쓰는 표를 처음 만들 때 저절로 생겨요' }, notYet = 0;
   var autoCols = { // 저장할 때 ensureCols_가 붙이는 칸
     '학생수': { cols: ['반별'], when: '학생 수를 저장할 때' },
     '일정': { cols: ['중요'], when: '일정을 저장할 때' },
