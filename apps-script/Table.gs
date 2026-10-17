@@ -232,7 +232,7 @@ function apiTableList_(args, actor, ctx) {
     var la = a.last ? a.last.at : a.at, lb = b.last ? b.last.at : b.at;
     return la < lb ? 1 : la > lb ? -1 : 0;
   });
-  return { tables: cards, canCreate: !!ctx.identity, today: tbToday_() };
+  return { tables: cards, canCreate: !!ctx.identity, today: tbToday_(), depts: deptOptions_().filter(function (d) { return d.active; }) };
 }
 
 function apiTableGet_(args, actor, ctx) {
@@ -466,7 +466,7 @@ function apiTableCell_(args, actor, ctx) {
 
 /**
  * 여러 칸 한 번에(구글 시트에서 복사한 칸 붙여 넣기·줄 고치기 창). args.cells = [{ row, col, value, base }], args.add = [{ cells }](끝에 줄 더하기)
- * 잠근 열은 고칠 수 있는 분만 바뀌고, 그사이 다른 분이 고친 칸은 건너뛰고 알려 준다. 기록은 한 줄로
+ * 잠근 열은 고칠 수 있는 분만 바뀌고, 그사이 다른 분이 고친 칸은 건너뛰고 알려 준다(먼저 고친 값·분·시각·판, 내가 쓰려던 값). 기록은 한 줄로
  */
 function apiTableCells_(args, actor, ctx) {
   var id = String(args.id || '');
@@ -501,7 +501,7 @@ function apiTableCells_(args, actor, ctx) {
       var r = tbReadRow_('함께표줄', rowId, hint.rows[rowId], rh);
       if (!r || r['삭제 여부'] || r['표ID'] !== id) return;
       var mineRow = !!(ctx.identity && r['입력자ID'] === ctx.identity['교직원ID']);
-      var cells = tbParse_(r['칸'], {}), stamps = tbParse_(r['칸 고친 때'], {}), touched = false;
+      var cells = tbParse_(r['칸'], {}), stamps = tbParse_(r['칸 고친 때'], {}), touched = false, clash = false;
       byRow[rowId].forEach(function (x) {
         var col = colOf[String(x.col)];
         if (col.lock && !owner && !mineRow) { skipLocked++; return; }
@@ -509,7 +509,11 @@ function apiTableCells_(args, actor, ctx) {
         var cur = cells[col.id] === undefined || cells[col.id] === null ? '' : String(cells[col.id]);
         if (cur === value) return;
         var st = Array.isArray(stamps[col.id]) ? stamps[col.id] : [0, '', ''];
-        if (x.base !== undefined && x.base !== null && Number(x.base) !== (Number(st[0]) || 0)) { conflicts.push({ row: rowId, col: col.id }); return; }
+        if (x.base !== undefined && x.base !== null && Number(x.base) !== (Number(st[0]) || 0)) {
+          conflicts.push({ row: rowId, col: col.id, mine: value, value: cur, by: st[1] || '', at: st[2] || '', base: Number(st[0]) || 0 });
+          clash = true;
+          return;
+        }
         var v = bump();
         cells[col.id] = value;
         stamps[col.id] = [v, actor.name || '', tbNowMin_()];
@@ -519,7 +523,7 @@ function apiTableCells_(args, actor, ctx) {
         changed++;
         touched = true;
       });
-      if (!touched) return;
+      if (!touched) { if (clash) out.push(tbRowView_(r, names, t['입력자ID'])); return; } // 묻는 창에 쓸 지금 값
       tbPutRow_(r, cells, stamps, ver, actor);
       tbWriteRow_('함께표줄', r, rh);
       out.push(tbRowView_(r, names, t['입력자ID']));

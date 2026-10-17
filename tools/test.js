@@ -2824,7 +2824,8 @@ test('함께 쓰는 표: 여러 칸 붙여 넣기는 한 번에(잠근 칸은 �
   }, a);
   assert.ok(r.ok, r.error);
   assert.strictEqual(r.data.skipLocked, 1);
-  assert.deepStrictEqual(plain(r.data.conflicts), [{ row: d.rows[1].id, col: 'c4' }]);
+  assert.deepStrictEqual(plain(r.data.conflicts).map((x) => [x.row, x.col, x.mine, x.value, x.by]), [[d.rows[1].id, 'c4', '심청 값', '장화가 먼저', '장화']]);
+  assert.ok(r.data.conflicts[0].base > 0, '내 값으로 바꾸기를 고르면 이 판으로 다시 보낸다');
   assert.strictEqual(r.data.changed, 6, '고친 칸 3 + 더한 줄에 채운 칸 3');
   assert.strictEqual(r.data.rows.length, 4, '바뀐 줄 2 + 더한 줄 2');
   const e = tbGet(g, id, a);
