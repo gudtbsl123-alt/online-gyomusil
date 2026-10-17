@@ -878,7 +878,7 @@ async function slowServer(ctx, def) {
 const sec = (ms) => (ms / 1000).toFixed(1) + '초';
 
 /** 여는 그림(인트로, Index.html): '여는 중' 화면 대신 웹앱이 준비될 때까지만 보이고(정해 둔 최소 시간 없음), 준비가 빠르면 글자까지 빨리 감아 보여 준 뒤 열린다.
- * 같은 날 다시 열면 로고만 짧게, 누르면 건너뜀(아래 앱은 눌리지 않음) */
+ * 다시 열어도·어두운 화면에서도 빛 알갱이(교사 요청), 누르면 건너뜀(아래 앱은 눌리지 않음) */
 async function introFlow(browser, kind, viewport) {
   const phone = kind === '휴대폰';
   const ctx = await newCtx(browser, { viewport, deviceScaleFactor: 1, hasTouch: phone, isMobile: phone }, true);
@@ -890,7 +890,7 @@ async function introFlow(browser, kind, viewport) {
   const stats = () => page.evaluate(() => window.__gyIntroStats || {});
   const there = () => page.evaluate(() => !!document.getElementById('gy-intro'));
   const gone = (ms) => page.waitForFunction(() => !document.getElementById('gy-intro'), null, { timeout: ms }).then(() => true, () => false);
-  const setDelay = (ms) => page.evaluate((v) => { localStorage.setItem('gy.testDelay', String(v)); localStorage.removeItem('gy.introDay'); }, ms);
+  const setDelay = (ms) => page.evaluate((v) => localStorage.setItem('gy.testDelay', String(v)), ms);
   let t0 = 0;
   const at = async (s) => { const w = s * 1000 - (Date.now() - t0); if (w > 0) await page.waitForTimeout(w); };
   const snap = async (name) => { n++; await page.screenshot({ path: path.join(OUT, String(n).padStart(2, '0') + '_' + name + '.png') }); };
@@ -908,19 +908,19 @@ async function introFlow(browser, kind, viewport) {
     if (!(st.doneAt - st.readyAt <= limit)) problems.push(kind + ' 인트로(' + label + '): 준비된 뒤 ' + sec(st.doneAt - st.readyAt) + ' 더 걸림(' + sec(limit) + ' 넘음) ' + JSON.stringify(st));
   };
 
-  // ① 그날 처음 + 빠른 서버: 글자까지 빨리 감아 보여 주고 바로 열림(예전처럼 4초를 채우지 않음)
+  // ① 처음 열기 + 빠른 서버: 글자까지 빨리 감아 보여 주고 바로 열림(예전처럼 4초를 채우지 않음)
   await page.goto(FILE);
-  if ((await mode()) !== 'full') problems.push(kind + ' 인트로: 그날 처음 열었는데 전체가 아님(' + (await mode()) + ')');
+  if ((await mode()) !== 'full') problems.push(kind + ' 인트로: 처음 열었는데 빛 알갱이가 아님(' + (await mode()) + ')');
   await took('빠른 서버', 2600);
   await waitText(page, '어서 오세요');
 
-  // ② 같은 날 다시 열기: 로고만 짧게
+  // ② 같은 날 다시 열기: 다시 열어도 빛 알갱이(교사 요청, 예전에는 로고만 짧게)
   t0 = Date.now();
   await page.reload();
-  if ((await mode()) !== 'short') problems.push(kind + ' 인트로: 같은 날 다시 열었는데 짧게가 아님(' + (await mode()) + ')');
-  await at(0.2);
-  await snap(kind + '_인트로_4_다시열면_짧게');
-  await took('다시 열기', 1000);
+  if ((await mode()) !== 'full') problems.push(kind + ' 인트로: 다시 열었는데 빛 알갱이가 아님(' + (await mode()) + ')');
+  await at(0.8);
+  await snap(kind + '_인트로_4_다시열어도_빛알갱이');
+  await took('다시 열기', 2600);
   await waitText(page, '어서 오세요');
 
   // ③ 서버가 3초 걸릴 때: 은하 → 글자 → 학교 이름·인사를 제 빠르기로 다 보여 주고, 글자에서 기다리다 준비되면 바로 열림
@@ -974,13 +974,15 @@ async function introFlow(browser, kind, viewport) {
   await press(phone ? '.bottom-nav [data-go=schedule]' : '.side [data-go=schedule]');
   await page.locator('.cal, .pweek').first().waitFor();
 
-  // ⑥ 어두운 화면에서 다시 열기(로고만 짧게)
+  // ⑥ 어두운 화면에서 다시 열기: 그래도 빛 알갱이
   await page.evaluate(() => localStorage.setItem('gy.theme', 'dark'));
   t0 = Date.now();
   await page.goto(LOGGED);
-  await at(0.2);
-  await snap(kind + '_인트로_7_어두운화면_짧게');
-  if (!(await gone(3000))) problems.push(kind + ' 인트로: 어두운 화면 짧게가 걷히지 않음');
+  if ((await mode()) !== 'full') problems.push(kind + ' 인트로: 어두운 화면에서 다시 열었는데 빛 알갱이가 아님(' + (await mode()) + ')');
+  await at(1.5);
+  await snap(kind + '_인트로_7_어두운화면_다시열기');
+  await took('어두운 화면', 2600);
+  await page.locator('.today-card').waitFor();
   await ctx.close();
   return kind + ' ' + info.join(', ');
 }
@@ -1001,7 +1003,6 @@ async function introLateCheck(browser) {
   const st = await page.evaluate(() => window.__gyIntroStats || {});
   if (!(st.doneAt - st.readyAt <= 1000)) problems.push('자료가 늦게 온 뒤 ' + sec(st.doneAt - st.readyAt) + ' 더 걸림');
   await waitText(page, '어서 오세요');
-  await page.evaluate(() => localStorage.removeItem('gy.introDay'));
   t0 = Date.now();
   await page.goto(FILE);
   await page.waitForTimeout(1000);
@@ -1016,20 +1017,25 @@ async function introLateCheck(browser) {
   return '서버 6초 준비 ' + sec(st.readyAt) + ' → 걷힘 ' + sec(st.doneAt);
 }
 
-/** 움직임 줄이기를 켠 기기: 조용히(움직이지 않고 나타났다 사라짐) */
-async function introCalmCheck(browser) {
+/** 움직임 줄이기를 켠 기기(윈도우 '애니메이션 효과' 끄기 등)도 빛 알갱이(교사 선택) */
+async function introReducedMotionCheck(browser) {
   const ctx = await newCtx(browser, { viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' }, true);
   const page = await ctx.newPage();
-  page.on('pageerror', (e) => problems.push('조용한 인트로 페이지 오류: ' + e.message));
+  page.on('pageerror', (e) => problems.push('움직임 줄이기 기기 인트로 페이지 오류: ' + e.message));
   const t0 = Date.now();
   await page.goto(FILE);
   const m = await page.getAttribute('html', 'data-intro');
-  if (m !== 'calm') problems.push('움직임 줄이기 기기인데 인트로가 ' + m);
-  const ok = await page.waitForFunction(() => !document.getElementById('gy-intro'), null, { timeout: 3000 }).then(() => true, () => false);
-  if (!ok) problems.push('조용한 인트로가 3초 안에 걷히지 않음');
+  if (m !== 'full') problems.push('움직임 줄이기 기기인데 빛 알갱이가 아님(' + m + ')');
+  await page.waitForTimeout(800 - (Date.now() - t0));
+  n++;
+  await page.screenshot({ path: path.join(OUT, String(n).padStart(2, '0') + '_PC_인트로_8_움직임줄이기_기기.png') });
+  const ok = await page.waitForFunction(() => !document.getElementById('gy-intro'), null, { timeout: 8000 }).then(() => true, () => false);
+  if (!ok) problems.push('움직임 줄이기 기기의 인트로가 걷히지 않음');
+  const st = await page.evaluate(() => window.__gyIntroStats || {});
+  if (st.mode !== 'full') problems.push('움직임 줄이기 기기에서 빛 알갱이를 그리지 않음 ' + JSON.stringify(st));
   await waitText(page, '어서 오세요');
   await ctx.close();
-  return '움직임 줄이기 ' + ((Date.now() - t0) / 1000).toFixed(1) + '초';
+  return '움직임 줄이기 기기 준비 ' + sec(st.readyAt) + ' → 걷힘 ' + sec(st.doneAt);
 }
 
 (async () => {
@@ -1121,7 +1127,7 @@ async function introCalmCheck(browser) {
   }
   await pinModeCheck(browser);
   await printCheck(browser);
-  const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introCalmCheck(browser)];
+  const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
   await browser.close();
   console.log('인트로: ' + intro.join(' / '));
   console.log('사진 ' + n + '장 → ' + OUT);

@@ -4,22 +4,16 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="gy-build" content="2026-10-17b">
+<meta name="gy-build" content="2026-10-17c">
 <title>온라인 교무실</title>
 <script>
 /* 여는 그림(인트로) ①: 그림이 처음 보이기 전에 밝기와 보여 주는 방식을 정한다(어두운 화면을 쓰는 분은 처음부터 어둡게)
- * 그날 처음 여는 기기는 전체(full), 그 뒤로는 짧게(short), 움직임 줄이기를 켠 기기는 조용히(calm). 기기에 gy.introOff=1이면 끔(자동 점검용) */
+ * 열 때마다 모든 기기에서 전체(full)를 보여 준다(교사 요청: 다시 열어도, 움직임 줄이기를 켠 기기도). 기기에 gy.introOff=1이면 끔(자동 점검용) */
 (function () {
   var d = document.documentElement;
   function g(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-  function s(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* 기억 못 해도 괜찮다 */ } }
   if (g('gy.theme') === 'dark') d.setAttribute('data-theme', 'dark');
-  var t = new Date(), day = t.getFullYear() + '-' + (t.getMonth() + 1) + '-' + t.getDate();
-  var mode = g('gy.introDay') === day ? 'short' : 'full';
-  try { if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) mode = 'calm'; } catch (e) { /* 그대로 */ }
-  if (g('gy.introOff') === '1') mode = 'off';
-  if (mode === 'full') s('gy.introDay', day);
-  d.setAttribute('data-intro', mode);
+  d.setAttribute('data-intro', g('gy.introOff') === '1' ? 'off' : 'full');
 })();
 </script>
 <!-- 글꼴: Pretendard (SIL Open Font License 1.1, https://github.com/orioncactus/pretendard). 인터넷이 안 되면 기기 기본 글꼴로 보입니다. -->
@@ -43,16 +37,12 @@ html[data-intro="off"] #gy-intro{display:none}
 #gy-intro .gi-logo-soft{background:linear-gradient(var(--accent-soft),var(--accent-soft)),var(--c-sub);color:var(--accent)}
 #gy-intro .gi-logo-solid{background:radial-gradient(120% 90% at 25% 15%,rgba(255,255,255,.22),transparent 55%),var(--accent);color:var(--c-onAccent)}
 
-/* 짧게(그날 두 번째부터) */
+/* 짧게(로고만): 빛 알갱이를 그릴 수 없을 때만 대신 쓴다 */
 #gy-intro.gi-short .gis-logo{animation:gis-pop .42s cubic-bezier(.34,1.56,.64,1) both}
 @keyframes gis-pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
 #gy-intro .gis-name{position:absolute;left:-50vw;width:100vw;top:60px;text-align:center;font-size:22px;font-weight:800;letter-spacing:-0.03em;color:var(--c-t1)}
 #gy-intro.gi-short .gis-name{animation:gis-up .4s .1s cubic-bezier(.2,.8,.2,1) both}
 @keyframes gis-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-/* 조용히(움직임 줄이기를 켠 기기): 움직이지 않고 나타났다 사라진다 */
-#gy-intro.gi-calm .gi-center{animation:gis-fade .25s both}
-@keyframes gis-fade{from{opacity:0}to{opacity:1}}
-@media (prefers-reduced-motion:reduce){#gy-intro *{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important}}
 /* ===== 시안 B. 빛 알갱이 ===== */
 /* 빛이 잘 보이게 밝은 화면에서도 밤하늘 바탕(어두운 화면의 바탕색 + 파란 빛 번짐) → 끝날 때 로고 자리부터 앱 화면이 열린다 */
 #gy-intro.gi-b .gi-bgl{background:radial-gradient(80% 65% at 50% 45%,rgba(71,149,255,.18),rgba(71,149,255,.06) 50%,rgba(71,149,255,0) 100%),#0B0E14}
@@ -457,9 +447,9 @@ window.__gyIntroU = (function () {
 };
 /* ===== 여는 그림(인트로) ③: 움직임 — 공통 틀 =====
  * '여는 중' 화면 대신 웹앱을 여는 동안(홈 자료를 받는 동안)만 움직이는 그림을 보여 주고, 앱이 첫 화면을 그리면 그 화면으로 이어 준다.
- * - 보여 주는 방식(data-intro): full(그날 처음) · short(그 뒤, 로고만) · calm(움직임 줄이기 기기) · off
+ * - 보여 주는 방식(data-intro): full(열 때마다, 모든 기기) · short(로고만: 빛 알갱이를 그릴 수 없을 때) · off(자동 점검)
  * - 앱(App.html)은 첫 화면을 그린 뒤 GYIntro.ready({ name, school })를 부른다. 정해 둔 최소 시간은 없다(교사 선택 ①):
- *   full은 글자가 덜 모였으면 3배로 빨리 감아 마저 모으고 0.35초 보인 뒤 끝낸다. short·calm은 0.35·0.3초부터 끝낼 수 있다
+ *   full은 글자가 덜 모였으면 3배로 빨리 감아 마저 모으고 0.35초 보인 뒤 끝낸다. short는 0.35초부터 끝낼 수 있다
  * - 화면을 누르거나 키를 누르면 건너뛴다. 자료가 아직이면 글자까지 빨리 감아 기다리고, 또 누르면 앱의 '여는 중' 화면을 보여 준다
  * - 움직임 시간(ctx.t)은 장면마다 흐른 시간 × 빠르기(ctx.speed)로 쌓는다. 실제로 흐른 시간은 ctx.real
  * - 오류가 나면 바로 걷힌다(앱을 가리지 않게). CSS에도 20초 안전장치가 있다
@@ -542,8 +532,8 @@ window.__gyIntroU = (function () {
       }
       if (full && K.frame) safe(function () { K.frame(ctx.t, ctx); });
       if (me.state === 'done' || finishing || !ctx.info) return;
-      // 끝낼 때: 앱이 준비됐고, full은 글자가 다 모여 잠깐 보였을 때. short·calm은 로고가 잠깐이라도 보였을 때
-      if (full ? (!K.done || safe(function () { return K.done(ctx); })) : ctx.real >= (mode === 'short' ? 0.35 : 0.3)) finish();
+      // 끝낼 때: 앱이 준비됐고, full은 글자가 다 모여 잠깐 보였을 때. short는 로고가 잠깐이라도 보였을 때
+      if (full ? (!K.done || safe(function () { return K.done(ctx); })) : ctx.real >= 0.35) finish();
     }
 
     function ready(info) {
@@ -606,16 +596,16 @@ window.__gyIntroU = (function () {
       setTimeout(cleanup, 3500); // 안전장치
     }
 
-    // ---------- 짧게(그날 두 번째부터)·조용히(움직임 줄이기) ----------
+    // ---------- 짧게(로고만): 빛 알갱이를 그릴 수 없을 때 ----------
     function buildShort() {
-      el.classList.add(mode === 'calm' ? 'gi-calm' : 'gi-short');
+      el.classList.add('gi-short');
       var c = U.h('div', 'gi-center', '', el);
       ctx.logo = U.logo(c, 'gis-logo');
       U.h('div', 'gis-name', '온라인 교무실', c);
     }
     function shortFinish(tg) {
       var name = el.querySelector('.gis-name');
-      if (mode === 'calm' || !tg.brand) {
+      if (!tg.brand) {
         U.anim(el, [{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: 'ease-out', fill: 'forwards' });
         setTimeout(cleanup, 320);
         return;
