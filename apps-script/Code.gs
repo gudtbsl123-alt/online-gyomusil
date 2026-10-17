@@ -29,8 +29,8 @@ function include(name) {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-17';
-function fileMark_Code_() { return '2026-10-17'; }
+var APP_BUILD_ = '2026-10-17b';
+function fileMark_Code_() { return '2026-10-17b'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -38,9 +38,9 @@ function fileMark_Code_() { return '2026-10-17'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-17', 'Db': '2026-10-16e', 'Auth': '2026-10-16e', 'Admin': '2026-10-16e', 'Schedule': '2026-10-16e',
+    'Code': '2026-10-17b', 'Db': '2026-10-16e', 'Auth': '2026-10-16e', 'Admin': '2026-10-16e', 'Schedule': '2026-10-16e',
     'Survey': '2026-10-16e', 'Library': '2026-10-16e', 'Help': '2026-10-16', 'Setup': '2026-10-16e',
-    'App': '2026-10-17', 'Styles': '2026-10-16f', 'Index': '2026-10-17'
+    'App': '2026-10-17', 'Styles': '2026-10-16f', 'Index': '2026-10-17b'
   };
 }
 

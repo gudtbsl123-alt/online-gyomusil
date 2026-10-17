@@ -4,7 +4,7 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="gy-build" content="2026-10-17">
+<meta name="gy-build" content="2026-10-17b">
 <title>온라인 교무실</title>
 <script>
 /* 여는 그림(인트로) ①: 그림이 처음 보이기 전에 밝기와 보여 주는 방식을 정한다(어두운 화면을 쓰는 분은 처음부터 어둡게)
@@ -58,15 +58,14 @@ html[data-intro="off"] #gy-intro{display:none}
 #gy-intro.gi-b .gi-bgl{background:radial-gradient(80% 65% at 50% 45%,rgba(71,149,255,.18),rgba(71,149,255,.06) 50%,rgba(71,149,255,0) 100%),#0B0E14}
 #gy-intro.gi-b .gib-cv{position:absolute;inset:0;width:100%;height:100%}
 #gy-intro.gi-b .gib-hello{position:absolute;left:0;right:0;top:62%;text-align:center;font-size:18px;font-weight:600;letter-spacing:-0.01em;color:#CFE0FF;
-  text-shadow:0 0 18px rgba(71,149,255,.45);opacity:0;animation:gib-up .7s 3.1s cubic-bezier(.2,.8,.2,1) forwards}
+  text-shadow:0 0 18px rgba(71,149,255,.45);opacity:0}
 #gy-intro.gi-b .gib-core{position:absolute;left:50%;top:46%;width:520px;height:520px;margin:-260px 0 0 -260px;border-radius:50%;
   background:radial-gradient(closest-side,rgba(220,235,255,.85),rgba(71,149,255,.35) 25%,rgba(71,149,255,0) 70%);opacity:0;transform:scale(.1);
-  animation:gib-core 1.3s .02s cubic-bezier(.2,.8,.2,1) forwards}
+  animation:gib-core 1s .02s cubic-bezier(.2,.8,.2,1) forwards}
 @keyframes gib-core{25%{opacity:1}100%{opacity:0;transform:scale(1)}}
 #gy-intro.gi-b .gib-sub{position:absolute;left:0;right:0;text-align:center;font-weight:700;letter-spacing:.3em;padding-left:.3em;color:#DCE8FF;line-height:1;
-  text-shadow:0 0 14px rgba(71,149,255,.8),0 0 2px rgba(255,255,255,.6);opacity:0;animation:gib-sub .9s 2.45s cubic-bezier(.2,.8,.2,1) forwards}
-@keyframes gib-sub{from{opacity:0;transform:translateY(8px) scale(.96);filter:blur(6px)}to{opacity:1;transform:none;filter:blur(0)}}
-@keyframes gib-up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  text-shadow:0 0 14px rgba(71,149,255,.8),0 0 2px rgba(255,255,255,.6);opacity:0}
+/* 학교 이름·인사는 움직임 시간에 맞춰 스크립트가 나타나게 한다(빨리 감으면 함께 빨라지게) */
 #gy-intro.gi-b .gib-pulse{position:fixed;box-sizing:border-box;border-radius:12px;border:2px solid #4795FF;box-shadow:0 0 24px rgba(71,149,255,.6);opacity:0}
 @media (max-width:699px){#gy-intro.gi-b .gib-hello{font-size:15px}}
 /* 그림이 처음 보이는 순간부터 밤하늘(움직임 코드가 돌기 전 한 장면도 밝게 번쩍이지 않게) */
@@ -148,11 +147,11 @@ window.__gyIntroU = (function () {
   return U;
 })();
 /* ===== 여는 그림: 빛 알갱이 =====
- * 빛 알갱이 수천 개가 기울어진 은하처럼 피어나 돌다가, 왼쪽부터 학교 이름과 '온라인 교무실' 글자로 모인다.
- * 끝날 때 알갱이가 소용돌이치며 메뉴의 로고로 빨려 들어가고, 그 자리에서부터 화면이 둥글게 열린다
+ * 빛 알갱이 수천 개가 기울어진 은하처럼 피어나 돌다가, 왼쪽부터 학교 이름과 '온라인 교무실' 글자로 모인다(2.3초쯤).
+ * 웹앱이 먼저 준비되면 남은 움직임을 빨리 감아 글자를 마저 모은 뒤 끝낸다. 준비가 늦으면 글자에서 반짝이며 기다린다.
+ * 끝날 때 알갱이가 소용돌이치며 메뉴의 로고로 빨려 들어가고, 그 자리에서부터 화면이 둥글게 열린다(0.75초쯤)
  */
 (window.__gyIntroKinds = window.__gyIntroKinds || {}).b = {
-  minT: 4.2,
   build: function (ctx) {
     var U = ctx.U, el = ctx.el, W = ctx.w, H = ctx.h;
     el.classList.add('gi-b');
@@ -172,7 +171,7 @@ window.__gyIntroU = (function () {
       rr: new Float32Array(N), ph: new Float32Array(N), w: new Float32Array(N), y: new Float32Array(N), sz: new Float32Array(N),
       col: new Uint8Array(N), tw: new Float32Array(N), tx: new Float32Array(N), ty: new Float32Array(N), has: new Uint8Array(N),
       del: new Float32Array(N), dur: new Float32Array(N), sw: new Float32Array(N), hx: new Float32Array(N), hy: new Float32Array(N),
-      fd: new Float32Array(N), fu: new Float32Array(N), T1: 1.5, sampled: false, fin: 0, sprites: [], cheap: false, maskR: -1
+      fd: new Float32Array(N), fu: new Float32Array(N), T1: 1.0, doneT: 2.3, sampled: false, fin: 0, sprites: [], cheap: false, maskR: -1
     };
     for (var i = 0; i < N; i++) {
       var r = Math.pow(Math.random(), 0.62), arm = i % 3;
@@ -208,6 +207,7 @@ window.__gyIntroU = (function () {
   /** 글자 모양을 따라 알갱이가 갈 자리를 정한다(왼쪽 글자부터 차례로 날아가게) */
   sample: function (ctx) {
     var U = ctx.U, B = ctx.B, W = ctx.w, H = ctx.h;
+    B.T1 = Math.max(B.T1, ctx.t + 0.12); // 늦게 정했으면 그만큼 늦게 날아간다(알갱이가 튀지 않게)
     var c = document.createElement('canvas');
     c.width = W;
     c.height = H;
@@ -251,18 +251,20 @@ window.__gyIntroU = (function () {
     for (i = idx.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = idx[i]; idx[i] = idx[j]; idx[j] = t; }
     var minX = Infinity, maxX = -Infinity, k;
     for (k = 0; k < pts.length; k += 2) { if (pts[k] < minX) minX = pts[k]; if (pts[k] > maxX) maxX = pts[k]; }
-    var m = Math.min(idx.length, pts.length / 2);
+    var m = Math.min(idx.length, pts.length / 2), end = 0;
     for (k = 0; k < m; k++) {
       var p = idx[k];
       B.has[p] = 1;
       B.tx[p] = pts[k * 2];
       B.ty[p] = pts[k * 2 + 1];
-      B.del[p] = 0.46 * (B.tx[p] - minX) / Math.max(1, maxX - minX) + Math.random() * 0.12;
-      B.dur[p] = 0.85 + Math.random() * 0.35;
+      B.del[p] = 0.35 * (B.tx[p] - minX) / Math.max(1, maxX - minX) + Math.random() * 0.08;
+      B.dur[p] = 0.6 + Math.random() * 0.25;
       B.sw[p] = (Math.random() < 0.5 ? -1 : 1) * (30 + Math.random() * 90);
+      if (B.del[p] + B.dur[p] > end) end = B.del[p] + B.dur[p];
     }
     B.minX = minX;
     B.maxX = maxX;
+    B.doneT = B.T1 + end; // 마지막 알갱이가 글자에 닿는 때
     B.sampled = true;
     if (ctx.helloEl) ctx.helloEl.style.top = Math.round(B.textBottom + (two ? 6 : 14)) + 'px';
   },
@@ -271,9 +273,40 @@ window.__gyIntroU = (function () {
     if (ctx.helloEl) ctx.helloEl.textContent = ctx.hello;
     if (ctx.subEl && ctx.school) ctx.subEl.textContent = ctx.school;
   },
-  skipTo: function (ctx) {
-    if (!ctx.B.sampled) this.sample(ctx);
-    ctx.jump += Math.max(0, 3.15 - ctx.t);
+  /** 끝내도 되나: 글자가 다 모이고 실제로 0.35초 보인 뒤(그 전에 웹앱이 준비되면 공통 틀이 빨리 감는다) */
+  done: function (ctx) { return this.formed(ctx) && ctx.real - ctx.B.formedAt >= 0.35; },
+  /** 빨리 감기를 멈출 때: 글자가 다 모였으면(처음 모인 때를 실제 시간으로 적어 둔다) */
+  formed: function (ctx) {
+    var B = ctx.B;
+    if (!B.sampled || ctx.t < B.doneT) return false;
+    if (B.formedAt == null) B.formedAt = ctx.real;
+    return true;
+  },
+  /** 글자 자리를 정해도 되나: 느린 기기 확인이 끝나고 글꼴이 준비됐거나 0.3초 더 기다렸으면 */
+  canSample: function (ctx) {
+    var B = ctx.B, ok = true;
+    if (ctx.t < B.T1 - 0.12 || !B.probed) return false;
+    try { if (document.fonts && document.fonts.check) ok = document.fonts.check('800 80px Pretendard', '온라인 교무실'); } catch (e) { /* 기본 글꼴로 */ }
+    return ok || ctx.t >= B.T1 + 0.3;
+  },
+  /** 학교 이름·인사 글자: 움직임 시간(t)에 맞춰 나타난다(빨리 감으면 함께 빨라진다) */
+  texts: function (t, ctx) {
+    var U = ctx.U, B = ctx.B;
+    if (B.fin || !B.sampled) return;
+    var a = U.outCubic(U.seg(t, B.T1 + 0.75, B.T1 + 1.4)), b = U.outCubic(U.seg(t, B.T1 + 1.15, B.T1 + 1.7)), st;
+    if (a !== B.subA) {
+      B.subA = a;
+      st = ctx.subEl.style;
+      st.opacity = a;
+      st.transform = a < 1 ? 'translateY(' + (8 * (1 - a)).toFixed(1) + 'px) scale(' + (0.96 + 0.04 * a).toFixed(3) + ')' : 'none';
+      st.filter = a < 1 ? 'blur(' + (6 * (1 - a)).toFixed(1) + 'px)' : 'none';
+    }
+    if (b !== B.helloA) {
+      B.helloA = b;
+      st = ctx.helloEl.style;
+      st.opacity = b;
+      st.transform = b < 1 ? 'translateY(' + (10 * (1 - b)).toFixed(1) + 'px)' : 'none';
+    }
   },
   lower: function (ctx) {
     var B = ctx.B;
@@ -285,21 +318,24 @@ window.__gyIntroU = (function () {
   },
   frame: function (t, ctx) {
     var U = ctx.U, B = ctx.B, g = B.g, W = ctx.w, H = ctx.h;
-    // 처음 1초 안에 느린 기기인지 따로 본다(글자 자리를 정하기 전에 알갱이 수를 줄여야 글자가 성기지 않는다)
+    // 처음 0.7초 동안 느린 기기인지 따로 본다(글자 자리를 정하기 전에 알갱이 수를 줄여야 글자가 성기지 않는다).
+    // 빨리 감아도 흔들리지 않게 실제로 흐른 시간(ctx.real)으로 잰다. 1.2초까지 3장을 못 쟀으면(뒤쪽 탭에서 열었다 등) 줄이지 않고
+    // 글자로 넘어간다(그래도 느리면 공통 틀이 1.6초에 가벼운 그림으로 바꾼다)
     var now = U.now();
     if (!B.probed) {
-      if (t > 0.25 && B.last) (B.dts = B.dts || []).push(now - B.last);
-      if (t > 0.95 && B.dts && B.dts.length >= 3) {
+      if (ctx.real > 0.2 && B.last) (B.dts = B.dts || []).push(now - B.last);
+      if (ctx.real > 0.7 && ((B.dts && B.dts.length >= 3) || ctx.real > 1.2)) {
         B.probed = true;
-        var ds = B.dts.slice().sort(function (a, b) { return a - b; }), med = ds[ds.length >> 1];
+        var ds = (B.dts || []).slice().sort(function (a, b) { return a - b; }), med = ds.length >= 3 ? ds[ds.length >> 1] : 0;
         ctx.stats.early = Math.round(med);
         if (med > 30) { B.n = Math.max(500, Math.round(B.n * (med > 60 ? 0.3 : 0.5))); this.lower(ctx); }
       }
     }
     B.last = now;
-    if (!B.sampled && t >= B.T1 - 0.12) this.sample(ctx);
+    if (!B.sampled && this.canSample(ctx)) this.sample(ctx);
+    this.formed(ctx); // 글자가 다 모인 때를 적어 둔다(웹앱이 늦게 준비되면 기다리지 않고 바로 끝낸다)
     var fin = B.fin;
-    var still = t > B.T1 + 1.85 && !fin;
+    var still = t > B.T1 + 1.4 && !fin;
     if (B.cheap || still) g.clearRect(0, 0, W, H);
     else {
       g.globalCompositeOperation = 'destination-out';
@@ -308,14 +344,14 @@ window.__gyIntroU = (function () {
       g.fillRect(0, 0, W, H);
     }
     g.globalCompositeOperation = B.cheap ? 'source-over' : 'lighter';
-    var T1 = B.T1, fast = ctx.fast ? 0.75 : 1;
-    var sweepOn = t > 3.0, sp = ((t - 3.0) % 2.6) / 1.3, sweepX = B.minX - 90 + (B.maxX - B.minX + 180) * sp;
+    var T1 = B.T1, fz = 0.72; // fz: 끝 장면 빠르기(1이면 1.04초, 0.72면 0.75초쯤)
+    var sweep0 = T1 + 1.35, sweepOn = t > sweep0, sp = ((t - sweep0) % 2.6) / 1.3, sweepX = B.minX - 90 + (B.maxX - B.minX + 180) * sp;
     var bx = B.bx, by = B.by;
     for (var i = 0; i < B.n; i++) {
       var r = B.rr[i];
       // 은하 자리(빙글빙글 돌며 바깥으로 피어남)
-      var bloom = U.outCubic(U.seg(t, 0.02 + r * 0.3, 1.0 + r * 0.35));
-      var grow = B.has[i] ? 1 : 1 + 0.55 * U.seg(t, T1, T1 + 2.2);
+      var bloom = U.outCubic(U.seg(t, 0.02 + r * 0.22, 0.75 + r * 0.25));
+      var grow = B.has[i] ? 1 : 1 + 0.55 * U.seg(t, T1, T1 + 1.6);
       var rad = r * B.Rg * (0.12 + 0.88 * bloom) * grow;
       var phi = B.ph[i] + B.w[i] * t;
       var x3 = rad * Math.cos(phi), z3 = rad * Math.sin(phi), y3 = B.y[i] * bloom;
@@ -348,20 +384,20 @@ window.__gyIntroU = (function () {
         B.hx[i] = x;
         B.hy[i] = y;
       } else if (t > T1) {
-        a *= 1 - 0.68 * U.seg(t, T1, T1 + 1.2);
+        a *= 1 - 0.68 * U.seg(t, T1, T1 + 0.9);
       }
       // 끝: 메뉴 로고로 빨려 들어감
       if (fin) {
         var ft = t - fin;
         if (B.has[i]) {
-          var u = U.inOutCubic(U.seg(ft, B.fd[i] * fast, (B.fd[i] + B.fu[i]) * fast));
+          var u = U.inOutCubic(U.seg(ft, B.fd[i] * fz, (B.fd[i] + B.fu[i]) * fz));
           if (u >= 1) continue;
           var ddx = bx - x, ddy = by - y, l2 = Math.sqrt(ddx * ddx + ddy * ddy) || 1, bd = 70 * Math.sin(Math.PI * u) * (i % 2 ? 1 : -1);
           x = x + ddx * u - ddy / l2 * bd;
           y = y + ddy * u + ddx / l2 * bd;
           s *= 1 - 0.55 * u;
         } else {
-          a *= 1 - U.seg(ft, 0, 0.3 * fast);
+          a *= 1 - U.seg(ft, 0, 0.3 * fz);
         }
       }
       if (a <= 0.01) continue;
@@ -377,16 +413,17 @@ window.__gyIntroU = (function () {
       }
     }
     g.globalAlpha = 1;
+    this.texts(t, ctx);
     if (fin) {
       var ftt = t - fin;
       // 로고 자리에서부터 화면이 둥글게 열린다
-      var R = Math.sqrt(W * W + H * H) * 1.05 * U.inCubic(U.seg(ftt, 0.42 * fast, 1.0 * fast));
+      var R = Math.sqrt(W * W + H * H) * 1.05 * U.inCubic(U.seg(ftt, 0.42 * fz, 1.0 * fz));
       if (R > 0) {
         var mk = 'radial-gradient(circle at ' + Math.round(bx) + 'px ' + Math.round(by) + 'px,transparent ' + Math.round(R) + 'px,#000 ' + Math.round(R + 2) + 'px)';
         ctx.el.style.webkitMaskImage = mk;
         ctx.el.style.maskImage = mk;
       }
-      if (ftt > 1.04 * fast && B.done) { var dn = B.done; B.done = null; dn(); }
+      if (ftt > 1.04 * fz && B.done) { var dn = B.done; B.done = null; dn(); }
     }
   },
   finish: function (ctx, tg, done) {
@@ -404,7 +441,7 @@ window.__gyIntroU = (function () {
     }
     B.fin = ctx.t || 0.001;
     B.done = done;
-    var f = ctx.fast ? 0.75 : 1;
+    var f = 0.72;
     U.anim(ctx.helloEl, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
     U.anim(ctx.subEl, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
     if (tg.brand) {
@@ -419,10 +456,12 @@ window.__gyIntroU = (function () {
   }
 };
 /* ===== 여는 그림(인트로) ③: 움직임 — 공통 틀 =====
- * 웹앱을 여는 동안(홈 자료를 받는 동안) 움직이는 그림을 보여 주고, 앱이 첫 화면을 그리면 그 화면으로 이어 준다.
- * - 보여 주는 방식(data-intro): full(그날 처음, 전체 4초쯤) · short(그 뒤, 짧게) · calm(움직임 줄이기 기기) · off
- * - 앱(App.html)은 첫 화면을 그린 뒤 GYIntro.ready({ name, school })를 부른다
- * - 화면을 누르거나 키를 누르면 건너뛴다. 자료가 아직이면 마지막 장면에서 기다렸다가 바로 넘어간다
+ * '여는 중' 화면 대신 웹앱을 여는 동안(홈 자료를 받는 동안)만 움직이는 그림을 보여 주고, 앱이 첫 화면을 그리면 그 화면으로 이어 준다.
+ * - 보여 주는 방식(data-intro): full(그날 처음) · short(그 뒤, 로고만) · calm(움직임 줄이기 기기) · off
+ * - 앱(App.html)은 첫 화면을 그린 뒤 GYIntro.ready({ name, school })를 부른다. 정해 둔 최소 시간은 없다(교사 선택 ①):
+ *   full은 글자가 덜 모였으면 3배로 빨리 감아 마저 모으고 0.35초 보인 뒤 끝낸다. short·calm은 0.35·0.3초부터 끝낼 수 있다
+ * - 화면을 누르거나 키를 누르면 건너뛴다. 자료가 아직이면 글자까지 빨리 감아 기다리고, 또 누르면 앱의 '여는 중' 화면을 보여 준다
+ * - 움직임 시간(ctx.t)은 장면마다 흐른 시간 × 빠르기(ctx.speed)로 쌓는다. 실제로 흐른 시간은 ctx.real
  * - 오류가 나면 바로 걷힌다(앱을 가리지 않게). CSS에도 20초 안전장치가 있다
  */
 (function () {
@@ -454,13 +493,13 @@ window.__gyIntroU = (function () {
       el: el, U: U, mode: mode, kind: kindName,
       dark: d.getAttribute('data-theme') === 'dark',
       w: W, h: H, phone: W < 700 || H < 480,
-      low: lowHint(), fast: false, jump: 0, t: 0,
+      low: lowHint(), t: 0, real: 0, speed: 1, hurry: false,
       info: null, hello: U.hello(''), school: '인천장도초등학교'
     };
     var me = { ctx: ctx, state: 'play' };
-    var t0 = U.now(), raf = 0, finishing = false, skipped = false, readyAt = 0;
+    var t0 = U.now(), last = t0, raf = 0, finishing = false, skipped = false, readyAt = 0;
     var probe = [], probeLast = 0, probed = false;
-    var stats = ctx.stats = window.__gyIntroStats = { kind: kindName, mode: mode, low: ctx.low, median: 0, readyAt: 0, finishAt: 0 };
+    var stats = ctx.stats = window.__gyIntroStats = { kind: kindName, mode: mode, low: ctx.low, median: 0, readyAt: 0, finishAt: 0, doneAt: 0 };
 
     function safe(f) {
       try { return f(); } catch (e) { if (window.console) console.error('인트로', e); cleanup(); return null; }
@@ -468,6 +507,7 @@ window.__gyIntroU = (function () {
     function cleanup() {
       if (me.state === 'done') return;
       me.state = 'done';
+      stats.doneAt = Math.round(U.now() - t0);
       cancelAnimationFrame(raf);
       document.removeEventListener('keydown', onKey, true);
       Array.prototype.forEach.call(el.querySelectorAll('canvas'), function (c) { c.width = c.height = 0; }); // 그림판이 쓰던 메모리를 바로 돌려준다
@@ -481,32 +521,31 @@ window.__gyIntroU = (function () {
 
     function loop() {
       raf = requestAnimationFrame(loop);
-      var tt = U.now();
-      ctx.t = (tt - t0) / 1000 + ctx.jump;
+      var tt = U.now(), dt = Math.min(0.25, Math.max(0, (tt - last) / 1000));
+      last = tt;
+      ctx.real = (tt - t0) / 1000;
+      // 빨리 감기: 웹앱이 준비됐는데(또는 눌렀는데) 글자가 덜 모였으면 3배로(0.2초쯤에 걸쳐 부드럽게 빨라지고 느려진다)
+      var full = K && mode === 'full';
+      var want = ctx.hurry && !finishing && full && !(K.formed && safe(function () { return K.formed(ctx); })) ? 3 : 1;
+      ctx.speed += (want - ctx.speed) * Math.min(1, dt * 12);
+      ctx.t += dt * ctx.speed;
       // 느린 기기 알아보기: 0.4~1.6초 사이 한 장면이 걸린 시간의 가운데 값
       if (!probed) {
-        if (ctx.t > 0.4 && probeLast) probe.push(tt - probeLast);
+        if (ctx.real > 0.4 && probeLast) probe.push(tt - probeLast);
         probeLast = tt;
-        if (ctx.t > 1.6) {
+        if (ctx.real > 1.6) {
           probed = true;
           var s = probe.slice().sort(function (a, b) { return a - b; });
           stats.median = s.length ? Math.round(s[s.length >> 1]) : 0;
-          if (stats.median > 28 && !ctx.low) { ctx.low = stats.low = true; el.classList.add('gi-low'); if (K && K.lower && mode === 'full') safe(function () { K.lower(ctx); }); }
+          if (stats.median > 28 && !ctx.low) { ctx.low = stats.low = true; el.classList.add('gi-low'); if (full && K.lower) safe(function () { K.lower(ctx); }); }
         }
       }
-      if (K && K.frame && mode === 'full') safe(function () { K.frame(ctx.t, ctx); });
+      if (full && K.frame) safe(function () { K.frame(ctx.t, ctx); });
+      if (me.state === 'done' || finishing || !ctx.info) return;
+      // 끝낼 때: 앱이 준비됐고, full은 글자가 다 모여 잠깐 보였을 때. short·calm은 로고가 잠깐이라도 보였을 때
+      if (full ? (!K.done || safe(function () { return K.done(ctx); })) : ctx.real >= (mode === 'short' ? 0.35 : 0.3)) finish();
     }
 
-    function minTime() {
-      if (skipped) return 0;
-      return mode === 'full' ? (K.minT || 4) : mode === 'short' ? 0.55 : 0.3;
-    }
-    function check() {
-      if (finishing || !ctx.info || me.state === 'done') return;
-      var t = (U.now() - t0) / 1000 + ctx.jump, m = minTime();
-      if (t >= m) finish();
-      else setTimeout(check, Math.max(16, (m - t) * 1000));
-    }
     function ready(info) {
       if (me.state === 'done') return;
       var first = !ctx.info;
@@ -514,16 +553,15 @@ window.__gyIntroU = (function () {
       if (ctx.info.name) ctx.hello = U.hello(ctx.info.name);
       if (ctx.info.school) ctx.school = ctx.info.school;
       if (first) { readyAt = U.now(); stats.readyAt = Math.round(readyAt - t0); }
+      ctx.hurry = true; // 남은 움직임을 빨리 감아 바로 끝낼 수 있게
       if (K && K.info && mode === 'full') safe(function () { K.info(ctx.info, ctx); });
-      check();
     }
     function skip() {
       if (finishing || me.state === 'done') return;
-      var again = skipped; // 자료가 늦어 마지막 장면에서 기다리는 중에 또 누르면 앱의 '여는 중' 화면을 보여 준다
+      var again = skipped; // 자료가 늦어 글자에서 기다리는 중에 또 누르면 앱의 '여는 중' 화면을 보여 준다
       skipped = true;
-      ctx.fast = true;
       if (ctx.info || again) { ctx.info = ctx.info || {}; finish(); return; }
-      if (K && K.skipTo && mode === 'full') safe(function () { K.skipTo(ctx); });
+      ctx.hurry = true; // 자료가 아직이면 글자까지 빨리 감아 두고 기다린다
     }
     function onKey(e) { if (e.key !== 'Shift' && e.key !== 'Control' && e.key !== 'Alt' && e.key !== 'Meta') skip(); }
     /** 건너뛰려고 누른 손가락이 그 아래 앱 단추·메뉴까지 누르지 않게, 뒤따라오는 누르기를 0.7초 동안 막는다(터치 화면) */
@@ -541,33 +579,22 @@ window.__gyIntroU = (function () {
       skip();
     }
 
-    /** 이어 줄 곳: 앱의 메뉴 로고와 화면의 칸들 */
+    /** 이어 줄 곳: 앱의 메뉴 로고(보이는 것) */
     function targets() {
-      var vis = function (e) {
-        var r = e.getBoundingClientRect();
-        return r.width > 4 && r.height > 4 && r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth;
-      };
       var brand = null;
       ['.side .brand-mark', '.topbar .brand-mark', '.gate-top .brand-mark'].some(function (s) {
-        var e = document.querySelector(s);
-        if (e && vis(e)) { brand = U.rect(e); return true; }
+        var e = document.querySelector(s), r = e && e.getBoundingClientRect();
+        if (r && r.width > 4 && r.height > 4 && r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth) { brand = U.rect(e); return true; }
         return false;
       });
-      var cards = [];
-      Array.prototype.forEach.call(document.querySelectorAll('#app .card, #app .gate-card'), function (e) {
-        if (e.parentElement && e.parentElement.closest('.card, .gate-card')) return; // 겉 칸만
-        if (!vis(e)) return;
-        var r = U.rect(e);
-        r.radius = getComputedStyle(e).borderRadius || '20px';
-        cards.push(r);
-      });
-      cards.sort(function (a, b) { return a.y - b.y || a.x - b.x; });
-      return { brand: brand, cards: cards.slice(0, 8) };
+      return { brand: brand };
     }
 
     function finish() {
       if (finishing) return;
       finishing = true;
+      ctx.speed = 1; // 끝 장면은 제 빠르기로
+      ctx.hurry = false;
       stats.finishAt = Math.round(U.now() - t0);
       el.classList.add('gi-leaving');
       document.removeEventListener('keydown', onKey, true);
