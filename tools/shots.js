@@ -810,6 +810,13 @@ async function pinModeCheck(browser) {
   await ctx.close();
 }
 
+/** PDF 쪽수: pdfinfo가 있으면 그것으로, 없으면 /Type /Page 수를 센다 */
+function pdfPages(file) {
+  try { return Number(/Pages:\s+(\d+)/.exec(require('child_process').execFileSync('pdfinfo', [file]).toString())[1]); } catch (e) { /* 아래로 */ }
+  return (fs.readFileSync(file).toString('latin1').match(/\/Type\s*\/Page(?![s\w])/g) || []).length;
+}
+let planInfo = '';
+
 async function printCheck(browser) {
   const ctx = await newCtx(browser, { viewport: { width: 1280, height: 900 } });
   const page = await ctx.newPage();
@@ -830,7 +837,34 @@ async function printCheck(browser) {
   await page.emulateMedia({ media: 'print' });
   const planBg = await page.evaluate(() => getComputedStyle(document.querySelector('.plan-card')).backgroundColor);
   if (!/rgba?\(255, 255, 255|rgba\(0, 0, 0, 0\)/.test(planBg)) problems.push('인쇄: 월별 계획 바탕이 흰색이 아님 ' + planBg);
-  await page.pdf({ path: path.join(OUT, '인쇄_월별계획.pdf'), format: 'A4' });
+  // 월별 계획은 A4 세로 한 장(교사 요청). page.pdf도 인쇄 직전 알림(beforeprint)을 보내 앱이 높이를 재고 줄인다
+  const planPdf = async (name) => {
+    const f = path.join(OUT, name);
+    await page.pdf({ path: f, preferCSSPageSize: true });
+    return { pages: pdfPages(f), zoom: await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--plan-zoom').trim()) };
+  };
+  let pp = await planPdf('인쇄_월별계획.pdf');
+  if (pp.pages !== 1) problems.push('인쇄: 월별 계획이 ' + pp.pages + '쪽(한 장이어야 함)');
+  // 행사가 아주 많은 달(날마다 4개씩, 긴 이름)도 한 장
+  await page.emulateMedia({ media: 'screen' });
+  const made = await page.evaluate(async () => {
+    const S = window.__gy.S, y = S.sched.y, m = S.sched.m, last = new Date(y, m, 0).getDate(), jobs = [];
+    for (let d = 1; d <= last; d++) {
+      const ds = y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      for (let k = 0; k < 4; k++) {
+        jobs.push(window.__gy.server('sched.save', { id: '', fields: { start: ds, end: '', time: k ? '15:00' : '5교시', title: (k % 2 ? '교육활동 ' : '행사 ') + d + '-' + (k + 1) + ' 길게 적은 행사 이름 시험', kind: k % 2 ? '교육활동' : '행사', target: ['전체'], deptId: '', place: '', memo: '', important: k === 0 } }));
+      }
+    }
+    await Promise.all(jobs);
+    return jobs.length;
+  });
+  await page.evaluate(() => { window.__gy.S.sched.view = 'plan'; window.__gy.go('schedule'); });
+  await page.locator('table.plan').waitFor();
+  await page.emulateMedia({ media: 'print' });
+  pp = await planPdf('인쇄_월별계획_행사많은달.pdf');
+  if (pp.pages !== 1) problems.push('인쇄: 행사가 많은 달(' + made + '개 더함)의 월별 계획이 ' + pp.pages + '쪽(한 장이어야 함)');
+  if (!(Number(pp.zoom) < 1)) problems.push('인쇄: 행사가 많은 달인데 줄이지 않음(' + pp.zoom + ')');
+  planInfo = '월별 계획 인쇄 1장(보통 달 그대로, 행사 ' + made + '개 더한 달은 ' + Math.round(Number(pp.zoom) * 100) + '%로 줄임)';
   for (const [scr, sel, name] of [['staff', '.dir-row', '인쇄_교직원명단.pdf'], ['guide', '.guide-card', '인쇄_운영안내서.pdf']]) {
     await page.emulateMedia({ media: 'screen' });
     await page.evaluate((x) => window.__gy.go(x), scr);
@@ -838,6 +872,131 @@ async function printCheck(browser) {
     await page.emulateMedia({ media: 'print' });
     await page.pdf({ path: path.join(OUT, name), format: 'A4' });
   }
+  await ctx.close();
+}
+
+/** 달력에서 끌어서 날짜 옮기기(교사 요청): PC 마우스(그만두기·옮기기·여러 날·남의 일정·그냥 누르기), 휴대폰 한 달 보기 터치(길게 눌러 끌기·짧게 누르기) */
+async function dragCheck(browser) {
+  const shotP = async (page, name) => { n++; await page.screenshot({ path: path.join(OUT, String(n).padStart(2, '0') + '_' + name + '.png') }); };
+  const monthDays = (page) => page.evaluate(() => {
+    const S = window.__gy.S, ym = S.sched.y + '-' + String(S.sched.m).padStart(2, '0');
+    return Array.from(document.querySelectorAll('.cal-d[data-day]')).map((c) => c.getAttribute('data-day')).filter((d) => d.slice(0, 7) === ym);
+  });
+  const plus = (d, k) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + k); return t.toISOString().slice(0, 10); };
+  const make = (page, start, end, title) => page.evaluate(([a, b, t]) => window.__gy.server('sched.save', { id: '', fields: { start: a, end: b, time: '', title: t, kind: '행사', target: ['전체'], deptId: '', place: '', memo: '', important: false } }), [start, end, title]);
+  const mid = async (page, sel) => { const b = await page.locator(sel).first().boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+  const mouseDrag = async (page, from, to) => {
+    const a = await mid(page, from), b = await mid(page, to);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) await page.mouse.move(a.x + (b.x - a.x) * i / 8, a.y + (b.y - a.y) * i / 8);
+    await page.mouse.up();
+  };
+  const asked = (page) => page.locator('#cf-ok').waitFor({ timeout: 3000 }).then(() => true, () => false);
+  const modalText = async (page) => (await page.locator('#modal-root').innerText()).replace(/\s+/g, ' ');
+  const chip = (day, id) => `.cal-d[data-day="${day}"] [data-ev="${id}"]`;
+
+  // ---------- PC: 마우스로 끌기
+  let ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
+  let page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('끌기 PC 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '성춘향');
+  await page.evaluate(() => { window.__gy.S.sched.view = 'cal'; window.__gy.go('schedule'); });
+  await page.locator('.cal').waitFor();
+  const mon = (await monthDays(page)).find((d) => new Date(d + 'T00:00:00Z').getUTCDay() === 1 && Number(d.slice(8)) >= 5);
+  const tue = plus(mon, 1), thu = plus(mon, 3);
+  const one = await make(page, mon, '', '끌기 시험 행사');
+  const two = await make(page, mon, tue, '이틀 행사 시험');
+  await page.evaluate(() => window.__gy.go('schedule'));
+  await page.locator(chip(mon, one.id)).waitFor();
+  if (!(await page.locator(chip(mon, one.id) + '[data-drag]').count())) problems.push('끌기: 내가 넣은 행사인데 끌 수 없음');
+  if (!(await page.locator('.cal-card .hint', { hasText: '끌어다 놓으면' }).count())) problems.push('끌기: 달력 아래 안내가 안 보임');
+  // 그냥 누르면 지금처럼 열린다
+  await page.click(chip(mon, one.id));
+  if (!(await page.locator('.ev-dl').waitFor({ timeout: 3000 }).then(() => true, () => false))) problems.push('끌기: 행사를 그냥 눌렀는데 열리지 않음');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(250);
+  // 끌어서 목요일 → 묻는 창 → 그만두기면 그대로
+  await mouseDrag(page, chip(mon, one.id), `.cal-d[data-day="${thu}"]`);
+  if (!(await asked(page))) problems.push('끌기: 끌어 놓았는데 옮길지 묻지 않음');
+  else {
+    const t = await modalText(page);
+    if (!/옮길까요/.test(t) || !t.includes('→')) problems.push('끌기: 묻는 창 글이 이상함 ' + t);
+    await shotP(page, 'PC_달력_끌기_묻는창');
+    await page.click('#modal-root [data-action=close-modal]');
+    await page.waitForTimeout(300);
+    if (!(await page.locator(chip(mon, one.id)).count())) problems.push('끌기: 그만두기를 눌렀는데 옮겨짐');
+  }
+  // 다시 끌어서 옮기기
+  await mouseDrag(page, chip(mon, one.id), `.cal-d[data-day="${thu}"]`);
+  if (await asked(page)) {
+    await page.click('#cf-ok');
+    await waitText(page, '옮겼어요');
+    const ok = await page.locator(chip(thu, one.id)).waitFor({ timeout: 5000 }).then(() => true, () => false);
+    if (!ok || (await page.locator(chip(mon, one.id)).count())) problems.push('끌기: 옮기기를 눌렀는데 목요일로 가지 않음');
+    await shotP(page, 'PC_달력_끌기_옮김');
+  } else problems.push('끌기: 두 번째로 끌었는데 묻지 않음');
+  // 여러 날 행사: 화요일 칸을 잡고 목요일에 놓으면 이틀 뒤로(수~목)
+  await mouseDrag(page, chip(tue, two.id), `.cal-d[data-day="${thu}"]`);
+  if (await asked(page)) {
+    await page.click('#cf-ok');
+    await waitText(page, '옮겼어요');
+    await page.locator(chip(thu, two.id)).waitFor({ timeout: 5000 }).catch(() => {});
+    const e2 = await page.evaluate((id) => (window.__gy.S.sched.data && window.__gy.S.sched.data.events.find((e) => e.id === id)) || {}, two.id);
+    if (e2.start !== plus(mon, 2) || e2.end !== thu) problems.push('끌기: 여러 날 행사가 기간 그대로 옮겨지지 않음(' + e2.start + '~' + e2.end + ')');
+  } else problems.push('끌기: 여러 날 행사를 끌었는데 묻지 않음');
+  // 남의 행사(고칠 수 없음)는 끌리지 않는다
+  const other = page.locator('.cal .ev:not([data-drag])').first();
+  if (await other.count()) {
+    const oid = await other.getAttribute('data-ev'), oday = await other.evaluate((el) => el.closest('.cal-d').getAttribute('data-day'));
+    const target = (await monthDays(page)).find((d) => d !== oday);
+    await mouseDrag(page, chip(oday, oid), `.cal-d[data-day="${target}"]`);
+    await page.waitForTimeout(400);
+    if ((await page.locator('#cf-ok').count()) || (await page.locator('.drag-ghost').count())) problems.push('끌기: 고칠 수 없는 행사가 끌림');
+    await page.keyboard.press('Escape');
+  } else problems.push('끌기: 점검할 남의 행사가 달력에 없음');
+  await ctx.close();
+
+  // ---------- 휴대폰: 한 달 보기에서 길게 눌러 끌기(터치)
+  ctx = await newCtx(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('끌기 휴대폰 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '성춘향');
+  await page.evaluate(() => { window.__gy.S.sched.view = 'cal'; window.__gy.S.sched.phoneMonth = true; window.__gy.go('schedule'); });
+  await page.locator('.cal').waitFor();
+  const pmon = (await monthDays(page)).find((d) => new Date(d + 'T00:00:00Z').getUTCDay() === 1 && Number(d.slice(8)) >= 5);
+  const pwed = plus(pmon, 2);
+  const p1 = await make(page, pmon, '', '휴대폰 끌기');
+  await page.evaluate(() => window.__gy.go('schedule'));
+  await page.locator(chip(pmon, p1.id)).waitFor();
+  await page.locator(chip(pmon, p1.id)).scrollIntoViewIfNeeded();
+  const cdp = await ctx.newCDPSession(page);
+  const touch = (type, p) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: p ? [{ x: p.x, y: p.y }] : [] });
+  let a = await mid(page, chip(pmon, p1.id));
+  await touch('touchStart', a);
+  await page.waitForTimeout(80);
+  await touch('touchEnd');
+  if (!(await page.locator('.ev-dl').waitFor({ timeout: 3000 }).then(() => true, () => false))) problems.push('끌기(휴대폰): 짧게 눌렀는데 행사가 열리지 않음');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  a = await mid(page, chip(pmon, p1.id));
+  const b = await mid(page, `.cal-d[data-day="${pwed}"]`);
+  await touch('touchStart', a);
+  await page.waitForTimeout(550);
+  for (let i = 1; i <= 8; i++) await touch('touchMove', { x: a.x + (b.x - a.x) * i / 8, y: a.y + (b.y - a.y) * i / 8 });
+  await shotP(page, '휴대폰_달력_길게눌러_끌기');
+  await touch('touchEnd');
+  if (await asked(page)) {
+    await page.click('#cf-ok');
+    await waitText(page, '옮겼어요');
+    if (!(await page.locator(chip(pwed, p1.id)).waitFor({ timeout: 5000 }).then(() => true, () => false))) problems.push('끌기(휴대폰): 옮기기를 눌렀는데 수요일로 가지 않음');
+  } else problems.push('끌기(휴대폰): 길게 눌러 끌었는데 묻지 않음');
   await ctx.close();
 }
 
@@ -1127,9 +1286,11 @@ async function introReducedMotionCheck(browser) {
   }
   await pinModeCheck(browser);
   await printCheck(browser);
+  await dragCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
   await browser.close();
   console.log('인트로: ' + intro.join(' / '));
+  if (planInfo) console.log(planInfo);
   console.log('사진 ' + n + '장 → ' + OUT);
   if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; }
   else console.log('넘침·오류 없음');

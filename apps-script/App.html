@@ -8,7 +8,7 @@
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-17'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-10-17d'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -786,10 +786,12 @@
     return true;
   }
 
+  /** 일정 한 칸. opts.drag(그 칸의 날짜)를 주면 고칠 수 있는 일정은 끌어서 옮길 수 있다(달력) */
   function evChip(e, opts) {
     opts = opts || {};
     var cls = 'ev' + (isOff(e) ? ' ev-off' : e.important ? ' ev-imp' : e.kind === '교육활동' ? ' ev-act' : '');
-    return '<button type="button" class="' + cls + '" data-action="ev-open" data-ev="' + esc(e.id) + '">' +
+    return '<button type="button" class="' + cls + '" data-action="ev-open" data-ev="' + esc(e.id) + '"' +
+      (opts.drag && e.canEdit ? ' data-drag="1" data-from="' + esc(opts.drag) + '" title="끌어서 다른 날로 옮길 수 있어요"' : '') + '>' +
       (opts.prefix ? '<span class="ev-pre">' + opts.prefix + '</span>' : '') + (e.important ? starHtml() : '') + esc(e.title) + '</button>';
   }
 
@@ -1274,13 +1276,19 @@
       html += phoneWeek(shown) + calLegend();
     } else {
       if (phone) html += '<div class="row-btns print-hide"><button type="button" class="btn btn-sm" data-action="phone-week">' + icon('chevl', 18) + '이번 주로 보기</button></div>';
-      html += '<div class="sched-main' + (formSide ? ' with-side' : '') + '"><div class="card cal-card">' + calGrid(shown) + calLegend() + '</div>' +
+      html += '<div class="sched-main' + (formSide ? ' with-side' : '') + '"><div class="card cal-card">' + calGrid(shown) + calLegend() + dragTip(shown) + '</div>' +
         (formSide ? '<aside class="card side-form print-hide" id="side-form"></aside>' : '') + '</div>';
     }
     if (phone) html += statCards();
     body.innerHTML = '<div class="wrap" style="gap:16px">' + html + '</div>';
     if (formSide) drawEventForm(qs('#side-form'), sc.form);
     else if (sc.form && !$modal.innerHTML) { openModal('<div id="modal-form"></div>'); drawEventForm(qs('#modal-form'), sc.form); } // 창이 좁아졌으면 쓰던 것을 창으로
+  }
+
+  /** 끌어서 옮기기 안내: 고칠 수 있는 일정이 달력에 있을 때만 */
+  function dragTip(shown) {
+    if (!shown.some(function (e) { return e.canEdit; })) return '';
+    return '<p class="hint print-hide">' + icon('info', 16) + '<span>고칠 수 있는 행사는 다른 날짜 칸으로 끌어다 놓으면 옮길 수 있어요' + (isPhone() ? '(길게 누른 뒤 끌기)' : '') + '. 토·일로 옮길 때는 행사를 눌러 고쳐 주세요.</span></p>';
   }
 
   /** 달력 색 설명 */
@@ -1304,7 +1312,7 @@
           [5, 6].forEach(function (k) {
             var wk = addD(w, k);
             shown.filter(function (e) { return onDay(e, wk) && !onDay(e, day); }).forEach(function (e) {
-              if (list.indexOf(e) < 0) list.push({ __w: DOW.charAt(k === 5 ? 6 : 0), e: e });
+              if (list.indexOf(e) < 0) list.push({ __w: DOW.charAt(k === 5 ? 6 : 0), e: e, d: wk });
             });
           });
         }
@@ -1315,12 +1323,128 @@
         out += '<div class="cal-d' + (other ? ' other' : '') + (today ? ' today' : '') + (off ? ' off' : '') + '" role="gridcell" data-day="' + day + '">' +
           '<button type="button" class="cal-num" data-action="day-open" data-day="' + day + '" aria-label="' + mdw(day) + ' 일정 보기">' +
           (today ? '<span class="today-dot">' + dayNum(day) + '</span><span class="today-label">오늘</span>' : (other ? Number(day.slice(5, 7)) + '.' : '') + dayNum(day)) + '</button>' +
-          list.slice(0, max).map(function (x) { return x.__w ? evChip(x.e, { prefix: x.__w }) : evChip(x); }).join('') +
+          list.slice(0, max).map(function (x) { return x.__w ? evChip(x.e, { prefix: x.__w, drag: x.d }) : evChip(x, { drag: day }); }).join('') +
           (list.length > max ? '<button type="button" class="cal-more" data-action="day-open" data-day="' + day + '">+' + (list.length - max) + '개 더</button>' : '') +
           '</div>';
       }
     }
     return out + '</div>';
+  }
+
+  // ------------------------------------------------------------ 달력: 끌어서 날짜 옮기기(교사 요청)
+  // 고칠 수 있는 일정(data-drag)만. 마우스는 6px 넘게 움직이면, 터치는 0.4초 길게 누른 뒤 끈다(그 전에 움직이면 화면 넘기기).
+  // 놓으면 묻고(confirmBox) 지금의 일정 저장(sched.save)으로 옮긴다. 토·일 칸은 없어서 주말로는 '고치기'로
+  var drag = null;
+  function dragDown(ev) {
+    var chip = ev.target.closest && ev.target.closest('.cal .ev[data-drag]');
+    if (!chip || drag || pendingWrites || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
+    drag = { chip: chip, id: chip.getAttribute('data-ev'), from: chip.getAttribute('data-from'), pid: ev.pointerId,
+      x: ev.clientX, y: ev.clientY, lx: ev.clientX, ly: ev.clientY, touch: ev.pointerType !== 'mouse', on: false, cell: null, timer: 0, raf: 0 };
+    if (drag.touch) drag.timer = setTimeout(function () { if (drag && !drag.on) dragBegin(); }, 400);
+  }
+  function dragBegin() {
+    var d = drag, r = d.chip.getBoundingClientRect();
+    d.on = true;
+    clearTimeout(d.timer);
+    d.ghost = d.chip.cloneNode(true);
+    d.ghost.classList.add('drag-ghost');
+    d.ghost.setAttribute('aria-hidden', 'true');
+    d.ghost.style.width = Math.round(r.width) + 'px';
+    document.body.appendChild(d.ghost);
+    d.chip.classList.add('drag-src');
+    document.body.classList.add('gy-dragging');
+    if (d.touch && navigator.vibrate) { try { navigator.vibrate(12); } catch (e) { /* 그대로 */ } }
+    dragAt(d.lx, d.ly);
+  }
+  function dragMove(ev) {
+    var d = drag;
+    if (!d || ev.pointerId !== d.pid) return;
+    if (!d.touch && !ev.buttons) { dragStop(); return; } // 창 밖에서 마우스를 놓은 뒤 돌아온 경우: 그만둔다
+    var dx = ev.clientX - d.x, dy = ev.clientY - d.y;
+    d.lx = ev.clientX;
+    d.ly = ev.clientY;
+    if (!d.on) {
+      if (d.touch) { if (dx * dx + dy * dy > 100) dragStop(); return; }
+      if (dx * dx + dy * dy < 36) return;
+      dragBegin();
+    }
+    dragAt(d.lx, d.ly);
+    dragEdge();
+  }
+  /** 끄는 그림을 손가락·마우스 자리로, 그 아래 날짜 칸을 표시한다 */
+  function dragAt(x, y) {
+    var d = drag;
+    d.ghost.style.left = x + 'px';
+    d.ghost.style.top = y + 'px';
+    var el = document.elementFromPoint(x, y), cell = el && el.closest ? el.closest('.cal-d[data-day]') : null;
+    if (cell === d.cell) return;
+    if (d.cell) d.cell.classList.remove('drop-on');
+    d.cell = cell;
+    if (cell && cell.getAttribute('data-day') !== d.from) cell.classList.add('drop-on');
+  }
+  /** 화면 위·아래 끝에 가까이 끌면 그쪽으로 넘긴다(달력이 화면보다 길 때) */
+  function dragEdge() {
+    var d = drag, h = window.innerHeight, v = d.ly < 56 ? -14 : d.ly > h - 56 ? 14 : 0;
+    cancelAnimationFrame(d.raf);
+    if (!v) return;
+    var step = function () {
+      if (drag !== d) return;
+      window.scrollBy(0, v);
+      dragAt(d.lx, d.ly);
+      d.raf = requestAnimationFrame(step);
+    };
+    d.raf = requestAnimationFrame(step);
+  }
+  function dragUp(ev) {
+    var d = drag;
+    if (!d || ev.pointerId !== d.pid) return;
+    var on = d.on, to = d.cell && d.cell.getAttribute('data-day');
+    dragStop();
+    if (!on) return; // 그냥 누른 것: 지금처럼 일정이 열린다
+    eatClick(); // 끈 뒤 따라오는 누르기가 일정을 열지 않게
+    if (to && to !== d.from) moveEvent(d.id, d.from, to);
+  }
+  function dragStop() {
+    var d = drag;
+    if (!d) return;
+    drag = null;
+    clearTimeout(d.timer);
+    cancelAnimationFrame(d.raf);
+    if (d.ghost && d.ghost.parentNode) d.ghost.parentNode.removeChild(d.ghost);
+    if (d.cell) d.cell.classList.remove('drop-on');
+    d.chip.classList.remove('drag-src');
+    document.body.classList.remove('gy-dragging');
+  }
+  function eatClick() {
+    var off = function () { document.removeEventListener('click', eat, true); };
+    var eat = function (e) {
+      if (e.target.closest && e.target.closest('#modal-root')) return; // 곧바로 뜬 '옮길까요?' 창의 단추는 그대로 눌린다
+      e.preventDefault();
+      e.stopPropagation();
+      off();
+    };
+    document.addEventListener('click', eat, true);
+    setTimeout(off, 400);
+  }
+  /** 끌어 놓은 일정 옮기기: 잡은 날(from)과 놓은 날(to)의 차이만큼 시작·끝을 함께 옮긴다(여러 날 행사는 기간 그대로). 묻고 저장한다 */
+  function moveEvent(id, from, to) {
+    var e = eventById(id);
+    if (!e || !e.canEdit) return;
+    var n = Math.round((ymdUtc(to) - ymdUtc(from)) / 86400000);
+    var multi = e.end && e.end !== e.start, start = addD(e.start, n), end = multi ? addD(e.end, n) : '';
+    var span = function (a, b) { return esc(mdw(a)) + (b ? ' ~ ' + esc(mdw(b)) : ''); };
+    confirmBox('일정 옮기기', '"' + esc(e.title) + '"' + josa(e.title, '을', '를') + ' 옮길까요?<br>' + span(e.start, multi ? e.end : '') + ' → <b>' + span(start, end) + '</b>', '옮기기', function () {
+      var fields = {
+        start: start, end: end, time: e.time || '', title: e.title, kind: e.kind || '행사',
+        target: String(e.target || '').split(',').filter(Boolean), deptId: e.deptId || '', place: e.place || '', memo: e.memo || '', important: !!e.important
+      };
+      return server('sched.save', { id: e.id, fields: fields }, schedThen('')).then(function (saved) { // 보던 달 그대로 다시 받는다
+        patchEvent(saved);
+        closeModal();
+        reloadSched();
+        toast(saved.title + josa(saved.title, '을', '를') + ' ' + md(saved.start) + '로 옮겼어요');
+      });
+    });
   }
 
   function phoneWeek(shown) {
@@ -1381,6 +1505,39 @@
       '<div class="table-wrap"><table class="plan"><thead><tr><th class="c-date">날짜</th><th class="c-dow">요일</th><th>행사</th><th>교육활동</th><th class="c-dept">담당 부서</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table></div>' +
       '<p class="hint print-hide">' + icon('info', 16) + '<span>달력에 넣은 일정이 그대로 모여요. 따로 입력하지 않아요. 인쇄하면 흰 바탕으로 나와요.</span></p></div>';
+  }
+
+  // ------------------------------------------------------------ 월별 계획 인쇄: A4 세로 한 장(교사 요청)
+  // 인쇄 직전(beforeprint)에 인쇄 모양(.plan-fit, Styles.html)의 사본을 화면 밖에서 재서, A4 한 장(위아래 여백 10mm)보다 길면 그만큼 줄인다
+  var PLAN_PAGE_H = 277 * 96 / 25.4 - 10; // 297mm - 위아래 여백 20mm를 CSS 픽셀로(조금 남겨 둔다)
+  function planPrintStart() {
+    planPrintEnd(); // 인쇄 창을 다시 열 때는 처음부터 다시 잰다(줄인 채로 재지 않게)
+    var card = S.screen === 'schedule' && S.sched.view === 'plan' ? qs('#sched-body .plan-card') : null;
+    if (!card) return;
+    var box = document.createElement('div'), copy = card.cloneNode(true);
+    box.className = 'plan-measure';
+    box.setAttribute('aria-hidden', 'true');
+    copy.classList.add('plan-fit');
+    qsa('.print-hide', copy).forEach(function (x) { x.parentNode.removeChild(x); });
+    box.appendChild(copy);
+    document.body.appendChild(box);
+    var h = copy.getBoundingClientRect().height;
+    document.body.removeChild(box);
+    root.style.setProperty('--plan-zoom', h > PLAN_PAGE_H ? (Math.floor(PLAN_PAGE_H / h * 1000) / 1000).toString() : '1');
+    card.classList.add('plan-fit');
+    document.body.classList.add('print-plan');
+    if (!qs('#plan-page')) {
+      var st = document.createElement('style');
+      st.id = 'plan-page';
+      st.textContent = '@page{size:A4 portrait;margin:10mm}';
+      document.head.appendChild(st);
+    }
+  }
+  function planPrintEnd() {
+    document.body.classList.remove('print-plan');
+    qsa('.plan-card.plan-fit').forEach(function (c) { c.classList.remove('plan-fit'); });
+    var st = qs('#plan-page');
+    if (st) st.parentNode.removeChild(st);
   }
 
   // ------------------------------------------------------------ 연간 학사일정
@@ -4458,6 +4615,19 @@
 
   // 인쇄할 때는 접힌 도움말도 모두 펼친다
   window.addEventListener('beforeprint', function () { qsa('.help-item').forEach(function (d) { d.open = true; }); });
+  // 월별 계획은 A4 세로 한 장에 맞춰 인쇄한다
+  window.addEventListener('beforeprint', planPrintStart);
+  window.addEventListener('afterprint', planPrintEnd);
+
+  // 달력에서 일정을 끌어서 옮기기(마우스·터치)
+  document.addEventListener('pointerdown', dragDown);
+  document.addEventListener('pointermove', dragMove);
+  document.addEventListener('pointerup', dragUp);
+  document.addEventListener('pointercancel', function () { dragStop(); });
+  window.addEventListener('blur', function () { dragStop(); });
+  document.addEventListener('touchmove', function (e) { if (drag && drag.on) e.preventDefault(); }, { passive: false }); // 끄는 동안 화면이 같이 넘어가지 않게
+  document.addEventListener('contextmenu', function (e) { if (drag) e.preventDefault(); }); // 길게 누를 때 뜨는 메뉴 막기
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && drag) { var on = drag.on; dragStop(); if (on) eatClick(); } });
 
   window.addEventListener('hashchange', function () {
     var h = (location.hash || '').replace('#', '');
