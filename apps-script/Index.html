@@ -4,7 +4,7 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="gy-build" content="2026-10-17c">
+<meta name="gy-build" content="2026-10-17e">
 <title>온라인 교무실</title>
 <script>
 /* 여는 그림(인트로) ①: 그림이 처음 보이기 전에 밝기와 보여 주는 방식을 정한다(어두운 화면을 쓰는 분은 처음부터 어둡게)
@@ -30,17 +30,13 @@ html[data-intro="off"] #gy-intro{display:none}
 #gy-intro .gi-bgl{position:absolute;inset:0;background:var(--c-bg)}
 #gy-intro .gi-center{position:absolute;left:50%;top:46%;width:0;height:0}
 
-/* 책 로고(시안 brand-mark를 크게): 88px, 모서리 26px → 메뉴 로고 40px로 줄면 모서리 12px */
-#gy-intro .gi-logo{position:absolute;left:-44px;top:-44px;width:88px;height:88px;border-radius:26px;overflow:hidden;box-shadow:0 18px 40px -12px var(--accent-glow)}
-#gy-intro .gi-logo>span{position:absolute;inset:0;display:grid;place-items:center}
-#gy-intro .gi-logo svg{width:53px;height:53px}
-#gy-intro .gi-logo-soft{background:linear-gradient(var(--accent-soft),var(--accent-soft)),var(--c-sub);color:var(--accent)}
-#gy-intro .gi-logo-solid{background:radial-gradient(120% 90% at 25% 15%,rgba(255,255,255,.22),transparent 55%),var(--accent);color:var(--c-onAccent)}
+/* 교표 로고(메뉴 로고 .brand-mark.emblem을 크게, 그림은 Styles.html --gy-emblem): 88px 동그라미 → 메뉴 로고 40px로 줄어든다 */
+#gy-intro .gi-logo{position:absolute;left:-44px;top:-44px;width:88px;height:88px;border-radius:50%;background-color:#fff;background-image:var(--gy-emblem);background-size:cover;background-position:center;background-repeat:no-repeat;box-shadow:0 18px 40px -12px var(--accent-glow)}
 
 /* 짧게(로고만): 빛 알갱이를 그릴 수 없을 때만 대신 쓴다 */
 #gy-intro.gi-short .gis-logo{animation:gis-pop .42s cubic-bezier(.34,1.56,.64,1) both}
 @keyframes gis-pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
-#gy-intro .gis-name{position:absolute;left:-50vw;width:100vw;top:60px;text-align:center;font-size:22px;font-weight:800;letter-spacing:-0.03em;color:var(--c-t1)}
+#gy-intro .gis-name{position:absolute;left:-50vw;width:100vw;top:60px;text-align:center;font-size:22px;font-weight:800;letter-spacing:-0.03em;color:#DCE8FF;text-shadow:0 0 14px rgba(71,149,255,.6)}
 #gy-intro.gi-short .gis-name{animation:gis-up .4s .1s cubic-bezier(.2,.8,.2,1) both}
 @keyframes gis-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 /* ===== 시안 B. 빛 알갱이 ===== */
@@ -56,10 +52,10 @@ html[data-intro="off"] #gy-intro{display:none}
 #gy-intro.gi-b .gib-sub{position:absolute;left:0;right:0;text-align:center;font-weight:700;letter-spacing:.3em;padding-left:.3em;color:#DCE8FF;line-height:1;
   text-shadow:0 0 14px rgba(71,149,255,.8),0 0 2px rgba(255,255,255,.6);opacity:0}
 /* 학교 이름·인사는 움직임 시간에 맞춰 스크립트가 나타나게 한다(빨리 감으면 함께 빨라지게) */
-#gy-intro.gi-b .gib-pulse{position:fixed;box-sizing:border-box;border-radius:12px;border:2px solid #4795FF;box-shadow:0 0 24px rgba(71,149,255,.6);opacity:0}
+#gy-intro.gi-b .gib-pulse{position:fixed;box-sizing:border-box;border-radius:50%;border:2px solid #4795FF;box-shadow:0 0 24px rgba(71,149,255,.6);opacity:0}
 @media (max-width:699px){#gy-intro.gi-b .gib-hello{font-size:15px}}
-/* 그림이 처음 보이는 순간부터 밤하늘(움직임 코드가 돌기 전 한 장면도 밝게 번쩍이지 않게) */
-html[data-intro="full"] #gy-intro .gi-bgl{background:radial-gradient(80% 65% at 50% 45%,rgba(71,149,255,.18),rgba(71,149,255,.06) 50%,rgba(71,149,255,0) 100%),#0B0E14}
+/* 그림이 처음 보이는 순간부터 밤하늘(움직임 코드가 돌기 전 한 장면도 밝게 번쩍이지 않게). 짧게(로고만)도 같은 밤하늘 위에 밝은 글자 */
+html[data-intro="full"] #gy-intro .gi-bgl,#gy-intro.gi-short .gi-bgl{background:radial-gradient(80% 65% at 50% 45%,rgba(71,149,255,.18),rgba(71,149,255,.06) 50%,rgba(71,149,255,0) 100%),#0B0E14}
 @media print{#gy-intro{display:none!important}}
 </style>
 </head>
@@ -70,9 +66,7 @@ html[data-intro="full"] #gy-intro .gi-bgl{background:radial-gradient(80% 65% at 
 /* ===== 여는 그림(인트로) ③: 움직임 — 도구 ===== */
 window.__gyIntroU = (function () {
   'use strict';
-  var BOOK = '<path d="M4 6.5c2.5-1 5-1 8 1 3-2 5.5-2 8-1V18c-2.5-1-5-1-8 1-3-2-5.5-2-8-1z"></path><path d="M12 7.5V19"></path>';
   var U = {
-    ICON: { book: BOOK },
     clamp: function (x, a, b) { return x < a ? a : x > b ? b : x; },
     seg: function (t, a, b) { return t <= a ? 0 : t >= b ? 1 : (t - a) / (b - a); },
     lerp: function (a, b, p) { return a + (b - a) * p; },
@@ -88,9 +82,6 @@ window.__gyIntroU = (function () {
       if (parent) parent.appendChild(e);
       return e;
     },
-    svg: function (paths, cls) {
-      return '<svg class="' + (cls || '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>';
-    },
     rect: function (e) {
       var r = e.getBoundingClientRect();
       return { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
@@ -103,13 +94,11 @@ window.__gyIntroU = (function () {
       Object.keys(f).forEach(function (k) { if (k !== 'offset' && k !== 'easing') node.style[k] = f[k]; });
       return null;
     },
-    /** 앱의 책 로고(시안의 brand-mark와 같은 모양, 크게) */
+    /** 앱의 교표 로고(메뉴의 brand-mark와 같은 그림, 크게) */
     logo: function (parent, cls) {
-      return U.h('div', 'gi-logo ' + (cls || ''),
-        '<span class="gi-logo-soft">' + U.svg(BOOK) + '</span>' +
-        '<span class="gi-logo-solid">' + U.svg(BOOK) + '</span>', parent);
+      return U.h('div', 'gi-logo ' + (cls || ''), '', parent);
     },
-    /** 로고를 메뉴의 로고 자리(to)로 날려 보낸다. 날아가며 진한 파랑 → 연한 파랑(메뉴 로고 모양)으로 */
+    /** 로고를 메뉴의 로고 자리(to)로 날려 보낸다(메뉴 로고 크기로 줄며) */
     flyLogo: function (lg, to, dur, delay) {
       if (!lg) return;
       if (lg.getAnimations) lg.getAnimations().forEach(function (a) { try { a.cancel(); } catch (e) { /* 그대로 */ } });
@@ -125,7 +114,6 @@ window.__gyIntroU = (function () {
         { transform: 'translate(0px,0px) scale(1)', boxShadow: '0 18px 40px -12px var(--accent-glow)' },
         { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + s + ')', boxShadow: '0 0 0 0 transparent' }
       ], { duration: dur, delay: delay, easing: 'cubic-bezier(.65,0,.25,1)', fill: 'forwards' });
-      U.anim(lg.querySelector('.gi-logo-solid'), [{ opacity: 1 }, { opacity: 0 }], { duration: dur * 0.55, delay: delay + dur * 0.35, fill: 'forwards' });
     },
     /** 시간에 맞는 인사 */
     hello: function (name) {

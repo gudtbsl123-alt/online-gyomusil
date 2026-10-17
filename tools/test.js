@@ -1593,6 +1593,22 @@ test('판 표시: 파일마다 판 표의 판과 같다(고친 파일만 판을 
   assert.ok(Object.keys(b).every((f) => b[f] <= g.APP_BUILD_), 'APP_BUILD_는 가장 최근 판');
 });
 
+test('교표: Styles.html의 교표 그림(--gy-emblem)이 잘리지 않은 PNG이고, 메뉴·위 막대·로그인 화면과 여는 그림이 책 대신 교표를 쓴다', () => {
+  const read = (f) => fs.readFileSync(path.join(GAS_DIR, f), 'utf8');
+  const m = /--gy-emblem:url\("data:image\/png;base64,([A-Za-z0-9+/=]+)"\)/.exec(read('Styles.html'));
+  assert.ok(m, '--gy-emblem 한 줄');
+  const png = Buffer.from(m[1], 'base64');
+  assert.strictEqual(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'PNG 머리');
+  assert.strictEqual(png.subarray(png.length - 8, png.length - 4).toString('latin1'), 'IEND', 'PNG 끝까지 있음(잘리지 않음)');
+  const w = png.readUInt32BE(16), h = png.readUInt32BE(20);
+  assert.ok(w === h && w >= 96, '정사각형 96px 이상: ' + w + '×' + h);
+  const app = read('App.html');
+  assert.strictEqual((app.match(/class="brand-mark emblem"/g) || []).length, 3, '메뉴·위 막대·로그인 화면');
+  assert.ok(!/icon\('book'/.test(app), '책 로고가 남지 않음');
+  const idx = read('Index.html');
+  assert.ok(/\.gi-logo\{[^}]*var\(--gy-emblem\)/.test(idx) && !/BOOK/.test(idx), '여는 그림의 로고도 교표');
+});
+
 test('학생 수: 탭이 없던 시트에서도 홈이 열리고, 처음 넣으면 탭이 생긴다', () => {
   const g = freshName();
   const { who } = ids(g);

@@ -1023,6 +1023,94 @@ function loggedInCopy() {
   return loggedIn;
 }
 
+/** 교표(책 모양 로고 대신, 판 2026-10-17e): 로그인 화면·PC 메뉴(밝은·어두운 화면)·휴대폰 위 막대의 로고가 교표 그림으로 칠해지는지
+ * 로고 칸을 찍어 교표의 남색 테두리·초록 줄기·주황 입 색을 세어 보고, 빛 알갱이를 그릴 수 없을 때 대신 나오는 '짧게' 여는 그림의 로고도 본다 */
+async function emblemCheck(browser) {
+  async function look(page, sel, label, wantW) {
+    const el = page.locator(sel).first();
+    await el.waitFor();
+    const info = await el.evaluate((m) => {
+      const cs = getComputedStyle(m);
+      return { cls: m.className, png: cs.backgroundImage.indexOf('url("data:image/png;base64,') === 0, radius: cs.borderTopLeftRadius, svg: !!m.querySelector('svg'), w: Math.round(m.getBoundingClientRect().width) };
+    });
+    if (!/emblem/.test(info.cls) || !info.png || info.svg) problems.push(label + ': 로고가 교표가 아님 ' + JSON.stringify(info));
+    if (info.radius !== '50%') problems.push(label + ': 교표 칸이 동그랗지 않음(' + info.radius + ')');
+    if (wantW && info.w !== wantW) problems.push(label + ': 교표 크기 ' + info.w + 'px (기대 ' + wantW + 'px)');
+    const png = (await el.screenshot()).toString('base64');
+    const k = await page.evaluate(async (b64) => {
+      const im = new Image();
+      im.src = 'data:image/png;base64,' + b64;
+      await im.decode();
+      const cv = document.createElement('canvas');
+      cv.width = im.naturalWidth;
+      cv.height = im.naturalHeight;
+      const g = cv.getContext('2d');
+      g.drawImage(im, 0, 0);
+      const d = g.getImageData(0, 0, cv.width, cv.height).data;
+      const c = { navy: 0, green: 0, orange: 0 };
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], gr = d[i + 1], b = d[i + 2];
+        if (b > 70 && b - r > 40 && b - gr > 30 && r < 110) c.navy++;
+        else if (gr > 120 && gr - r > 25 && gr - b > 50) c.green++;
+        else if (r > 190 && gr > 70 && gr < 170 && b < 110) c.orange++;
+      }
+      return c;
+    }, png);
+    if (k.navy < 200 || k.green < 100 || k.orange < 10) problems.push(label + ': 교표 색이 보이지 않음 ' + JSON.stringify(k));
+  }
+  async function clip(page, name, box) {
+    n++;
+    await page.screenshot({ path: path.join(OUT, String(n).padStart(2, '0') + '_' + name + '.png'), clip: box });
+  }
+  // PC: 로그인 화면 → 메뉴(밝은 화면) → 메뉴(어두운 화면)
+  let ctx = await newCtx(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
+  let page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('교표 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await look(page, '.gate-top .brand-mark', '교표 로그인 화면', 40);
+  const gb = await page.locator('.gate-top').boundingBox();
+  await clip(page, '교표_로그인화면', { x: gb.x - 16, y: gb.y - 16, width: gb.width + 32, height: gb.height + 32 });
+  await login(page);
+  await verify(page, '홍길동');
+  await look(page, '.side .brand-mark', '교표 PC 메뉴(밝은 화면)', 40);
+  await clip(page, '교표_PC메뉴_밝은화면', { x: 0, y: 0, width: 248, height: 96 });
+  await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+  await look(page, '.side .brand-mark', '교표 PC 메뉴(어두운 화면)', 40);
+  await clip(page, '교표_PC메뉴_어두운화면', { x: 0, y: 0, width: 248, height: 96 });
+  await ctx.close();
+  // 휴대폰: 위 막대(36px)
+  ctx = await newCtx(browser, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('교표 휴대폰 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  await look(page, '.topbar .brand-mark', '교표 휴대폰 위 막대', 36);
+  await clip(page, '교표_휴대폰_위막대', { x: 0, y: 0, width: 390, height: 60 });
+  await ctx.close();
+  // 여는 그림 '짧게'(빛 알갱이를 그릴 수 없을 때): 그림 묶음을 비워 짧게로 열고, 교표가 가운데 떴다가 메뉴 교표 자리로 들어가는지
+  ctx = await newCtx(browser, { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 }, true);
+  await ctx.addInitScript(() => { Object.defineProperty(window, '__gyIntroKinds', { value: Object.freeze({}), writable: false }); });
+  await slowServer(ctx, 2500);
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('교표 여는 그림(짧게) 페이지 오류: ' + e.message));
+  await page.goto(loggedInCopy());
+  await page.locator('#gy-intro.gi-short .gi-logo').waitFor({ timeout: 5000 });
+  await page.waitForTimeout(700);
+  const lg = await page.evaluate(() => {
+    const e = document.querySelector('#gy-intro .gi-logo'), cs = getComputedStyle(e);
+    return { png: cs.backgroundImage.indexOf('url("data:image/png;base64,') === 0, radius: cs.borderTopLeftRadius, svg: !!e.querySelector('svg') };
+  });
+  if (!lg.png || lg.radius !== '50%' || lg.svg) problems.push('여는 그림(짧게) 로고가 교표가 아님 ' + JSON.stringify(lg));
+  n++;
+  await page.screenshot({ path: path.join(OUT, String(n).padStart(2, '0') + '_교표_여는그림_짧게.png') });
+  await page.waitForFunction(() => !document.getElementById('gy-intro'), null, { timeout: 10000 }).catch(() => problems.push('여는 그림(짧게)이 걷히지 않음'));
+  await look(page, '.side .brand-mark', '교표 여는 그림(짧게) 뒤 메뉴', 40);
+  await ctx.close();
+}
+
 /** 가짜 서버를 늦춘다(웹앱 준비가 늦은 경우 흉내): 기기의 gy.testDelay(밀리초), 없으면 def만큼 기다렸다가 답한다 */
 async function slowServer(ctx, def) {
   await ctx.addInitScript((d) => {
@@ -1287,7 +1375,8 @@ async function introReducedMotionCheck(browser) {
   await pinModeCheck(browser);
   await printCheck(browser);
   await dragCheck(browser);
-  const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
+  await emblemCheck(browser);
+  const intro =[await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
   await browser.close();
   console.log('인트로: ' + intro.join(' / '));
   if (planInfo) console.log(planInfo);
