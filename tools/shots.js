@@ -16,8 +16,10 @@ const problems = [];
 
 /** 인터넷 없는 곳에서 사진을 찍을 때: PRETENDARD_DIR(npm pretendard 패키지 폴더)이 있으면 글꼴을 거기서 읽는다 */
 const FONT_DIR = process.env.PRETENDARD_DIR;
-async function newCtx(browser, opts) {
+async function newCtx(browser, opts, intro) {
   const ctx = await browser.newContext(opts);
+  // 여는 그림(인트로)은 화면을 4초쯤 가리니 끄고 찍는다. 인트로 점검(introFlow)만 켠 채로 연다
+  if (!intro) await ctx.addInitScript(() => { try { localStorage.setItem('gy.introOff', '1'); } catch (e) { /* 그대로 */ } });
   if (FONT_DIR) {
     await ctx.route('https://cdn.jsdelivr.net/npm/pretendard@1.3.9/**', (route) => {
       const rel = new URL(route.request().url()).pathname.replace('/npm/pretendard@1.3.9/', '');
@@ -629,6 +631,7 @@ async function flow(browser, kind, viewport) {
   await page.goto(FILE);
   await waitText(page, '어서 오세요');
   await page.evaluate(() => document.fonts.ready);
+  if (await page.locator('#gy-intro').count()) problems.push(kind + ': 인트로를 끈 기기(gy.introOff)인데 인트로가 남아 있음');
   await shot(page, kind + '_로그인');
 
   await page.fill('#login-pw', 'wrong-pass');
@@ -838,6 +841,172 @@ async function printCheck(browser) {
   await ctx.close();
 }
 
+/** 열 때 성춘향으로 미리 로그인해 두는 미리보기 사본(임시 폴더, 끝나면 지움). 인트로 뒤에 홈이 이어지는지 보려고 쓴다 */
+let loggedIn = '';
+function loggedInCopy() {
+  if (loggedIn) return loggedIn;
+  const src = fs.readFileSync(path.join(__dirname, '..', '미리보기', '미리보기.html'), 'utf8');
+  const hook = '  window.__previewSheet = env._ss;';
+  if (!src.includes(hook)) throw new Error('미리보기에 미리 로그인을 끼울 자리가 없어요');
+  const auto = `  (function () {
+    var call = function (a, args, tk) { return JSON.parse(api(JSON.stringify({ action: a, args: args || {}, tokens: tk || {} }))); };
+    var L = call('login', { password: 'preview1' }).data.login;
+    var me = call('staffPicker', {}, { login: L }).data.filter(function (x) { return x.name === '성춘향'; })[0];
+    localStorage.setItem('gy.login', L);
+    localStorage.setItem('gy.identity', call('verify', { staffId: me.id }, { login: L }).data.identity);
+  })();
+`;
+  const dir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'gy-shots-'));
+  const f = path.join(dir, '미리보기_로그인됨.html');
+  fs.writeFileSync(f, src.replace(hook, () => auto + hook));
+  loggedIn = 'file://' + f;
+  process.on('exit', () => fs.rmSync(dir, { recursive: true, force: true }));
+  return loggedIn;
+}
+
+/** 여는 그림(인트로, Index.html): 그날 처음은 전체 → 로그인·홈으로 이어짐, 같은 날 다시 열면 짧게, 누르면 건너뜀(아래 앱은 눌리지 않음) */
+async function introFlow(browser, kind, viewport) {
+  const phone = kind === '휴대폰';
+  const ctx = await newCtx(browser, { viewport, deviceScaleFactor: 1, hasTouch: phone, isMobile: phone }, true);
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push(kind + ' 인트로 페이지 오류: ' + e.message));
+  page.on('console', (m) => { if (m.type() === 'error' && !/pretendard|ERR_|net::/i.test(m.text())) problems.push(kind + ' 인트로 콘솔: ' + m.text()); });
+  const mode = () => page.getAttribute('html', 'data-intro');
+  const stats = () => page.evaluate(() => window.__gyIntroStats || {});
+  const gone = (ms) => page.waitForFunction(() => !document.getElementById('gy-intro'), null, { timeout: ms }).then(() => true, () => false);
+  let t0 = 0;
+  const at = async (s) => { const w = s * 1000 - (Date.now() - t0); if (w > 0) await page.waitForTimeout(w); };
+  const snap = async (name) => { n++; await page.screenshot({ path: path.join(OUT, String(n).padStart(2, '0') + '_' + name + '.png') }); };
+  const press = async (sel) => {
+    const b = await page.locator(sel).first().boundingBox();
+    if (phone) await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2);
+    else await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+  };
+
+  // ① 그날 처음: 전체(빛 알갱이가 학교 이름·'온라인 교무실' 글자로 모임) → 로그인 화면
+  t0 = Date.now();
+  await page.goto(FILE);
+  if ((await mode()) !== 'full') problems.push(kind + ' 인트로: 그날 처음 열었는데 전체가 아님(' + (await mode()) + ')');
+  await at(1.0);
+  await snap(kind + '_인트로_1_빛알갱이');
+  await at(2.2);
+  await snap(kind + '_인트로_2_글자로_모임');
+  await at(3.9);
+  await check(page, kind + ' 인트로');
+  await snap(kind + '_인트로_3_학교이름');
+  if (!(await gone(9000))) problems.push(kind + ' 인트로: 9초가 지나도 걷히지 않음');
+  const full = Date.now() - t0;
+  let st = await stats();
+  if (st.mode !== 'full' || !(st.finishAt >= 4000)) problems.push(kind + ' 인트로: 전체를 다 보여 주지 않고 끝남 ' + JSON.stringify(st));
+  await waitText(page, '어서 오세요');
+  const info = [kind + ' 처음 ' + (full / 1000).toFixed(1) + '초' + (st.low || st.cheap ? '(가벼운 그림)' : '')];
+
+  // ② 같은 날 다시 열기: 짧게(로고만 잠깐)
+  t0 = Date.now();
+  await page.reload();
+  if ((await mode()) !== 'short') problems.push(kind + ' 인트로: 같은 날 다시 열었는데 짧게가 아님(' + (await mode()) + ')');
+  await at(0.3);
+  await snap(kind + '_인트로_4_다시열면_짧게');
+  if (!(await gone(4000))) problems.push(kind + ' 인트로: 짧게인데 4초가 지나도 걷히지 않음');
+  info.push('다시 열기 ' + ((Date.now() - t0) / 1000).toFixed(1) + '초');
+  await waitText(page, '어서 오세요');
+
+  // ③ 이름을 고른 기기를 다음 날처럼 열기: 인사에 이름, 끝나면 홈
+  // (미리보기는 새로 고치면 가짜 서버가 처음으로 돌아가 로그인이 풀리니, 열 때 미리 로그인하는 사본을 연다)
+  const LOGGED = loggedInCopy();
+  await page.evaluate(() => localStorage.removeItem('gy.introDay'));
+  t0 = Date.now();
+  await page.goto(LOGGED);
+  await at(3.9);
+  const hello = await page.locator('#gy-intro .gib-hello').textContent().catch(() => '');
+  if (!/성춘향/.test(hello || '')) problems.push(kind + ' 인트로: 인사에 고른 이름이 없음(' + hello + ')');
+  await snap(kind + '_인트로_5_이름인사');
+  await at(4.85);
+  await snap(kind + '_인트로_6_로고에서_화면이_열림');
+  if (!(await gone(9000))) problems.push(kind + ' 인트로: 홈으로 이어지지 않음');
+  await page.locator('.today-card').waitFor();
+
+  // ④ 누르면 건너뛰기: 건너뛰려고 누른 자리 아래의 메뉴(일정)가 눌리면 안 된다
+  await page.evaluate(() => localStorage.removeItem('gy.introDay'));
+  t0 = Date.now();
+  await page.goto(LOGGED);
+  await page.locator('.today-card').waitFor({ state: 'attached' });
+  await at(1.0);
+  const t1 = Date.now();
+  await press(phone ? '.bottom-nav [data-go=schedule]' : '.side [data-go=schedule]');
+  if (!(await gone(3000))) problems.push(kind + ' 인트로: 눌렀는데 3초 안에 걷히지 않음');
+  info.push('건너뛰기 ' + ((Date.now() - t1) / 1000).toFixed(1) + '초');
+  await page.waitForTimeout(400);
+  if (await page.locator('.cal, .pweek').count()) problems.push(kind + ' 인트로: 건너뛰려고 누른 손이 아래 메뉴(일정)까지 눌렀음');
+  if (!(await page.locator('.today-card').count())) problems.push(kind + ' 인트로: 건너뛴 뒤 홈이 아님');
+  // 건너뛴 뒤에는 앱이 바로 눌린다
+  await press(phone ? '.bottom-nav [data-go=schedule]' : '.side [data-go=schedule]');
+  await page.locator('.cal, .pweek').first().waitFor();
+
+  // ⑤ 어두운 화면에서 다시 열기(짧게)
+  await page.evaluate(() => localStorage.setItem('gy.theme', 'dark'));
+  t0 = Date.now();
+  await page.goto(LOGGED);
+  await at(0.3);
+  await snap(kind + '_인트로_7_어두운화면_짧게');
+  if (!(await gone(4000))) problems.push(kind + ' 인트로: 어두운 화면 짧게가 걷히지 않음');
+  await ctx.close();
+  return info.join(', ');
+}
+
+/** 자료가 늦게 올 때(가짜 서버를 6초 늦춤): 마지막 장면에서 기다리다 자료가 오면 넘어가고, 기다리는 중 두 번 누르면 앱의 '여는 중' 화면을 보여 준다 */
+async function introLateCheck(browser) {
+  const ctx = await newCtx(browser, { viewport: { width: 1280, height: 800 } }, true);
+  await ctx.addInitScript(() => {
+    let slow;
+    Object.defineProperty(window, '__previewServer', {
+      configurable: true,
+      get() { return slow; },
+      set(v) { slow = (req) => new Promise((r) => setTimeout(r, 6000)).then(() => v(req)); }
+    });
+  });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('늦은 자료 인트로 페이지 오류: ' + e.message));
+  const there = () => page.evaluate(() => !!document.getElementById('gy-intro'));
+  const gone = (ms) => page.waitForFunction(() => !document.getElementById('gy-intro'), null, { timeout: ms }).then(() => true, () => false);
+  let t0 = Date.now();
+  await page.goto(FILE);
+  await page.waitForTimeout(5200 - (Date.now() - t0));
+  if (!(await there())) problems.push('자료가 늦게 오는데 인트로가 먼저 걷혀 빈 화면이 보임');
+  if (!(await gone(6000))) problems.push('자료가 온 뒤에도 인트로가 걷히지 않음');
+  const late = Date.now() - t0;
+  await waitText(page, '어서 오세요');
+  await page.evaluate(() => localStorage.removeItem('gy.introDay'));
+  t0 = Date.now();
+  await page.goto(FILE);
+  await page.waitForTimeout(1000);
+  await page.mouse.click(640, 400);
+  await page.waitForTimeout(1000);
+  if (!(await there())) problems.push('자료가 오기 전 한 번 누르니 인트로가 걷힘(마지막 장면에서 기다려야 함)');
+  await page.mouse.click(640, 400);
+  if (!(await gone(2000))) problems.push('기다리는 중 두 번 눌렀는데 인트로가 걷히지 않음');
+  if (!(await page.locator('#app .loading').count())) problems.push('두 번 눌러 걷힌 뒤 앱의 여는 중 화면이 안 보임');
+  await waitText(page, '어서 오세요');
+  await ctx.close();
+  return '자료가 늦을 때 ' + (late / 1000).toFixed(1) + '초';
+}
+
+/** 움직임 줄이기를 켠 기기: 조용히(움직이지 않고 나타났다 사라짐) */
+async function introCalmCheck(browser) {
+  const ctx = await newCtx(browser, { viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' }, true);
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('조용한 인트로 페이지 오류: ' + e.message));
+  const t0 = Date.now();
+  await page.goto(FILE);
+  const m = await page.getAttribute('html', 'data-intro');
+  if (m !== 'calm') problems.push('움직임 줄이기 기기인데 인트로가 ' + m);
+  const ok = await page.waitForFunction(() => !document.getElementById('gy-intro'), null, { timeout: 3000 }).then(() => true, () => false);
+  if (!ok) problems.push('조용한 인트로가 3초 안에 걷히지 않음');
+  await waitText(page, '어서 오세요');
+  await ctx.close();
+  return '움직임 줄이기 ' + ((Date.now() - t0) / 1000).toFixed(1) + '초';
+}
+
 (async () => {
   const browser = await chromium.launch();
   await flow(browser, 'PC', { width: 1440, height: 900 });
@@ -927,7 +1096,9 @@ async function printCheck(browser) {
   }
   await pinModeCheck(browser);
   await printCheck(browser);
+  const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introCalmCheck(browser)];
   await browser.close();
+  console.log('인트로: ' + intro.join(' / '));
   console.log('사진 ' + n + '장 → ' + OUT);
   if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; }
   else console.log('넘침·오류 없음');

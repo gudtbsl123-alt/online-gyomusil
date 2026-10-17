@@ -4,13 +4,630 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="gy-build" content="2026-10-16">
+<meta name="gy-build" content="2026-10-17">
 <title>온라인 교무실</title>
+<script>
+/* 여는 그림(인트로) ①: 그림이 처음 보이기 전에 밝기와 보여 주는 방식을 정한다(어두운 화면을 쓰는 분은 처음부터 어둡게)
+ * 그날 처음 여는 기기는 전체(full), 그 뒤로는 짧게(short), 움직임 줄이기를 켠 기기는 조용히(calm). 기기에 gy.introOff=1이면 끔(자동 점검용) */
+(function () {
+  var d = document.documentElement;
+  function g(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function s(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* 기억 못 해도 괜찮다 */ } }
+  if (g('gy.theme') === 'dark') d.setAttribute('data-theme', 'dark');
+  var t = new Date(), day = t.getFullYear() + '-' + (t.getMonth() + 1) + '-' + t.getDate();
+  var mode = g('gy.introDay') === day ? 'short' : 'full';
+  try { if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) mode = 'calm'; } catch (e) { /* 그대로 */ }
+  if (g('gy.introOff') === '1') mode = 'off';
+  if (mode === 'full') s('gy.introDay', day);
+  d.setAttribute('data-intro', mode);
+})();
+</script>
 <!-- 글꼴: Pretendard (SIL Open Font License 1.1, https://github.com/orioncactus/pretendard). 인터넷이 안 되면 기기 기본 글꼴로 보입니다. -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard-dynamic-subset.css">
 <?!= include('Styles'); ?>
+<style>
+/* ===== 여는 그림(인트로) ②: 모양 ===== */
+#gy-intro{position:fixed;inset:0;z-index:9000;overflow:hidden;contain:strict;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  font-family:Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  animation:gi-failsafe .4s 20s forwards}
+html[data-intro="off"] #gy-intro{display:none}
+@keyframes gi-failsafe{to{opacity:0;visibility:hidden}}
+#gy-intro.gi-leaving{pointer-events:none}
+#gy-intro .gi-bgl{position:absolute;inset:0;background:var(--c-bg)}
+#gy-intro .gi-center{position:absolute;left:50%;top:46%;width:0;height:0}
+
+/* 책 로고(시안 brand-mark를 크게): 88px, 모서리 26px → 메뉴 로고 40px로 줄면 모서리 12px */
+#gy-intro .gi-logo{position:absolute;left:-44px;top:-44px;width:88px;height:88px;border-radius:26px;overflow:hidden;box-shadow:0 18px 40px -12px var(--accent-glow)}
+#gy-intro .gi-logo>span{position:absolute;inset:0;display:grid;place-items:center}
+#gy-intro .gi-logo svg{width:53px;height:53px}
+#gy-intro .gi-logo-soft{background:linear-gradient(var(--accent-soft),var(--accent-soft)),var(--c-sub);color:var(--accent)}
+#gy-intro .gi-logo-solid{background:radial-gradient(120% 90% at 25% 15%,rgba(255,255,255,.22),transparent 55%),var(--accent);color:var(--c-onAccent)}
+
+/* 짧게(그날 두 번째부터) */
+#gy-intro.gi-short .gis-logo{animation:gis-pop .42s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes gis-pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+#gy-intro .gis-name{position:absolute;left:-50vw;width:100vw;top:60px;text-align:center;font-size:22px;font-weight:800;letter-spacing:-0.03em;color:var(--c-t1)}
+#gy-intro.gi-short .gis-name{animation:gis-up .4s .1s cubic-bezier(.2,.8,.2,1) both}
+@keyframes gis-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* 조용히(움직임 줄이기를 켠 기기): 움직이지 않고 나타났다 사라진다 */
+#gy-intro.gi-calm .gi-center{animation:gis-fade .25s both}
+@keyframes gis-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){#gy-intro *{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important}}
+/* ===== 시안 B. 빛 알갱이 ===== */
+/* 빛이 잘 보이게 밝은 화면에서도 밤하늘 바탕(어두운 화면의 바탕색 + 파란 빛 번짐) → 끝날 때 로고 자리부터 앱 화면이 열린다 */
+#gy-intro.gi-b .gi-bgl{background:radial-gradient(80% 65% at 50% 45%,rgba(71,149,255,.18),rgba(71,149,255,.06) 50%,rgba(71,149,255,0) 100%),#0B0E14}
+#gy-intro.gi-b .gib-cv{position:absolute;inset:0;width:100%;height:100%}
+#gy-intro.gi-b .gib-hello{position:absolute;left:0;right:0;top:62%;text-align:center;font-size:18px;font-weight:600;letter-spacing:-0.01em;color:#CFE0FF;
+  text-shadow:0 0 18px rgba(71,149,255,.45);opacity:0;animation:gib-up .7s 3.1s cubic-bezier(.2,.8,.2,1) forwards}
+#gy-intro.gi-b .gib-core{position:absolute;left:50%;top:46%;width:520px;height:520px;margin:-260px 0 0 -260px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(220,235,255,.85),rgba(71,149,255,.35) 25%,rgba(71,149,255,0) 70%);opacity:0;transform:scale(.1);
+  animation:gib-core 1.3s .02s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes gib-core{25%{opacity:1}100%{opacity:0;transform:scale(1)}}
+#gy-intro.gi-b .gib-sub{position:absolute;left:0;right:0;text-align:center;font-weight:700;letter-spacing:.3em;padding-left:.3em;color:#DCE8FF;line-height:1;
+  text-shadow:0 0 14px rgba(71,149,255,.8),0 0 2px rgba(255,255,255,.6);opacity:0;animation:gib-sub .9s 2.45s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes gib-sub{from{opacity:0;transform:translateY(8px) scale(.96);filter:blur(6px)}to{opacity:1;transform:none;filter:blur(0)}}
+@keyframes gib-up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+#gy-intro.gi-b .gib-pulse{position:fixed;box-sizing:border-box;border-radius:12px;border:2px solid #4795FF;box-shadow:0 0 24px rgba(71,149,255,.6);opacity:0}
+@media (max-width:699px){#gy-intro.gi-b .gib-hello{font-size:15px}}
+/* 그림이 처음 보이는 순간부터 밤하늘(움직임 코드가 돌기 전 한 장면도 밝게 번쩍이지 않게) */
+html[data-intro="full"] #gy-intro .gi-bgl{background:radial-gradient(80% 65% at 50% 45%,rgba(71,149,255,.18),rgba(71,149,255,.06) 50%,rgba(71,149,255,0) 100%),#0B0E14}
+@media print{#gy-intro{display:none!important}}
+</style>
 </head>
 <body>
+<!-- 여는 그림(인트로): 웹앱을 여는 동안 빛 알갱이가 학교 이름·'온라인 교무실' 글자로 모였다가 메뉴 로고로 들어간다(①머리의 짧은 스크립트, ②모양, ③아래 움직임 묶음) -->
+<div id="gy-intro" aria-hidden="true"><div class="gi-bgl"></div></div>
+<script>
+/* ===== 여는 그림(인트로) ③: 움직임 — 도구 ===== */
+window.__gyIntroU = (function () {
+  'use strict';
+  var BOOK = '<path d="M4 6.5c2.5-1 5-1 8 1 3-2 5.5-2 8-1V18c-2.5-1-5-1-8 1-3-2-5.5-2-8-1z"></path><path d="M12 7.5V19"></path>';
+  var U = {
+    ICON: { book: BOOK },
+    clamp: function (x, a, b) { return x < a ? a : x > b ? b : x; },
+    seg: function (t, a, b) { return t <= a ? 0 : t >= b ? 1 : (t - a) / (b - a); },
+    lerp: function (a, b, p) { return a + (b - a) * p; },
+    outCubic: function (p) { return 1 - Math.pow(1 - p, 3); },
+    inCubic: function (p) { return p * p * p; },
+    inOutCubic: function (p) { return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; },
+    now: function () { return window.performance && performance.now ? performance.now() : Date.now(); },
+    /** 요소 만들기 */
+    h: function (tag, cls, html, parent) {
+      var e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (html) e.innerHTML = html;
+      if (parent) parent.appendChild(e);
+      return e;
+    },
+    svg: function (paths, cls) {
+      return '<svg class="' + (cls || '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>';
+    },
+    rect: function (e) {
+      var r = e.getBoundingClientRect();
+      return { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+    },
+    /** 움직임(Web Animations). 없는 브라우저는 끝 모습만 */
+    anim: function (node, frames, opt) {
+      if (!node) return null;
+      if (node.animate) { try { return node.animate(frames, opt); } catch (e) { /* 아래로 */ } }
+      var f = frames[frames.length - 1];
+      Object.keys(f).forEach(function (k) { if (k !== 'offset' && k !== 'easing') node.style[k] = f[k]; });
+      return null;
+    },
+    /** 앱의 책 로고(시안의 brand-mark와 같은 모양, 크게) */
+    logo: function (parent, cls) {
+      return U.h('div', 'gi-logo ' + (cls || ''),
+        '<span class="gi-logo-soft">' + U.svg(BOOK) + '</span>' +
+        '<span class="gi-logo-solid">' + U.svg(BOOK) + '</span>', parent);
+    },
+    /** 로고를 메뉴의 로고 자리(to)로 날려 보낸다. 날아가며 진한 파랑 → 연한 파랑(메뉴 로고 모양)으로 */
+    flyLogo: function (lg, to, dur, delay) {
+      if (!lg) return;
+      if (lg.getAnimations) lg.getAnimations().forEach(function (a) { try { a.cancel(); } catch (e) { /* 그대로 */ } });
+      lg.style.opacity = '1';
+      lg.style.transform = 'none';
+      if (!to) {
+        U.anim(lg, [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.85)' }], { duration: 260, delay: delay, fill: 'forwards' });
+        return;
+      }
+      var from = U.rect(lg);
+      var s = to.w / from.w, dx = to.cx - from.cx, dy = to.cy - from.cy;
+      U.anim(lg, [
+        { transform: 'translate(0px,0px) scale(1)', boxShadow: '0 18px 40px -12px var(--accent-glow)' },
+        { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + s + ')', boxShadow: '0 0 0 0 transparent' }
+      ], { duration: dur, delay: delay, easing: 'cubic-bezier(.65,0,.25,1)', fill: 'forwards' });
+      U.anim(lg.querySelector('.gi-logo-solid'), [{ opacity: 1 }, { opacity: 0 }], { duration: dur * 0.55, delay: delay + dur * 0.35, fill: 'forwards' });
+    },
+    /** 시간에 맞는 인사 */
+    hello: function (name) {
+      var h = new Date().getHours();
+      var g = h >= 5 && h < 11 ? '좋은 아침이에요' : h >= 11 && h < 17 ? '좋은 오후예요' : '오늘도 수고 많으셨어요';
+      return name ? name + ' 선생님, ' + g : g;
+    }
+  };
+  return U;
+})();
+/* ===== 여는 그림: 빛 알갱이 =====
+ * 빛 알갱이 수천 개가 기울어진 은하처럼 피어나 돌다가, 왼쪽부터 학교 이름과 '온라인 교무실' 글자로 모인다.
+ * 끝날 때 알갱이가 소용돌이치며 메뉴의 로고로 빨려 들어가고, 그 자리에서부터 화면이 둥글게 열린다
+ */
+(window.__gyIntroKinds = window.__gyIntroKinds || {}).b = {
+  minT: 4.2,
+  build: function (ctx) {
+    var U = ctx.U, el = ctx.el, W = ctx.w, H = ctx.h;
+    el.classList.add('gi-b');
+    var cv = U.h('canvas', 'gib-cv', '', el);
+    U.h('div', 'gib-core', '', el);
+    ctx.subEl = U.h('div', 'gib-sub', ctx.school, el);
+    ctx.helloEl = U.h('div', 'gib-hello', ctx.hello, el);
+    var dpr = Math.min(window.devicePixelRatio || 1, ctx.low ? 1 : 1.5);
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    var g = cv.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var N = Math.round(U.clamp(W * H / 520, 820, 3200) * (ctx.low ? 0.5 : 1));
+    var B = ctx.B = {
+      cv: cv, g: g, n: N, cx: W / 2, cy: H * (ctx.phone ? 0.44 : 0.46), Rg: Math.min(W, H) * (ctx.phone ? 0.47 : 0.44),
+      cosT: Math.cos(62 * Math.PI / 180), sinT: Math.sin(62 * Math.PI / 180), F: 900,
+      rr: new Float32Array(N), ph: new Float32Array(N), w: new Float32Array(N), y: new Float32Array(N), sz: new Float32Array(N),
+      col: new Uint8Array(N), tw: new Float32Array(N), tx: new Float32Array(N), ty: new Float32Array(N), has: new Uint8Array(N),
+      del: new Float32Array(N), dur: new Float32Array(N), sw: new Float32Array(N), hx: new Float32Array(N), hy: new Float32Array(N),
+      fd: new Float32Array(N), fu: new Float32Array(N), T1: 1.5, sampled: false, fin: 0, sprites: [], cheap: false, maskR: -1
+    };
+    for (var i = 0; i < N; i++) {
+      var r = Math.pow(Math.random(), 0.62), arm = i % 3;
+      B.rr[i] = r;
+      B.ph[i] = arm * 2.0944 + r * 3.4 + (Math.random() - 0.5) * (0.9 - r * 0.5);
+      B.w[i] = (0.55 + Math.random() * 0.25) / (0.3 + r);
+      B.y[i] = (Math.random() - 0.5) * B.Rg * 0.12 * (1 - r * 0.7);
+      B.sz[i] = 0.7 + Math.random() * 1.5 + (r < 0.18 ? 0.8 : 0);
+      B.col[i] = r < 0.22 ? (Math.random() < 0.6 ? 0 : 1) : r < 0.6 ? (Math.random() < 0.7 ? 1 : 2) : (Math.random() < 0.3 ? 1 : 2);
+      B.tw[i] = Math.random() * 6.283;
+    }
+    // 알갱이 그림(빛 번짐) 세 가지: 흰 빛·하늘빛·파란 빛
+    [['#FFFFFF', 'rgba(205,226,255,.55)'], ['#BFD8FF', 'rgba(110,170,255,.45)'], ['#7FB2FF', 'rgba(55,120,240,.38)']].forEach(function (c) {
+      var s = document.createElement('canvas');
+      s.width = s.height = 32;
+      var sg = s.getContext('2d'), gr = sg.createRadialGradient(16, 16, 0, 16, 16, 16);
+      gr.addColorStop(0, c[0]);
+      gr.addColorStop(0.18, c[0]);
+      gr.addColorStop(0.42, c[1]);
+      gr.addColorStop(1, 'rgba(0,0,0,0)');
+      sg.fillStyle = gr;
+      sg.fillRect(0, 0, 32, 32);
+      B.sprites.push(s);
+    });
+    B.flat = ['#FFFFFF', '#BFD8FF', '#7FB2FF'];
+    try {
+      if (document.fonts && document.fonts.load) {
+        document.fonts.load('800 80px Pretendard', '온라인 교무실').catch(function () { /* 기본 글꼴로 */ });
+        document.fonts.load('700 30px Pretendard', ctx.school).catch(function () { /* 기본 글꼴로 */ });
+      }
+    } catch (e) { /* 기본 글꼴로 */ }
+  },
+  /** 글자 모양을 따라 알갱이가 갈 자리를 정한다(왼쪽 글자부터 차례로 날아가게) */
+  sample: function (ctx) {
+    var U = ctx.U, B = ctx.B, W = ctx.w, H = ctx.h;
+    var c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    var g = c.getContext('2d');
+    var fam = 'Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    var two = W < 560;
+    var big = Math.round(two ? U.clamp(W * 0.2, 56, 96) : U.clamp(Math.min(W * 0.085, H * 0.15), 40, 116));
+    var sub = Math.round(U.clamp(big * (two ? 0.27 : 0.32), 16, 36));
+    g.fillStyle = '#fff';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    var top = B.cy - (two ? big * 0.95 : big * 0.55);
+    if (ctx.subEl) {
+      ctx.subEl.textContent = ctx.school;
+      ctx.subEl.style.top = Math.round(top - sub * 0.4) + 'px';
+      ctx.subEl.style.fontSize = sub + 'px';
+    }
+    g.font = '800 ' + big + 'px ' + fam;
+    if (two) {
+      g.fillText('온라인', W / 2, top + sub * 0.6 + big * 0.62);
+      g.fillText('교무실', W / 2, top + sub * 0.6 + big * 1.72);
+      B.textBottom = top + sub * 0.6 + big * 2.3;
+    } else {
+      g.fillText('온라인 교무실', W / 2, top + sub * 0.55 + big * 0.62);
+      B.textBottom = top + sub * 0.55 + big * 1.2;
+    }
+    var data = g.getImageData(0, 0, W, H).data, cover = 0, x, y;
+    for (y = 0; y < H; y += 2) for (x = 0; x < W; x += 2) if (data[(y * W + x) * 4 + 3] > 128) cover++;
+    var want = Math.round(B.n * 0.88);
+    var step = Math.max(1.35, Math.sqrt(cover * 4 / want));
+    var pts = [];
+    for (y = step / 2; y < H; y += step) {
+      for (x = step / 2; x < W; x += step) {
+        var px = Math.round(x + (Math.random() - 0.5) * step * 0.5), py = Math.round(y + (Math.random() - 0.5) * step * 0.5);
+        if (px >= 0 && py >= 0 && px < W && py < H && data[(py * W + px) * 4 + 3] > 110) pts.push(px, py);
+      }
+    }
+    // 알갱이마다 아무 자리나(섞어서) 맡긴다. 남는 알갱이는 뒤에 흩어진 별이 된다
+    var idx = [];
+    for (var i = 0; i < B.n; i++) idx.push(i);
+    for (i = idx.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = idx[i]; idx[i] = idx[j]; idx[j] = t; }
+    var minX = Infinity, maxX = -Infinity, k;
+    for (k = 0; k < pts.length; k += 2) { if (pts[k] < minX) minX = pts[k]; if (pts[k] > maxX) maxX = pts[k]; }
+    var m = Math.min(idx.length, pts.length / 2);
+    for (k = 0; k < m; k++) {
+      var p = idx[k];
+      B.has[p] = 1;
+      B.tx[p] = pts[k * 2];
+      B.ty[p] = pts[k * 2 + 1];
+      B.del[p] = 0.46 * (B.tx[p] - minX) / Math.max(1, maxX - minX) + Math.random() * 0.12;
+      B.dur[p] = 0.85 + Math.random() * 0.35;
+      B.sw[p] = (Math.random() < 0.5 ? -1 : 1) * (30 + Math.random() * 90);
+    }
+    B.minX = minX;
+    B.maxX = maxX;
+    B.sampled = true;
+    if (ctx.helloEl) ctx.helloEl.style.top = Math.round(B.textBottom + (two ? 6 : 14)) + 'px';
+  },
+  /** 자료가 오면: 고른 이름을 넣은 인사, 설정의 학교 이름 */
+  info: function (info, ctx) {
+    if (ctx.helloEl) ctx.helloEl.textContent = ctx.hello;
+    if (ctx.subEl && ctx.school) ctx.subEl.textContent = ctx.school;
+  },
+  skipTo: function (ctx) {
+    if (!ctx.B.sampled) this.sample(ctx);
+    ctx.jump += Math.max(0, 3.15 - ctx.t);
+  },
+  lower: function (ctx) {
+    var B = ctx.B;
+    if (B.cheap) return;
+    B.cheap = ctx.stats.cheap = true;
+    B.cv.width = ctx.w;
+    B.cv.height = ctx.h;
+    B.g.setTransform(1, 0, 0, 1, 0, 0);
+  },
+  frame: function (t, ctx) {
+    var U = ctx.U, B = ctx.B, g = B.g, W = ctx.w, H = ctx.h;
+    // 처음 1초 안에 느린 기기인지 따로 본다(글자 자리를 정하기 전에 알갱이 수를 줄여야 글자가 성기지 않는다)
+    var now = U.now();
+    if (!B.probed) {
+      if (t > 0.25 && B.last) (B.dts = B.dts || []).push(now - B.last);
+      if (t > 0.95 && B.dts && B.dts.length >= 3) {
+        B.probed = true;
+        var ds = B.dts.slice().sort(function (a, b) { return a - b; }), med = ds[ds.length >> 1];
+        ctx.stats.early = Math.round(med);
+        if (med > 30) { B.n = Math.max(500, Math.round(B.n * (med > 60 ? 0.3 : 0.5))); this.lower(ctx); }
+      }
+    }
+    B.last = now;
+    if (!B.sampled && t >= B.T1 - 0.12) this.sample(ctx);
+    var fin = B.fin;
+    var still = t > B.T1 + 1.85 && !fin;
+    if (B.cheap || still) g.clearRect(0, 0, W, H);
+    else {
+      g.globalCompositeOperation = 'destination-out';
+      g.globalAlpha = 1;
+      g.fillStyle = 'rgba(0,0,0,.42)';
+      g.fillRect(0, 0, W, H);
+    }
+    g.globalCompositeOperation = B.cheap ? 'source-over' : 'lighter';
+    var T1 = B.T1, fast = ctx.fast ? 0.75 : 1;
+    var sweepOn = t > 3.0, sp = ((t - 3.0) % 2.6) / 1.3, sweepX = B.minX - 90 + (B.maxX - B.minX + 180) * sp;
+    var bx = B.bx, by = B.by;
+    for (var i = 0; i < B.n; i++) {
+      var r = B.rr[i];
+      // 은하 자리(빙글빙글 돌며 바깥으로 피어남)
+      var bloom = U.outCubic(U.seg(t, 0.02 + r * 0.3, 1.0 + r * 0.35));
+      var grow = B.has[i] ? 1 : 1 + 0.55 * U.seg(t, T1, T1 + 2.2);
+      var rad = r * B.Rg * (0.12 + 0.88 * bloom) * grow;
+      var phi = B.ph[i] + B.w[i] * t;
+      var x3 = rad * Math.cos(phi), z3 = rad * Math.sin(phi), y3 = B.y[i] * bloom;
+      var yy = y3 * B.cosT - z3 * B.sinT, zz = y3 * B.sinT + z3 * B.cosT;
+      var f = B.F / (B.F + zz);
+      var x = B.cx + x3 * f, y = B.cy + yy * f, s = B.sz[i] * f, a = bloom * (0.55 + 0.45 * f);
+      if (B.has[i]) {
+        var p = U.inOutCubic(U.seg(t, T1 + B.del[i], T1 + B.del[i] + B.dur[i]));
+        if (p > 0) {
+          var ex = B.tx[i], ey = B.ty[i];
+          if (p >= 1) {
+            ex += Math.sin(t * 1.7 + B.tw[i]) * 0.55;
+            ey += Math.cos(t * 1.3 + B.tw[i] * 1.3) * 0.55;
+          }
+          var dx = ex - x, dy = ey - y, len = Math.sqrt(dx * dx + dy * dy) || 1, bend = B.sw[i] * Math.sin(Math.PI * p);
+          x = x + dx * p - dy / len * bend;
+          y = y + dy * p + dx / len * bend;
+          s = U.lerp(s, 1.5, p);
+          a = U.lerp(a, 0.95, p);
+          if (p >= 1) {
+            a = 0.88 + 0.12 * Math.sin(t * 3 + B.tw[i]);
+            if (sweepOn && sp <= 1) {
+              var q = (x - sweepX) / 46;
+              var boost = Math.exp(-q * q);
+              a += boost * 0.9;
+              s += boost * 0.9;
+            }
+          }
+        }
+        B.hx[i] = x;
+        B.hy[i] = y;
+      } else if (t > T1) {
+        a *= 1 - 0.68 * U.seg(t, T1, T1 + 1.2);
+      }
+      // 끝: 메뉴 로고로 빨려 들어감
+      if (fin) {
+        var ft = t - fin;
+        if (B.has[i]) {
+          var u = U.inOutCubic(U.seg(ft, B.fd[i] * fast, (B.fd[i] + B.fu[i]) * fast));
+          if (u >= 1) continue;
+          var ddx = bx - x, ddy = by - y, l2 = Math.sqrt(ddx * ddx + ddy * ddy) || 1, bd = 70 * Math.sin(Math.PI * u) * (i % 2 ? 1 : -1);
+          x = x + ddx * u - ddy / l2 * bd;
+          y = y + ddy * u + ddx / l2 * bd;
+          s *= 1 - 0.55 * u;
+        } else {
+          a *= 1 - U.seg(ft, 0, 0.3 * fast);
+        }
+      }
+      if (a <= 0.01) continue;
+      if (B.cheap) {
+        g.globalAlpha = a > 1 ? 1 : a;
+        g.fillStyle = B.flat[B.col[i]];
+        g.fillRect(x - s * 0.7, y - s * 0.7, s * 1.4, s * 1.4);
+      } else {
+        g.globalAlpha = a > 1 ? 1 : a;
+        var lit = B.has[i] && t > T1 + B.del[i] + B.dur[i] * 0.5;
+        var d = s * (lit ? 4.6 : 4.2); // 글자에 자리 잡은 알갱이는 빛 번짐을 크게(글자가 또렷하고 밝게)
+        g.drawImage(B.sprites[lit ? (B.col[i] ? 1 : 0) : B.col[i]], x - d / 2, y - d / 2, d, d);
+      }
+    }
+    g.globalAlpha = 1;
+    if (fin) {
+      var ftt = t - fin;
+      // 로고 자리에서부터 화면이 둥글게 열린다
+      var R = Math.sqrt(W * W + H * H) * 1.05 * U.inCubic(U.seg(ftt, 0.42 * fast, 1.0 * fast));
+      if (R > 0) {
+        var mk = 'radial-gradient(circle at ' + Math.round(bx) + 'px ' + Math.round(by) + 'px,transparent ' + Math.round(R) + 'px,#000 ' + Math.round(R + 2) + 'px)';
+        ctx.el.style.webkitMaskImage = mk;
+        ctx.el.style.maskImage = mk;
+      }
+      if (ftt > 1.04 * fast && B.done) { var dn = B.done; B.done = null; dn(); }
+    }
+  },
+  finish: function (ctx, tg, done) {
+    var U = ctx.U, B = ctx.B;
+    if (!B.sampled) this.sample(ctx);
+    var to = tg.brand || { cx: ctx.w / 2, cy: ctx.h / 2, w: 40, h: 40 };
+    B.bx = to.cx;
+    B.by = to.cy;
+    var maxD = 1;
+    for (var i = 0; i < B.n; i++) if (B.has[i]) { var dd = Math.hypot(B.hx[i] - to.cx, B.hy[i] - to.cy); if (dd > maxD) maxD = dd; }
+    for (i = 0; i < B.n; i++) {
+      if (!B.has[i]) continue;
+      B.fd[i] = Math.random() * 0.2 + 0.14 * Math.hypot(B.hx[i] - to.cx, B.hy[i] - to.cy) / maxD;
+      B.fu[i] = 0.42 + Math.random() * 0.2;
+    }
+    B.fin = ctx.t || 0.001;
+    B.done = done;
+    var f = ctx.fast ? 0.75 : 1;
+    U.anim(ctx.helloEl, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
+    U.anim(ctx.subEl, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
+    if (tg.brand) {
+      var pl = U.h('div', 'gib-pulse', '', ctx.el);
+      pl.style.left = to.cx + 'px';
+      pl.style.top = to.cy + 'px';
+      pl.style.width = pl.style.height = to.w + 'px';
+      pl.style.marginLeft = pl.style.marginTop = -to.w / 2 + 'px';
+      U.anim(pl, [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1)', offset: 0.3 }, { opacity: 0, transform: 'scale(2.4)' }],
+        { duration: 700 * f, delay: 380 * f, easing: 'ease-out', fill: 'both' });
+    }
+  }
+};
+/* ===== 여는 그림(인트로) ③: 움직임 — 공통 틀 =====
+ * 웹앱을 여는 동안(홈 자료를 받는 동안) 움직이는 그림을 보여 주고, 앱이 첫 화면을 그리면 그 화면으로 이어 준다.
+ * - 보여 주는 방식(data-intro): full(그날 처음, 전체 4초쯤) · short(그 뒤, 짧게) · calm(움직임 줄이기 기기) · off
+ * - 앱(App.html)은 첫 화면을 그린 뒤 GYIntro.ready({ name, school })를 부른다
+ * - 화면을 누르거나 키를 누르면 건너뛴다. 자료가 아직이면 마지막 장면에서 기다렸다가 바로 넘어간다
+ * - 오류가 나면 바로 걷힌다(앱을 가리지 않게). CSS에도 20초 안전장치가 있다
+ */
+(function () {
+  'use strict';
+  var U = window.__gyIntroU;
+  var d = document.documentElement;
+  var noop = function () {};
+  var API = window.GYIntro = { ready: noop, skip: noop, done: true };
+  var cur = null; // 지금 돌고 있는 인트로
+
+  function run(kindName, mode) {
+    if (cur) cur.cleanup();
+    var kinds = window.__gyIntroKinds || {};
+    kindName = kindName || d.getAttribute('data-intro-kind') || Object.keys(kinds)[0];
+    mode = mode || d.getAttribute('data-intro') || 'full';
+    var el = document.getElementById('gy-intro');
+    if (mode === 'off') { if (el && el.parentNode) el.parentNode.removeChild(el); return; }
+    var K = kinds[kindName];
+    if (!K && mode === 'full') mode = 'short';
+    if (!el) {
+      el = U.h('div', '', '<div class="gi-bgl"></div>');
+      el.id = 'gy-intro';
+      el.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(el);
+    }
+    el.className = '';
+    var W = window.innerWidth, H = window.innerHeight;
+    var ctx = {
+      el: el, U: U, mode: mode, kind: kindName,
+      dark: d.getAttribute('data-theme') === 'dark',
+      w: W, h: H, phone: W < 700 || H < 480,
+      low: lowHint(), fast: false, jump: 0, t: 0,
+      info: null, hello: U.hello(''), school: '인천장도초등학교'
+    };
+    var me = { ctx: ctx, state: 'play' };
+    var t0 = U.now(), raf = 0, finishing = false, skipped = false, readyAt = 0;
+    var probe = [], probeLast = 0, probed = false;
+    var stats = ctx.stats = window.__gyIntroStats = { kind: kindName, mode: mode, low: ctx.low, median: 0, readyAt: 0, finishAt: 0 };
+
+    function safe(f) {
+      try { return f(); } catch (e) { if (window.console) console.error('인트로', e); cleanup(); return null; }
+    }
+    function cleanup() {
+      if (me.state === 'done') return;
+      me.state = 'done';
+      cancelAnimationFrame(raf);
+      document.removeEventListener('keydown', onKey, true);
+      Array.prototype.forEach.call(el.querySelectorAll('canvas'), function (c) { c.width = c.height = 0; }); // 그림판이 쓰던 메모리를 바로 돌려준다
+      if (el.parentNode) el.parentNode.removeChild(el);
+      API.done = true;
+      API.ready = API.skip = noop;
+      if (cur === me) cur = null;
+      try { document.dispatchEvent(new Event('gy-intro-done')); } catch (e) { /* 옛 브라우저 */ }
+    }
+    me.cleanup = cleanup;
+
+    function loop() {
+      raf = requestAnimationFrame(loop);
+      var tt = U.now();
+      ctx.t = (tt - t0) / 1000 + ctx.jump;
+      // 느린 기기 알아보기: 0.4~1.6초 사이 한 장면이 걸린 시간의 가운데 값
+      if (!probed) {
+        if (ctx.t > 0.4 && probeLast) probe.push(tt - probeLast);
+        probeLast = tt;
+        if (ctx.t > 1.6) {
+          probed = true;
+          var s = probe.slice().sort(function (a, b) { return a - b; });
+          stats.median = s.length ? Math.round(s[s.length >> 1]) : 0;
+          if (stats.median > 28 && !ctx.low) { ctx.low = stats.low = true; el.classList.add('gi-low'); if (K && K.lower && mode === 'full') safe(function () { K.lower(ctx); }); }
+        }
+      }
+      if (K && K.frame && mode === 'full') safe(function () { K.frame(ctx.t, ctx); });
+    }
+
+    function minTime() {
+      if (skipped) return 0;
+      return mode === 'full' ? (K.minT || 4) : mode === 'short' ? 0.55 : 0.3;
+    }
+    function check() {
+      if (finishing || !ctx.info || me.state === 'done') return;
+      var t = (U.now() - t0) / 1000 + ctx.jump, m = minTime();
+      if (t >= m) finish();
+      else setTimeout(check, Math.max(16, (m - t) * 1000));
+    }
+    function ready(info) {
+      if (me.state === 'done') return;
+      var first = !ctx.info;
+      ctx.info = info || {};
+      if (ctx.info.name) ctx.hello = U.hello(ctx.info.name);
+      if (ctx.info.school) ctx.school = ctx.info.school;
+      if (first) { readyAt = U.now(); stats.readyAt = Math.round(readyAt - t0); }
+      if (K && K.info && mode === 'full') safe(function () { K.info(ctx.info, ctx); });
+      check();
+    }
+    function skip() {
+      if (finishing || me.state === 'done') return;
+      var again = skipped; // 자료가 늦어 마지막 장면에서 기다리는 중에 또 누르면 앱의 '여는 중' 화면을 보여 준다
+      skipped = true;
+      ctx.fast = true;
+      if (ctx.info || again) { ctx.info = ctx.info || {}; finish(); return; }
+      if (K && K.skipTo && mode === 'full') safe(function () { K.skipTo(ctx); });
+    }
+    function onKey(e) { if (e.key !== 'Shift' && e.key !== 'Control' && e.key !== 'Alt' && e.key !== 'Meta') skip(); }
+    /** 건너뛰려고 누른 손가락이 그 아래 앱 단추·메뉴까지 누르지 않게, 뒤따라오는 누르기를 0.7초 동안 막는다(터치 화면) */
+    function onDown() {
+      var until = U.now() + 700, types = ['mousedown', 'mouseup', 'click'];
+      var off = function () { types.forEach(function (ty) { document.removeEventListener(ty, eat, true); }); };
+      var eat = function (e) {
+        if (U.now() > until) { off(); return; }
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.type === 'click') off();
+      };
+      types.forEach(function (ty) { document.addEventListener(ty, eat, true); });
+      setTimeout(off, 750);
+      skip();
+    }
+
+    /** 이어 줄 곳: 앱의 메뉴 로고와 화면의 칸들 */
+    function targets() {
+      var vis = function (e) {
+        var r = e.getBoundingClientRect();
+        return r.width > 4 && r.height > 4 && r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth;
+      };
+      var brand = null;
+      ['.side .brand-mark', '.topbar .brand-mark', '.gate-top .brand-mark'].some(function (s) {
+        var e = document.querySelector(s);
+        if (e && vis(e)) { brand = U.rect(e); return true; }
+        return false;
+      });
+      var cards = [];
+      Array.prototype.forEach.call(document.querySelectorAll('#app .card, #app .gate-card'), function (e) {
+        if (e.parentElement && e.parentElement.closest('.card, .gate-card')) return; // 겉 칸만
+        if (!vis(e)) return;
+        var r = U.rect(e);
+        r.radius = getComputedStyle(e).borderRadius || '20px';
+        cards.push(r);
+      });
+      cards.sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+      return { brand: brand, cards: cards.slice(0, 8) };
+    }
+
+    function finish() {
+      if (finishing) return;
+      finishing = true;
+      stats.finishAt = Math.round(U.now() - t0);
+      el.classList.add('gi-leaving');
+      document.removeEventListener('keydown', onKey, true);
+      var tg = targets();
+      safe(function () {
+        if (mode === 'full') K.finish(ctx, tg, cleanup);
+        else shortFinish(tg);
+      });
+      setTimeout(cleanup, 3500); // 안전장치
+    }
+
+    // ---------- 짧게(그날 두 번째부터)·조용히(움직임 줄이기) ----------
+    function buildShort() {
+      el.classList.add(mode === 'calm' ? 'gi-calm' : 'gi-short');
+      var c = U.h('div', 'gi-center', '', el);
+      ctx.logo = U.logo(c, 'gis-logo');
+      U.h('div', 'gis-name', '온라인 교무실', c);
+    }
+    function shortFinish(tg) {
+      var name = el.querySelector('.gis-name');
+      if (mode === 'calm' || !tg.brand) {
+        U.anim(el, [{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: 'ease-out', fill: 'forwards' });
+        setTimeout(cleanup, 320);
+        return;
+      }
+      U.anim(name, [{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' });
+      U.flyLogo(ctx.logo, tg.brand, 480, 0);
+      U.anim(el.querySelector('.gi-bgl'), [{ opacity: 1 }, { opacity: 0 }], { duration: 360, delay: 120, easing: 'ease-out', fill: 'forwards' });
+      U.anim(ctx.logo, [{ opacity: 1 }, { opacity: 0 }], { duration: 160, delay: 470, fill: 'forwards' });
+      setTimeout(cleanup, 660);
+    }
+
+    // ---------- 시작 ----------
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('wheel', function (e) { e.preventDefault(); }, { passive: false });
+    el.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
+    document.addEventListener('keydown', onKey, true);
+    if (ctx.low) el.classList.add('gi-low');
+    var ok = safe(function () {
+      if (mode === 'full') K.build(ctx); else buildShort();
+      return true;
+    });
+    if (!ok) return;
+    cur = me;
+    API.ready = ready;
+    API.skip = skip;
+    API.done = false;
+    raf = requestAnimationFrame(loop);
+    setTimeout(function () { if (!finishing && me.state !== 'done') { ctx.info = ctx.info || {}; finish(); } }, 15000); // 앱이 끝내 부르지 않아도
+  }
+
+  /** 느린 기기 짐작(처음부터 가볍게): 코어가 2개 이하이거나 메모리가 2GB 이하 */
+  function lowHint() {
+    var n = navigator.hardwareConcurrency || 4, m = navigator.deviceMemory || 4;
+    return n <= 2 || m <= 2;
+  }
+
+  try { run(); } catch (e) { var x = document.getElementById('gy-intro'); if (x && x.parentNode) x.parentNode.removeChild(x); }
+})();
+</script>
 <div id="app"><div class="loading" style="min-height:100vh"><span class="spin" aria-hidden="true"></span>온라인 교무실을 여는 중이에요</div></div>
 <div id="modal-root"></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
