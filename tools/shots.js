@@ -1148,6 +1148,86 @@ async function helloCheck(browser) {
   helloInfo = '인사: ' + out.join(', ');
 }
 
+/** 화면 디자인(판 2026-10-17g): 선생님마다 기기에서 기본·장도·종이색을 고른다. PC는 메뉴 아래, 휴대폰은 '전체' 메뉴에서 고르면
+ * 곧바로(부드럽게) 바뀌고, 다시 열어도 처음 그릴 때부터 그 디자인. 밝게·어둡게와 함께 쓰는지 포인트 색으로 보고 디자인마다 사진을 찍는다 */
+async function designCheck(browser) {
+  const want = { base: { light: '#1B64DA', dark: '#4795FF' }, jangdo: { light: '#2B3990', dark: '#93A3FF' }, paper: { light: '#A0502A', dark: '#E89C64' } };
+  const label = { base: '기본', jangdo: '장도', paper: '종이색' };
+  const state = (page) => page.evaluate(() => ({
+    attr: document.documentElement.getAttribute('data-design') || 'base', saved: localStorage.getItem('gy.design'),
+    accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim().toUpperCase(),
+    anim: document.documentElement.classList.contains('design-anim')
+  }));
+  let ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
+  let page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('디자인 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  await page.locator('.today-card').waitFor();
+  await page.waitForFunction(() => !document.querySelector('#toast.show'), null, { timeout: 5000 }).catch(() => {});
+  const seg = await page.evaluate(() => {
+    const el = document.querySelector('.side .design-seg');
+    return el ? { n: el.querySelectorAll('[data-design-btn]').length, over: el.scrollWidth > el.clientWidth + 1, pressed: (el.querySelector('[aria-pressed="true"]') || {}).textContent } : null;
+  });
+  if (!seg || seg.n !== 3) problems.push('디자인: PC 메뉴 아래에 고르기 3개가 없음 ' + JSON.stringify(seg));
+  else {
+    if (seg.over) problems.push('디자인: 고르기 단추가 메뉴 폭을 넘침');
+    if (seg.pressed !== '기본') problems.push('디자인: 처음이 기본이 아님(' + seg.pressed + ')');
+  }
+  for (const d of ['jangdo', 'paper', 'base']) {
+    for (const th of ['light', 'dark']) {
+      await page.click('.side [data-theme-btn=' + th + ']');
+      if (th === 'light') {
+        await page.click('.side [data-design-btn=' + d + ']');
+        const st = await state(page);
+        if (st.attr !== d || st.saved !== d) problems.push('디자인: ' + label[d] + '를 눌렀는데 ' + JSON.stringify(st));
+        if (!st.anim) problems.push('디자인: ' + label[d] + '로 바꿀 때 부드럽게 바뀌지 않음');
+        await page.waitForTimeout(500);
+      }
+      const st = await state(page);
+      if (st.accent !== want[d][th]) problems.push('디자인: ' + label[d] + ' ' + th + '의 포인트 색이 ' + st.accent + ' (기대 ' + want[d][th] + ')');
+      if (d !== 'base') await shot(page, '디자인_' + label[d] + '_' + (th === 'dark' ? '어둡게' : '밝게') + '_PC홈');
+    }
+  }
+  // 다시 열어도 그대로: 처음 그릴 때(머리 스크립트)부터 그 디자인, 고르기 단추도 그 디자인
+  await page.click('.side [data-theme-btn=light]');
+  await page.click('.side [data-design-btn=paper]');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  const early = await page.evaluate(() => document.documentElement.getAttribute('data-design'));
+  if (early !== 'paper') problems.push('디자인: 다시 열었을 때 처음부터 종이색이 아님(' + early + ')');
+  await page.locator('#app > *').first().waitFor();
+  await ctx.close();
+  // 휴대폰: '전체' 메뉴에서 고르기, 장도 밝게는 위 막대가 남색
+  ctx = await newCtx(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('디자인 휴대폰 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  await page.locator('.today-card').waitFor();
+  await page.waitForFunction(() => !document.querySelector('#toast.show'), null, { timeout: 5000 }).catch(() => {});
+  for (const d of ['jangdo', 'paper', 'base']) {
+    await page.click('.bottom-nav [data-action=sheet]');
+    await page.locator('#sheet .design-seg').waitFor();
+    await page.locator('#sheet .design-seg').scrollIntoViewIfNeeded();
+    if (d === 'jangdo') await shot(page, '디자인_휴대폰_전체메뉴에서_고르기');
+    await page.locator('#sheet [data-design-btn=' + d + ']').click();
+    await page.click('#sheet [data-action=close-sheet]');
+    await page.waitForTimeout(500);
+    const st = await state(page);
+    if (st.attr !== d || st.accent !== want[d].light) problems.push('디자인: 휴대폰에서 ' + label[d] + '를 골랐는데 ' + JSON.stringify(st));
+    if (d === 'jangdo') {
+      const bar = await page.evaluate(() => getComputedStyle(document.querySelector('.topbar')).backgroundColor);
+      if (bar !== 'rgb(35, 44, 111)') problems.push('디자인: 장도 휴대폰 위 막대가 남색이 아님(' + bar + ')');
+    }
+    if (d !== 'base') await shot(page, '디자인_' + label[d] + '_휴대폰홈');
+  }
+  await ctx.close();
+}
+
 /** 가짜 서버를 늦춘다(웹앱 준비가 늦은 경우 흉내): 기기의 gy.testDelay(밀리초), 없으면 def만큼 기다렸다가 답한다 */
 async function slowServer(ctx, def) {
   await ctx.addInitScript((d) => {
@@ -1416,6 +1496,7 @@ async function introReducedMotionCheck(browser) {
   await dragCheck(browser);
   await emblemCheck(browser);
   await helloCheck(browser);
+  await designCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
   await browser.close();
   console.log('인트로: ' + intro.join(' / '));

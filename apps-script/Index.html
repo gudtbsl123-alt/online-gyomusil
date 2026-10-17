@@ -4,15 +4,17 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="gy-build" content="2026-10-17f">
+<meta name="gy-build" content="2026-10-17g">
 <title>온라인 교무실</title>
 <script>
-/* 여는 그림(인트로) ①: 그림이 처음 보이기 전에 밝기와 보여 주는 방식을 정한다(어두운 화면을 쓰는 분은 처음부터 어둡게)
+/* 여는 그림(인트로) ①: 그림이 처음 보이기 전에 밝기·화면 디자인과 보여 주는 방식을 정한다(어두운 화면·다른 디자인을 고른 분은 처음부터 그 모습으로)
  * 열 때마다 모든 기기에서 전체(full)를 보여 준다(교사 요청: 다시 열어도, 움직임 줄이기를 켠 기기도). 기기에 gy.introOff=1이면 끔(자동 점검용) */
 (function () {
   var d = document.documentElement;
   function g(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   if (g('gy.theme') === 'dark') d.setAttribute('data-theme', 'dark');
+  var ds = g('gy.design');
+  if (ds === 'jangdo' || ds === 'paper') d.setAttribute('data-design', ds);
   d.setAttribute('data-intro', g('gy.introOff') === '1' ? 'off' : 'full');
 })();
 </script>

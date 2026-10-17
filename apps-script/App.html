@@ -8,7 +8,7 @@
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-17e'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-10-17g'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -362,6 +362,41 @@
   }
 
   /**
+   * 화면 디자인(교사 결정): ① 기본(시안 그대로) ② 장도(교표의 남색·초록) ③ 따뜻한 종이색. 선생님마다 기기에서 고르고 기억한다(gy.design).
+   * 색은 Styles.html(:root[data-design]), 처음 그릴 때는 Index.html 머리 스크립트가 먼저 정해 깜빡이지 않는다
+   */
+  var DESIGNS = [
+    { id: 'base', label: '기본', dot: ['#F2F4F6', '#1B64DA'] },
+    { id: 'jangdo', label: '장도', dot: ['#232C6F', '#9BD86E'] },
+    { id: 'paper', label: '종이색', dot: ['#F4EEE3', '#A0502A'] }
+  ];
+  var designTimer;
+  function designNow() {
+    var d = stGet('gy.design');
+    return d === 'jangdo' || d === 'paper' ? d : 'base';
+  }
+  /** smooth: 고른 순간 색이 부드럽게 바뀌게(0.35초 동안만 transition) */
+  function setDesign(d, smooth) {
+    if (d !== 'jangdo' && d !== 'paper') d = 'base';
+    if (smooth) {
+      root.classList.add('design-anim');
+      clearTimeout(designTimer);
+      designTimer = setTimeout(function () { root.classList.remove('design-anim'); }, 450);
+    }
+    if (d === 'base') root.removeAttribute('data-design');
+    else root.setAttribute('data-design', d);
+    stSet('gy.design', d, true);
+    qsa('[data-design-btn]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-design-btn') === d ? 'true' : 'false'); });
+  }
+  function designSeg() {
+    var cur = designNow();
+    return '<div class="seg design-seg" role="group" aria-label="화면 디자인">' + DESIGNS.map(function (x) {
+      return '<button type="button" data-design-btn="' + x.id + '" aria-pressed="' + (cur === x.id) + '" title="화면 디자인: ' + x.label + '">' +
+        '<span class="design-dot" style="--dot-a:' + x.dot[0] + ';--dot-b:' + x.dot[1] + '" aria-hidden="true"></span>' + x.label + '</button>';
+    }).join('') + '</div>';
+  }
+
+  /**
    * 화면 크기(확대·축소): 본문과 창만 키운다(메뉴는 그대로라 막대가 손가락 밑에서 움직이지 않음).
    * 칸마다 멈추는 값만 쓴다(이 값들로 넘침을 시험했다). 넓은 화면만 150%, 휴대폰은 120%까지. 기기마다 기억한다.
    */
@@ -422,6 +457,7 @@
   // ============================================================ 시작
   function init() {
     setTheme(stGet('gy.theme') === 'dark' ? 'dark' : 'light');
+    setDesign(designNow());
     applyZoom();
     var h = (location.hash || '').replace('#', '');
     if (menuItem(h)) S.screen = h;
@@ -673,6 +709,7 @@
       '<div class="nav">' + MENU.map(function (x) { return navButton(x); }).join('') + '</div>' +
       '<div class="nav-group"><span class="nav-label">관리 · 연구부장·부담당</span>' + ADMIN_MENU.map(function (x) { return navButton(x); }).join('') + '</div>' +
       '<div class="side-foot">' + themeSeg() +
+      designSeg() +
       zoomControl() +
       meCard() +
       '<button type="button" class="nav-item small" data-action="logout">' + icon('out', 20) + '나가기</button></div>' +
@@ -706,6 +743,7 @@
       meCard() +
       '<div class="nav">' + MENU.concat(ADMIN_MENU).map(function (x) { return navButton(x); }).join('') + '</div>' +
       themeSeg() +
+      designSeg() +
       zoomControl() +
       '<button type="button" class="nav-item small" data-action="logout">' + icon('out', 20) + '나가기</button>' +
       '<button type="button" class="btn" data-action="close-sheet">닫기</button></div>';
@@ -4298,7 +4336,7 @@
 
   // ============================================================ 누르기 처리 (한곳에서)
   document.addEventListener('click', function (e) {
-    var t = e.target.closest('[data-go],[data-action],[data-theme-btn],[data-admin-tab],[data-sched-view],[data-home-f],[data-sv-tab]');
+    var t = e.target.closest('[data-go],[data-action],[data-theme-btn],[data-design-btn],[data-admin-tab],[data-sched-view],[data-home-f],[data-sv-tab]');
     if (!t) return;
     if (t.hasAttribute('data-go')) {
       if (t.getAttribute('data-go') === 'schedule' && S.screen === 'home') S.sched.view = 'cal';
@@ -4309,6 +4347,7 @@
     if (t.hasAttribute('data-home-f')) { S.homeFilter = t.getAttribute('data-home-f'); drawHome(); return; }
     if (t.hasAttribute('data-sv-tab')) { S.survey.tab = t.getAttribute('data-sv-tab'); S.survey.sel = ''; S.survey.showResults = false; drawSurvey(); return; }
     if (t.hasAttribute('data-theme-btn')) { setTheme(t.getAttribute('data-theme-btn')); return; }
+    if (t.hasAttribute('data-design-btn')) { setDesign(t.getAttribute('data-design-btn'), true); return; }
     if (t.hasAttribute('data-admin-tab')) { S.adminTab = t.getAttribute('data-admin-tab'); renderApp(); return; }
     var a = t.getAttribute('data-action');
     var id = t.getAttribute('data-id');

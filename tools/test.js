@@ -1642,6 +1642,41 @@ test('여는 그림 인사: 응원 문장 20개 중 하나를 열 때마다 고�
   assert.ok(H.indexOf(sb.window.__gyIntroU.hello('')) >= 0, '기억한 값이 이상해도 20개 중에서 고른다');
 });
 
+test('화면 디자인: 장도·종이색은 시안과 같은 변수 이름을 모두 갖고(밝게·어둡게) 글자 대비가 4.5:1 이상, 고르는 곳은 메뉴 아래·휴대폰 전체 메뉴', () => {
+  const read = (f) => fs.readFileSync(path.join(GAS_DIR, f), 'utf8');
+  const css = read('Styles.html');
+  const block = (sel) => {
+    const i = css.indexOf(sel + '{');
+    assert.ok(i >= 0, sel);
+    const o = {};
+    css.slice(i + sel.length + 1, css.indexOf('}', i)).split(';').forEach((kv) => { const j = kv.indexOf(':'); if (j > 0) o[kv.slice(0, j).trim()] = kv.slice(j + 1).trim(); });
+    return o;
+  };
+  const lum = (h) => {
+    const m = /^#([0-9a-f]{6})$/i.exec(h);
+    assert.ok(m, '색 ' + h);
+    const c = [0, 2, 4].map((k) => parseInt(m[1].slice(k, k + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const names = Object.keys(block(':root,:root[data-theme="light"]')).sort();
+  for (const d of ['jangdo', 'paper']) {
+    for (const [mode, sel] of [['밝게', ':root[data-design="' + d + '"]'], ['어둡게', ':root[data-design="' + d + '"][data-theme="dark"]']]) {
+      const t = block(sel);
+      assert.deepStrictEqual(Object.keys(t).sort(), names, d + ' ' + mode + ': 시안과 같은 변수 이름');
+      for (const [a, b] of [['--c-t1', '--c-card'], ['--c-t2', '--c-card'], ['--c-t3', '--c-card'], ['--c-t3', '--c-bg'], ['--c-t3', '--c-card2'], ['--accent', '--c-card'], ['--c-onAccent', '--accent'], ['--c-okFg', '--c-okBg'], ['--c-warnFg', '--c-warnBg'], ['--c-red', '--c-card']]) {
+        const c = cr(t[a], t[b]);
+        assert.ok(c >= 4.5, d + ' ' + mode + ' ' + a + '/' + b + ' 대비 ' + c.toFixed(2));
+      }
+    }
+  }
+  // 장도 밝게의 남색 메뉴·위 막대: 글자와 초록 점이 남색 바탕에서 잘 보이게
+  const side = block(':root[data-design="jangdo"]:not([data-theme="dark"]) .side,:root[data-design="jangdo"]:not([data-theme="dark"]) .topbar');
+  for (const a of ['--c-t1', '--c-t2', '--c-t3', '--accent', '--c-okFg']) assert.ok(cr(side[a], side['--c-sub']) >= 4.5, '남색 메뉴 ' + a + ' 대비 ' + cr(side[a], side['--c-sub']).toFixed(2));
+  assert.strictEqual((read('App.html').match(/designSeg\(\) \+/g) || []).length, 2, '메뉴 아래·휴대폰 전체 메뉴');
+  assert.ok(/getItem\('gy\.design'\)|g\('gy\.design'\)/.test(read('Index.html')), '처음 그릴 때 고른 디자인을 먼저 정함(깜빡이지 않게)');
+});
+
 test('학생 수: 탭이 없던 시트에서도 홈이 열리고, 처음 넣으면 탭이 생긴다', () => {
   const g = freshName();
   const { who } = ids(g);
