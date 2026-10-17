@@ -4670,7 +4670,7 @@
   function tbTd(r, c, i, j, span, now) {
     var T = S.table, v = tbVal(r, c.id), p = tbPaint((r.colors || {})[c.id]), fl = T.flash[r.id + '|' + c.id];
     var lit = fl && fl.until > now, can = tbCanCell(r, c);
-    var cls = 'tb-c' + (can ? '' : ' ro') + (c.merge && span > 1 ? ' merged' : '') + (p ? ' paint' + (p.dark ? ' paint-dark' : '') : '') +
+    var cls = 'tb-c' + (can ? '' : ' ro') + (c.merge ? ' merged' : '') + (p ? ' paint' + (p.dark ? ' paint-dark' : '') : '') +
       (lit ? ' flash' : '') + (r.pending && r.pending[c.id] ? ' saving' : '');
     var inner = c.type === 'pick' ? tbPickChip(c, v, can) : esc(v).replace(/\n/g, '<br>');
     return '<td class="' + cls + '" data-i="' + i + '" data-j="' + j + '"' + (span > 1 ? ' rowspan="' + span + '"' : '') +
@@ -5351,7 +5351,7 @@
         var tip = qs('.tb-tip', td);
         if (tip) tip.parentNode.removeChild(tip);
       });
-    }
+    } else if (qs('.tb-rowcard.flash')) tbDrawMain(); // 휴대폰 줄 목록
     if (left) tbFlashTimer = setTimeout(tbFadeFlash, 1000);
   }
 
@@ -5379,15 +5379,15 @@
   }
 
   // ------------------------------------------------------------ 줄 더하기·빼기
-  /** afterId: 그 줄 바로 아래에(없으면 표 끝에). 합친 열(층 등)은 위 줄 값을 이어 받는다 */
+  /** afterId: 그 줄 바로 아래에(없으면 표 끝에). 합친 열(층 등)의 값과 바탕색은 위 줄에서 이어 받는다 */
   function tbRowAdd(afterId) {
     var T = S.table, d = T.d;
     if (!d || !d.table.canWrite) return;
-    var id = d.table.id, cells = {}, after = afterId ? tbRow(afterId) : null;
+    var id = d.table.id, cells = {}, after = afterId ? tbRow(afterId) : null, colors = after ? after.colors || {} : {};
     if (after) d.table.cols.forEach(function (c) { if (c.merge && tbVal(after, c.id)) cells[c.id] = tbVal(after, c.id); });
     tbBusy++;
     return tbQueue(function () {
-      return server('table.row.add', { id: id, after: afterId || '', cells: cells }).then(function (res) {
+      return server('table.row.add', { id: id, after: afterId || '', cells: cells, colors: colors }).then(function (res) {
         if (!S.table.d || S.table.d.table.id !== id) return;
         tbMerge([res.row]);
         var cols = S.table.d.table.cols, first = cols.filter(function (c) { return !c.merge && tbCanCell(res.row, c); })[0] || cols[0];
@@ -5902,7 +5902,7 @@
         var span = runs[c.id] ? runs[c.id][i] : 1;
         if (span === 0) return '';
         var v = c.src >= 0 ? line[c.src] || '' : '', p = c.src >= 0 ? tbPaint((M.g.colors[i + off] || [])[c.src]) : null;
-        return '<td' + (span > 1 ? ' rowspan="' + span + '"' : '') + ' class="' + (p ? 'paint' + (p.dark ? ' paint-dark' : '') : '') + (c.merge && span > 1 ? ' merged' : '') + '"' +
+        return '<td' + (span > 1 ? ' rowspan="' + span + '"' : '') + ' class="' + (p ? 'paint' + (p.dark ? ' paint-dark' : '') : '') + (c.merge ? ' merged' : '') + '"' +
           (p ? ' style="--bg:' + p.rgb + '"' : '') + '>' + esc(v).replace(/\n/g, '<br>') + '</td>';
       }).join('') + '<td></td></tr>';
     }).join('');

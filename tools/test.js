@@ -2895,6 +2895,28 @@ test('함께 쓰는 표: 칸·줄을 고칠 때는 잠금 안에서 탭 전체�
   assert.strictEqual(e.rows.find((x) => x.id === d.rows[2].id).n, d.rows[3].n, '새 행 번호를 알려 준다');
 });
 
+test('화면 파일: App.html·Index.html 스크립트가 문법에 맞고, 줄 바꿈으로 읽히는 숨은 글자(U+2028 등)가 없다', () => {
+  for (const f of ['App.html', 'Index.html']) {
+    const src = fs.readFileSync(path.join(GAS_DIR, f), 'utf8');
+    assert.ok(!/[\u2028\u2029]/.test(src), f + ': U+2028·U+2029가 있으면 정규식이 깨진다(\\u2028로 적기)');
+    const scripts = src.match(/<script>([\s\S]*?)<\/script>/g) || [];
+    assert.ok(scripts.length, f + ' 스크립트');
+    scripts.forEach((sc, i) => { new Function(sc.replace(/^<script>|<\/script>$/g, '')); }); // 문법 오류면 여기서 멈춘다
+  }
+});
+
+test('함께 쓰는 표: 아래에 더한 줄은 위 줄의 합친 칸 값과 바탕색을 이어 받는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부');
+  const id = tbMake(g, owner);
+  const d = tbGet(g, id, owner);
+  const r = call(g, 'table.row.add', { id, after: d.rows[0].id, cells: { c1: '1층' }, colors: { c1: '#f4cccc', c2: '#FFFFFF', c3: 'red' } }, who('심청'));
+  assert.ok(r.ok, r.error);
+  assert.deepStrictEqual(plain(r.data.row.colors), { c1: '#F4CCCC' }, '흰색·이상한 값은 담지 않는다');
+  assert.strictEqual(tbGet(g, id, owner).rows[1].colors.c1, '#F4CCCC');
+});
+
 test('점검: 함께표 탭은 아직 없어도 문제로 보지 않는다(처음 만들 때 저절로 생김)', () => {
   const g = freshName();
   const { t } = adminTokens(g);

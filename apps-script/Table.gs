@@ -366,8 +366,10 @@ function tbAppendRows_(t, cols, adds, actor, hint, bump, names, order) {
   var head = tbHead_('함께표줄'), sh = sheet_('함께표줄');
   var ver = bump(), now = nowText_(), min = tbNowMin_(), filled = 0, start = sh.getLastRow() + 1;
   var recs = adds.map(function (a, i) {
-    var src = (a && a.cells) || {}, cells = {}, stamps = {};
+    var src = (a && a.cells) || {}, paint = (a && a.colors) || {}, cells = {}, stamps = {}, colors = {};
     cols.forEach(function (c) {
+      var bg = tbCleanColor_(paint[c.id]);
+      if (bg && bg !== '#FFFFFF') colors[c.id] = bg; // 아래에 더한 줄은 위 줄의 바탕색을 이어 받는다
       var v = tbCleanValue_(c, src[c.id]);
       if (!v) return;
       cells[c.id] = v;
@@ -380,7 +382,8 @@ function tbAppendRows_(t, cols, adds, actor, hint, bump, names, order) {
     var json = JSON.stringify(cells);
     if (json.length > TB_MAX_ROW_JSON_) throw userError_('한 줄에 글이 너무 많아요. 칸의 글을 조금 줄여 주세요.');
     return {
-      '줄ID': id, '표ID': t['표ID'], '순서': String(order !== undefined && adds.length === 1 ? order : hint.maxOrder + i + 1), '칸': json, '색': '',
+      '줄ID': id, '표ID': t['표ID'], '순서': String(order !== undefined && adds.length === 1 ? order : hint.maxOrder + i + 1), '칸': json,
+      '색': Object.keys(colors).length ? JSON.stringify(colors) : '',
       '칸 고친 때': JSON.stringify(stamps), '판': String(ver), '입력자ID': actor.id || '', '입력 시각': now, '수정자ID': '', '수정 시각': '', '삭제 여부': '',
       _row: start + i
     };
@@ -541,7 +544,7 @@ function apiTableCells_(args, actor, ctx) {
   });
 }
 
-/** 줄 더하기(누구나, 교사 결정). 표 끝에, 또는 args.after(줄ID) 바로 아래에 더한다 */
+/** 줄 더하기(누구나, 교사 결정). 표 끝에, 또는 args.after(줄ID) 바로 아래에 더한다. args.cells·colors: 처음 값·바탕색(위 줄에서 이어 받기) */
 function apiTableRowAdd_(args, actor, ctx) {
   var id = String(args.id || ''), hint = tbHints_(id, [], true);
   if (!hint.found) throw userError_('이 표를 찾지 못했어요. 지워졌을 수 있어요.', 'NOTFOUND');
@@ -560,7 +563,7 @@ function apiTableRowAdd_(args, actor, ctx) {
     if (!t || t['삭제 여부']) throw userError_('이 표가 지워졌어요.', 'NOTFOUND');
     if (!tbOwner_(t, ctx) && tbClosed_(t)) throw userError_('마감한 표예요. 만든 분과 연구부장·부담당만 고칠 수 있어요.', 'CLOSED');
     var cols = tbCols_(t);
-    var res = tbAppendRows_(t, cols, [{ cells: args.cells || {} }], actor, hint, function () { return tbBump_(t, th); }, names, order);
+    var res = tbAppendRows_(t, cols, [{ cells: args.cells || {}, colors: args.colors || {} }], actor, hint, function () { return tbBump_(t, th); }, names, order);
     var after = {};
     cols.forEach(function (c) { if (res.rows[0].cells[c.id]) after[c.name] = res.rows[0].cells[c.id]; });
     writeLog_(actor, '함께표줄', res.rows[0].id, '추가', '함께 쓰는 표 "' + t['제목'] + '" 줄 더함', null, after);
