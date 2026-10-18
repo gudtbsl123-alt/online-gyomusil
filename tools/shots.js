@@ -8,7 +8,30 @@ const fs = require('fs');
 let chromium;
 try { ({ chromium } = require('playwright')); } catch (e) { ({ chromium } = require('/opt/node22/lib/node_modules/playwright')); }
 
-const FILE = 'file://' + path.join(__dirname, '..', '미리보기', '미리보기.html');
+/**
+ * 미리보기는 작은 로컬 서버(http://127.0.0.1)로 연다. file://로 열면 브라우저가 다시 열기(reload) 직전에 쓴 기기 저장(localStorage:
+ * 화면 크기·디자인)을 가끔 잃어 점검이 틀렸다(2026-10-18 확인, 예전 판도 같음. 실제 웹앱은 https라 괜찮음)
+ */
+const http = require('http');
+const SERVE = {}; // 주소 경로 → 파일
+let BASE = '';
+function serveFile(name, file) {
+  const key = '/' + encodeURIComponent(name);
+  SERVE[key] = file;
+  return BASE + key;
+}
+async function startServer() {
+  const srv = http.createServer((req, res) => {
+    const f = SERVE[req.url.split('?')[0].split('#')[0]];
+    if (!f || !fs.existsSync(f)) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    fs.createReadStream(f).pipe(res);
+  });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  BASE = 'http://127.0.0.1:' + srv.address().port;
+  srv.unref();
+}
+let FILE = ''; // startServer() 뒤에 정한다
 const OUT = process.argv[2] || path.join(__dirname, '..', 'docs', '스크린샷');
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -600,12 +623,13 @@ async function zoomFlow(page, kind) {
   if ((await zoomVar()) !== '0.9') problems.push(kind + ': 막대를 맨 왼쪽으로 옮겼는데 ' + (await zoomVar()));
   if (phone) await page.click('#sheet [data-action=close-sheet]');
   // 기억하기: 다시 열어도 그대로, 예전 '글자 크게'를 켠 기기는 110%로 이어받기
+  // Index.html의 '여는 중' 글자가 #app에 먼저 있으니, 앱 스크립트가 돈 뒤(window.__gy)에 화면 크기를 본다
   await page.reload();
-  await page.locator('#app > *').first().waitFor();
+  await page.waitForFunction(() => !!window.__gy);
   if ((await zoomVar()) !== '0.9') problems.push(kind + ': 다시 열었더니 화면 크기를 잊음(' + (await zoomVar()) + ')');
   await page.evaluate(() => { localStorage.removeItem('gy.zoom'); localStorage.setItem('gy.big', '1'); });
   await page.reload();
-  await page.locator('#app > *').first().waitFor();
+  await page.waitForFunction(() => !!window.__gy);
   if ((await zoomVar()) !== '1.1') problems.push(kind + ': 예전 글자 크게를 110%로 이어받지 못함(' + (await zoomVar()) + ')');
   await page.evaluate(() => { localStorage.removeItem('gy.big'); localStorage.removeItem('gy.zoom'); });
 }
@@ -1018,7 +1042,7 @@ function loggedInCopy() {
   const dir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'gy-shots-'));
   const f = path.join(dir, '미리보기_로그인됨.html');
   fs.writeFileSync(f, src.replace(hook, () => auto + hook));
-  loggedIn = 'file://' + f;
+  loggedIn = serveFile('미리보기_로그인됨.html', f);
   process.on('exit', () => fs.rmSync(dir, { recursive: true, force: true }));
   return loggedIn;
 }
@@ -1573,6 +1597,7 @@ async function tableCheck(browser) {
   // 붙여 넣을 표가 없으면 빈 표로(열 3개·빈 줄 10개, 열 이름은 바꿔서)
   await toList(page);
   await page.locator('[data-action=tb-new]').click();
+  await page.waitForTimeout(150); // 창이 열리며 이름 칸으로 옮기는 포커스가 끝난 뒤(사람이 누르는 빠르기)
   await page.locator('#tbm-blank').click();
   await page.locator('#tbm-prev .tb-cn').first().fill('학년');
   await page.locator('#tbm-prev .tb-cn').nth(1).fill('방과후 강사');
@@ -1609,7 +1634,7 @@ async function tableCheck(browser) {
  */
 let table2Info = '';
 async function table2Check(browser) {
-  const { cell, saved, toastHas, pollNow, as, open, openTable } = tbKit(browser);
+  const { cell, saved, toastHas, pollNow, as, open, openTable, pasteIn, copyOut } = tbKit(browser);
   const P = (m) => problems.push('표2: ' + m);
   const srv = async (page, who, args) => (await as(page, who, 'table.get', args)).data;
   const fmtOf = (d, i, cid) => ((d.rows[i] || {}).fmt || {})[cid] || {};
@@ -1702,6 +1727,39 @@ async function table2Check(browser) {
   await page.press('#tt-fs', 'Enter');
   await saved(page, '크기 적기');
   if (fmtOf(await srv(page, '심청', { id: did }), 0, 'c6').fs !== 16) P('글자 크기 칸에 적은 크기가 저장되지 않음');
+
+  // 열 이름을 누르면 그 열 전체 → 굵게 → 되돌리기
+  await page.click('#tb-wrap th[data-j="5"]', { position: { x: 20, y: 18 } });
+  if ((await page.locator('#tb-wrap td.tb-c.sel').count()) < 9) P('열 이름을 눌러 열 전체를 고르지 못함');
+  await page.keyboard.press('Control+b');
+  await saved(page, '열 전체 굵게');
+  d = await srv(page, '심청', { id: did });
+  const boldN = d.rows.filter((r, i) => fmtOf(d, i, 'c6').b === 1).length;
+  if (boldN !== 10) P('열 전체 굵게가 ' + boldN + '칸(기대 10)');
+  await page.keyboard.press('Control+z');
+  await saved(page, '열 전체 굵게 되돌리기');
+  d = await srv(page, '심청', { id: did });
+  if (d.rows.filter((r, i) => fmtOf(d, i, 'c6').b === 1).length !== 1) P('열 전체 굵게를 되돌리지 못함');
+
+  // 구글 시트에서 서식·합친 칸과 함께 복사한 칸 붙여 넣기 → 되돌리기
+  await page.click(cell(8, 4));
+  await pasteIn(page, '#tb-ed', '<meta charset="utf-8"><google-sheets-html-origin><table style="font-size:10pt;font-family:Arial"><tbody>' +
+    '<tr><td style="font-weight:bold;color:#cc0000;" rowspan="2">합친 글</td><td>둘째</td></tr><tr><td style="background-color:#d9ead3;">셋째</td></tr></tbody></table>', '합친 글\t둘째\n\t셋째');
+  await saved(page, '서식 붙여 넣기');
+  d = await srv(page, '심청', { id: did });
+  const pf = fmtOf(d, 8, 'c5');
+  if (d.rows[8].cells.c5 !== '합친 글' || pf.b !== 1 || pf.fc !== '#CC0000' || JSON.stringify(pf.m) !== JSON.stringify([d.rows[9].id, 'c5'])) P('서식·합친 칸 붙여 넣기가 다름 ' + JSON.stringify(pf));
+  if (d.rows[8].cells.c6 !== '둘째' || d.rows[9].cells.c6 !== '셋째' || d.rows[9].colors.c6 !== '#D9EAD3' || (d.rows[9].cells.c5 || '') !== '' || fmtOf(d, 9, 'c6').ff) P('붙여 넣은 칸이 다름 ' + JSON.stringify([d.rows[8].cells, d.rows[9].cells, d.rows[9].colors]));
+  // 이 표에서 복사하면 서식·합친 칸이 함께 간다(구글 시트에 붙일 HTML)
+  await page.click(cell(8, 4));
+  await page.click(cell(9, 5), { modifiers: ['Shift'] });
+  const out2 = await copyOut(page);
+  if (!/rowspan="2"/.test(out2.html) || !/font-weight:bold/.test(out2.html) || !/color:#CC0000/.test(out2.html) || out2.text !== '합친 글\t둘째\n\t셋째') P('서식째 복사가 다름 ' + JSON.stringify(out2.text) + ' ' + out2.html.slice(0, 160));
+  await shot(page, '표2_서식붙여넣기');
+  await page.keyboard.press('Control+z');
+  await saved(page, '붙여 넣기 되돌리기');
+  d = await srv(page, '심청', { id: did });
+  if (d.rows[9].cells.c6 !== '※ 학년말에 한 번 더 확인' || fmtOf(d, 9, 'c6').ff !== 'batang' || fmtOf(d, 8, 'c5').m || d.rows[9].cells.c5 !== '실험대 2개') P('붙여 넣기를 되돌리지 못함 ' + JSON.stringify([d.rows[8].cells, d.rows[9].cells, fmtOf(d, 9, 'c6')]));
 
   // 여러 칸: 테두리 → 모두 합치기 → 가운데 맞춤 → 합치기 풀기 → 서식 지우기(Ctrl+\)
   await page.click(cell(5, 4));
@@ -1961,6 +2019,33 @@ async function table2Check(browser) {
   table2Info = '함께 쓰는 표 2: 시트·서식·열 너비·줄 높이·보기·걸러 보기·찾기·휴지통·다른 분·휴대폰, 인쇄 ' + size;
 }
 
+/** TableUi 파일을 아직 안 만든 웹앱: 다른 화면은 그대로, 표 화면은 안내, 관리자 › 점검은 'TableUi 새로 만들기'를 알려 준다 */
+async function tableMissingCheck(browser) {
+  const src = fs.readFileSync(path.join(__dirname, '..', '미리보기', '미리보기.html'), 'utf8');
+  const a = src.indexOf('<style>\n/* ---------- 함께 쓰는 표(TableUi.html'), b = src.indexOf('window.__gyTableUi = function'), end = '\n};\n</script>', c = b < 0 ? -1 : src.indexOf(end, b);
+  if (a < 0 || b < a || c < 0) { problems.push('표 파일 없음 점검: 미리보기에서 TableUi를 찾지 못함'); return; }
+  const f = path.join(require('os').tmpdir(), 'gy-no-tableui.html');
+  fs.writeFileSync(f, src.slice(0, a) + '<script>window.__gyTableUiMissing = true;</script>' + src.slice(c + end.length));
+  const ctx = await newCtx(browser, { viewport: { width: 1280, height: 800 } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('표 파일 없음 페이지 오류: ' + e.message));
+  await page.goto(serveFile('미리보기_표파일없음.html', f));
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  await page.locator('.today-card').waitFor().catch(() => problems.push('표 파일 없음: 홈이 열리지 않음'));
+  await page.click('.side [data-go=table]');
+  if (!(await page.getByText('화면 파일(TableUi)이 아직 없거나').first().waitFor({ timeout: 5000 }).then(() => true, () => false))) problems.push('표 파일 없음: 표 화면에 안내가 없음');
+  await shot(page, '표_화면파일_없음');
+  await page.evaluate(() => window.__gy.go('admin'));
+  await page.fill('#admin-pw', 'admin1');
+  await page.click('#admin-form [type=submit]');
+  await page.click('[data-admin-tab=check]');
+  if (!(await page.locator('text=TableUi.html').first().waitFor({ timeout: 8000 }).then(() => true, () => false))) problems.push('표 파일 없음: 점검에 TableUi가 없음');
+  else if (!(await page.getByText("'TableUi' 파일을 새로 만들고").first().count())) problems.push('표 파일 없음: 점검이 TableUi 새로 만들기를 알려 주지 않음');
+  await ctx.close();
+}
+
 /** 가짜 서버를 늦춘다(웹앱 준비가 늦은 경우 흉내): 기기의 gy.testDelay(밀리초), 없으면 def만큼 기다렸다가 답한다 */
 async function slowServer(ctx, def) {
   await ctx.addInitScript((d) => {
@@ -2138,11 +2223,30 @@ async function introReducedMotionCheck(browser) {
 }
 
 (async () => {
+  await startServer();
+  FILE = serveFile('미리보기.html', path.join(__dirname, '..', '미리보기', '미리보기.html'));
   const browser = await chromium.launch();
+  // ONLY=print: 인쇄 점검만(고치는 동안 빨리 돌려 보기)
+  if (process.env.ONLY === 'print') {
+    await printCheck(browser);
+    await browser.close();
+    if (planInfo) console.log(planInfo);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
+  // ONLY=phone: 휴대폰 흐름만(고치는 동안 빨리 돌려 보기)
+  if (process.env.ONLY === 'phone') {
+    await flow(browser, '휴대폰', { width: 390, height: 844 });
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
   // ONLY=table: 함께 쓰는 표 점검만(고치는 동안 빨리 돌려 보기)
   if (process.env.ONLY === 'table') {
     await tableCheck(browser);
     await table2Check(browser);
+    await tableMissingCheck(browser);
     await browser.close();
     if (tableInfo) console.log(tableInfo);
     if (table2Info) console.log(table2Info);
@@ -2243,6 +2347,7 @@ async function introReducedMotionCheck(browser) {
   await designCheck(browser);
   await tableCheck(browser);
   await table2Check(browser);
+  await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
   await browser.close();
   console.log('인트로: ' + intro.join(' / '));

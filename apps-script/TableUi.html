@@ -3462,7 +3462,12 @@ window.__gyTableUi = function (core) {
     });
     qs('#tbm-go').addEventListener('click', function () { tbMakeGo(this); });
     tbMakeDraw();
-    setTimeout(function () { var ti2 = qs(sheet ? '#tbm-sheet' : '#tbm-title'); if (ti2) { ti2.focus(); if (sheet) ti2.select(); } }, 40);
+    setTimeout(function () { // 이름 칸부터(그사이 다른 칸에 쓰기 시작했으면 그대로)
+      var ti2 = qs(sheet ? '#tbm-sheet' : '#tbm-title'), a = document.activeElement;
+      if (!ti2 || (a && a !== ti2 && a.id !== 'tbm-paste' && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && modal.contains(a))) return;
+      ti2.focus();
+      if (sheet) ti2.select();
+    }, 40);
   }
 
   /** 붙여 넣은 칸으로 열 정하기: 첫 줄이 열 이름, 고르기 열 알아채기(그 왼쪽 열은 잠금), 열 너비 그대로 */
