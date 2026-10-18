@@ -8,7 +8,7 @@
  * - 시트에 쓸 때는 잠금(LockService)을 걸어 동시에 저장해도 꼬이지 않게 한다.
  */
 
-function fileMark_Db_() { return '2026-10-17h'; } // 판 표시(관리자 › 점검)
+function fileMark_Db_() { return '2026-10-18a'; } // 판 표시(관리자 › 점검)
 
 /** 모든 표(기록·설정 제외)에 붙는 입력·수정·삭제 칸 */
 function auditCols_() {
@@ -34,8 +34,9 @@ function tabs_() {
     '도움말': ['항목ID', '분류ID', '제목', '내용', '링크', '순서'].concat(A).concat(['파일ID', '파일 이름', '파일 크기']),
     '공지': ['공지ID', '제목', '내용', '링크', '부서ID', '게시 끝일', '고정'].concat(A),
     '학생수': ['학생수ID', '학년도', '기준일', '1학년', '2학년', '3학년', '4학년', '5학년', '6학년'].concat(A).concat(['반별']),
-    '함께표': ['표ID', '제목', '부서ID', '설명', '마감', '상태', '열', '판'].concat(A), // 함께 쓰는 표(Table.gs), 처음 만들 때 저절로 생긴다
-    '함께표줄': ['줄ID', '표ID', '순서', '칸', '색', '칸 고친 때', '판'].concat(A),
+    '함께표': ['표ID', '제목', '부서ID', '설명', '마감', '상태', '열', '판'].concat(A) // 함께 쓰는 표(Table.gs), 처음 만들 때 저절로 생긴다
+      .concat(['문서ID', '시트 이름', '시트 순서', '보기', '시트 지움', '문서 판']), // 한 줄이 시트 하나(2026-10-18a), 저장할 때 저절로 붙는다
+    '함께표줄': ['줄ID', '표ID', '순서', '칸', '색', '칸 고친 때', '판'].concat(A).concat(['서식', '높이']),
     '기록': ['시각', '교직원ID', '이름', '탭', '대상ID', '동작', '요약', '바뀌기 전', '바뀐 뒤']
   };
 }
@@ -522,8 +523,9 @@ function insertRow_(tab, obj, actor, summary) {
  * 여러 줄을 한 번에 넣기(다시 알리기처럼 수십 줄을 쓸 때). 기록은 한 줄로 남긴다.
  * keepAudit: true면 obj의 입력자ID·입력 시각·수정자ID·수정 시각을 그대로 둔다
  *   (새 학년도로 옮긴 자료를 처음 넣은 분이 계속 고칠 수 있고, 수정일도 그대로 보이게. 옮긴 일은 기록 탭에 남는다)
+ * keepIds: true면 obj에 미리 정한 ID를 그대로 쓴다(이미 있는 ID면 새로 만든다. 함께 쓰는 표의 합친 칸이 새 줄을 가리킬 때)
  */
-function insertRows_(tab, list, actor, summary, keepAudit) {
+function insertRows_(tab, list, actor, summary, keepAudit, keepIds) {
   if (!list.length) return [];
   return withLock_(function () {
     var head = headOf_(tab);
@@ -534,8 +536,8 @@ function insertRows_(tab, list, actor, summary, keepAudit) {
     var recs = list.map(function (obj) {
       var rec = {};
       head.forEach(function (h) { if (obj[h] !== undefined) rec[h] = String(obj[h]); });
-      var id;
-      do { id = idPrefix_(tab) + Utilities.getUuid().replace(/-/g, '').slice(0, 8).toUpperCase(); } while (used[id]);
+      var id = keepIds && obj[key] && !used[obj[key]] ? String(obj[key]) : '';
+      while (!id || used[id]) id = idPrefix_(tab) + Utilities.getUuid().replace(/-/g, '').slice(0, 8).toUpperCase();
       used[id] = true;
       rec[key] = id;
       rec['입력자ID'] = actor.id || '';

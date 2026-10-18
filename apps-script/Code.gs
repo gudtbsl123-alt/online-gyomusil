@@ -24,14 +24,19 @@ function doGet() {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
 }
 
-/** Index.html 안에서 다른 HTML 파일을 끼워 넣을 때 쓴다 */
+/** Index.html 안에서 다른 HTML 파일을 끼워 넣을 때 쓴다. 파일이 없으면(아직 붙여 넣지 않은 새 파일) 빈칸으로 두고 나머지 화면은 그대로 연다 */
 function include(name) {
-  return HtmlService.createHtmlOutputFromFile(name).getContent();
+  try {
+    return HtmlService.createHtmlOutputFromFile(name).getContent();
+  } catch (e) {
+    if (name === 'TableUi') return '<script>window.__gyTableUiMissing = true;</script>'; // 함께 쓰는 표 화면 파일이 없음 → 그 화면만 안내
+    throw e;
+  }
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-17h';
-function fileMark_Code_() { return '2026-10-17h'; }
+var APP_BUILD_ = '2026-10-18a';
+function fileMark_Code_() { return '2026-10-18a'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -39,9 +44,9 @@ function fileMark_Code_() { return '2026-10-17h'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-17h', 'Db': '2026-10-17h', 'Auth': '2026-10-16e', 'Admin': '2026-10-17h', 'Schedule': '2026-10-16e',
-    'Survey': '2026-10-16e', 'Library': '2026-10-16e', 'Help': '2026-10-16', 'Setup': '2026-10-16e', 'Table': '2026-10-17h',
-    'App': '2026-10-17h', 'Styles': '2026-10-17h', 'Index': '2026-10-17g'
+    'Code': '2026-10-18a', 'Db': '2026-10-18a', 'Auth': '2026-10-16e', 'Admin': '2026-10-18a', 'Schedule': '2026-10-16e',
+    'Survey': '2026-10-16e', 'Library': '2026-10-16e', 'Help': '2026-10-16', 'Setup': '2026-10-16e', 'Table': '2026-10-18a',
+    'App': '2026-10-18a', 'Styles': '2026-10-18a', 'Index': '2026-10-18a', 'TableUi': '2026-10-18a'
   };
 }
 
@@ -100,6 +105,7 @@ function routes_() {
     'table.list': { need: 'login', fn: 'apiTableList_' },
     'table.get': { need: 'login', fn: 'apiTableGet_' },
     'table.poll': { need: 'login', fn: 'apiTablePoll_' }, // 표를 보는 동안 10초마다 바뀐 줄만
+    'table.find': { need: 'login', fn: 'apiTableFind_' }, // 찾기: 시트마다 찾은 칸 수
     'table.create': { need: 'identity', fn: 'apiTableCreate_' },
     'table.cell': { need: 'identity', fn: 'apiTableCell_' },
     'table.cells': { need: 'identity', fn: 'apiTableCells_' },
@@ -109,6 +115,14 @@ function routes_() {
     'table.save': { need: 'identity', fn: 'apiTableSave_' },
     'table.setOpen': { need: 'identity', fn: 'apiTableSetOpen_' },
     'table.delete': { need: 'identity', fn: 'apiTableDelete_' },
+    'table.colw': { need: 'identity', fn: 'apiTableColw_' },   // 열 너비
+    'table.rowh': { need: 'identity', fn: 'apiTableRowh_' },   // 줄 높이
+    'table.view': { need: 'identity', fn: 'apiTableView_' },   // 왼쪽 열 고정·줄 간격
+    'table.sheet.add': { need: 'identity', fn: 'apiTableSheetAdd_' },
+    'table.sheet.save': { need: 'identity', fn: 'apiTableSheetSave_' },
+    'table.sheet.move': { need: 'identity', fn: 'apiTableSheetMove_' },
+    'table.sheet.copy': { need: 'identity', fn: 'apiTableSheetCopy_' },
+    'table.sheet.delete': { need: 'identity', fn: 'apiTableSheetDelete_' },
 
     'admin.settings.get': { need: 'admin', fn: function () { return adminSettingsGet_(); } },
     'admin.settings.save': { need: 'admin', fn: 'adminSettingsSave_' },
@@ -167,6 +181,7 @@ var ROUTE_TABS_ = {
   'table.list': ['함께표', '함께표줄'],
   'table.get': ['함께표', '함께표줄'],
   'table.poll': ['함께표'], // 바뀐 것이 없으면 작은 탭만 보고 돌아간다
+  'table.find': ['함께표', '함께표줄'],
   'search': ['일정', '자료', '도움말', '공지', '조사', '응답', '알림']
 };
 

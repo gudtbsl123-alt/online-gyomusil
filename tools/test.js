@@ -2692,13 +2692,14 @@ test('함께 쓰는 표: 10초마다 새로 받기는 바뀐 줄만 받고, 바�
   const { who } = ids(g);
   const owner = who('흥부'), a = who('심청');
   const id = tbMake(g, owner);
-  const d = tbGet(g, id, a);
-  let p = call(g, 'table.poll', { id, since: d.table.ver }, a).data;
+  const d = tbGet(g, id, a), dv = d.table.dver;
+  let p = call(g, 'table.poll', { id, since: d.table.ver, dsince: dv }, a).data;
   assert.strictEqual(p.same, true);
   assert.strictEqual(p.ver, d.table.ver);
   assert.ok(!p.rows);
+  assert.ok(!p.doc, '시트 목록이 그대로면 보내지 않는다');
   assert.ok(call(g, 'table.cell', { id, row: d.rows[2].id, col: 'c4', value: '창틀', base: tbBase(d, 2, 'c4') }, owner).ok);
-  p = call(g, 'table.poll', { id, since: d.table.ver }, a).data;
+  p = call(g, 'table.poll', { id, since: d.table.ver, dsince: dv }, a).data;
   assert.strictEqual(p.rows.length, 1, '바뀐 줄만');
   assert.strictEqual(p.rows[0].id, d.rows[2].id);
   assert.strictEqual(p.rows[0].cells.c4, '창틀');
@@ -2706,14 +2707,16 @@ test('함께 쓰는 표: 10초마다 새로 받기는 바뀐 줄만 받고, 바�
   assert.strictEqual(p.table.cols.length, 4);
   const v1 = p.ver;
   assert.ok(call(g, 'table.row.delete', { id, row: d.rows[3].id }, owner).ok);
-  p = call(g, 'table.poll', { id, since: v1 }, a).data;
+  p = call(g, 'table.poll', { id, since: v1, dsince: dv }, a).data;
   assert.deepStrictEqual(p.rows.map((r) => [r.id, r.del]), [[d.rows[3].id, true]], '뺀 줄도 알린다');
   assert.ok(call(g, 'table.setOpen', { id, open: false }, owner).ok);
-  p = call(g, 'table.poll', { id, since: p.ver }, a).data;
-  assert.strictEqual(p.table.closed, true, '마감도 새로 받는다');
+  p = call(g, 'table.poll', { id, since: p.ver, dsince: dv }, a).data;
+  assert.strictEqual(p.table.closed, true, '마감도 새로 받는다(문서 판)');
+  assert.ok(p.dver > dv);
+  assert.deepStrictEqual(p.doc.sheets.map((x) => x.name), ['시트1']);
   assert.deepStrictEqual(plain(p.rows), []);
   assert.ok(call(g, 'table.delete', { id }, owner).ok);
-  assert.strictEqual(call(g, 'table.poll', { id, since: p.ver }, a).data.gone, true);
+  assert.strictEqual(call(g, 'table.poll', { id, since: p.ver, dsince: p.dver }, a).data.gone, true);
 });
 
 test('함께 쓰는 표: 줄 더하기는 누구나(아래에 더하면 그 자리에), 줄 빼기는 만든 분·관리·그 줄을 더한 분만', () => {
@@ -2804,7 +2807,7 @@ test('함께 쓰는 표: 열을 빼도 칸의 값과 열 ID는 남고(다시 쓰
   assert.ok(all.find((c) => c.id === 'c2' && c.del), '뺀 열은 del로 남는다');
   assert.match(call(g, 'table.cols', { id, cols: [{ id: 'c1', name: '층', type: 'pick', options: [] }] }, owner).error, /고를 값/);
   assert.match(call(g, 'table.cols', { id, cols: [] }, owner).error, /열이 하나도 없어요/);
-  const p = call(g, 'table.poll', { id, since: v0 }, a).data;
+  const p = call(g, 'table.poll', { id, since: v0, dsince: d.table.dver }, a).data;
   assert.deepStrictEqual(p.table.cols.map((c) => c.name), ['층', '입력완료', '배출이 어려운 가구', '사진', '옛 ID를 다시'], '열이 바뀐 것도 새로 받는다');
 });
 
@@ -2928,6 +2931,284 @@ test('점검: 함께표 탭은 아직 없어도 문제로 보지 않는다(처�
   assert.match(by('함께표 탭').detail, /저절로/);
   assert.ok(!r.items.some((x) => x.state === 'bad' && x.group === '시트'));
   assert.ok(r.items.some((x) => /Table/.test(x.label) && x.state === 'ok'), 'Table.gs 판 확인');
+});
+
+// ---------------------------------------------------------------- 함께 쓰는 표 2판(시트 여러 개·서식, 판 2026-10-18a)
+
+/** 시트 여러 개짜리 표: 첫 시트 '폐기 물품'(tbMake와 같은 4줄) */
+function tbMakeDoc(g, by) {
+  const id = tbMake(g, by, { fields: { title: '2학기 업무 협의', deadline: '', sheet: '폐기 물품' } });
+  return id;
+}
+
+test('함께 쓰는 표 2: 시트 더하기·이름·옮기기·사본·지우기는 만든 분·관리만, 목록·열기·새로 받기에 시트가 보인다', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const owner = who('흥부'), a = who('심청');
+  const id = tbMakeDoc(g, owner);
+  let d = tbGet(g, id, a);
+  assert.strictEqual(d.table.name, '폐기 물품');
+  assert.strictEqual(d.table.doc, id);
+  assert.deepStrictEqual(d.doc.sheets.map((x) => x.name), ['폐기 물품']);
+  const cols = [{ id: 'c1', name: '교시', lock: true }, { id: 'c2', name: '월' }];
+  assert.strictEqual(call(g, 'table.sheet.add', { id, name: '시간표', cols, rows: [] }, a).code, 'FORBIDDEN', '시트는 만든 분·관리만');
+  const s2 = call(g, 'table.sheet.add', { id, name: '시간표', desc: '과학실(예시)', cols, rows: [{ cells: { c1: '1교시', c2: '3-1' } }] }, owner);
+  assert.ok(s2.ok, s2.error);
+  assert.match(call(g, 'table.sheet.add', { id, name: ' 시간표 ', cols }, owner).error, /이미 있어요/, '이름은 겹치지 않게');
+  assert.match(call(g, 'table.sheet.add', { id, name: '', cols }, owner).error, /시트 이름을 적어 주세요/);
+  const s3 = call(g, 'table.sheet.add', { id, name: '상담 주간', cols }, boss('성춘향'));
+  assert.ok(s3.ok, '관리도 더한다');
+  d = tbGet(g, id, a);
+  assert.deepStrictEqual(d.doc.sheets.map((x) => x.name), ['폐기 물품', '시간표', '상담 주간']);
+  assert.strictEqual(d.table.id, id, '시트를 고르지 않으면 첫 시트');
+  const t2 = tbGet(g, s2.data.id, a);
+  assert.strictEqual(t2.table.id, s2.data.id, '시트의 ID로도 열린다');
+  assert.strictEqual(t2.table.doc, id);
+  assert.strictEqual(t2.table.title, '2학기 업무 협의');
+  assert.strictEqual(t2.table.desc, '과학실(예시)');
+  assert.strictEqual(t2.rows[0].cells.c1, '1교시');
+  assert.strictEqual(t2.table.canEdit, false);
+  assert.strictEqual(t2.table.canWrite, true);
+  const t3 = call(g, 'table.get', { id, sheet: s3.data.id }, a).data;
+  assert.strictEqual(t3.table.name, '상담 주간');
+  // 목록: 표 하나에 시트 3개
+  const ls = call(g, 'table.list', {}, a).data;
+  assert.strictEqual(ls.tables.length, 1, '시트는 목록에 따로 보이지 않는다');
+  assert.deepStrictEqual(ls.tables[0].sheets.map((x) => [x.name, x.summary.rows]), [['폐기 물품', 4], ['시간표', 1], ['상담 주간', 0]]);
+  // 칸 고치기는 시트마다(다른 시트의 줄은 이 시트로 고칠 수 없다)
+  assert.strictEqual(call(g, 'table.cell', { id, row: t2.rows[0].id, col: 'c2', value: 'x', base: 0 }, a).code, 'STALE');
+  const c = call(g, 'table.cell', { id: s2.data.id, row: t2.rows[0].id, n: t2.rows[0].n, col: 'c2', value: '3-2', base: 0 }, a);
+  assert.ok(c.ok, c.error);
+  assert.match(g.readRows_('기록').filter((x) => x['대상ID'] === t2.rows[0].id).pop()['요약'], /2학기 업무 협의 › 시간표/);
+  // 새로 받기: 다른 분이 시트를 더하거나 이름을 바꾸면 시트 목록이 온다
+  let p = call(g, 'table.poll', { id: s2.data.id, since: c.data.ver, dsince: t2.table.dver }, a).data;
+  assert.ok(p.same && !p.doc, '시트 목록이 그대로면 판만');
+  const dv = p.dver;
+  assert.strictEqual(call(g, 'table.sheet.save', { id: s2.data.id, name: '특별실 시간표', desc: '' }, a).code, 'FORBIDDEN');
+  assert.ok(call(g, 'table.sheet.save', { id: s2.data.id, name: '특별실 시간표', desc: '바꾼 설명' }, owner).ok);
+  p = call(g, 'table.poll', { id: s2.data.id, since: c.data.ver, dsince: dv }, a).data;
+  assert.deepStrictEqual(p.doc.sheets.map((x) => x.name), ['폐기 물품', '특별실 시간표', '상담 주간']);
+  assert.strictEqual(p.table.desc, '바꾼 설명');
+  // 옮기기
+  assert.ok(call(g, 'table.sheet.move', { id: s3.data.id, dir: -1 }, owner).ok);
+  assert.deepStrictEqual(tbGet(g, id, a).doc.sheets.map((x) => x.name), ['폐기 물품', '상담 주간', '특별실 시간표']);
+  assert.ok(call(g, 'table.sheet.move', { id, dir: -1 }, owner).ok, '맨 앞에서 더 앞으로는 그대로');
+  assert.strictEqual(call(g, 'table.sheet.move', { id, dir: 1 }, a).code, 'FORBIDDEN');
+  // 사본: 열·줄·서식 그대로, 바로 오른쪽에
+  const cp = call(g, 'table.sheet.copy', { id: s2.data.id }, owner);
+  assert.ok(cp.ok, cp.error);
+  d = tbGet(g, id, a);
+  assert.deepStrictEqual(d.doc.sheets.map((x) => x.name), ['폐기 물품', '상담 주간', '특별실 시간표', '특별실 시간표 사본']);
+  const cpd = tbGet(g, cp.data.id, a);
+  assert.strictEqual(cpd.rows[0].cells.c2, '3-2');
+  assert.notStrictEqual(cpd.rows[0].id, t2.rows[0].id, '줄ID는 새로');
+  // 지우기: 첫 시트도 지울 수 있고(표는 그대로), 마지막 하나는 못 지운다
+  assert.ok(call(g, 'table.sheet.delete', { id }, owner).ok, '첫 시트 지우기');
+  d = tbGet(g, id, a);
+  assert.deepStrictEqual(d.doc.sheets.map((x) => x.name), ['상담 주간', '특별실 시간표', '특별실 시간표 사본']);
+  assert.strictEqual(d.table.title, '2학기 업무 협의', '표 정보는 그대로');
+  assert.strictEqual(d.table.name, '상담 주간', '첫 시트가 지워졌으면 다음 시트가 열린다');
+  p = call(g, 'table.poll', { id, since: 0, dsince: 0 }, a).data;
+  assert.strictEqual(p.sheetGone, true, '보던 시트가 지워졌다고 알린다');
+  assert.strictEqual(call(g, 'table.cell', { id, row: tbGet(g, s2.data.id, a).rows[0].id, col: 'c2', value: 'x', base: 0 }, a).code, 'NOTFOUND', '지운 시트는 못 고친다');
+  assert.ok(call(g, 'table.sheet.delete', { id: s3.data.id }, owner).ok);
+  assert.ok(call(g, 'table.sheet.delete', { id: cp.data.id }, owner).ok);
+  assert.match(call(g, 'table.sheet.delete', { id: s2.data.id }, owner).error, /하나뿐/);
+  assert.strictEqual(call(g, 'table.list', {}, a).data.tables[0].sheets.length, 1);
+  // 휴지통: 지운 시트가 보이고 되살린다(이름이 겹치면 '(되살림)')
+  const bs = boss();
+  const tr = call(g, 'admin.trash.tables', {}, bs).data;
+  assert.deepStrictEqual(tr.map((x) => [x.kind, x.sheet]).sort(), [['sheet', '상담 주간'], ['sheet', '특별실 시간표 사본'], ['sheet', '폐기 물품']]);
+  assert.ok(call(g, 'table.sheet.save', { id: s2.data.id, name: '폐기 물품', desc: '' }, owner).ok);
+  assert.ok(call(g, 'admin.trash.restoreTable', { id, kind: 'sheet' }, bs).ok);
+  d = tbGet(g, id, a);
+  assert.deepStrictEqual(d.doc.sheets.map((x) => x.name), ['폐기 물품 (되살림)', '폐기 물품']);
+  assert.strictEqual(tbGet(g, id, a).table.id, id);
+  assert.strictEqual(tbGet(g, id, a).rows.length, 4, '되살린 시트의 줄도 그대로');
+});
+
+test('함께 쓰는 표 2: 예전 표(시트 칸이 없던 탭)도 시트1로 열리고, 시트를 더하면 칸이 저절로 붙는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부'), a = who('심청');
+  // 2026-10-17h 모양의 탭: 새 칸이 없다
+  const old1 = ['표ID', '제목', '부서ID', '설명', '마감', '상태', '열', '판', '입력자ID', '입력 시각', '수정자ID', '수정 시각', '삭제 여부'];
+  const old2 = ['줄ID', '표ID', '순서', '칸', '색', '칸 고친 때', '판', '입력자ID', '입력 시각', '수정자ID', '수정 시각', '삭제 여부'];
+  g._ss.sheets = g._ss.sheets.filter((x) => x.name !== '함께표' && x.name !== '함께표줄');
+  const s1 = g._ss.insertSheet('함께표'); s1.getRange(1, 1, 1, old1.length).setValues([old1]);
+  const s2 = g._ss.insertSheet('함께표줄'); s2.getRange(1, 1, 1, old2.length).setValues([old2]);
+  const st = owner.identity;
+  const me = g.readRows_('교직원').find((x) => x['이름'] === '흥부')['교직원ID'];
+  s1.appendRow(['K0000OLD', "'옛 표", '', "'옛 설명", '', '', JSON.stringify([{ id: 'c1', name: '이름', type: 'text', options: [], lock: false, merge: false, w: 0 }]), "'3", me, "'2026-10-17 09:00", '', '', '']);
+  s2.appendRow(['L0000OLD', 'K0000OLD', "'1", JSON.stringify({ c1: '홍길동' }), '', '', "'1", me, "'2026-10-17 09:00", '', '', '']);
+  g.dirty_();
+  let d = tbGet(g, 'K0000OLD', a);
+  assert.strictEqual(d.table.name, '시트1');
+  assert.strictEqual(d.table.desc, '옛 설명');
+  assert.strictEqual(d.rows[0].cells.c1, '홍길동');
+  assert.deepStrictEqual(plain(d.rows[0].fmt), {});
+  const c = call(g, 'table.cell', { id: 'K0000OLD', row: 'L0000OLD', col: 'c1', value: '성춘향', base: 0 }, a);
+  assert.ok(c.ok, c.error);
+  assert.ok(call(g, 'table.sheet.add', { id: 'K0000OLD', name: '시트2', cols: [{ id: 'c1', name: '값' }] }, owner).ok);
+  assert.ok(g.headOf_('함께표').indexOf('문서 판') >= 0 && g.headOf_('함께표줄').indexOf('서식') >= 0, '새 칸이 붙음');
+  d = tbGet(g, 'K0000OLD', a);
+  assert.deepStrictEqual(d.doc.sheets.map((x) => x.name), ['시트1', '시트2']);
+  assert.strictEqual(d.rows[0].cells.c1, '성춘향', '있던 값은 그대로');
+  assert.ok(call(g, 'table.sheet.save', { id: 'K0000OLD', name: '시트1', desc: '옛 설명' }, owner).ok);
+  assert.strictEqual(g.readRows_('함께표').find((x) => x['표ID'] === 'K0000OLD')['시트 이름'], '', '예전 표의 시트1은 비워 둔 그대로');
+  void st;
+});
+
+test('함께 쓰는 표 2: 서식은 그 칸을 고칠 수 있는 누구나(잠근 칸·잠근 열을 덮는 합치기는 건너뜀), 서식 지우기는 합친 칸을 남긴다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부'), a = who('심청');
+  const id = tbMakeDoc(g, owner);
+  const d = tbGet(g, id, a);
+  const at = (i, col, extra) => Object.assign({ row: d.rows[i].id, n: d.rows[i].n, col }, extra);
+  const logN = g.readRows_('기록').length;
+  const r = call(g, 'table.cells', { id, cells: [
+    at(0, 'c4', { f: { b: 1, fc: '#cc0000', ff: 'batang', fs: 14, ha: 'c', bd: '0020', bad: 'x' }, fill: '#fce5cd' }),
+    at(0, 'c2', { f: { b: 1 } }), // 잠근 열
+    at(1, 'c3', { f: { i: 1, u: 1, s: 1, va: 't', wr: 'c', ff: 'comic', fs: 99, fc: 'red' } }),
+    at(1, 'c4', { f: { m: [d.rows[2].id, 'c4'] } }),
+    at(2, 'c3', { f: { m: [d.rows[2].id, 'c4'] } }),
+    at(3, 'c2', { f: { m: [d.rows[3].id, 'c4'] } }) // 잠근 열에서 시작
+  ] }, a);
+  assert.ok(r.ok, r.error);
+  assert.strictEqual(r.data.skipLocked, 2);
+  assert.strictEqual(r.data.formatted, 4);
+  assert.strictEqual(r.data.changed, 0);
+  let e = tbGet(g, id, a);
+  assert.deepStrictEqual(plain(e.rows[0].fmt.c4), { ff: 'batang', fs: 14, fc: '#CC0000', b: 1, ha: 'c', bd: '0020' }, '모르는 서식은 버린다');
+  assert.strictEqual(e.rows[0].colors.c4, '#FCE5CD');
+  assert.ok(!e.rows[0].fmt.c2, '잠근 열은 만든 분·관리만');
+  assert.deepStrictEqual(plain(e.rows[1].fmt.c3), { i: 1, u: 1, s: 1, va: 't', wr: 'c' }, '알맞지 않은 글꼴·크기·색은 뺀다');
+  assert.deepStrictEqual(plain(e.rows[1].fmt.c4), { m: [d.rows[2].id, 'c4'] });
+  assert.ok(e.rows[2].fmt.c3 && e.rows[2].fmt.c3.m, '합치기');
+  assert.strictEqual(e.rows[0].by, '', '서식만 바꾸면 마지막 고친 분은 그대로');
+  const logs = g.readRows_('기록').slice(logN);
+  assert.strictEqual(logs.length, 1);
+  assert.match(logs[0]['요약'], /서식 4칸/);
+  // 만든 분은 잠근 열도
+  assert.strictEqual(call(g, 'table.cells', { id, cells: [at(0, 'c2', { f: { b: 1 } }), at(3, 'c2', { f: { m: [d.rows[3].id, 'c3'] } })] }, owner).data.formatted, 2);
+  // 서식 바꾸기(null이면 그 서식을 뺀다)·서식 지우기(합친 칸은 그대로)·채우기 색 지우기
+  assert.ok(call(g, 'table.cells', { id, cells: [at(0, 'c4', { f: { b: null, fs: null } }), at(1, 'c4', { clear: 1 }), at(1, 'c3', { clear: 1 })] }, a).ok);
+  e = tbGet(g, id, a);
+  assert.deepStrictEqual(plain(e.rows[0].fmt.c4), { ff: 'batang', fc: '#CC0000', ha: 'c', bd: '0020' });
+  assert.deepStrictEqual(plain(e.rows[1].fmt.c4), { m: [d.rows[2].id, 'c4'] }, '합친 칸은 남는다');
+  assert.ok(!e.rows[1].fmt.c3);
+  assert.ok(call(g, 'table.cells', { id, cells: [at(0, 'c4', { fill: '' }), at(1, 'c4', { f: { m: null } })] }, a).ok);
+  e = tbGet(g, id, a);
+  assert.ok(!e.rows[0].colors.c4);
+  assert.ok(!e.rows[1].fmt.c4, '합치기 풀기');
+  // 값과 서식을 한 번에(붙여 넣기)
+  const r2 = call(g, 'table.cells', { id, cells: [at(1, 'c4', { value: '빨간 글', base: tbBase(d, 1, 'c4'), f: { fc: '#FF0000' } })] }, a);
+  assert.strictEqual(r2.data.changed, 1);
+  assert.strictEqual(r2.data.formatted, 1);
+  e = tbGet(g, id, a);
+  assert.strictEqual(e.rows[1].cells.c4, '빨간 글');
+  assert.strictEqual(e.rows[1].fmt.c4.fc, '#FF0000');
+  assert.strictEqual(e.rows[1].by, '심청');
+  // 마감한 표는 만든 분만
+  assert.ok(call(g, 'table.setOpen', { id, open: false }, owner).ok);
+  assert.strictEqual(call(g, 'table.cells', { id, cells: [at(0, 'c4', { f: { b: 1 } })] }, a).code, 'CLOSED');
+});
+
+test('함께 쓰는 표 2: 열 너비·줄 높이·보기(왼쪽 열 고정·줄 간격)는 고칠 수 있는 누구나, 모든 분 화면에 함께', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부'), a = who('심청');
+  const id = tbMakeDoc(g, owner);
+  const d = tbGet(g, id, a);
+  assert.deepStrictEqual(plain(d.table.view), { fr: 0, gap: 'n' });
+  const w = call(g, 'table.colw', { id, w: { c4: 344, c2: 10, c9: 100 } }, a);
+  assert.ok(w.ok, w.error);
+  let e = tbGet(g, id, owner);
+  assert.strictEqual(e.table.cols[3].w, 344);
+  assert.strictEqual(e.table.cols[1].w, 0, '너무 좁은 너비는 기본으로');
+  assert.ok(e.table.ver > d.table.ver, '판이 올라 다른 분 화면도 새로 받는다');
+  const h = call(g, 'table.rowh', { id, rows: [{ row: d.rows[1].id, n: d.rows[1].n, h: 86 }, { row: d.rows[2].id, h: 5000 }] }, a);
+  assert.ok(h.ok, h.error);
+  assert.strictEqual(h.data.rows.length, 1, '바뀐 줄만(너무 큰 높이는 글에 맞춤 = 처음과 같음)');
+  e = tbGet(g, id, owner);
+  assert.strictEqual(e.rows[1].h, 86);
+  assert.strictEqual(e.rows[2].h, 0);
+  const v = call(g, 'table.view', { id, view: { fr: 2, gap: 'w' } }, a);
+  assert.ok(v.ok, v.error);
+  assert.deepStrictEqual(plain(tbGet(g, id, owner).table.view), { fr: 2, gap: 'w' });
+  assert.deepStrictEqual(plain(call(g, 'table.view', { id, view: { fr: 9, gap: 'x' } }, a).data.view), { fr: 0, gap: 'n' }, '알맞지 않으면 기본');
+  assert.strictEqual(call(g, 'table.colw', { id, w: { c4: 200 } }, { login: a.login }).code, 'IDENTITY');
+  assert.ok(call(g, 'table.setOpen', { id, open: false }, owner).ok);
+  assert.strictEqual(call(g, 'table.colw', { id, w: { c4: 200 } }, a).code, 'CLOSED');
+  assert.strictEqual(call(g, 'table.view', { id, view: { fr: 1 } }, a).code, 'CLOSED');
+  assert.ok(call(g, 'table.colw', { id, w: { c4: 200 } }, owner).ok, '만든 분은 마감한 표도');
+  const logs = g.readRows_('기록').filter((x) => /열 너비|줄 높이|보기 바꿈/.test(x['요약']));
+  assert.ok(logs.length >= 4, '기록에 남는다');
+});
+
+test('함께 쓰는 표 2: 합친 칸은 만들 때(붙여 넣기)·줄을 더하고 뺄 때 깨지지 않는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부'), a = who('심청');
+  const cols = [{ id: 'c1', name: '층', w: 70 }, { id: 'c2', name: '각 실' }, { id: 'c3', name: '메모' }];
+  const rows = [
+    { cells: { c1: '1층', c2: '교장실' }, ms: { c1: [3, 1] }, fmt: { c1: { b: 1 } } },
+    { cells: { c2: '보건실' } },
+    { cells: { c2: '도서관' } },
+    { cells: { c1: '알림', c2: '' }, ms: { c1: [1, 3] } } // 가로로 세 칸
+  ];
+  const id = call(g, 'table.create', { fields: { title: '합친 칸', sheet: '1층' }, cols, rows }, owner).data.id;
+  let d = tbGet(g, id, a);
+  const R = d.rows.map((r) => r.id);
+  assert.deepStrictEqual(plain(d.rows[0].fmt.c1), { b: 1, m: [R[2], 'c1'] }, '붙여 넣은 합친 칸이 진짜 줄ID로');
+  assert.deepStrictEqual(plain(d.rows[3].fmt.c1), { m: [R[3], 'c3'] });
+  // 합친 칸 맨 아래 줄 아래에 더하면 그 합친 칸에 들어간다
+  const add = call(g, 'table.row.add', { id, after: R[2], cells: { c2: '급식실' }, fmt: { c2: { i: 1, m: [R[2], 'c2'] } } }, a);
+  assert.ok(add.ok, add.error);
+  assert.deepStrictEqual(plain(add.data.row.fmt), { c2: { i: 1 } }, '위 줄 서식은 이어 받되 합친 칸은 빼고');
+  assert.deepStrictEqual(add.data.rows.map((r) => r.id), [R[0]], '합친 칸의 첫 줄도 함께 돌려준다');
+  d = tbGet(g, id, a);
+  assert.deepStrictEqual(d.rows.map((r) => r.cells.c2 || ''), ['교장실', '보건실', '도서관', '급식실', '']);
+  assert.deepStrictEqual(plain(d.rows[0].fmt.c1.m), [add.data.row.id, 'c1'], '맨 아래가 새 줄로');
+  // 가운데에 더하면 그대로 안에
+  assert.ok(call(g, 'table.row.add', { id, after: R[0], cells: { c2: '교감실' } }, a).ok);
+  assert.deepStrictEqual(plain(tbGet(g, id, a).rows[0].fmt.c1.m), [add.data.row.id, 'c1']);
+  // 맨 아래 줄을 빼면 끝이 위 줄로
+  assert.ok(call(g, 'table.row.delete', { id, row: add.data.row.id }, a).ok, '내가 더한 줄');
+  d = tbGet(g, id, a);
+  assert.deepStrictEqual(plain(d.rows[0].fmt.c1.m), [R[2], 'c1']);
+  // 첫 줄을 빼면 합친 칸(값·서식)이 다음 줄로
+  const del = call(g, 'table.row.delete', { id, row: R[0] }, owner);
+  assert.ok(del.ok, del.error);
+  d = tbGet(g, id, a);
+  assert.strictEqual(d.rows[0].cells.c2, '교감실');
+  assert.strictEqual(d.rows[0].cells.c1, '1층', '값이 다음 줄로');
+  assert.deepStrictEqual(plain(d.rows[0].fmt.c1), { b: 1, m: [R[2], 'c1'] });
+  // 붙여 넣은 줄이 표 끝에 넘쳐도 합친 칸이 새 줄을 가리킨다('+0')
+  const last = d.rows[d.rows.length - 1];
+  const r = call(g, 'table.cells', { id, cells: [{ row: last.id, n: last.n, col: 'c3', value: '이어서', base: 0, f: { m: ['+1', 'c3'] } }],
+    add: [{ cells: { c2: '새 줄 1' } }, { cells: { c2: '새 줄 2' }, ms: { c2: [1, 2] } }] }, owner);
+  assert.ok(r.ok, r.error);
+  d = tbGet(g, id, a);
+  const n2 = d.rows[d.rows.length - 1];
+  assert.deepStrictEqual(plain(d.rows.find((x) => x.id === last.id).fmt.c3.m), [n2.id, 'c3']);
+  assert.deepStrictEqual(plain(n2.fmt.c2.m), [n2.id, 'c3']);
+});
+
+test('함께 쓰는 표 2: 찾기는 시트마다 찾은 칸 수를 알려 주고, 합친 칸에 덮여 안 보이는 칸은 세지 않는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부'), a = who('심청');
+  const id = tbMakeDoc(g, owner);
+  const s2 = call(g, 'table.sheet.add', { id, name: '두 번째', cols: [{ id: 'c1', name: '가' }, { id: 'c2', name: '나' }],
+    rows: [{ cells: { c1: 'TV 거치대', c2: 'tv 숨은 값' }, ms: { c1: [1, 2] } }, { cells: { c1: '책상' } }] }, owner).data.id;
+  const f = call(g, 'table.find', { id, q: ' TV ' }, a);
+  assert.ok(f.ok, f.error);
+  assert.strictEqual(f.data.counts[id], 0);
+  assert.strictEqual(f.data.counts[s2], 1, '대소문자는 가리지 않고, 덮인 칸은 세지 않는다');
+  assert.strictEqual(call(g, 'table.find', { id, q: '1층' }, a).data.counts[id], 1, '같은 값 위아래 합침 열은 한 번만');
+  assert.deepStrictEqual(plain(call(g, 'table.find', { id, q: '' }, a).data.counts), {});
 });
 
 console.log(results.join('\n'));
