@@ -3105,6 +3105,14 @@ test('함께 쓰는 표 2: 서식은 그 칸을 고칠 수 있는 누구나(잠�
   e = tbGet(g, id, a);
   assert.ok(!e.rows[0].colors.c4);
   assert.ok(!e.rows[1].fmt.c4, '합치기 풀기');
+  // 서식 지우기와 채우기 색을 함께 보내면(되돌리기·다시 하기·붙여 넣기) 그 채우기 색으로
+  assert.ok(call(g, 'table.cells', { id, cells: [at(0, 'c4', { clear: 1, f: { b: 1 }, fill: '#FFF2CC' })] }, a).ok);
+  e = tbGet(g, id, a);
+  assert.strictEqual(e.rows[0].colors.c4, '#FFF2CC');
+  assert.deepStrictEqual(plain(e.rows[0].fmt.c4), { b: 1 });
+  assert.ok(call(g, 'table.cells', { id, cells: [at(0, 'c4', { clear: 1 })] }, a).ok);
+  e = tbGet(g, id, a);
+  assert.ok(!e.rows[0].colors.c4 && !e.rows[0].fmt.c4, '서식 지우기만 보내면 채우기 색도 지운다');
   // 값과 서식을 한 번에(붙여 넣기)
   const r2 = call(g, 'table.cells', { id, cells: [at(1, 'c4', { value: '빨간 글', base: tbBase(d, 1, 'c4'), f: { fc: '#FF0000' } })] }, a);
   assert.strictEqual(r2.data.changed, 1);

@@ -45,7 +45,7 @@
 .tb-fs input{width:34px;height:30px;padding:0;border:0;background:transparent;color:var(--c-t1);font:inherit;font-size:14px;font-weight:700;text-align:center}
 .tb-fs input:focus{outline:2px solid var(--accent-ring);border-radius:6px}
 .tb-tools .tb-sp{flex:1 1 auto}
-.tb-tools .tb-view{padding:0 8px 0 7px;gap:4px}
+.tb-tools .tb-viewbtn{padding:0 8px 0 7px;gap:4px}
 .tb-tools.ro .tb-fmt{display:none}
 .tb-local{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 12px 10px 14px;border-bottom:1px solid var(--c-line);background:var(--accent-soft);color:var(--c-t1);font-size:15px;line-height:1.45}
 .tb-local svg{flex:none;color:var(--accent)}
@@ -66,23 +66,28 @@
 .tb-grid th,.tb-grid td{padding:9px 12px;border-right:1px solid var(--c-line);border-bottom:1px solid var(--c-line);text-align:left;vertical-align:middle;overflow:hidden;overflow-wrap:anywhere}
 .tb-grid.gap-s td{padding-top:4px;padding-bottom:4px}
 .tb-grid.gap-w td{padding-top:15px;padding-bottom:15px}
-.tb-grid th{position:sticky;top:0;z-index:2;padding-right:34px;background:var(--c-card2);font-size:14px;font-weight:800;color:var(--c-t2);white-space:nowrap;text-overflow:ellipsis;cursor:default}
+.tb-grid tbody tr{height:41px}
+.tb-grid.gap-s tbody tr{height:31px}
+.tb-grid.gap-w tbody tr{height:53px}
+.tb-grid th{position:sticky;top:0;z-index:2;background:var(--c-card2);font-size:14px;font-weight:800;color:var(--c-t2);white-space:nowrap;text-overflow:ellipsis;cursor:default}
+.tb-grid th.hb-on{padding-right:34px}
 .tb-grid th.tb-who{padding-right:12px}
 .tb-grid th .lk{display:inline-flex;vertical-align:-2px;margin-left:4px;color:var(--c-t3)}
-.tb-grid th small{margin-left:6px;font-size:12px;font-weight:700;color:var(--accent)}
-.tb-grid th.colsel{background:var(--accent-soft);color:var(--accent)}
+.tb-grid th.colsel{background:linear-gradient(var(--accent-soft),var(--accent-soft)) var(--c-card2);color:var(--accent)}
 .tb-grid th.rn,.tb-grid td.rn{position:sticky;left:0;z-index:1;padding:0;text-align:center;font-size:12px;font-weight:700;color:var(--c-t3);background:var(--c-card2);cursor:default;-webkit-user-select:none;user-select:none}
 .tb-grid th.rn{z-index:4}
-.tb-grid td.rn.sel{background:var(--accent-soft);color:var(--accent)}
+.tb-grid td.rn.sel{background:linear-gradient(var(--accent-soft),var(--accent-soft)) var(--c-card2);color:var(--accent)}
 .tb-grid .frz{position:sticky;z-index:1}
 .tb-grid th.frz{z-index:3}
 .tb-grid .frz-end{border-right:3px solid var(--c-line2)}
 .tb-all{position:absolute;inset:0;width:100%;border:0;background:transparent;cursor:pointer}
-.tb-hb{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:26px;height:26px;display:grid;place-items:center;padding:0;border:0;border-radius:6px;background:transparent;color:var(--c-t3);cursor:pointer}
-.tb-hb.on{background:var(--accent-soft);color:var(--accent)}
+.tb-hb{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:26px;height:26px;display:grid;place-items:center;padding:0;border:0;border-radius:6px;background:var(--c-card2);box-shadow:-10px 0 8px -2px var(--c-card2);color:var(--c-t3);cursor:pointer;opacity:0}
+.tb-grid th.colsel .tb-hb{background:linear-gradient(var(--accent-soft),var(--accent-soft)) var(--c-card2);box-shadow:none}
+.tb-grid th:hover .tb-hb,.tb-hb:focus-visible,.tb-hb.on,.tb-hb[aria-expanded="true"]{opacity:1}
+.tb-hb.on{background:linear-gradient(var(--accent-soft),var(--accent-soft)) var(--c-card2);box-shadow:none;color:var(--accent)}
 .tb-hb[aria-expanded="true"]{background:var(--c-card);box-shadow:0 0 0 1px var(--c-line2);color:var(--c-t1)}
-.tb-cr{position:absolute;top:0;right:-4px;z-index:2;width:8px;height:100%;cursor:col-resize}
-.tb-rr{position:absolute;left:0;right:0;bottom:-4px;z-index:2;height:8px;cursor:row-resize}
+.tb-cr{position:absolute;top:0;right:0;z-index:2;width:7px;height:100%;cursor:col-resize}
+.tb-rr{position:absolute;left:0;right:0;bottom:0;z-index:2;height:7px;cursor:row-resize}
 .tb-grid td{background:var(--c-card);cursor:cell;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .tb-grid td.ro{color:var(--c-t2);cursor:default}
 .tb-grid td.merged{font-weight:800;text-align:center}
@@ -260,8 +265,22 @@ body.tb-resizing.rows,body.tb-resizing.rows *{cursor:row-resize!important}
   .tb-cr:hover{background:var(--accent);opacity:.5}
   .tb-rr:hover{background:var(--accent);opacity:.5}
 }
+@media (hover:none){
+  .tb-grid th{padding-right:34px}
+  .tb-hb{opacity:1;box-shadow:none}
+}
+/* 노트북(1366 이하): 도구 막대를 한 줄에 */
+@media (max-width:1365px){
+  .tb-tools .tb-tb{min-width:30px;padding:0 3px}
+  .tb-tools .tb-tb.wide{min-width:100px;padding:0 4px 0 8px}
+  .tb-tools .tb-tb.wide span:first-child{max-width:70px}
+  .tb-tools .tsep{margin:0 3px}
+  .tb-tools .tb-viewbtn .vl{display:none}
+}
 @media (max-width:899px){
   .page-head .tb-actions{align-self:flex-start}
+  .tb-grid th,.tb-grid th.hb-on{padding-right:12px}
+  .tb-hb{display:none}
   .tb-card{padding:16px 18px}
   .tb-card-t{font-size:18px}
   .tb-live{margin-left:0}
@@ -838,11 +857,11 @@ window.__gyTableUi = function (core) {
         return;
       }
       if (o.run) return; // 예전 '위아래 같은 값' 열은 줄마다 값이 있어 그대로 보인다
-      var v = tbVal(all[o.i], cols[o.j].id);
+      var v = tbVal(all[o.i], cols[o.j].id), gf = tbFmt(all[o.i], cols[o.j].id);
       for (a = o.i; a < o.i + o.rs; a++) {
         var i = vi[all[a].id];
         if (i === undefined) continue;
-        occ[i + ':' + o.j] = { rs: 1, cs: o.cs, ghost: a === o.i ? null : v };
+        occ[i + ':' + o.j] = { rs: 1, cs: o.cs, ghost: a === o.i ? null : v, gf: a === o.i ? null : gf };
         for (b = o.j + 1; b < o.j + o.cs; b++) occ[i + ':' + b] = { a: i + ':' + o.j };
       }
     });
@@ -890,8 +909,8 @@ window.__gyTableUi = function (core) {
       '<col class="tb-who-col" style="width:' + TB_WHO_W + 'px">';
     var head = '<tr><th class="rn" scope="col"><button type="button" class="tb-all print-hide" data-action="tb-selall" aria-label="모두 고르기" tabindex="-1"></button></th>' + cols.map(function (c, j) {
       var z = frz(j), sorted = L.sort && L.sort.c === c.id, filt = !!L.filter[c.id];
-      return '<th scope="col" class="tb-h' + z.cls + '" style="' + z.st + '" data-j="' + j + '" title="' + esc(c.name) + '">' + esc(c.name) +
-        (c.lock ? '<span class="lk" title="잠근 열">' + icon('lock', 14) + '</span>' : '') + (c.type === 'pick' ? '<small>고르기</small>' : '') +
+      return '<th scope="col" class="tb-h' + z.cls + (sorted || filt ? ' hb-on' : '') + '" style="' + z.st + '" data-j="' + j + '" title="' + esc(c.name + (c.type === 'pick' ? ' (고르기 열)' : '') + (c.lock ? ' · 잠근 열' : '')) + '">' + esc(c.name) +
+        (c.lock ? '<span class="lk">' + icon('lock', 14) + '</span>' : '') +
         '<button type="button" class="tb-hb print-hide' + (sorted || filt ? ' on' : '') + '" data-action="tb-head" data-j="' + j + '" aria-label="' + esc(c.name) + ' 열 정렬·걸러 보기" aria-haspopup="menu" aria-expanded="false">' +
         (filt ? ti('filter', 15, 2) : sorted ? ti(L.sort.dir > 0 ? 'sortA' : 'sortZ', 15, 2) : icon('chevd', 15)) + '</button>' +
         (t.canWrite ? '<span class="tb-cr print-hide" data-j="' + j + '" aria-hidden="true"></span>' : '') + '</th>';
@@ -917,7 +936,7 @@ window.__gyTableUi = function (core) {
 
   function tbTd(r, c, i, j, o, lay, z, dark, now) {
     var T = S.table, ghost = !!o && o.ghost !== undefined && o.ghost !== null;
-    var v = ghost ? o.ghost : tbVal(r, c.id), f = tbFmt(r, c.id), p = tbPaint((r.colors || {})[c.id]), fl = T.flash[r.id + '|' + c.id];
+    var v = ghost ? o.ghost : tbVal(r, c.id), f = ghost && o.gf ? o.gf : tbFmt(r, c.id), p = tbPaint((r.colors || {})[c.id]), fl = T.flash[r.id + '|' + c.id];
     var lit = fl && fl.until > now, can = !ghost && tbCanCell(r, c), rs = (o && o.rs) || 1, cs = (o && o.cs) || 1;
     var cls = 'tb-c' + (can ? '' : ' ro') + (o && o.run ? ' merged' : '') + (ghost ? ' ghost' : '') + (p ? ' paint' + (p.dark ? ' paint-dark' : '') : '') +
       (lit ? ' flash' : '') + ((r.pending && r.pending[c.id]) || (r.fpending && r.fpending[c.id]) ? ' saving' : '') + z.cls;
@@ -1843,7 +1862,7 @@ window.__gyTableUi = function (core) {
     r.fmt = r.fmt || {};
     if (Object.keys(out).length) r.fmt[x.c] = out; else delete r.fmt[x.c];
     r.colors = r.colors || {};
-    var fill = x.clear ? '' : x.fill !== undefined ? x.fill : (r.colors[x.c] || '');
+    var fill = x.fill !== undefined ? x.fill : x.clear ? '' : (r.colors[x.c] || ''); // 채우기 색을 함께 보내면 그 색(되돌리기·붙여 넣기)
     if (fill && fill !== '#FFFFFF') r.colors[x.c] = fill; else delete r.colors[x.c];
   }
   /**
@@ -2170,7 +2189,7 @@ window.__gyTableUi = function (core) {
       b('wr', '줄 바꿈', '<span class="tic">' + ti('wrap') + '</span>' + chv, menu, 'tb-fmt') + sep +
       b('clear', '서식 지우기 (Ctrl+\\)', ti('clear'), '', 'tb-fmt') +
       '<span class="tb-sp"></span>' +
-      '<button type="button" class="tb-tb tb-view tb-fmt" data-action="tb-tool" data-k="view" id="tt-view" title="보기(왼쪽 열 고정·줄 간격)" aria-label="보기"' + menu + '>' + icon('eye', 20) + '보기' + chv + '</button>' +
+      '<button type="button" class="tb-tb tb-viewbtn tb-fmt" data-action="tb-tool" data-k="view" id="tt-view" title="보기(왼쪽 열 고정·줄 간격)" aria-label="보기"' + menu + '>' + icon('eye', 20) + '<span class="vl">보기</span>' + chv + '</button>' +
       '</div>';
   }
   /** 지금 고른 칸(합친 칸이면 첫 칸) */

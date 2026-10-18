@@ -1023,7 +1023,7 @@ function apiTableCells_(args, actor, ctx) {
             }
           }
           var nf = tbPatchFmt_(fmt[col.id], patch, !!x.clear);
-          var nc = x.clear ? '' : x.fill !== undefined ? tbCleanColor_(x.fill) : (colors[col.id] || '');
+          var nc = x.fill !== undefined ? tbCleanColor_(x.fill) : x.clear ? '' : (colors[col.id] || ''); // 채우기 색을 함께 보내면 그 색(되돌리기·붙여 넣기)
           if (nc === '#FFFFFF') nc = '';
           if (JSON.stringify(nf || null) === JSON.stringify(fmt[col.id] || null) && nc === (colors[col.id] || '')) return;
           if (nf) fmt[col.id] = nf; else delete fmt[col.id];
