@@ -77,10 +77,10 @@ test('SHA-256·HMAC 가짜 구현이 Node crypto와 같다', () => {
   }
 });
 
-test('처음 설정: 탭 15개와 머리글, 설정 기본값을 만든다', () => {
+test('처음 설정: 탭 16개와 머리글, 설정 기본값을 만든다', () => {
   const g = loadGas();
   const r = g.setupAll_();
-  assert.strictEqual(r.created.length, 15);
+  assert.strictEqual(r.created.length, 16);
   const names = g._ss.sheets.map((s) => s.name);
   for (const t of Object.keys(g.tabs_())) assert.ok(names.includes(t), t);
   assert.deepStrictEqual(plain(g.headOf_('교직원')), plain(g.tabs_()['교직원']));
@@ -3220,6 +3220,214 @@ test('함께 쓰는 표 2: 찾기는 시트마다 찾은 칸 수를 알려 주�
   assert.strictEqual(f.data.counts[s2], 1, '대소문자는 가리지 않고, 덮인 칸은 세지 않는다');
   assert.strictEqual(call(g, 'table.find', { id, q: '1층' }, a).data.counts[id], 1, '같은 값 위아래 합침 열은 한 번만');
   assert.deepStrictEqual(plain(call(g, 'table.find', { id, q: '' }, a).data.counts), {});
+});
+
+// ---------------------------------------------------------------- 취합 시트: 시트 양식(판 2026-10-18b)
+
+const TPL_COLS = [
+  { id: 'c1', name: '층', lock: true, w: 80 }, { id: 'c2', name: '실', lock: true },
+  { id: 'c3', name: '점검', type: 'pick', options: ['완료', '미완료'], w: 120 }, { id: 'c4', name: '내용', w: 300 }
+];
+/** 서식·합친 칸·줄 높이·보기가 있는 시트(만든 분 by). 돌려주는 값: { doc, sheet } */
+function tplSheet(g, by) {
+  const doc = tbMakeDoc(g, by);
+  const rows = [
+    { cells: { c1: '1층', c2: '교장실', c3: '완료', c4: '의자' }, colors: { c1: '#F4CCCC' }, fmt: { c1: { b: 1, ha: 'c' }, c4: { fc: '#CC0000', bd: '0020' } }, ms: { c1: [2, 1] }, h: 60 },
+    { cells: { c1: '1층', c2: '보건실', c3: '미완료' }, colors: { c1: '#F4CCCC' } },
+    { cells: { c2: '교무실', c3: '숨은 값' }, ms: { c2: [1, 2] } }
+  ];
+  const r = call(g, 'table.sheet.add', { id: doc, name: '실별', cols: TPL_COLS, rows, view: { fr: 2, gap: 'w' } }, by);
+  assert.ok(r.ok, r.error);
+  return { doc, sheet: r.data.id };
+}
+
+test('시트 양식: 기본 양식 5개가 늘 있고, 학년·반별 제출 확인은 교직원 소속으로 학년·반·담임을 채운다(사용 안 함은 빼고, 소속이 없으면 빈 줄)', () => {
+  const g = freshName();
+  const { who, boss, L } = ids(g);
+  let ls = call(g, 'table.tpl.list', {}, { login: L });
+  assert.ok(ls.ok, ls.error);
+  assert.deepStrictEqual(ls.data.builtin.map((x) => x.name), ['학년·반별 제출 확인', '실별 점검', '교시×요일 시간표', '날짜·시간 신청', '업무 협의 안건']);
+  assert.deepStrictEqual(plain(ls.data.saved), []);
+  assert.strictEqual(ls.data.canSave, false, '이름을 고르기 전에는 쓰기만');
+  assert.ok(!g._ss.getSheetByName('시트양식') || g.readRows_('시트양식').length === 0, '목록만 보면 양식이 생기지 않는다');
+  assert.deepStrictEqual(plain(ls.data.builtin[0].cols), ['학년', '반', '담임', '제출', '비고']);
+  assert.deepStrictEqual(plain(ls.data.builtin[4].cols), ['번호', '안건', '담당 부서', '담당자', '협의 결과', '완료']);
+  const a = who('심청');
+  assert.strictEqual(call(g, 'table.tpl.list', {}, a).data.canSave, true);
+  // 가짜 교직원: 1-1 홍련, 2-1 장화, 3-1 홍길동, 3-2 성춘향, 4-1 이몽룡, 5-1 심청, 6-2 흥부(6-1은 소속이 없어 담임 비움), 놀부는 과학 전담
+  let b1 = call(g, 'table.tpl.get', { id: 'B1' }, { login: L }).data;
+  const line = (r) => [r.cells.c1, r.cells.c2, r.cells.c3 || ''].join(' ');
+  assert.deepStrictEqual(b1.rows.map(line), ['1학년 1반 홍련', '2학년 1반 장화', '3학년 1반 홍길동', '3학년 2반 성춘향', '4학년 1반 이몽룡', '5학년 1반 심청', '6학년 1반 ', '6학년 2반 흥부']);
+  assert.deepStrictEqual(plain(b1.rows[2].ms), { c1: [2, 1] }, '학년 칸은 학년마다 위아래로 합침');
+  assert.deepStrictEqual(plain(b1.rows[2].fmt.c1), { b: 1, ha: 'c' });
+  assert.strictEqual(b1.rows[0].ms, undefined, '반이 하나면 합치지 않음');
+  assert.strictEqual(b1.cols[3].type, 'pick');
+  assert.deepStrictEqual(plain(b1.cols[3].options), ['제출', '미제출']);
+  assert.deepStrictEqual(b1.cols.filter((c) => c.lock).map((c) => c.name), ['학년', '반', '담임']);
+  assert.strictEqual(call(g, 'table.tpl.list', {}, a).data.builtin[0].rows, 8);
+  const b3 = call(g, 'table.tpl.get', { id: 'B3' }, a).data;
+  assert.deepStrictEqual(b3.rows.map((r) => r.cells.c1), ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시']);
+  assert.deepStrictEqual(b3.cols.map((c) => c.name), ['교시', '월', '화', '수', '목', '금']);
+  const b2 = call(g, 'table.tpl.get', { id: 'B2' }, a).data;
+  assert.strictEqual(b2.rows.length, 10);
+  assert.ok(b2.rows.every((r) => !r.cells), '실별 점검은 빈 줄 10개(틀만)');
+  assert.strictEqual(call(g, 'table.tpl.list', {}, a).data.builtin[1].blank, true);
+  // 사용 안 함인 분은 빼고, 소속에 학년·반이 하나도 없으면 빈 줄
+  const actor = { id: '', name: '시험' };
+  const staffId = (n) => g.readRows_('교직원').find((x) => x['이름'] === n)['교직원ID'];
+  g.updateRow_('교직원', staffId('흥부'), { '사용 여부': '사용 안 함' }, actor, '시험');
+  b1 = call(g, 'table.tpl.get', { id: 'B1' }, a).data;
+  assert.ok(!b1.rows.some((r) => r.cells.c1 === '6학년'), '6학년은 사용 중인 분 소속이 없어 빠진다');
+  g.readRows_('교직원').forEach((x) => g.updateRow_('교직원', x['교직원ID'], { '소속': '교과 전담' }, actor, '시험'));
+  b1 = call(g, 'table.tpl.get', { id: 'B1' }, a).data;
+  assert.strictEqual(b1.rows.length, 10);
+  assert.ok(b1.rows.every((r) => !r.cells), '짐작해 채우지 않는다');
+  assert.strictEqual(call(g, 'table.tpl.list', {}, a).data.builtin[0].blank, true);
+  // 기본 양식은 고치거나 지울 수 없다
+  assert.match(call(g, 'table.tpl.update', { id: 'B1', name: '바꿈' }, boss()).error, /기본 양식은 고칠 수 없어요/);
+  assert.match(call(g, 'table.tpl.delete', { id: 'B2' }, boss()).error, /기본 양식은 지울 수 없어요/);
+  assert.strictEqual(call(g, 'table.tpl.get', { id: 'Y12345678' }, a).code, 'NOTFOUND');
+});
+
+test('시트 양식: 이름을 고른 누구나 시트를 양식으로 저장하고(줄 내용까지·잠근 열 글만·열 모양만), 모든 분이 쓴다', () => {
+  const g = freshName();
+  const { who, boss, L } = ids(g);
+  const owner = who('흥부'), a = who('심청'), b = who('장화');
+  const { doc, sheet } = tplSheet(g, owner);
+  // 열을 하나 빼고 더해서 열 ID가 c1·c3·c4·c5가 된 시트도 양식에서는 c1부터 다시 매긴다
+  const d0 = tbGet(g, sheet, owner);
+  assert.ok(call(g, 'table.cols', { id: sheet, cols: plain(d0.table.cols).filter((c) => c.id !== 'c4').concat([{ name: '사진', w: 90 }]) }, owner).ok);
+  assert.deepStrictEqual(tbGet(g, sheet, owner).table.cols.map((c) => c.id), ['c1', 'c2', 'c3', 'c5']);
+  assert.strictEqual(call(g, 'table.tpl.save', { sheet, name: '실별 양식' }, { login: L }).code, 'IDENTITY');
+  const s1 = call(g, 'table.tpl.save', { sheet, name: '  실별   양식 ', desc: '층·실(예시)' }, a);
+  assert.ok(s1.ok, s1.error);
+  assert.strictEqual(s1.data.name, '실별 양식', '띄어쓰기는 하나로');
+  assert.ok(/^Y[0-9A-F]{8}$/.test(s1.data.id), s1.data.id);
+  assert.ok(g._ss.getSheetByName('시트양식'), '처음 저장할 때 탭이 생긴다');
+  assert.deepStrictEqual(plain(g.headOf_('시트양식')), plain(g.tabs_()['시트양식']));
+  const t1 = call(g, 'table.tpl.get', { id: s1.data.id }, b).data;
+  assert.deepStrictEqual(t1.cols.map((c) => [c.id, c.name]), [['c1', '층'], ['c2', '실'], ['c3', '점검'], ['c4', '사진']]);
+  assert.deepStrictEqual(t1.cols.map((c) => !!c.lock), [true, true, false, false]);
+  assert.strictEqual(t1.cols[0].w, 80);
+  assert.deepStrictEqual(plain(t1.cols[2].options), ['완료', '미완료']);
+  assert.deepStrictEqual(plain(t1.view), { fr: 2, gap: 'w' }, '보기도 담는다');
+  assert.strictEqual(t1.rows.length, 3);
+  assert.deepStrictEqual(plain(t1.rows[0].cells), { c1: '1층', c2: '교장실', c3: '완료' }, '뺀 열의 값은 담지 않는다');
+  assert.deepStrictEqual(plain(t1.rows[0].colors), { c1: '#F4CCCC' });
+  assert.deepStrictEqual(plain(t1.rows[0].fmt), { c1: { b: 1, ha: 'c' } });
+  assert.deepStrictEqual(plain(t1.rows[0].ms), { c1: [2, 1] }, '합친 칸은 아래로 줄 수·오른쪽으로 열 수로');
+  assert.strictEqual(t1.rows[0].h, 60);
+  assert.deepStrictEqual(plain(t1.rows[2].ms), { c2: [1, 2] });
+  assert.deepStrictEqual(plain(t1.rows[2].cells), { c2: '교무실', c3: '숨은 값' }, '합친 칸에 덮인 값도 그대로(합치기를 풀면 보이게)');
+  let ls = call(g, 'table.tpl.list', {}, b).data;
+  assert.deepStrictEqual(plain(ls.saved.map((x) => [x.name, x.by, x.rows, x.canEdit])), [['실별 양식', '심청', 3, false]]);
+  assert.deepStrictEqual(plain(ls.saved[0].cols), ['층', '실', '점검', '사진']);
+  assert.strictEqual(call(g, 'table.tpl.list', {}, a).data.saved[0].canEdit, true, '저장한 분');
+  assert.strictEqual(call(g, 'table.tpl.list', {}, boss()).data.saved[0].canEdit, true, '관리(관리자 화면)');
+  // 이름은 기본 양식·우리 학교 양식과 겹치지 않게
+  assert.match(call(g, 'table.tpl.save', { sheet, name: '실별 양식' }, b).error, /이미 있어요/);
+  assert.match(call(g, 'table.tpl.save', { sheet, name: '실별 점검' }, b).error, /이미 있어요/, '기본 양식 이름');
+  assert.match(call(g, 'table.tpl.save', { sheet, name: ' ' }, b).error, /양식 이름을 적어 주세요/);
+  assert.match(call(g, 'table.tpl.save', { sheet, name: '가'.repeat(41) }, b).error, /40자까지/);
+  // 잠근 열 글만: 잠그지 않은 열의 글은 비우고 서식·색·합친 칸은 그대로
+  const s2 = call(g, 'table.tpl.save', { sheet, name: '실별 틀', what: 'lock' }, b);
+  assert.ok(s2.ok, s2.error);
+  const t2 = call(g, 'table.tpl.get', { id: s2.data.id }, a).data;
+  assert.deepStrictEqual(t2.rows.map((r) => plain(r.cells || {})), [{ c1: '1층', c2: '교장실' }, { c1: '1층', c2: '보건실' }, { c2: '교무실' }]);
+  assert.deepStrictEqual(plain(t2.rows[0].ms), { c1: [2, 1] });
+  assert.deepStrictEqual(plain(t2.rows[1].colors), { c1: '#F4CCCC' });
+  // 열 모양만: 줄 없이(쓸 때 빈 줄 10개)
+  const s3 = call(g, 'table.tpl.save', { sheet, name: '실별 열만', what: 'cols' }, b);
+  assert.ok(s3.ok, s3.error);
+  const t3 = call(g, 'table.tpl.get', { id: s3.data.id }, a).data;
+  assert.strictEqual(t3.rows.length, 10);
+  assert.ok(t3.rows.every((r) => !r.cells && !r.fmt));
+  ls = call(g, 'table.tpl.list', {}, a).data;
+  assert.deepStrictEqual(ls.saved.map((x) => x.name), ['실별 양식', '실별 열만', '실별 틀'], '이름순');
+  assert.deepStrictEqual(ls.saved.map((x) => x.blank), [false, true, false]);
+  // 양식으로 만든 표(화면이 받은 양식을 그대로 보낸다): 열·서식·합친 칸·줄 높이·보기가 그대로
+  const made = call(g, 'table.create', { fields: { title: '3학년 점검' }, cols: t1.cols, rows: t1.rows, view: t1.view, tpl: t1.name }, b);
+  assert.ok(made.ok, made.error);
+  const d = tbGet(g, made.data.id, b);
+  assert.deepStrictEqual(d.table.cols.map((c) => c.name), ['층', '실', '점검', '사진']);
+  assert.deepStrictEqual(plain(d.table.view), { fr: 2, gap: 'w' });
+  assert.strictEqual(d.rows[0].h, 60);
+  assert.deepStrictEqual(plain(d.rows[0].fmt.c1.m), [d.rows[1].id, 'c1']);
+  assert.deepStrictEqual(plain(d.rows[2].fmt.c2.m), [d.rows[2].id, 'c3']);
+  assert.strictEqual(d.table.canEdit, true, '양식으로 만든 표는 만든 분(장화)의 표');
+  const log = g.readRows_('기록').filter((x) => x['탭'] === '함께표' && /양식: 실별 양식/.test(x['요약']));
+  assert.strictEqual(log.length, 1, '만든 기록에 양식 이름');
+  const tl = g.readRows_('기록').filter((x) => x['탭'] === '시트양식');
+  assert.deepStrictEqual(plain(tl.map((x) => x['동작'])), ['추가', '추가', '추가']);
+  assert.match(tl[0]['요약'], /시트 양식 저장: 실별 양식 \(취합 시트 "2학기 업무 협의 › 실별", 줄 3개\)/);
+  assert.match(tl[1]['요약'], /잠근 열 글만/);
+  // 지운 시트는 저장할 수 없다
+  assert.ok(call(g, 'table.sheet.delete', { id: sheet }, owner).ok);
+  assert.strictEqual(call(g, 'table.tpl.save', { sheet, name: '지운 시트' }, a).code, 'NOTFOUND');
+  assert.ok(doc);
+});
+
+test('시트 양식: 줄 내용이 너무 많으면 열 모양만으로 저장하라고 알리고, 양식 수는 200개까지', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부'), a = who('심청');
+  const doc = tbMakeDoc(g, owner);
+  const rows = [];
+  for (let i = 0; i < 30; i++) rows.push({ cells: { c1: '긴 글 ' + i, c2: '가'.repeat(1900) } });
+  const big = call(g, 'table.sheet.add', { id: doc, name: '긴 시트', cols: [{ id: 'c1', name: '가' }, { id: 'c2', name: '나' }], rows }, owner).data.id;
+  assert.match(call(g, 'table.tpl.save', { sheet: big, name: '긴 양식' }, a).error, /열 모양만/);
+  assert.ok(call(g, 'table.tpl.save', { sheet: big, name: '긴 양식', what: 'cols' }, a).ok, '열 모양만은 된다');
+  g.TB_TPL_MAX_ = 2;
+  assert.ok(call(g, 'table.tpl.save', { sheet: big, name: '둘째', what: 'cols' }, a).ok);
+  assert.match(call(g, 'table.tpl.save', { sheet: big, name: '셋째', what: 'cols' }, a).error, /2개까지/);
+});
+
+test('시트 양식: 이름·설명 고치기·지우기는 저장한 분과 관리만, 지운 양식은 휴지통에서 되살리고 같은 이름이 있으면 (되살림)을 붙인다', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const owner = who('흥부'), a = who('심청'), b = who('장화');
+  const { sheet } = tplSheet(g, owner);
+  const id = call(g, 'table.tpl.save', { sheet, name: '점검 양식', desc: '처음 설명' }, a).data.id;
+  assert.strictEqual(call(g, 'table.tpl.update', { id, name: '남의 양식' }, b).code, 'FORBIDDEN');
+  assert.ok(call(g, 'table.tpl.update', { id, name: '실별 점검표', desc: '고친 설명' }, a).ok);
+  assert.match(call(g, 'table.tpl.update', { id, name: '날짜·시간 신청' }, a).error, /이미 있어요/, '기본 양식 이름');
+  assert.ok(call(g, 'table.tpl.update', { id, name: '실별 점검표 2', desc: '' }, boss()).ok, '관리(관리자 화면)');
+  let ls = call(g, 'table.tpl.list', {}, a).data;
+  assert.deepStrictEqual(plain(ls.saved.map((x) => [x.name, x.desc])), [['실별 점검표 2', '']]);
+  assert.strictEqual(call(g, 'table.tpl.delete', { id }, b).code, 'FORBIDDEN');
+  assert.ok(call(g, 'table.tpl.delete', { id }, a).ok);
+  assert.ok(call(g, 'table.tpl.delete', { id }, a).ok, '두 번 눌러도 괜찮다');
+  assert.deepStrictEqual(plain(call(g, 'table.tpl.list', {}, a).data.saved), []);
+  assert.strictEqual(call(g, 'table.tpl.get', { id }, a).code, 'NOTFOUND');
+  const trash = call(g, 'admin.trash.tables', {}, boss()).data;
+  const item = trash.find((x) => x.kind === 'tpl');
+  assert.deepStrictEqual(plain([item.id, item.title, item.by, item.deletedBy]), [id, '실별 점검표 2', '심청', '심청']);
+  assert.ok(call(g, 'table.tpl.save', { sheet, name: '실별 점검표 2' }, b).ok, '지운 양식의 이름은 다시 쓸 수 있다');
+  assert.ok(call(g, 'admin.trash.restoreTable', { id, kind: 'tpl' }, boss()).ok);
+  ls = call(g, 'table.tpl.list', {}, a).data;
+  assert.deepStrictEqual(ls.saved.map((x) => x.name), ['실별 점검표 2', '실별 점검표 2 (되살림)']);
+  assert.ok(!call(g, 'admin.trash.tables', {}, boss()).data.some((x) => x.kind === 'tpl'));
+  assert.match(call(g, 'admin.trash.restoreTable', { id, kind: 'tpl' }, boss()).error, /되살릴 양식을 찾지 못했어요/);
+  const tl = g.readRows_('기록').filter((x) => x['탭'] === '시트양식');
+  assert.deepStrictEqual(plain(tl.map((x) => x['동작'])), ['추가', '수정', '수정', '삭제', '추가', '되살리기']);
+  assert.strictEqual(tl[1]['이름'], '심청');
+});
+
+test('시트 양식: 목록·꺼내기는 서버 기억에서 한 번에 꺼내고(두 번째부터 시트를 읽지 않음), 저장하면 새로 읽는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부'), a = who('심청');
+  const { sheet } = tplSheet(g, owner);
+  const id = call(g, 'table.tpl.save', { sheet, name: '점검' }, a).data.id;
+  [['table.tpl.list', {}], ['table.tpl.get', { id }], ['table.tpl.get', { id: 'B1' }]].forEach(([act, args]) => {
+    assert.ok(call(g, act, args, a).ok, act);
+    const r = call(g, act, args, a);
+    assert.ok(r.ok, act);
+    assert.strictEqual(g.PERF_.reads, 0, act + ': 시트를 읽지 않음');
+    assert.strictEqual(g.PERF_.memoCalls, 1, act + ': 서버 기억은 한 번만');
+  });
+  assert.ok(call(g, 'table.tpl.update', { id, name: '점검 2' }, a).ok);
+  assert.deepStrictEqual(call(g, 'table.tpl.list', {}, a).data.saved.map((x) => x.name), ['점검 2'], '저장한 뒤에는 새 이름');
 });
 
 console.log(results.join('\n'));

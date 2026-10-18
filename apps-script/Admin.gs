@@ -2,7 +2,7 @@
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-18a'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-10-18b'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -324,7 +324,7 @@ function adminChangeAdminPw_(args, actor) {
 // ---------------------------------------------------------------- 점검 (관리자): 파일·시트·비밀번호·백업·설정을 한 번에
 
 /**
- * args.client = { app, styles, index, table } : 화면 파일의 판 표시(화면이 보낸다. table: 함께 쓰는 표 화면 TableUi.html)
+ * args.client = { app, styles, index, table } : 화면 파일의 판 표시(화면이 보낸다. table: 취합 시트 화면 TableUi.html)
  * 돌려주는 값: { build, at, items: [{ group, label, state: 'ok'|'warn'|'bad', detail, fix }] }
  */
 function adminCheck_(args) {
@@ -350,7 +350,7 @@ function adminCheck_(args) {
   var c = (args && args.client) || {};
   [['App.html', c.app], ['Styles.html', c.styles], ['Index.html', c.index], ['TableUi.html', c.table]].forEach(function (x) {
     var f = x[0].replace('.html', '');
-    if (!x[1] && f === 'TableUi') add('코드 파일', x[0], 'bad', '파일이 없어요(함께 쓰는 표 화면)', "Apps Script 편집기에서 + → HTML로 'TableUi' 파일을 새로 만들고, 설치안내 표의 'TableUi' 파일을 Copy raw file로 붙여 넣어 주세요");
+    if (!x[1] && f === 'TableUi') add('코드 파일', x[0], 'bad', '파일이 없어요(취합 시트 화면)', "Apps Script 편집기에서 + → HTML로 'TableUi' 파일을 새로 만들고, 설치안내 표의 'TableUi' 파일을 Copy raw file로 붙여 넣어 주세요");
     else if (!x[1]) add('코드 파일', x[0], 'warn', '판 표시를 찾지 못했어요(예전 파일일 수 있어요)', paste(f));
     else if (x[1] !== want(f)) add('코드 파일', x[0], 'warn', '예전 판이에요(' + x[1] + ')', paste(f));
     else add('코드 파일', x[0], 'ok', '최신 판 ' + x[1]);
@@ -366,15 +366,16 @@ function adminCheck_(args) {
 
   // 2) 시트 탭·칸 (나중에 더한 탭·칸 중 처음 쓸 때 저절로 생기는 것은 없어도 괜찮다)
   var tabs = tabs_(), bad = 0;
-  var autoTabs = { '학생수': '학생 수를 처음 넣을 때 저절로 생겨요', '함께표': '함께 쓰는 표를 처음 만들 때 저절로 생겨요', '함께표줄': '함께 쓰는 표를 처음 만들 때 저절로 생겨요' }, notYet = 0;
+  var autoTabs = { '학생수': '학생 수를 처음 넣을 때 저절로 생겨요', '함께표': '취합 시트를 처음 만들 때 저절로 생겨요', '함께표줄': '취합 시트를 처음 만들 때 저절로 생겨요',
+    '시트양식': '취합 시트의 양식을 처음 저장할 때 저절로 생겨요' }, notYet = 0;
   var autoCols = { // 저장할 때 ensureCols_가 붙이는 칸
     '학생수': { cols: ['반별'], when: '학생 수를 저장할 때' },
     '일정': { cols: ['중요'], when: '일정을 저장할 때' },
     '자료': { cols: ['파일 이름', '파일 크기', '홈에 보이기', '원본 자료ID', '공통', '공통 순서'], when: '자료를 저장할 때' },
     '도움말': { cols: ['파일ID', '파일 이름', '파일 크기'], when: '도움말을 저장할 때' },
     '조사': { cols: ['설명', '결과 공개'], when: '조사를 저장할 때' },
-    '함께표': { cols: ['문서ID', '시트 이름', '시트 순서', '보기', '시트 지움', '문서 판'], when: '함께 쓰는 표를 저장할 때' },
-    '함께표줄': { cols: ['서식', '높이'], when: '함께 쓰는 표에 서식을 넣을 때' }
+    '함께표': { cols: ['문서ID', '시트 이름', '시트 순서', '보기', '시트 지움', '문서 판'], when: '취합 시트를 저장할 때' },
+    '함께표줄': { cols: ['서식', '높이'], when: '취합 시트에 서식을 넣을 때' }
   };
   Object.keys(tabs).forEach(function (tab) {
     var head;

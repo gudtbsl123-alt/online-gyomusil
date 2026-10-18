@@ -8,7 +8,7 @@
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-18a'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-10-18b'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -65,9 +65,9 @@
     'help.list': 1, 'staff.list': 1, 'notice.list': 1, 'admin.settings.get': 1, 'admin.cat.list': 1, 'admin.staff.list': 1,
     'admin.log.list': 1, 'admin.trash.list': 1, 'admin.trash.surveys': 1, 'admin.trash.library': 1, 'admin.year.preview': 1,
     'admin.check': 1, 'admin.speed': 1, 'admin.staff.importCheck': 1,
-    'table.list': 1, 'table.get': 1, 'table.poll': 1, 'table.find': 1, 'admin.trash.tables': 1
+    'table.list': 1, 'table.get': 1, 'table.poll': 1, 'table.find': 1, 'table.tpl.list': 1, 'table.tpl.get': 1, 'admin.trash.tables': 1
   };
-  // 함께 쓰는 표에서 칸·열 너비·줄 높이·보기를 고치는 저장: 창 닫기를 막지 않는다(뒤에서 차례로 보냄)
+  // 취합 시트에서 칸·열 너비·줄 높이·보기를 고치는 저장: 창 닫기를 막지 않는다(뒤에서 차례로 보냄)
   var QUIET_WRITES = { 'table.cell': 1, 'table.cells': 1, 'table.row.add': 1, 'table.colw': 1, 'table.rowh': 1, 'table.view': 1 };
   var recentCalls = []; // 속도 재기: 이 창에서 최근에 서버를 다녀온 요청과 걸린 시간(ms)
 
@@ -354,7 +354,7 @@
     { id: 'home', label: '홈', icon: 'home' },
     { id: 'schedule', label: '일정', icon: 'calendar' },
     { id: 'survey', label: '조사·신청', icon: 'survey' },
-    { id: 'table', label: '함께 쓰는 표', icon: 'grid' },
+    { id: 'table', label: '취합 시트', icon: 'grid' },
     { id: 'notice', label: '공지', icon: 'bell' },
     { id: 'library', label: '자료실', icon: 'folder' },
     { id: 'staff', label: '교직원', icon: 'people' },
@@ -1875,7 +1875,7 @@
     Promise.all([server('admin.trash.list'), server('admin.trash.surveys'), server('admin.trash.library'),
       server('admin.trash.tables').catch(function () { return []; })]).then(function (res) {
       var list = res[0], surveys = res[1], libs = res[2], tables = res[3] || [];
-      panel.innerHTML = '<div class="wrap" style="gap:16px"><p class="hint">' + icon('info', 16) + '<span>지운 일정·조사·자료·도움말·함께 쓰는 표는 시트에서 실제로 지워지지 않고 여기 남아요. 되살리면 원래 화면에 다시 보여요.</span></p>' +
+      panel.innerHTML = '<div class="wrap" style="gap:16px"><p class="hint">' + icon('info', 16) + '<span>지운 일정·조사·자료·도움말·취합 시트는 구글 시트에서 실제로 지워지지 않고 여기 남아요. 되살리면 원래 화면에 다시 보여요.</span></p>' +
         '<section class="card"><h2>지운 일정</h2>' + (list.length ? list.map(function (e) {
           return '<div class="log-item"><div class="log-top"><span class="chip">' + esc(e.kind) + '</span><b>' + esc(e.title) + '</b>' +
             '<span class="faint">' + esc(e.start === e.end ? e.start : e.start + '~' + e.end) + '</span>' +
@@ -1892,12 +1892,12 @@
             '<button type="button" class="btn btn-sm print-hide" style="margin-left:auto" data-action="trash-restore-lib" data-tab="' + esc(x.tab) + '" data-id="' + esc(x.id) + '">되살리기</button></div>' +
             '<p class="faint" style="margin-top:4px">지운 사람 ' + esc(x.deletedBy || '알 수 없음') + ' · ' + esc(x.deletedAt || '') + (x.by ? ' · 처음 넣은 사람 ' + esc(x.by) : '') + '</p></div>';
         }).join('') : '<p class="empty">지운 자료·도움말이 없어요.</p>') + '</section>' +
-        '<section class="card"><h2>지운 함께 쓰는 표·시트</h2>' + (tables.length ? tables.map(function (x) {
-          var sheet = x.kind === 'sheet';
-          return '<div class="log-item"><div class="log-top"><span class="chip">' + (sheet ? '시트' : '표') + '</span><b>' + esc(x.title) + (sheet ? ' › ' + esc(x.sheet || '') : '') + '</b>' +
-            '<button type="button" class="btn btn-sm print-hide" style="margin-left:auto" data-action="trash-restore-tb" data-kind="' + (sheet ? 'sheet' : 'doc') + '" data-id="' + esc(x.id) + '">되살리기</button></div>' +
-            '<p class="faint" style="margin-top:4px">지운 사람 ' + esc(x.deletedBy || '알 수 없음') + ' · ' + esc(x.deletedAt || '') + (x.by ? ' · 만든 사람 ' + esc(x.by) : '') + '</p></div>';
-        }).join('') : '<p class="empty">지운 표·시트가 없어요.</p>') + '</section></div>';
+        '<section class="card"><h2>지운 취합 시트(표·시트·양식)</h2>' + (tables.length ? tables.map(function (x) {
+          var kind = x.kind === 'sheet' || x.kind === 'tpl' ? x.kind : 'doc';
+          return '<div class="log-item"><div class="log-top"><span class="chip">' + { doc: '표', sheet: '시트', tpl: '양식' }[kind] + '</span><b>' + esc(x.title) + (kind === 'sheet' ? ' › ' + esc(x.sheet || '') : '') + '</b>' +
+            '<button type="button" class="btn btn-sm print-hide" style="margin-left:auto" data-action="trash-restore-tb" data-kind="' + kind + '" data-id="' + esc(x.id) + '">되살리기</button></div>' +
+            '<p class="faint" style="margin-top:4px">지운 사람 ' + esc(x.deletedBy || '알 수 없음') + ' · ' + esc(x.deletedAt || '') + (x.by ? ' · ' + (kind === 'tpl' ? '저장한 사람 ' : '만든 사람 ') + esc(x.by) : '') + '</p></div>';
+        }).join('') : '<p class="empty">지운 표·시트·양식이 없어요.</p>') + '</section></div>';
     }).catch(function (e) { panel.innerHTML = failHtml(e); });
   }
 
@@ -4333,7 +4333,7 @@
     });
   }
 
-  // ============================================================ 함께 쓰는 표 (TableUi.html, 판 2026-10-18a)
+  // ============================================================ 취합 시트 (TableUi.html, 판 2026-10-18b. 예전 이름 '함께 쓰는 표')
   // 표 화면은 따로 된 파일 TableUi.html에 있다(App.html이 너무 커져서 떼어 냄). 맨 아래 init() 바로 앞에서
   // window.__gyTableUi(core)를 불러 화면 도구를 넘겨주면 SCREENS.table과 표 화면의 누르기·키 처리를 스스로 붙인다.
   // 파일이 없거나(붙여 넣기 전) 멈추면 표 화면만 안내로 바뀌고 다른 화면은 그대로 돌아간다.
@@ -4341,8 +4341,8 @@
   S.table = { tab: 'open', list: null, sel: '', d: null, edit: null, menu: null };
   function tbMissing($s) {
     $s.classList.remove('tb-full');
-    $s.innerHTML = pageHead('', '함께 쓰는 표', '') +
-      '<section class="card"><p class="empty">함께 쓰는 표 화면 파일(TableUi)이 아직 없거나 열리지 않았어요. 연구부장·부담당께 알려 주세요(관리자 › 점검에서 확인할 수 있어요).</p></section>';
+    $s.innerHTML = pageHead('', '취합 시트', '') +
+      '<section class="card"><p class="empty">취합 시트 화면 파일(TableUi)이 아직 없거나 열리지 않았어요. 연구부장·부담당께 알려 주세요(관리자 › 점검에서 확인할 수 있어요).</p></section>';
   }
   SCREENS.table = tbMissing;
 
@@ -4515,7 +4515,7 @@
       case 'trash-restore-tb':
         var tbKind = t.getAttribute('data-kind') || 'doc';
         server('admin.trash.restoreTable', { id: id, kind: tbKind }).then(function () {
-          toast(tbKind === 'sheet' ? '시트를 되살렸어요' : '표를 되살렸어요');
+          toast({ sheet: '시트를 되살렸어요', tpl: '양식을 되살렸어요' }[tbKind] || '표를 되살렸어요');
           if (TB) TB.listDirty();
           adminTrash(qs('#admin-panel'));
         }).catch(function (e2) { toast(e2.message); });
@@ -4728,7 +4728,7 @@
     new MutationObserver(function () { clearTimeout(tabTimer); tabTimer = setTimeout(updateTabHints, 50); }).observe($app, { childList: true, subtree: true });
   }
 
-  // 함께 쓰는 표(TableUi.html)를 붙인다: 화면 도구를 넘겨주면 표 화면과 그 화면의 누르기·키 처리를 스스로 붙인다
+  // 취합 시트(TableUi.html)를 붙인다: 화면 도구를 넘겨주면 표 화면과 그 화면의 누르기·키 처리를 스스로 붙인다
   try {
     if (typeof window.__gyTableUi === 'function') {
       TB = window.__gyTableUi({
@@ -4744,7 +4744,7 @@
   } catch (e) {
     TB = null;
     SCREENS.table = tbMissing;
-    if (window.console) console.error('함께 쓰는 표 화면을 붙이지 못했어요', e);
+    if (window.console) console.error('취합 시트 화면을 붙이지 못했어요', e);
   }
   if (!TB) { SCREENS.table = tbMissing; S.table = { tab: 'open', list: null, sel: '', d: null, edit: null, menu: null }; }
 

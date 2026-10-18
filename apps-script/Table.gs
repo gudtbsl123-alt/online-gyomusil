@@ -1,5 +1,5 @@
 /**
- * Table.gs — 함께 쓰는 표(구글 시트처럼 여러 선생님이 한 표를 함께 채운다)
+ * Table.gs — 취합 시트(예전 이름 '함께 쓰는 표'. 구글 시트처럼 여러 선생님이 한 표를 함께 채운다)
  *
  * - 표 하나에 시트(탭)가 여러 개다(판 2026-10-18a, 교사 요청). '함께표' 탭의 한 줄이 시트 하나다
  *   · 첫 시트 줄(문서ID가 비어 있음)이 표 전체도 맡는다: 제목·부서·마감·상태·만든 분(입력자ID)·표 지움(삭제 여부)·문서 판
@@ -28,7 +28,7 @@
  *   (줄의 행 번호는 잠금 밖에서 서버 기억으로 먼저 찾아 두고, 잠금 안에서 그 줄이 맞는지 다시 본다)
  */
 
-function fileMark_Table_() { return '2026-10-18a'; } // 판 표시(관리자 › 점검)
+function fileMark_Table_() { return '2026-10-18b'; } // 판 표시(관리자 › 점검)
 
 var TB_MAX_ROWS_ = 500;       // 한 시트의 줄
 var TB_MAX_COLS_ = 30;        // 한 시트의 열
@@ -94,9 +94,9 @@ function tbSheetsOf_(all, docId) {
   });
 }
 
-/** 기록에 남길 이름: 함께 쓰는 표 "표 이름 › 시트 이름" */
+/** 기록에 남길 이름: 취합 시트 "표 이름 › 시트 이름" */
 function tbLabel_(main, t) {
-  return '함께 쓰는 표 "' + main['제목'] + (t ? ' › ' + tbSheetName_(t) : '') + '"';
+  return '취합 시트 "' + main['제목'] + (t ? ' › ' + tbSheetName_(t) : '') + '"';
 }
 
 /** 만든 분이나 관리(역할 '관리' 또는 관리자 화면) */
@@ -723,7 +723,8 @@ function tbInsertSheetRows_(sheetId, cols, rows, actor, summary) {
 
 /**
  * 새 표: args.fields(이름·부서·설명·마감·첫 시트 이름 sheet), args.cols(열),
- * args.rows([{ cells: {열ID: 값}, colors: {열ID: '#RRGGBB'}, fmt: {열ID: 서식}, ms: {열ID: [줄 수, 열 수]}(합친 칸) }]), args.view
+ * args.rows([{ cells: {열ID: 값}, colors: {열ID: '#RRGGBB'}, fmt: {열ID: 서식}, ms: {열ID: [줄 수, 열 수]}(합친 칸), h: 줄 높이 }]), args.view,
+ * args.tpl(양식에서 골랐으면 그 양식 이름, 기록에만 남긴다)
  */
 function apiTableCreate_(args, actor, ctx) {
   var f = args.fields || {};
@@ -738,8 +739,8 @@ function apiTableCreate_(args, actor, ctx) {
   return withLock_(function () {
     var rec = { '상태': '', '열': JSON.stringify(cols), '판': '1', '시트 이름': sheetName, '시트 순서': '1', '보기': tbViewJson_(view), '문서 판': '1' };
     Object.keys(meta).forEach(function (k) { rec[k] = meta[k]; });
-    var t = insertRow_('함께표', rec, actor, '함께 쓰는 표 만듦: ' + meta['제목']);
-    tbInsertSheetRows_(t['표ID'], cols, rows, actor, '함께 쓰는 표 "' + meta['제목'] + '" 줄 ' + rows.length + '개 넣음');
+    var t = insertRow_('함께표', rec, actor, '취합 시트 만듦: ' + meta['제목'] + tbTplNote_(args));
+    tbInsertSheetRows_(t['표ID'], cols, rows, actor, '취합 시트 "' + meta['제목'] + '" 줄 ' + rows.length + '개 넣음');
     return { id: t['표ID'] };
   });
 }
@@ -755,7 +756,7 @@ function apiTableSave_(args, actor, ctx) {
     var main = findRow_('함께표', m0['표ID']);
     if (!main || main['삭제 여부']) throw userError_('이 표가 지워졌어요.', 'NOTFOUND');
     rec['문서 판'] = String((Number(main['문서 판']) || 0) + 1);
-    updateRow_('함께표', main['표ID'], rec, actor, '함께 쓰는 표 고침: ' + rec['제목']);
+    updateRow_('함께표', main['표ID'], rec, actor, '취합 시트 고침: ' + rec['제목']);
     return { dver: Number(rec['문서 판']) };
   });
 }
@@ -771,7 +772,7 @@ function apiTableSetOpen_(args, actor, ctx) {
     if (!main || main['삭제 여부']) throw userError_('이 표가 지워졌어요.', 'NOTFOUND');
     if (args.open && main['마감'] && main['마감'] < tbToday_()) throw userError_('마감 날짜가 지났어요. "표 고치기"에서 마감을 늦추거나 지운 뒤 다시 열어 주세요.');
     var dver = (Number(main['문서 판']) || 0) + 1;
-    updateRow_('함께표', main['표ID'], { '상태': args.open ? '' : '마감', '문서 판': String(dver) }, actor, '함께 쓰는 표 ' + (args.open ? '다시 엶: ' : '마감함: ') + main['제목']);
+    updateRow_('함께표', main['표ID'], { '상태': args.open ? '' : '마감', '문서 판': String(dver) }, actor, '취합 시트 ' + (args.open ? '다시 엶: ' : '마감함: ') + main['제목']);
     return { dver: dver };
   });
 }
@@ -786,7 +787,7 @@ function apiTableDelete_(args, actor, ctx) {
     if (!main || main['삭제 여부']) return { done: true };
     var patch = { '삭제 여부': '삭제' };
     if (headOf_('함께표').indexOf('문서 판') >= 0) patch['문서 판'] = String((Number(main['문서 판']) || 0) + 1);
-    updateRow_('함께표', main['표ID'], patch, actor, '함께 쓰는 표 지움: ' + main['제목'], '삭제');
+    updateRow_('함께표', main['표ID'], patch, actor, '취합 시트 지움: ' + main['제목'], '삭제');
     return { done: true };
   });
 }
@@ -806,7 +807,7 @@ function tbRenumber_(list, head) {
   list.forEach(function (s, i) { if (tbSheetOrder_(s) !== i + 1) tbSetCell_('함께표', s, head, '시트 순서', i + 1); });
 }
 
-/** 시트 더하기. args = { id: 표, name, desc, cols, rows(만들기와 같은 모양), view } */
+/** 시트 더하기. args = { id: 표, name, desc, cols, rows(만들기와 같은 모양), view, tpl(양식 이름, 기록에만) } */
 function apiTableSheetAdd_(args, actor, ctx) {
   var cols = tbCleanCols_(args.cols, []);
   var rows = Array.isArray(args.rows) ? args.rows : [];
@@ -820,7 +821,7 @@ function apiTableSheetAdd_(args, actor, ctx) {
     var name = tbCleanSheetName_(args.name, D.sheets, '');
     var order = D.sheets.reduce(function (m, s) { return Math.max(m, tbSheetOrder_(s)); }, 0) + 1;
     var t = insertRow_('함께표', { '문서ID': D.main['표ID'], '시트 이름': name, '시트 순서': String(order), '설명': desc, '열': JSON.stringify(cols), '판': '1', '보기': tbViewJson_(view), '상태': '' },
-      actor, tbLabel_(D.main) + ' 시트 더함: ' + name);
+      actor, tbLabel_(D.main) + ' 시트 더함: ' + name + tbTplNote_(args));
     tbInsertSheetRows_(t['표ID'], cols, rows, actor, tbLabel_(D.main) + ' › ' + name + ' 줄 ' + rows.length + '개 넣음');
     var head = tbHead_('함께표'), dver = tbBumpDoc_(D.main, head);
     return { id: t['표ID'], dver: dver };
@@ -1282,7 +1283,7 @@ function apiTableView_(args, actor, ctx) {
 
 // ---------------------------------------------------------------- 휴지통(관리자)
 
-/** 지운 표와 지운 시트(표는 그대로 있는 것) */
+/** 지운 표, 지운 시트(표는 그대로 있는 것), 지운 시트 양식 */
 function adminTableTrash_() {
   var names = staffNames_(), all = tbRows_('함께표'), out = [];
   all.forEach(function (t) {
@@ -1292,19 +1293,23 @@ function adminTableTrash_() {
     if (tbIsMain_(t) && t['삭제 여부']) { item.kind = 'doc'; out.push(item); }
     else if (!main['삭제 여부'] && tbSheetGone_(t)) { item.kind = 'sheet'; item.sheet = tbSheetName_(t); out.push(item); }
   });
+  tbRows_('시트양식').forEach(function (r) {
+    if (r['삭제 여부']) out.push({ id: r['양식ID'], kind: 'tpl', title: r['이름'], by: names[r['입력자ID']] || '', deletedBy: names[r['수정자ID']] || '', deletedAt: r['수정 시각'] });
+  });
   out.sort(function (a, b) { var x = String(a.deletedAt || ''), y = String(b.deletedAt || ''); return x < y ? 1 : x > y ? -1 : 0; }); // 최근에 지운 것부터
   return out.slice(0, 100);
 }
 
-/** 되살리기: 지운 표(시트 모두) 또는 지운 시트 하나. args = { id, kind: 'doc'|'sheet'(없으면 저절로) } */
+/** 되살리기: 지운 표(시트 모두) 또는 지운 시트 하나, 지운 시트 양식. args = { id, kind: 'doc'|'sheet'|'tpl'(없으면 저절로) } */
 function adminTableRestore_(args, actor) {
+  if (args.kind === 'tpl') return tbTplRestore_(args, actor);
   tbEnsureCols_();
   return withLock_(function () {
     var all = tbRows_('함께표'), t = tbById_(all, String(args.id || '')), main = t ? tbMainOf_(all, t) : null;
     if (!t || !main) throw userError_('되살릴 표를 찾지 못했어요.');
     var head = tbHead_('함께표');
     if (tbIsMain_(t) && t['삭제 여부'] && args.kind !== 'sheet') {
-      updateRow_('함께표', t['표ID'], { '삭제 여부': '' }, actor, '함께 쓰는 표 되살림: ' + t['제목'], '되살리기');
+      updateRow_('함께표', t['표ID'], { '삭제 여부': '' }, actor, '취합 시트 되살림: ' + t['제목'], '되살리기');
       tbBumpDoc_(findRow_('함께표', t['표ID']), head);
       return { done: true };
     }
@@ -1315,6 +1320,253 @@ function adminTableRestore_(args, actor) {
     if (sheets.some(function (s) { return tbSheetName_(s).toLowerCase() === name.toLowerCase(); })) patch['시트 이름'] = tbFreeSheetName_(name + ' (되살림)', sheets);
     updateRow_('함께표', t['표ID'], patch, actor, tbLabel_(main, t) + ' 시트 되살림', '되살리기');
     tbBumpDoc_(findRow_('함께표', main['표ID']), head);
+    return { done: true };
+  });
+}
+
+// ---------------------------------------------------------------- 시트 양식(판 2026-10-18b, 교사 요청)
+// - 자주 쓰는 시트 모양(열·서식·줄)을 양식으로 저장해 두고, 새 표·시트를 만들 때 '양식에서 고르기'로 쓴다
+//   (화면이 양식을 받아 만들기 창에 채우고, 만들기는 table.create·table.sheet.add 그대로)
+// - 기본 양식 5개(코드 안에 있고 고치거나 지울 수 없음) + 우리 학교 양식('시트양식' 탭, 처음 저장할 때 저절로 생긴다)
+// - 저장은 이름을 고른 교직원 누구나, 모든 선생님이 함께 쓴다(교사 결정). 이름·설명 고치기·지우기는 저장한 분과 관리
+// - '열': 시트의 열과 같은 모양(ID는 c1부터 다시 매김) · '줄': [{ cells, colors, fmt, ms, h }] 표 만들기와 같은 모양
+//   (합친 칸은 ms: [아래로 줄 수, 오른쪽으로 열 수]). 줄이 없는 양식(열 모양만)은 빈 줄 10개로 시작한다
+// - 지운 양식은 관리자 › 휴지통에서 되살린다
+
+var TB_TPL_MAX_ = 200;     // 우리 학교 양식 수
+var TB_TPL_JSON_ = 45000;  // 양식 하나의 줄(JSON) 글자 수(시트 한 칸은 5만 자까지)
+var TB_TPL_BLANK_ = 10;    // 줄이 없는 양식으로 만들 때 빈 줄 수
+
+/** 만들기 기록에 붙일 양식 이름(기록에만 쓰니 길면 자른다) */
+function tbTplNote_(args) {
+  var n = String((args && args.tpl) || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  return n ? ' (양식: ' + n + ')' : '';
+}
+
+/** 기본 양식(교사 확인: 틀만, 내용은 비움). staff: 교직원 소속으로 학년·반 줄을 채움, periods: 1~6교시 줄 */
+function tbBuiltinTpls_() {
+  var col = function (id, name, w, more) {
+    var c = { id: id, name: name, type: 'text', options: [], lock: false, merge: false, w: w };
+    Object.keys(more || {}).forEach(function (k) { c[k] = more[k]; });
+    return c;
+  };
+  var lock = { lock: true }, pick = function (opts) { return { type: 'pick', options: opts }; };
+  return [
+    { id: 'B1', name: '학년·반별 제출 확인', staff: true, desc: '교직원 소속(○학년 ○반)으로 학년·반·담임을 채워요. 반마다 냈는지 골라요.',
+      cols: [col('c1', '학년', 80, lock), col('c2', '반', 70, lock), col('c3', '담임', 100, lock), col('c4', '제출', 110, pick(['제출', '미제출'])), col('c5', '비고', 260)] },
+    { id: 'B2', name: '실별 점검', desc: '층·실마다 관리하는 분이 점검했는지 고르고, 내용을 적어요.',
+      cols: [col('c1', '층', 70, lock), col('c2', '실', 120, lock), col('c3', '관리자', 100, lock), col('c4', '점검', 110, pick(['완료', '미완료'])), col('c5', '내용', 280)] },
+    { id: 'B3', name: '교시×요일 시간표', periods: true, desc: '1~6교시 × 월~금. 칸마다 쓰는 반이나 내용을 적어요.',
+      cols: [col('c1', '교시', 70, lock)].concat(['월', '화', '수', '목', '금'].map(function (d, i) { return col('c' + (i + 2), d, 110); })) },
+    { id: 'B4', name: '날짜·시간 신청', desc: '날짜·시간을 정해 두고 신청을 받아요. 신청을 확인했는지 골라요.',
+      cols: [col('c1', '날짜', 110, lock), col('c2', '시간', 80, lock), col('c3', '학년 반', 90), col('c4', '신청한 분', 100), col('c5', '확인', 110, pick(['확인', '미확인']))] },
+    { id: 'B5', name: '업무 협의 안건', desc: '협의할 안건과 담당을 적고, 협의 결과와 완료를 함께 채워요.',
+      cols: [col('c1', '번호', 60), col('c2', '안건', 280), col('c3', '담당 부서', 110), col('c4', '담당자', 90), col('c5', '협의 결과', 260), col('c6', '완료', 100, pick(['완료', '미완료']))] }
+  ];
+}
+function tbBlankRows_() {
+  var out = [];
+  for (var i = 0; i < TB_TPL_BLANK_; i++) out.push({});
+  return out;
+}
+/**
+ * 교직원 소속('3학년 2반')으로 학년·반 줄: 소속에 나온 학년마다 1반부터 가장 큰 반까지(담임은 소속이 그 반인 분, 없으면 비움).
+ * 사용 안 함인 분은 빼고, 학년 칸은 학년마다 위아래로 합친다. 소속에 학년·반이 하나도 없으면 빈 목록(짐작해 채우지 않는다)
+ */
+function tbClassRows_() {
+  var by = {}, max = {};
+  liveRows_('교직원').forEach(function (s) {
+    if (s['사용 여부'] === '사용 안 함') return;
+    var m = String(s['소속'] || '').match(/([1-6])\s*학년\s*(\d{1,2})\s*반/);
+    if (!m) return;
+    var g = Number(m[1]), c = Number(m[2]), name = String(s['이름'] || '').trim();
+    if (c < 1 || c > 20) return;
+    if (name) (by[g + '-' + c] = by[g + '-' + c] || []).push(name);
+    max[g] = Math.max(max[g] || 0, c);
+  });
+  var rows = [];
+  Object.keys(max).map(Number).sort(function (a, b) { return a - b; }).forEach(function (g) {
+    for (var c = 1; c <= max[g]; c++) {
+      var r = { cells: { c1: g + '학년', c2: c + '반' }, fmt: { c2: { ha: 'c' } } }, names = by[g + '-' + c];
+      if (names) r.cells.c3 = names.join(', ');
+      if (c === 1) {
+        r.fmt.c1 = { b: 1, ha: 'c' };
+        if (max[g] > 1) r.ms = { c1: [max[g], 1] };
+      }
+      rows.push(r);
+    }
+  });
+  return rows;
+}
+/** 기본 양식의 줄: { rows, blank: 빈 줄로 시작하는지 } */
+function tbBuiltinRows_(b) {
+  if (b.staff) { var rows = tbClassRows_(); if (rows.length) return { rows: rows, blank: false }; }
+  if (b.periods) return { rows: [1, 2, 3, 4, 5, 6].map(function (k) { return { cells: { c1: k + '교시' }, fmt: { c1: { b: 1, ha: 'c' } } }; }), blank: false };
+  return { rows: tbBlankRows_(), blank: true };
+}
+
+/** 우리 학교 양식(지우지 않은 것) */
+function tbTplRows_() { return tbRows_('시트양식').filter(function (r) { return !r['삭제 여부']; }); }
+function tbTplKey_(name) { return String(name || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
+/** 양식 이름 다듬기: 기본 양식·우리 학교 양식과 겹치지 않게 */
+function tbCleanTplName_(v, saved, exceptId) {
+  var name = cleanText_(v, 40, '양식 이름', true).replace(/\s+/g, ' ');
+  var key = tbTplKey_(name);
+  if (tbBuiltinTpls_().some(function (b) { return tbTplKey_(b.name) === key; }) ||
+    saved.some(function (r) { return r['양식ID'] !== exceptId && tbTplKey_(r['이름']) === key; })) {
+    throw userError_("'" + name + "' 양식이 이미 있어요. 다른 이름을 적어 주세요.");
+  }
+  return name;
+}
+/** 저장한 분이나 관리 */
+function tbTplOwner_(r, ctx) {
+  return canManage_(ctx) || !!(ctx.identity && r['입력자ID'] && r['입력자ID'] === ctx.identity['교직원ID']);
+}
+function tbTplParsedRows_(r) {
+  var rows = tbParse_(r['줄'], []);
+  return Array.isArray(rows) ? rows : [];
+}
+
+/** 양식 목록: 기본 양식 + 우리 학교 양식(이름순). 열 이름과 줄 수만 보낸다(내용은 table.tpl.get) */
+function apiTableTplList_(args, actor, ctx) {
+  var names = staffNames_();
+  var builtin = tbBuiltinTpls_().map(function (b) {
+    var x = tbBuiltinRows_(b);
+    return { id: b.id, name: b.name, desc: b.desc, cols: b.cols.map(function (c) { return c.name; }), rows: x.blank ? 0 : x.rows.length, blank: x.blank, staff: !!b.staff, builtin: true };
+  });
+  var saved = tbTplRows_().map(function (r) {
+    var rows = tbTplParsedRows_(r);
+    return {
+      id: r['양식ID'], name: r['이름'], desc: r['설명'] || '', cols: tbCols_(r).map(function (c) { return c.name; }),
+      rows: rows.length, blank: !rows.length, by: names[r['입력자ID']] || '', byId: r['입력자ID'] || '',
+      at: String(r['수정 시각'] || r['입력 시각'] || '').slice(0, 16), canEdit: tbTplOwner_(r, ctx)
+    };
+  }).sort(function (a, b) { var x = tbTplKey_(a.name), y = tbTplKey_(b.name); return x < y ? -1 : x > y ? 1 : 0; });
+  return { builtin: builtin, saved: saved, canSave: !!ctx.identity, max: TB_TPL_MAX_ };
+}
+
+/** 양식 하나(만들기 창의 미리보기와 만들기에 쓴다): { id, name, desc, cols, rows, view, builtin } */
+function apiTableTplGet_(args, actor, ctx) {
+  var id = String(args.id || '');
+  var b = tbBuiltinTpls_().filter(function (x) { return x.id === id; })[0];
+  if (b) return { id: b.id, name: b.name, desc: b.desc, cols: b.cols, rows: tbBuiltinRows_(b).rows, view: { fr: 0, gap: 'n' }, builtin: true };
+  var r = tbTplRows_().filter(function (x) { return x['양식ID'] === id; })[0];
+  if (!r) throw userError_('이 양식을 찾지 못했어요. 지워졌을 수 있어요.', 'NOTFOUND');
+  var rows = tbTplParsedRows_(r);
+  return { id: id, name: r['이름'], desc: r['설명'] || '', cols: tbCols_(r), rows: rows.length ? rows : tbBlankRows_(), view: tbViewOf_(r), builtin: false };
+}
+
+/**
+ * 시트를 양식으로 저장. args = { sheet: 시트(표ID), name, desc, what }
+ *  what 'all': 줄 내용까지(칸 글·채우기 색·서식·합친 칸·줄 높이) · 'lock': 잠근 열의 글만 남기고 나머지 칸의 글은 비움(서식은 그대로)
+ *  · 'cols': 열 모양만(줄 없이, 쓸 때 빈 줄 10개)
+ * 이름을 고른 교직원 누구나(교사 결정). 볼 수 있는 시트면 된다(마감한 표도). 보기(왼쪽 열 고정·줄 간격)도 함께 담는다
+ */
+function apiTableTplSave_(args, actor, ctx) {
+  var all = tbRows_('함께표'), t = tbById_(all, String(args.sheet || '')), main = t ? tbMainOf_(all, t) : null;
+  if (!t || !main || main['삭제 여부'] || tbSheetGone_(t)) throw userError_('이 시트를 찾지 못했어요. 지워졌을 수 있어요.', 'NOTFOUND');
+  var what = args.what === 'cols' || args.what === 'lock' ? args.what : 'all';
+  var desc = cleanText_(args.desc, 200, '설명');
+  var src = tbCols_(t), ids = {}, ci = {};
+  var cols = src.map(function (c, j) {
+    ids[c.id] = 'c' + (j + 1);
+    ci[c.id] = j;
+    return { id: 'c' + (j + 1), name: c.name, type: c.type === 'pick' ? 'pick' : 'text', options: (c.options || []).slice(), lock: !!c.lock, merge: !!c.merge, w: tbCleanWidth_(c.w) };
+  });
+  if (!cols.length) throw userError_('열이 없는 시트는 양식으로 저장할 수 없어요.');
+  var rows = [];
+  if (what !== 'cols') {
+    var list = tbSortRows_(tbRows_('함께표줄').filter(function (r) { return r['표ID'] === t['표ID'] && !r['삭제 여부']; })), at = {};
+    list.forEach(function (r, i) { at[r['줄ID']] = i; });
+    rows = list.map(function (r, i) {
+      var cells = tbParse_(r['칸'], {}), colors = tbParse_(r['색'], {}), fmt = tbParse_(r['서식'], {});
+      var oc = {}, ok = {}, of = {}, ms = {}, o = {};
+      src.forEach(function (c) {
+        var id = ids[c.id], v = cells[c.id];
+        if (v !== undefined && v !== null && String(v) !== '' && (what === 'all' || c.lock)) oc[id] = String(v);
+        var bg = tbCleanColor_(colors[c.id]);
+        if (bg && bg !== '#FFFFFF') ok[id] = bg;
+        var f = tbCleanFmt_(fmt[c.id]);
+        if (f && f.m) { // 합친 칸: 가리키는 줄ID·열ID → 아래로 줄 수, 오른쪽으로 열 수(시트 사본과 같게)
+          var m = f.m;
+          delete f.m;
+          if (at[m[0]] !== undefined) {
+            var rs = Math.max(1, at[m[0]] - i + 1), cs = Math.max(1, (ci[m[1]] !== undefined ? ci[m[1]] : ci[c.id]) - ci[c.id] + 1);
+            if (rs > 1 || cs > 1) ms[id] = [rs, cs];
+          }
+        }
+        if (f && Object.keys(f).length) of[id] = f;
+      });
+      if (Object.keys(oc).length) o.cells = oc;
+      if (Object.keys(ok).length) o.colors = ok;
+      if (Object.keys(of).length) o.fmt = of;
+      if (Object.keys(ms).length) o.ms = ms;
+      var h = tbCleanHeight_(r['높이']);
+      if (h) o.h = h;
+      return o;
+    });
+  }
+  var rj = rows.length ? JSON.stringify(rows) : '';
+  if (rj.length > TB_TPL_JSON_) throw userError_("줄 내용이 너무 많아 양식에 다 담지 못해요. '열 모양만'으로 저장하거나, 줄이 적은 시트로 저장해 주세요.");
+  var rec = { '설명': desc, '열': JSON.stringify(cols), '줄': rj, '보기': tbViewJson_(tbViewOf_(t)) };
+  ensureTab_('시트양식');
+  ensureCols_('시트양식');
+  return withLock_(function () {
+    var saved = tbTplRows_();
+    if (saved.length >= TB_TPL_MAX_) throw userError_('양식은 ' + TB_TPL_MAX_ + '개까지 저장할 수 있어요. 안 쓰는 양식을 지워 주세요.');
+    rec['이름'] = tbCleanTplName_(args.name, saved, '');
+    var made = insertRow_('시트양식', rec, actor, '시트 양식 저장: ' + rec['이름'] + ' (' + tbLabel_(main, t) + ', ' +
+      (what === 'cols' ? '열 모양만' : (what === 'lock' ? '잠근 열 글만, ' : '') + '줄 ' + rows.length + '개') + ')');
+    return { id: made['양식ID'], name: rec['이름'] };
+  });
+}
+
+/** 양식 이름·설명 고치기: 저장한 분·관리. args = { id, name, desc } */
+function apiTableTplUpdate_(args, actor, ctx) {
+  var id = String(args.id || '');
+  if (/^B\d+$/.test(id)) throw userError_('기본 양식은 고칠 수 없어요.');
+  var desc = cleanText_(args.desc, 200, '설명');
+  return withLock_(function () {
+    var saved = tbTplRows_(), r = saved.filter(function (x) { return x['양식ID'] === id; })[0];
+    if (!r) throw userError_('이 양식을 찾지 못했어요. 지워졌을 수 있어요.', 'NOTFOUND');
+    if (!tbTplOwner_(r, ctx)) throw userError_('양식은 저장한 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
+    var name = tbCleanTplName_(args.name, saved, id);
+    updateRow_('시트양식', id, { '이름': name, '설명': desc }, actor, '시트 양식 고침: ' + name);
+    return { id: id, name: name };
+  });
+}
+
+/** 양식 지우기(숨김, 관리자 › 휴지통에서 되살림): 저장한 분·관리 */
+function apiTableTplDelete_(args, actor, ctx) {
+  var id = String(args.id || '');
+  if (/^B\d+$/.test(id)) throw userError_('기본 양식은 지울 수 없어요.');
+  return withLock_(function () {
+    var r = tbTplRows_().filter(function (x) { return x['양식ID'] === id; })[0];
+    if (!r) return { done: true };
+    if (!tbTplOwner_(r, ctx)) throw userError_('양식은 저장한 분과 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
+    softDelete_('시트양식', id, actor, '시트 양식 지움: ' + r['이름']);
+    return { done: true };
+  });
+}
+
+/** 휴지통에서 양식 되살리기(같은 이름이 생겼으면 '(되살림)'을 붙인다) */
+function tbTplRestore_(args, actor) {
+  return withLock_(function () {
+    var id = String(args.id || ''), all = tbRows_('시트양식');
+    var r = all.filter(function (x) { return x['양식ID'] === id; })[0];
+    if (!r || !r['삭제 여부']) throw userError_('되살릴 양식을 찾지 못했어요.');
+    var live = all.filter(function (x) { return !x['삭제 여부']; });
+    if (live.length >= TB_TPL_MAX_) throw userError_('양식이 ' + TB_TPL_MAX_ + '개라 더 되살릴 수 없어요. 안 쓰는 양식을 먼저 지워 주세요.');
+    var taken = {};
+    live.forEach(function (x) { taken[tbTplKey_(x['이름'])] = 1; });
+    tbBuiltinTpls_().forEach(function (b) { taken[tbTplKey_(b.name)] = 1; });
+    var patch = { '삭제 여부': '' }, name = String(r['이름'] || '양식');
+    if (taken[tbTplKey_(name)]) {
+      var base = (name.slice(0, 32) + ' (되살림)'), n = base;
+      for (var k = 2; taken[tbTplKey_(n)] && k < 200; k++) n = base + ' ' + k;
+      patch['이름'] = n;
+    }
+    updateRow_('시트양식', id, patch, actor, '시트 양식 되살림: ' + (patch['이름'] || name), '되살리기');
     return { done: true };
   });
 }

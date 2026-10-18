@@ -13,7 +13,7 @@
  *   Survey.gs  조사·신청(만들기, 응답, 제출 현황, 다시 알리기, 요약, CSV)
  *   Library.gs  자료실(자료 카드, 파일 올리기·내려받기), 새 학년도 넘기기
  *   Help.gs   도움말, 교직원 명단, 홈 검색, 공지
- *   Table.gs  함께 쓰는 표(구글 시트처럼 여럿이 함께 채우는 표: 붙여 넣기, 칸 고치기, 10초마다 새로 받기)
+ *   Table.gs  취합 시트(예전 이름 '함께 쓰는 표'. 구글 시트처럼 여럿이 함께 채우는 표: 붙여 넣기, 칸 고치기, 10초마다 새로 받기, 시트 양식)
  *   Setup.gs  시트 메뉴, 처음 설정, 매일 백업, 테스트 데이터
  *   Index.html / Styles.html / App.html  화면
  */
@@ -29,14 +29,14 @@ function include(name) {
   try {
     return HtmlService.createHtmlOutputFromFile(name).getContent();
   } catch (e) {
-    if (name === 'TableUi') return '<script>window.__gyTableUiMissing = true;</script>'; // 함께 쓰는 표 화면 파일이 없음 → 그 화면만 안내
+    if (name === 'TableUi') return '<script>window.__gyTableUiMissing = true;</script>'; // 취합 시트 화면 파일이 없음 → 그 화면만 안내
     throw e;
   }
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-18a';
-function fileMark_Code_() { return '2026-10-18a'; }
+var APP_BUILD_ = '2026-10-18b';
+function fileMark_Code_() { return '2026-10-18b'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -44,9 +44,9 @@ function fileMark_Code_() { return '2026-10-18a'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-18a', 'Db': '2026-10-18a', 'Auth': '2026-10-16e', 'Admin': '2026-10-18a', 'Schedule': '2026-10-16e',
-    'Survey': '2026-10-16e', 'Library': '2026-10-16e', 'Help': '2026-10-16', 'Setup': '2026-10-16e', 'Table': '2026-10-18a',
-    'App': '2026-10-18a', 'Styles': '2026-10-18a', 'Index': '2026-10-18a', 'TableUi': '2026-10-18a'
+    'Code': '2026-10-18b', 'Db': '2026-10-18b', 'Auth': '2026-10-16e', 'Admin': '2026-10-18b', 'Schedule': '2026-10-16e',
+    'Survey': '2026-10-16e', 'Library': '2026-10-16e', 'Help': '2026-10-16', 'Setup': '2026-10-16e', 'Table': '2026-10-18b',
+    'App': '2026-10-18b', 'Styles': '2026-10-18a', 'Index': '2026-10-18a', 'TableUi': '2026-10-18b'
   };
 }
 
@@ -123,6 +123,11 @@ function routes_() {
     'table.sheet.move': { need: 'identity', fn: 'apiTableSheetMove_' },
     'table.sheet.copy': { need: 'identity', fn: 'apiTableSheetCopy_' },
     'table.sheet.delete': { need: 'identity', fn: 'apiTableSheetDelete_' },
+    'table.tpl.list': { need: 'login', fn: 'apiTableTplList_' },        // 시트 양식 목록(기본 양식 + 우리 학교 양식)
+    'table.tpl.get': { need: 'login', fn: 'apiTableTplGet_' },          // 양식 하나(만들기 창에 채운다)
+    'table.tpl.save': { need: 'identity', fn: 'apiTableTplSave_' },     // 시트를 양식으로 저장(이름을 고른 누구나)
+    'table.tpl.update': { need: 'identity', fn: 'apiTableTplUpdate_' }, // 양식 이름·설명(저장한 분·관리)
+    'table.tpl.delete': { need: 'identity', fn: 'apiTableTplDelete_' },
 
     'admin.settings.get': { need: 'admin', fn: function () { return adminSettingsGet_(); } },
     'admin.settings.save': { need: 'admin', fn: 'adminSettingsSave_' },
@@ -160,7 +165,7 @@ function routes_() {
  * 쓰기 뒤 같은 요청 안에서 이어 읽을 수 있는 화면(로그인만 있으면 되는 읽기만).
  * 저장한 다음 목록을 다시 부르느라 서버를 한 번 더 다녀오지 않게 한다(속도).
  */
-var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1, 'table.list': 1, 'table.get': 1 };
+var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1, 'table.list': 1, 'table.get': 1, 'table.tpl.list': 1 };
 
 /**
  * 요청마다 읽는 탭(서버 기억에서 한 번에 꺼내 두기, 속도). 로그인·본인 확인에서 늘 설정·교직원·분류를 읽는다.
@@ -182,6 +187,8 @@ var ROUTE_TABS_ = {
   'table.get': ['함께표', '함께표줄'],
   'table.poll': ['함께표'], // 바뀐 것이 없으면 작은 탭만 보고 돌아간다
   'table.find': ['함께표', '함께표줄'],
+  'table.tpl.list': ['시트양식'],
+  'table.tpl.get': ['시트양식'],
   'search': ['일정', '자료', '도움말', '공지', '조사', '응답', '알림']
 };
 
