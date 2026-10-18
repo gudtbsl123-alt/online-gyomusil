@@ -1497,10 +1497,10 @@ test('점검: 최신이면 문제 없음, 빠진 파일·예전 화면 파일·�
   const g = freshName();
   const { t } = adminTokens(g);
   const b = g.fileBuilds_();
-  const client = { app: b.App, styles: b.Styles, index: b.Index };
+  const client = { app: b.App, styles: b.Styles, index: b.Index, table: b.TableUi };
   let r = call(g, 'admin.check', { client }, t).data;
   const by = (label) => r.items.find((x) => x.label === label);
-  for (const f of ['Code.gs', 'Db.gs', 'Survey.gs', 'Help.gs', 'App.html', 'Styles.html', 'Index.html', '기능 연결', '탭과 칸', '공통 비밀번호']) assert.strictEqual(by(f).state, 'ok', f);
+  for (const f of ['Code.gs', 'Db.gs', 'Survey.gs', 'Help.gs', 'App.html', 'Styles.html', 'Index.html', 'TableUi.html', '기능 연결', '탭과 칸', '공통 비밀번호']) assert.strictEqual(by(f).state, 'ok', f);
   assert.strictEqual(by('학기 기간').state, 'warn');
   assert.strictEqual(by('매일 자동 백업').state, 'warn', '트리거 없음');
   assert.strictEqual(call(g, 'admin.check', { client }, ids(g).who('심청')).code, 'ADMIN');
@@ -1512,6 +1512,8 @@ test('점검: 최신이면 문제 없음, 빠진 파일·예전 화면 파일·�
   assert.match(by('기능 연결').detail, /apiHelpList_/);
   assert.strictEqual(by('App.html').state, 'warn');
   assert.strictEqual(by('Index.html').state, 'warn', '판 표시가 없으면');
+  assert.strictEqual(by('TableUi.html').state, 'bad', '새 파일 TableUi를 아직 안 만들었으면');
+  assert.match(by('TableUi.html').fix || by('TableUi.html').detail, /TableUi/);
   // 시트에서 직접 비운 줄(손으로 고치면 시트가 onEdit를 불러 서버 기억을 버린다)
   const sh = g._ss.getSheetByName('교직원');
   sh.data[3] = sh.data[3].map(() => '');
@@ -1590,6 +1592,7 @@ test('판 표시: 파일마다 판 표의 판과 같다(고친 파일만 판을 
   assert.strictEqual(/var APP_FILE_BUILD = '([^']+)'/.exec(read('App.html'))[1], b.App);
   assert.strictEqual(/--gy-build:"([^"]+)"/.exec(read('Styles.html'))[1], b.Styles);
   assert.strictEqual(/<meta name="gy-build" content="([^"]+)">/.exec(read('Index.html'))[1], b.Index);
+  assert.strictEqual(/window\.__gyTableUiBuild = '([^']+)'/.exec(read('TableUi.html'))[1], b.TableUi);
   assert.ok(Object.keys(b).every((f) => b[f] <= g.APP_BUILD_), 'APP_BUILD_는 가장 최근 판');
 });
 
@@ -2898,8 +2901,8 @@ test('함께 쓰는 표: 칸·줄을 고칠 때는 잠금 안에서 탭 전체�
   assert.strictEqual(e.rows.find((x) => x.id === d.rows[2].id).n, d.rows[3].n, '새 행 번호를 알려 준다');
 });
 
-test('화면 파일: App.html·Index.html 스크립트가 문법에 맞고, 줄 바꿈으로 읽히는 숨은 글자(U+2028 등)가 없다', () => {
-  for (const f of ['App.html', 'Index.html']) {
+test('화면 파일: App.html·Index.html·TableUi.html 스크립트가 문법에 맞고, 줄 바꿈으로 읽히는 숨은 글자(U+2028 등)가 없다', () => {
+  for (const f of ['App.html', 'Index.html', 'TableUi.html']) {
     const src = fs.readFileSync(path.join(GAS_DIR, f), 'utf8');
     assert.ok(!/[\u2028\u2029]/.test(src), f + ': U+2028·U+2029가 있으면 정규식이 깨진다(\\u2028로 적기)');
     const scripts = src.match(/<script>([\s\S]*?)<\/script>/g) || [];

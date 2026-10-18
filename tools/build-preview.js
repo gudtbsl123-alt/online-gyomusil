@@ -55,6 +55,7 @@ ${GAS_FILES.map((f) => '/* ===== ' + f + ' ===== */\n' + inScript(read(f))).join
 
 let html = read('Index.html')
   .replace("<?!= include('Styles'); ?>", () => read('Styles.html'))
+  .replace("<?!= include('TableUi'); ?>", () => read('TableUi.html'))
   .replace("<?!= include('App'); ?>", () => boot + read('App.html'));
 if (/<\?/.test(html)) throw new Error('끼워 넣지 못한 템플릿 표시가 남았어요');
 const out = path.join(__dirname, '..', '미리보기', '미리보기.html');
