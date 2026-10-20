@@ -3156,29 +3156,127 @@ async function b5ShortcutCheck(browser) {
   await ctx.close();
 }
 
+/**
+ * 취합 시트 화면 파일(TableUi.html) 받기(판 2026-10-19a, 45)
+ *  1) 열 때 받기(기본): 첫 화면에는 없고 취합 시트를 처음 열 때 한 번 받는다(홈 '채우기'로 바로 그 표). 서버에 파일이 없으면 그 화면만 안내, 점검은 '문제'
+ *  2) 처음에 함께(설정 '처음에 함께', 예전 방식): 처음부터 들어 있어 받지 않는다. 파일이 없으면 그 화면만 안내
+ */
 async function tableMissingCheck(browser) {
-  const src = fs.readFileSync(PREVIEW, 'utf8');
-  const a = src.indexOf('<style>\n/* ---------- 취합 시트(TableUi.html'), b = src.indexOf('window.__gyTableUi = function'), end = '\n};\n</script>', c = b < 0 ? -1 : src.indexOf(end, b);
-  if (a < 0 || b < a || c < 0) { problems.push('표 파일 없음 점검: 미리보기에서 TableUi를 찾지 못함'); return; }
-  const f = path.join(require('os').tmpdir(), 'gy-no-tableui.html');
-  fs.writeFileSync(f, src.slice(0, a) + '<script>window.__gyTableUiMissing = true;</script>' + src.slice(c + end.length));
-  const ctx = await newCtx(browser, { viewport: { width: 1280, height: 800 } });
-  const page = await ctx.newPage();
-  page.on('pageerror', (e) => problems.push('표 파일 없음 페이지 오류: ' + e.message));
-  await page.goto(serveFile('미리보기_표파일없음.html', f));
+  const P = (m) => problems.push('표 화면 파일: ' + m);
+  const spy = () => { window.__calls = []; let o = null; Object.defineProperty(window, '__previewServer', { configurable: true, get() { return o && ((req) => { window.__calls.push(JSON.parse(req).action); return o(req); }); }, set(v) { o = v; } }); };
+  // 1-가) 열 때 받기: 처음엔 없고, 열 때 한 번
+  let ctx = await newCtx(browser, { viewport: { width: 1280, height: 800 } });
+  await ctx.addInitScript(spy);
+  let page = await ctx.newPage();
+  page.on('pageerror', (e) => P('페이지 오류: ' + e.message));
+  await page.goto(FILE);
   await waitText(page, '어서 오세요');
   await login(page);
   await verify(page, '홍길동');
-  await page.locator('.today-card').waitFor().catch(() => problems.push('표 파일 없음: 홈이 열리지 않음'));
+  await page.locator('.today-card').waitFor();
+  const before = await page.evaluate(() => ({ lazy: !!window.__gyTableUiLazy, fn: typeof window.__gyTableUi, tb: !!window.__gy.tableUi() }));
+  if (!before.lazy || before.fn !== 'undefined' || before.tb) P('첫 화면에 이미 들어 있음 ' + JSON.stringify(before));
   await page.click('.side [data-go=table]');
-  if (!(await page.getByText('화면 파일(TableUi)이 아직 없거나').first().waitFor({ timeout: 5000 }).then(() => true, () => false))) problems.push('표 파일 없음: 표 화면에 안내가 없음');
+  await page.locator('.tb-card').first().waitFor({ timeout: 8000 }).catch(() => P('열 때 받아 목록이 열리지 않음'));
+  await page.click('.side [data-go=home]');
+  await page.click('.side [data-go=table]');
+  await page.locator('.tb-card').first().waitFor();
+  const n1 = await page.evaluate(() => window.__calls.filter((a) => a === 'ui.table').length);
+  if (n1 !== 1) P('화면 파일을 ' + n1 + '번 받음(한 번이어야 함)');
+  await ctx.close();
+  // 1-나) 홈 '채우기'(화면 파일을 받기 전)로 바로 그 표: 받은 뒤에 연다
+  ctx = await newCtx(browser, { viewport: { width: 1280, height: 800 } });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => P('페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  await page.locator('.today-card').waitFor();
+  await page.evaluate(() => { const b = document.createElement('button'); b.setAttribute('data-action', 'todo-table'); b.setAttribute('data-id', window.__previewTableId || ''); b.id = 'fake-todo'; document.body.appendChild(b); });
+  const doc = await page.evaluate(async () => {
+    const login = localStorage.getItem('gy.login') || sessionStorage.getItem('gy.login');
+    const r = JSON.parse(await window.__previewServer(JSON.stringify({ action: 'table.list', args: {}, tokens: { login } })));
+    return r.data.tables.find((t) => /특별실/.test(t.title)).id;
+  });
+  await page.evaluate((id) => { const b = document.querySelector('#fake-todo'); b.setAttribute('data-id', id); b.click(); }, doc);
+  await page.locator('#tb-detail .tb-bar .chip').first().waitFor({ timeout: 8000 }).catch(() => P('받기 전에 누른 표가 열리지 않음'));
+  const opened = await page.evaluate(() => (window.__gy.S.table.d || { table: {} }).table.title || '');
+  if (!/특별실/.test(opened)) P('받은 뒤에 다른 표가 열림 ' + opened);
+  await ctx.close();
+  // 1-다) 서버에 파일이 없음: 그 화면만 안내, 점검은 문제
+  ctx = await newCtx(browser, { viewport: { width: 1280, height: 800 } });
+  await ctx.addInitScript(() => { window.__previewNoTableUi = true; });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => P('파일 없음 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  await page.locator('.today-card').waitFor().catch(() => P('파일 없음: 홈이 열리지 않음'));
+  await page.click('.side [data-go=table]');
+  if (!(await page.getByText('화면 파일(TableUi)이 아직 없거나').first().waitFor({ timeout: 6000 }).then(() => true, () => false))) P('파일 없음: 표 화면에 안내가 없음');
   await shot(page, '표_화면파일_없음');
   await page.evaluate(() => window.__gy.go('admin'));
   await page.fill('#admin-pw', 'admin1');
   await page.click('#admin-form [type=submit]');
   await page.click('[data-admin-tab=check]');
-  if (!(await page.locator('text=TableUi.html').first().waitFor({ timeout: 8000 }).then(() => true, () => false))) problems.push('표 파일 없음: 점검에 TableUi가 없음');
-  else if (!(await page.getByText("'TableUi' 파일을 새로 만들고").first().count())) problems.push('표 파일 없음: 점검이 TableUi 새로 만들기를 알려 주지 않음');
+  if (!(await page.locator('text=TableUi.html').first().waitFor({ timeout: 8000 }).then(() => true, () => false))) P('파일 없음: 점검에 TableUi가 없음');
+  else if (!(await page.getByText("'TableUi' 파일을 새로 만들고").first().count())) P('파일 없음: 점검이 TableUi 새로 만들기를 알려 주지 않음');
+  await ctx.close();
+  // 1-라) 열 때 받기 + 파일이 있으면 점검은 서버 파일의 판으로 '정상'
+  ctx = await newCtx(browser, { viewport: { width: 1280, height: 800 } });
+  page = await ctx.newPage();
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  await page.evaluate(() => window.__gy.go('admin'));
+  await page.fill('#admin-pw', 'admin1');
+  await page.click('#admin-form [type=submit]');
+  await page.click('[data-admin-tab=settings]');
+  await page.locator('[data-set="취합 시트 화면 파일"]').waitFor({ timeout: 8000 }).catch(() => P('설정에 취합 시트 화면 파일 칸이 없음'));
+  if ((await page.inputValue('[data-set="취합 시트 화면 파일"]').catch(() => '')) !== '열 때 받기') P('설정의 처음 값이 열 때 받기가 아님');
+  await page.locator('[data-set="취합 시트 화면 파일"]').scrollIntoViewIfNeeded({ timeout: 4000 }).catch(() => {});
+  await shot(page, '표_화면파일_설정');
+  await page.click('[data-admin-tab=check]');
+  await page.locator('text=TableUi.html').first().waitFor({ timeout: 8000 });
+  const row = await page.evaluate(() => { const el = [...document.querySelectorAll('.check-row')].find((x) => /TableUi\.html/.test(x.textContent)); return el ? el.textContent : ''; });
+  if (!/최신 판/.test(row)) P('열 때 받기인데 점검의 TableUi가 정상이 아님: ' + row.replace(/\s+/g, ' ').slice(0, 120));
+  await ctx.close();
+  // 2) 처음에 함께(예전 방식): 미리보기를 그 모양으로 만들어 본다
+  const inline = path.join(require('os').tmpdir(), 'gy-inline-tableui.html');
+  require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'build-preview.js')], { env: Object.assign({}, process.env, { PREVIEW_INLINE: '1', PREVIEW_OUT: inline }) });
+  ctx = await newCtx(browser, { viewport: { width: 1280, height: 800 } });
+  await ctx.addInitScript(spy);
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => P('처음에 함께 페이지 오류: ' + e.message));
+  await page.goto(serveFile('미리보기_처음에함께.html', inline));
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  await page.locator('.today-card').waitFor();
+  if (!(await page.evaluate(() => !!window.__gy.tableUi()))) P('처음에 함께인데 처음부터 붙지 않음');
+  await page.click('.side [data-go=table]');
+  await page.locator('.tb-card').first().waitFor({ timeout: 8000 }).catch(() => P('처음에 함께: 목록이 열리지 않음'));
+  if (await page.evaluate(() => window.__calls.includes('ui.table'))) P('처음에 함께인데 화면 파일을 또 받음');
+  await ctx.close();
+  // 2-나) 처음에 함께 + 파일이 없음(예전 점검 그대로)
+  const src = fs.readFileSync(inline, 'utf8');
+  const a = src.indexOf('<style>\n/* ---------- 취합 시트(TableUi.html'), b = src.indexOf('window.__gyTableUi = function'), end = '\n};\n</script>', c = b < 0 ? -1 : src.indexOf(end, b);
+  if (a < 0 || b < a || c < 0) { P('처음에 함께 미리보기에서 TableUi를 찾지 못함'); return; }
+  const f = path.join(require('os').tmpdir(), 'gy-no-tableui.html');
+  fs.writeFileSync(f, src.slice(0, a) + '<script>window.__gyTableUiMissing = true;</script>' + src.slice(c + end.length));
+  ctx = await newCtx(browser, { viewport: { width: 1280, height: 800 } });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => P('처음에 함께·파일 없음 페이지 오류: ' + e.message));
+  await page.goto(serveFile('미리보기_표파일없음.html', f));
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  await page.locator('.today-card').waitFor().catch(() => P('처음에 함께·파일 없음: 홈이 열리지 않음'));
+  await page.click('.side [data-go=table]');
+  if (!(await page.getByText('화면 파일(TableUi)이 아직 없거나').first().waitFor({ timeout: 5000 }).then(() => true, () => false))) P('처음에 함께·파일 없음: 안내가 없음');
   await ctx.close();
 }
 

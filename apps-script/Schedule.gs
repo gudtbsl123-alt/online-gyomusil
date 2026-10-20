@@ -8,7 +8,7 @@
  * 고치기·지우기: 처음 넣은 사람, 역할이 '관리'인 분, 관리자 화면을 연 분만.
  */
 
-function fileMark_Schedule_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
+function fileMark_Schedule_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
 
 function schedKinds_() {
   return ['행사', '교육활동', '회의', '휴업일', '공휴일', '근무']; // 회의·근무는 2026-10-19a(교사 요청·검토 55번)

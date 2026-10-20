@@ -14,6 +14,12 @@ const read = (f) => fs.readFileSync(path.join(GAS_DIR, f), 'utf8');
 const inScript = (js) => js.replace(/<\/script/gi, '<\\/script');
 const mock = fs.readFileSync(path.join(__dirname, 'gas-mock.js'), 'utf8');
 
+/**
+ * 취합 시트 화면 파일(TableUi.html)은 웹앱처럼 '열 때 받기'(판 2026-10-19a)로 묶는다: 가짜 서버의 HtmlService가 파일 내용을 돌려준다(ui.table).
+ * PREVIEW_INLINE=1이면 예전처럼 처음부터 넣는다(설정 '처음에 함께'). 글자 '<'는 \u003c로 적어 스크립트 안에서 태그로 읽히지 않게 한다
+ */
+const INLINE = process.env.PREVIEW_INLINE === '1';
+const tableUiSrc = JSON.stringify(read('TableUi.html')).replace(/</g, '\\u003c');
 const boot = `<script>
 ${inScript(mock)}
 </script>
@@ -24,6 +30,13 @@ ${inScript(mock)}
   var SpreadsheetApp = env.SpreadsheetApp, PropertiesService = env.PropertiesService, LockService = env.LockService,
       Utilities = env.Utilities, Session = env.Session, DriveApp = env.DriveApp, MimeType = env.MimeType, ScriptApp = env.ScriptApp,
       CacheService = env.CacheService;
+  var PREVIEW_TABLE_UI = ${tableUiSrc};
+  var HtmlService = { // 미리보기는 TableUi만 있다(window.__previewNoTableUi: 파일이 없는 경우 흉내)
+    createHtmlOutputFromFile: function (n) {
+      if (n !== 'TableUi' || window.__previewNoTableUi) throw new Error('없는 파일: ' + n);
+      return { getContent: function () { return PREVIEW_TABLE_UI; } };
+    }
+  };
 ${GAS_FILES.map((f) => '/* ===== ' + f + ' ===== */\n' + inScript(read(f))).join('\n')}
   setupAll_();
   setPassword_('common', 'preview1');
@@ -55,9 +68,9 @@ ${GAS_FILES.map((f) => '/* ===== ' + f + ' ===== */\n' + inScript(read(f))).join
 
 let html = read('Index.html')
   .replace("<?!= include('Styles'); ?>", () => read('Styles.html'))
-  .replace("<?!= include('TableUi'); ?>", () => read('TableUi.html'))
+  .replace("<?!= typeof tableUiTag_ === 'function' ? tableUiTag_() : include('TableUi'); ?>", () => (INLINE ? read('TableUi.html') : '<script>window.__gyTableUiLazy = true;</script>'))
   .replace("<?!= include('App'); ?>", () => boot + read('App.html'));
 if (/<\?/.test(html)) throw new Error('끼워 넣지 못한 템플릿 표시가 남았어요');
-const out = path.join(__dirname, '..', '미리보기', '미리보기.html');
+const out = process.env.PREVIEW_OUT || path.join(__dirname, '..', '미리보기', '미리보기.html');
 fs.writeFileSync(out, html);
 console.log('만듦: ' + path.relative(process.cwd(), out) + ' (' + Math.round(html.length / 1024) + 'KB)');

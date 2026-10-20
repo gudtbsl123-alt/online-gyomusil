@@ -8,7 +8,7 @@
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-18b'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-10-19a'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -78,7 +78,7 @@
     'help.list': 1, 'staff.list': 1, 'notice.list': 1, 'admin.settings.get': 1, 'admin.cat.list': 1, 'admin.staff.list': 1,
     'admin.log.list': 1, 'admin.trash.list': 1, 'admin.trash.surveys': 1, 'admin.trash.library': 1, 'admin.year.preview': 1,
     'admin.check': 1, 'admin.speed': 1, 'admin.staff.importCheck': 1,
-    'table.list': 1, 'table.get': 1, 'table.poll': 1, 'table.find': 1, 'table.tpl.list': 1, 'table.tpl.get': 1, 'admin.trash.tables': 1, 'shortcut.url': 1
+    'table.list': 1, 'table.get': 1, 'table.poll': 1, 'table.find': 1, 'table.tpl.list': 1, 'table.tpl.get': 1, 'admin.trash.tables': 1, 'shortcut.url': 1, 'ui.table': 1
   };
   // 취합 시트에서 칸·열 너비·줄 높이·보기를 고치는 저장: 창 닫기를 막지 않는다(뒤에서 차례로 보냄)
   var QUIET_WRITES = { 'table.cell': 1, 'table.cells': 1, 'table.row.add': 1, 'table.colw': 1, 'table.rowh': 1, 'table.view': 1 };
@@ -3345,26 +3345,31 @@
           '<span class="faint">크롬은 오른쪽 위 ⋮ 메뉴의 <b>바로가기 만들기</b>, 엣지는 … 메뉴 › 앱 › <b>이 사이트를 앱으로 설치</b>로도 만들 수 있어요(메뉴 이름은 브라우저 판마다 조금 달라요).</span>'
       ]) +
       sec(2, '홈·검색·공지', [
-        '홈에서 오늘 일정, 내가 낼 조사(내가 할 일), 이번 주 일정, 지금 걸린 공지를 봐요.',
-        '홈 위의 <b>검색창</b>에 낱말을 넣으면 자료·일정·선생님·도움말·조사·공지를 한 번에 찾아요.',
+        '홈에서 오늘 일정, <b>내가 할 일</b>(낼 조사·채울 취합 시트), 이번 주 일정, 지금 걸린 공지를 봐요.',
+        '홈 위의 <b>검색창</b>에 낱말을 넣으면 자료·일정·선생님·도움말·조사·공지·취합 시트를 한 번에 찾아요.',
         '<b>공지</b>는 누구나 써요. 게시 끝일이 지나면 홈에서 내려가고 \'지난 공지\'에 남아요.',
         '홈 맨 아래 <b>학생 수 현황</b>에서 학년을 누르면 반별 남·여 학생 수가 보여요. 바뀌면 누구나 고치고, 고친 분과 바뀌기 전 숫자는 기록에 남아요.',
         "왼쪽 메뉴 아래(휴대폰은 '전체')에서 <b>밝게·어둡게</b>, 화면 디자인(<b>기본·장도·종이색</b>), <b>화면 크기</b>를 골라요. 기기마다 따로 기억해요."
       ]) +
       sec(3, '일정', [
         '<b>일정 › 행사 추가</b>로 넣어요. 한 번 넣으면 달력·월별 계획·연간 학사일정·홈에 함께 보여요.',
-        "꼭 알려야 할 일정은 '중요'를 체크하면 파란 바탕과 ★로 보여요.",
+        "구분은 행사·교육활동·<b>회의</b>(월별 계획 행사 칸에 [회의])에서 골라요. 꼭 알려야 할 일정은 '중요'를 체크하면 파란 바탕과 ★로 보여요.",
+        '<b>반복</b>을 켜면 매주·격주·매월 ○째 ○요일로 끝날까지 한 번에 넣어요(60개까지, 공휴일·휴업일은 건너뛰어요). 넣기 전에 날짜를 보여 줘요.',
+        '<b>주간 안내</b>로 이번 주·다음 주 일정을 메신저 문구로 복사하거나 A4 한 장으로 인쇄해요.',
         '달력에서 내가 넣은 행사를 <b>끌어서 다른 날로</b> 옮길 수 있어요. 놓으면 한 번 물어요. 월별 계획은 인쇄하면 A4 한 장에 맞춰 나와요.',
         '고치기·지우기는 처음 넣은 분과 연구부장·부담당만 할 수 있어요.'
       ]) +
       sec(4, '조사·신청', [
         "홈 '내가 할 일'이나 <b>조사·신청</b>에서 응답해요. 마감 전에는 다시 내서 고칠 수 있어요.",
-        '<b>새 조사 만들기</b>로 누구나 조사를 만들 수 있어요. 낸 사람·안 낸 사람을 보고, 안 낸 분께 다시 알리고, 메신저 문구를 복사해요.'
+        '<b>새 조사 만들기</b>로 누구나 조사를 만들 수 있어요. 낸 사람·안 낸 사람을 보고, 안 낸 분께 다시 알리고, 메신저 문구를 복사해요.',
+        "매달 같은 조사는 새 조사 만들기의 <b>지난 조사에서 가져오기</b>로 질문·대상을 그대로 가져와요(응답은 가져오지 않고, 마감은 새로 정해요)."
       ]) +
       sec(5, '취합 시트', [
         '<b>취합 시트</b>에서 표를 만들어 여러 선생님이 함께 채워요. 구글 시트에서 복사한 칸을 붙여 넣으면 글꼴·색·합친 칸까지 함께 와요.',
         '표 하나에 시트를 여러 개 둘 수 있어요. 다른 분이 고친 칸은 잠깐 파랗게 보이고, 같은 칸을 함께 고치면 어느 값을 둘지 물어요.',
-        '자주 쓰는 시트는 시트 탭 ▾의 <b>양식으로 저장</b>으로 남겨 두고, 새 표·시트를 만들 때 <b>양식에서 고르기</b>로 써요.'
+        '자주 쓰는 시트는 시트 탭 ▾의 <b>양식으로 저장</b>으로 남겨 두고, 새 표·시트를 만들 때 <b>양식에서 고르기</b>로 써요(기본 양식 10개: 대피 훈련 인원·안전교육 시수·방학 근무 신청 등).',
+        "<b>할 일 열</b>(예: 담임)에 내 이름이 있으면 홈 '내가 할 일'에 떠요(늦어도 10분 안에). <b>숫자 열</b>은 표 위에 합계·평균이 나와요.",
+        '목록의 찾기 칸·부서로 표를 찾고, 휴대폰은 줄 찾기와 <b>내 이름이 있는 줄</b>로 내 줄만 봐요.'
       ]) +
       sec(6, '자료실·도움말·교직원', [
         '<b>자료실</b>에 링크나 파일을 넣어요. 지난 학년도 자료는 보관함에 있어요.',
@@ -3377,7 +3382,10 @@
         '교직원 표: 전입·전출·휴직은 지우지 말고 "사용 안 함"으로 바꿔요. 내선 칸은 모두에게 보이니 휴대폰 번호는 넣지 않아요.',
         '다른 분의 일정·조사·자료를 고치거나 비공개 조사 결과를 볼 때, 학사일정을 올릴 때는 먼저 <b>관리자 화면</b>을 열어 두세요. 이름만 고르는 방식이라 관리자 비밀번호가 있어야 관리 일을 할 수 있어요.',
         '분류: 부서·자료 분류·도움말 분류 이름을 한곳에서 바꿔요.',
-        "느리다는 말이 나오면 <b>관리자 › 점검 › 속도 재기</b>로 서버 왕복과 화면별 처리 시간을 볼 수 있어요."
+        "느리다는 말이 나오면 <b>관리자 › 점검 › 속도 재기</b>로 서버 왕복과 화면별 처리 시간을 볼 수 있어요.",
+        "관리자 근무(교장·교감 출장 등)는 일정 구분 <b>근무</b>로 넣어요(관리만). 월별 계획 '관리자 근무' 칸과 홈 오늘에 보여요.",
+        "도움말의 <b>안전·생활교육 안내 만들기</b>로 대피 경로·학교폭력 사안 처리 순서 글 틀을 만들고, 내용은 학교 계획대로 적어요. '홈에 보이기'를 켠 글(3개까지)은 홈 '비상 시 이것부터'에 보여요.",
+        "취합 시트 화면이 열리지 않으면 <b>설정 › 취합 시트 화면 파일</b>을 '처음에 함께'로 바꿔요(첫 화면이 조금 무거워져요)."
       ]) +
       sec(8, '학기 초에 할 일', [
         '<b>설정 › 학기 기간</b>에 학년도마다 1·2학기 시작일·끝일을 넣어요(수업일수 계산에 써요).',
@@ -3385,7 +3393,8 @@
         '공통 비밀번호를 바꾸면 모든 기기가 다시 로그인해요. 바꾼 비밀번호는 메신저로 알려요.'
       ]) +
       sec(9, '새 학년도 넘기기', [
-        '<b>관리자 › 새 학년도</b>에서 해요. 지금 자료는 모두 보관함으로 가고, 고른 자료만 새 학년도로 옮겨 와요.',
+        '<b>관리자 › 새 학년도</b> 맨 위 <b>준비 점검</b>에서 지난 학년도 숫자가 남은 자료 이름·소속 꼴·다음 학년도 학기·공휴일·학생 수·공통 비밀번호를 먼저 살펴요(아무것도 바꾸지 않아요).',
+        '넘기기도 <b>관리자 › 새 학년도</b>에서 해요. 지금 자료는 모두 보관함으로 가고, 고른 자료만 새 학년도로 옮겨 와요.',
         '넘긴 뒤 설정에서 새 학년도 학기 기간을 넣어요. 일정·조사·공지는 날짜로 나뉘어서 그대로 있어요(지난 학년도 것은 \'이전 학년도 보기\'로 봐요).'
       ]) +
       sec(10, '데이터 지키기', [
@@ -4611,6 +4620,7 @@
       '<div class="form-grid">' + input(byKey('백업 남길 개수')) + '</div>' +
       '<p class="faint">자동 백업: ' + (backup ? '켜져 있어요(백업 폴더가 만들어져 있어요).' : '아직 꺼져 있어요. 전용 시트 메뉴 "4. 매일 자동 백업 켜기"로 켜 주세요.') + '</p></section>' +
       (byKey('파일 크기 한도') ? '<section class="card"><h2>자료실</h2><div class="form-grid">' + input(byKey('파일 크기 한도')) + '</div></section>' : '') +
+      (byKey('취합 시트 화면 파일') ? '<section class="card"><h2>취합 시트</h2><div class="form-grid">' + input(byKey('취합 시트 화면 파일')) + '</div></section>' : '') +
       '<section class="card"><div class="card-head"><h2>기존 시트 바로가기</h2><span class="chip">홈 아래에 보여요</span></div>' +
       '<p class="faint">특별실 시간표·방학 근무·연수 이수 확인처럼 2차에 옮길 일의 바로가기예요. 주소는 https:// 로 시작해야 해요.</p>' +
       '<div class="form" id="links" style="gap:8px"></div>' +
@@ -4757,7 +4767,7 @@
     var meta = qs('meta[name="gy-build"]');
     var css = '';
     try { css = getComputedStyle(root).getPropertyValue('--gy-build').trim().replace(/^["']|["']$/g, ''); } catch (e) {}
-    return { app: APP_FILE_BUILD, styles: css, index: meta ? meta.getAttribute('content') : '', table: window.__gyTableUiBuild || '' };
+    return { app: APP_FILE_BUILD, styles: css, index: meta ? meta.getAttribute('content') : '', table: window.__gyTableUiBuild || (window.__gyTableUiLazy ? 'lazy' : '') };
   }
 
   function adminCheck(panel) {
@@ -4943,7 +4953,7 @@
     });
   }
 
-  // ============================================================ 취합 시트 (TableUi.html, 판 2026-10-18b. 예전 이름 '함께 쓰는 표')
+  // ============================================================ 취합 시트 (TableUi.html, 판 2026-10-18b·2026-10-19a 열 때 받기. 예전 이름 '함께 쓰는 표')
   // 표 화면은 따로 된 파일 TableUi.html에 있다(App.html이 너무 커져서 떼어 냄). 맨 아래 init() 바로 앞에서
   // window.__gyTableUi(core)를 불러 화면 도구를 넘겨주면 SCREENS.table과 표 화면의 누르기·키 처리를 스스로 붙인다.
   // 파일이 없거나(붙여 넣기 전) 멈추면 표 화면만 안내로 바뀌고 다른 화면은 그대로 돌아간다.
@@ -4955,6 +4965,53 @@
       '<section class="card"><p class="empty">취합 시트 화면 파일(TableUi)이 아직 없거나 열리지 않았어요. 연구부장·부담당께 알려 주세요(관리자 › 점검에서 확인할 수 있어요).</p></section>';
   }
   SCREENS.table = tbMissing;
+
+  // 취합 시트 화면 파일을 나중에 받기(판 2026-10-19a, 교사 결정 45): Index.html이 TableUi를 넣지 않았으면(window.__gyTableUiLazy)
+  // 이 화면을 처음 열 때 서버(ui.table)에서 받아 붙인다. 메뉴·홈 '채우기'에 손이 가면 미리 받기 시작한다.
+  // 받지 못하면 그 화면만 안내(다시 받기). 관리자 › 설정 '취합 시트 화면 파일'을 '처음에 함께'로 바꾸면 예전처럼 처음부터 들어 있다
+  var tableUiLoading = null, tableUiPending = null; // 받는 중인 요청, 받기 전에 홈·검색에서 누른 표 { doc, sheet }
+  function tableUiLazy() { return !!window.__gyTableUiLazy && !TB; }
+  /** 받은 파일 내용을 붙인다: 모양(style)은 head에, 스크립트는 새 script로 넣어 돌린다(innerHTML로 넣은 스크립트는 돌지 않는다) */
+  function tableUiInject(html) {
+    var box = document.createElement('div');
+    box.innerHTML = html;
+    qsa('style', box).forEach(function (st) { document.head.appendChild(st); });
+    qsa('script', box).forEach(function (old) {
+      var sc = document.createElement('script');
+      sc.textContent = old.textContent;
+      document.body.appendChild(sc);
+    });
+  }
+  function tableUiLoad() {
+    if (TB) return Promise.resolve(TB);
+    if (!tableUiLoading) {
+      tableUiLoading = server('ui.table', {}).then(function (r) {
+        if (!r || r.missing || !r.html) { var m = new Error('취합 시트 화면 파일(TableUi)이 아직 없어요.'); m.code = 'MISSING_UI'; throw m; }
+        tableUiInject(r.html);
+        if (!tableUiAttach()) throw new Error('취합 시트 화면을 붙이지 못했어요.');
+        return TB;
+      });
+      tableUiLoading.catch(function () { tableUiLoading = null; }); // 다음에 열 때 다시 받는다
+    }
+    return tableUiLoading;
+  }
+  function tableUiLazyScreen($s) {
+    $s.classList.remove('tb-full');
+    $s.innerHTML = pageHead('', '취합 시트', '여러 선생님이 한 표를 함께 채워요. 표 하나에 시트(탭)를 여러 개 둘 수 있어요.') +
+      '<div class="stack">' + loadingHtml('취합 시트 화면을 불러오는 중이에요') + '</div>';
+    tableUiLoad().then(function () {
+      var p = tableUiPending;
+      tableUiPending = null;
+      if (p && TB.open) TB.open(p.doc, p.sheet);
+      if (S.screen === 'table' && qs('#screen')) SCREENS.table(qs('#screen'));
+    }, function (e) {
+      if (S.screen !== 'table' || !qs('#screen')) return;
+      if (e && e.code === 'MISSING_UI') { tbMissing(qs('#screen')); return; }
+      qs('#screen').innerHTML = pageHead('', '취합 시트', '') + '<section class="card stack">' + failHtml(e) +
+        '<p class="faint">계속 열리지 않으면 연구부장·부담당이 관리자 › 설정 › 취합 시트 화면 파일을 \'처음에 함께\'로 바꿔 주세요.</p>' +
+        '<div><button type="button" class="btn" data-go="table">' + icon('reload', 18) + '다시 받기</button></div></section>';
+    });
+  }
 
   // ============================================================ 창(모달)
   var lastFocus = null, modalOpts = {};
@@ -4991,6 +5048,7 @@
       var nav = function () {
         if (to === 'schedule' && S.screen === 'home') S.sched.view = 'cal';
         if (to === 'table' && TB) TB.reset(); // 메뉴를 누르면 표 목록부터
+        if (to === 'table') tableUiPending = null; // (화면 파일을 받기 전) 홈에서 누른 표 대신 목록부터
         go(to);
       };
       if (TB && TB.leaving && !TB.leaving(nav)) return; // 취합 시트에 저장하지 못한 칸이 있으면 먼저 묻는다
@@ -5148,6 +5206,7 @@
       case 'todo-table':
       case 'sr-table': // 홈 '내가 할 일'·검색에서 취합 시트(그 시트)를 바로 연다
         if (TB && TB.open) TB.open(id, t.getAttribute('data-sheet') || '');
+        else tableUiPending = { doc: id, sheet: t.getAttribute('data-sheet') || '' }; // 화면 파일을 받은 뒤에 연다
         go('table');
         break;
       case 'trash-restore': trashRestore(id); break;
@@ -5383,24 +5442,35 @@
   }
 
   // 취합 시트(TableUi.html)를 붙인다: 화면 도구를 넘겨주면 표 화면과 그 화면의 누르기·키 처리를 스스로 붙인다
-  try {
-    if (typeof window.__gyTableUi === 'function') {
-      TB = window.__gyTableUi({
-        S: S, SCREENS: SCREENS, $modal: $modal,
-        esc: esc, qs: qs, qsa: qsa, josa: josa, toast: toast, icon: icon, server: server,
-        memoPut: memoPut, memoGet: memoGet, memoForget: memoForget, loadMemo: loadMemo,
-        pageHead: pageHead, loadingHtml: loadingHtml, failHtml: failHtml, isPhone: isPhone,
-        mdw: mdw, md: md, localToday: localToday, addD: addD, ymdUtc: ymdUtc,
-        openModal: openModal, closeModal: closeModal, confirmBox: confirmBox, busy: busy, needMe: needMe,
-        copyText: copyText, saveBlob: saveBlob, closeSheet: closeSheet
-      });
+  function tableUiAttach() {
+    try {
+      if (typeof window.__gyTableUi === 'function') {
+        TB = window.__gyTableUi({
+          S: S, SCREENS: SCREENS, $modal: $modal,
+          esc: esc, qs: qs, qsa: qsa, josa: josa, toast: toast, icon: icon, server: server,
+          memoPut: memoPut, memoGet: memoGet, memoForget: memoForget, loadMemo: loadMemo,
+          pageHead: pageHead, loadingHtml: loadingHtml, failHtml: failHtml, isPhone: isPhone,
+          mdw: mdw, md: md, localToday: localToday, addD: addD, ymdUtc: ymdUtc,
+          openModal: openModal, closeModal: closeModal, confirmBox: confirmBox, busy: busy, needMe: needMe,
+          copyText: copyText, saveBlob: saveBlob, closeSheet: closeSheet
+        });
+      }
+    } catch (e) {
+      TB = null;
+      if (window.console) console.error('취합 시트 화면을 붙이지 못했어요', e);
     }
-  } catch (e) {
-    TB = null;
-    SCREENS.table = tbMissing;
-    if (window.console) console.error('취합 시트 화면을 붙이지 못했어요', e);
+    if (!TB) { SCREENS.table = tbMissing; S.table = { tab: 'open', list: null, sel: '', d: null, edit: null, menu: null }; }
+    return TB;
   }
-  if (!TB) { SCREENS.table = tbMissing; S.table = { tab: 'open', list: null, sel: '', d: null, edit: null, menu: null }; }
+  if (window.__gyTableUiLazy && typeof window.__gyTableUi !== 'function') {
+    SCREENS.table = tableUiLazyScreen; // 그 화면을 처음 열 때 받는다
+    // 메뉴·홈 '채우기'·검색 결과에 손이 가면(마우스를 올리거나 칸으로 옮기면) 미리 받기 시작한다
+    var tableUiWarm = function (e) {
+      if (tableUiLazy() && e.target && e.target.closest && e.target.closest('[data-go="table"],[data-action="todo-table"],[data-action="sr-table"]')) tableUiLoad().catch(function () {});
+    };
+    document.addEventListener('pointerover', tableUiWarm, { passive: true });
+    document.addEventListener('focusin', tableUiWarm);
+  } else tableUiAttach();
 
   // 미리보기·자동 점검에서 쓰는 창구
   window.__gy = { S: S, go: go, renderApp: renderApp, server: server, init: init, memoClear: memoClear, toast: toast, tableUi: function () { return TB; } };

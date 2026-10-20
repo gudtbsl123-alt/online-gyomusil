@@ -4328,5 +4328,43 @@ test('바탕화면 바로가기: 웹앱 주소는 /exec 주소만 보내고(모�
   assert.strictEqual(call(g, 'shortcut.url', {}, { login: L }).data.url, '');
 });
 
+test('취합 시트 화면 파일(45): 기본은 열 때 받기(첫 화면에 넣지 않음), 설정 처음에 함께면 예전처럼 · ui.table·점검은 서버 파일의 판', () => {
+  const g = freshName();
+  const { L } = ids(g);
+  const { t } = adminTokens(g);
+  const src = fs.readFileSync(path.join(GAS_DIR, 'TableUi.html'), 'utf8');
+  let has = true;
+  g.HtmlService = { createHtmlOutputFromFile: (n) => { if (n !== 'TableUi' || !has) throw new Error('없는 파일'); return { getContent: () => src }; } };
+  assert.strictEqual(g.tableUiTag_(), '<script>window.__gyTableUiLazy = true;</script>', '기본은 열 때 받기');
+  const r = call(g, 'ui.table', {}, { login: L });
+  assert.ok(r.ok, r.error);
+  assert.strictEqual(r.data.html, src);
+  assert.strictEqual(call(g, 'ui.table', {}, {}).code, 'LOGIN');
+  // 점검: 화면이 아직 받지 않았으면('lazy') 서버 파일의 판으로
+  const b = g.fileBuilds_();
+  const client = { app: b.App, styles: b.Styles, index: b.Index, table: 'lazy' };
+  const by = (x, label) => x.items.find((y) => y.label === label);
+  assert.strictEqual(by(call(g, 'admin.check', { client }, t).data, 'TableUi.html').state, 'ok');
+  has = false;
+  assert.deepStrictEqual(plain(call(g, 'ui.table', {}, { login: L }).data), { missing: true }, '파일이 없으면 화면이 그 화면만 안내');
+  assert.strictEqual(by(call(g, 'admin.check', { client }, t).data, 'TableUi.html').state, 'bad');
+  const old = src.replace(/window\.__gyTableUiBuild = '[^']+';/, '');
+  g.HtmlService = { createHtmlOutputFromFile: () => ({ getContent: () => old }) };
+  assert.strictEqual(by(call(g, 'admin.check', { client }, t).data, 'TableUi.html').state, 'warn', '판 표시가 없는 예전 파일');
+  // 설정: 처음에 함께 ↔ 열 때 받기(스크립트 속성 TABLE_UI_INLINE, 웹앱을 열 때 시트를 열지 않고 읽는다)
+  const get = () => call(g, 'admin.settings.get', {}, t).data.find((x) => x.key === '취합 시트 화면 파일');
+  assert.strictEqual(get().value, '열 때 받기');
+  assert.ok(call(g, 'admin.settings.save', { values: { '취합 시트 화면 파일': '처음에 함께' } }, t).ok);
+  assert.strictEqual(g.PropertiesService.getScriptProperties().getProperty('TABLE_UI_INLINE'), '1');
+  assert.strictEqual(get().value, '처음에 함께');
+  g.HtmlService = { createHtmlOutputFromFile: () => ({ getContent: () => src }) };
+  assert.strictEqual(g.tableUiTag_(), src, '처음에 함께면 파일 내용 그대로');
+  assert.ok(g.readRows_('기록').some((x) => x['대상ID'] === '취합 시트 화면 파일'), '바꾼 것은 기록에');
+  assert.ok(call(g, 'admin.settings.save', { values: { '취합 시트 화면 파일': '열 때 받기' } }, t).ok);
+  assert.strictEqual(g.tableUiTag_(), '<script>window.__gyTableUiLazy = true;</script>');
+  assert.strictEqual(call(g, 'admin.settings.save', { values: { '취합 시트 화면 파일': '아무거나' } }, t).ok, false);
+  assert.ok(fs.readFileSync(path.join(GAS_DIR, 'Index.html'), 'utf8').includes("<?!= typeof tableUiTag_ === 'function' ? tableUiTag_() : include('TableUi'); ?>"), 'Index는 Code.gs가 예전 것이어도 예전처럼 연다');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + passed + '/' + results.length + ' 통과');

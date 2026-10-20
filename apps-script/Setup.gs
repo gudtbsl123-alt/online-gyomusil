@@ -4,7 +4,7 @@
  * 메뉴 함수는 시트 안에서만 돌아간다(웹앱에서 부르면 requireSheetUi_()가 막는다).
  */
 
-function fileMark_Setup_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
+function fileMark_Setup_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
 
 /**
  * 시트를 손으로 고치면 고친 탭의 서버 기억을 버리게 한다(다음 요청은 그 탭만 시트에서 새로 읽는다).

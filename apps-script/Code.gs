@@ -34,9 +34,37 @@ function include(name) {
   }
 }
 
+/**
+ * 취합 시트 화면 파일(TableUi.html)을 언제 받을지(판 2026-10-19a, 교사 결정 45). 기본은 그 화면을 처음 열 때 받는다(첫 화면이 가벼워짐, ui.table).
+ * 실제 웹앱에서 취합 시트가 열리지 않으면 관리자 › 설정 '취합 시트 화면 파일'을 '처음에 함께'로 바꿔 예전처럼 쓴다(스크립트 속성 TABLE_UI_INLINE='1').
+ * Index.html이 부른다(시트를 열지 않고 속성 한 칸만 읽는다): 처음에 함께면 파일 내용, 아니면 '나중에 받기' 표시만
+ */
+function tableUiTag_() {
+  var inline = false;
+  try { inline = props_().getProperty('TABLE_UI_INLINE') === '1'; } catch (e) { inline = false; }
+  return inline ? include('TableUi') : '<script>window.__gyTableUiLazy = true;</script>';
+}
+/** 화면이 취합 시트를 처음 열 때 받는다: { html } (파일이 없으면 { missing: true }, 화면은 그 화면만 안내) */
+function apiUiTable_() {
+  try {
+    return { html: HtmlService.createHtmlOutputFromFile('TableUi').getContent() };
+  } catch (e) {
+    return { missing: true };
+  }
+}
+/** 서버에 있는 TableUi.html의 판(관리자 › 점검: 나중에 받는 화면이라 화면이 아직 모를 때). 파일이 없으면 null, 판 표시가 없으면 '' */
+function tableUiFileBuild_() {
+  try {
+    var m = /window\.__gyTableUiBuild = '([^']+)'/.exec(HtmlService.createHtmlOutputFromFile('TableUi').getContent());
+    return m ? m[1] : '';
+  } catch (e) {
+    return null;
+  }
+}
+
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-18b';
-function fileMark_Code_() { return '2026-10-18b'; }
+var APP_BUILD_ = '2026-10-19a';
+function fileMark_Code_() { return '2026-10-19a'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -44,9 +72,9 @@ function fileMark_Code_() { return '2026-10-18b'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-18b', 'Db': '2026-10-18b', 'Auth': '2026-10-16e', 'Admin': '2026-10-18b', 'Schedule': '2026-10-16e',
-    'Survey': '2026-10-16e', 'Library': '2026-10-16e', 'Help': '2026-10-16', 'Setup': '2026-10-16e', 'Table': '2026-10-18b',
-    'App': '2026-10-18b', 'Styles': '2026-10-18a', 'Index': '2026-10-18a', 'TableUi': '2026-10-18b'
+    'Code': '2026-10-19a', 'Db': '2026-10-19a', 'Auth': '2026-10-19a', 'Admin': '2026-10-19a', 'Schedule': '2026-10-19a',
+    'Survey': '2026-10-19a', 'Library': '2026-10-19a', 'Help': '2026-10-19a', 'Setup': '2026-10-19a', 'Table': '2026-10-19a',
+    'App': '2026-10-19a', 'Styles': '2026-10-19a', 'Index': '2026-10-19a', 'TableUi': '2026-10-19a'
   };
 }
 
@@ -104,6 +132,7 @@ function routes_() {
     'staff.list': { need: 'login', fn: function () { return apiStaffDir_(); } },
     'search': { need: 'login', fn: 'apiSearch_' },
     'shortcut.url': { need: 'login', fn: 'apiShortcutUrl_' }, // 바탕화면 바로가기 파일에 넣을 웹앱 주소(운영 안내서)
+    'ui.table': { need: 'login', fn: 'apiUiTable_' }, // 취합 시트 화면 파일(그 화면을 처음 열 때 받는다)
     'notice.list': { need: 'login', fn: 'apiNoticeList_' },
     'notice.save': { need: 'identity', fn: 'apiNoticeSave_' },
     'notice.delete': { need: 'identity', fn: 'apiNoticeDelete_' },

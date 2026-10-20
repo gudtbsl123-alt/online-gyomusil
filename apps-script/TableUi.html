@@ -396,9 +396,11 @@ body.tb-resizing.rows,body.tb-resizing.rows *{cursor:row-resize!important}
  * - 열 이름 칸의 오른쪽 경계를 끌면 열 너비, 줄 번호 칸의 아래 경계를 끌면 줄 높이(두 번 누르면 글에 맞춤). 모든 분 화면에 함께
  * - 정렬·걸러 보기는 이 화면에서만(저장하지 않음). 걸러 보거나 정렬하면 위아래로 합친 칸은 풀어서 줄마다 흐리게 보인다
  * - 휴대폰은 위쪽 둥근 단추로 시트를 고르고 줄 목록 → 줄을 누르면 줄 고치기 창(서식은 PC·태블릿에서)
+ * - 판 2026-10-19a: 숫자 열(표 위 합계·평균), 할 일 열(홈 '내가 할 일'·안 채운 분 문구 복사), 목록 찾기·부서, 휴대폰 줄 찾기·내 이름이 있는 줄
+ * - 웹앱은 이 파일을 취합 시트를 처음 열 때 받아 붙인다(App.html tableUiLoad, 서버 ui.table). 설정 '처음에 함께'면 예전처럼 처음부터 들어 있다
  * - 화면 코드에 U+2028·U+2029를 그대로 쓰지 않는다(\u2028처럼 적는다)
  */
-window.__gyTableUiBuild = '2026-10-18b';
+window.__gyTableUiBuild = '2026-10-19a';
 window.__gyTableUi = function (core) {
   'use strict';
   var S = core.S, SCREENS = core.SCREENS, $modal = core.$modal;

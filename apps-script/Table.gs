@@ -30,7 +30,7 @@
  *   (줄의 행 번호는 잠금 밖에서 서버 기억으로 먼저 찾아 두고, 잠금 안에서 그 줄이 맞는지 다시 본다)
  */
 
-function fileMark_Table_() { return '2026-10-18b'; } // 판 표시(관리자 › 점검)
+function fileMark_Table_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
 
 var TB_MAX_ROWS_ = 500;       // 한 시트의 줄
 var TB_MAX_COLS_ = 30;        // 한 시트의 열

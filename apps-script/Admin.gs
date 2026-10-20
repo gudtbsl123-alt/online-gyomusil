@@ -2,7 +2,7 @@
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-18b'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -22,6 +22,9 @@ function settingDefs_() {
     { key: '백업 남길 개수', def: '30', type: 'int', min: 3, max: 365, label: '매일 백업을 몇 개까지 남길까요', unit: '개' },
     { key: '기존 시트 바로가기', def: '[]', type: 'links', label: "홈의 '아직 기존 시트에서 하는 일' 바로가기", note: '홈 화면 아래에 보여요' },
     { key: '파일 크기 한도', def: '10', type: 'int', min: 1, max: 20, label: '자료실에 올릴 수 있는 파일 크기', unit: 'MB', note: '확인 필요: 학교 PC·휴대폰에서 실제로 올려 보기 전까지는 20MB까지만 골라요. 더 큰 파일은 드라이브 링크로 넣어요' }, // 최대는 Library.gs fileLimitMb_와 같게
+    // 값은 스크립트 속성 TABLE_UI_INLINE에 둔다(웹앱을 열 때 시트를 열지 않고 읽으려고, Code.gs tableUiTag_). 설정 탭에는 기록용으로 함께 적는다
+    { key: '취합 시트 화면 파일', def: '열 때 받기', type: 'choice', options: ['열 때 받기', '처음에 함께'], label: '취합 시트 화면 파일',
+      note: "'열 때 받기'는 웹앱 첫 화면이 가벼워지고 취합 시트를 처음 열 때 화면 파일을 받아요. 취합 시트가 열리지 않으면 '처음에 함께'로 바꿔 예전처럼 써요(확인 필요). 바꾼 뒤에는 웹앱을 새로 고쳐 주세요" },
     { key: '백업 폴더ID', def: '', type: 'readonly', label: '백업 폴더(자동)' },
     { key: '자료 폴더ID', def: '', type: 'readonly', label: '자료실 파일 폴더(자동, 공유하지 않음)' }
   ];
@@ -73,7 +76,8 @@ function putSetting_(key, value, actor) {
 function adminSettingsGet_() {
   var m = settingsMap_();
   var list = settingDefs_().map(function (d) {
-    return { key: d.key, label: d.label, type: d.type, note: d.note || '', unit: d.unit || '', min: d.min, max: d.max, options: d.options, value: m[d.key] };
+    var v = d.key === '취합 시트 화면 파일' ? (tableUiInline_() ? '처음에 함께' : '열 때 받기') : m[d.key]; // 스크립트 속성이 진짜 값
+    return { key: d.key, label: d.label, type: d.type, note: d.note || '', unit: d.unit || '', min: d.min, max: d.max, options: d.options, value: v };
   });
   // 학기 기간: 학년도마다 따로('학기' 탭, 2026-10-19 교사 결정). 지금 학년도와 다음 학년도를 함께 보여 준다
   var sy = Number(m['학년도']) || schoolYearOf_(todayYmd_());
@@ -114,7 +118,15 @@ function adminSettingsSave_(args, actor) {
   if (e1 && s2 && e1 >= s2) throw userError_('1학기 끝일은 2학기 시작일보다 앞이어야 해요(겹치면 수업일수를 두 번 세요).');
   if (args.semesters) saveSemesters_(args.semesters, actor); // 학년도마다 학기 기간(먼저 확인하고 저장한다)
   Object.keys(clean).forEach(function (k) { putSetting_(k, clean[k], actor); });
+  if ('취합 시트 화면 파일' in clean && (clean['취합 시트 화면 파일'] === '처음에 함께') !== tableUiInline_()) {
+    props_().setProperty('TABLE_UI_INLINE', clean['취합 시트 화면 파일'] === '처음에 함께' ? '1' : '');
+  }
   return adminSettingsGet_();
+}
+
+/** 취합 시트 화면 파일을 처음에 함께 넣는지(스크립트 속성 TABLE_UI_INLINE, Code.gs tableUiTag_) */
+function tableUiInline_() {
+  try { return props_().getProperty('TABLE_UI_INLINE') === '1'; } catch (e) { return false; }
 }
 
 function isDate_(v) {
@@ -345,7 +357,8 @@ function adminChangeAdminPw_(args, actor) {
 // ---------------------------------------------------------------- 점검 (관리자): 파일·시트·비밀번호·백업·설정을 한 번에
 
 /**
- * args.client = { app, styles, index, table } : 화면 파일의 판 표시(화면이 보낸다. table: 취합 시트 화면 TableUi.html)
+ * args.client = { app, styles, index, table } : 화면 파일의 판 표시(화면이 보낸다. table: 취합 시트 화면 TableUi.html,
+ *   'lazy'면 화면 파일을 아직 받지 않은 것(열 때 받기, 2026-10-19a) → 서버에 있는 파일의 판으로 본다)
  * 돌려주는 값: { build, at, items: [{ group, label, state: 'ok'|'warn'|'bad', detail, fix }] }
  */
 function adminCheck_(args) {
@@ -369,9 +382,15 @@ function adminCheck_(args) {
     else add('코드 파일', f + '.gs', 'ok', '최신 판 ' + mark());
   });
   var c = (args && args.client) || {};
-  [['App.html', c.app], ['Styles.html', c.styles], ['Index.html', c.index], ['TableUi.html', c.table]].forEach(function (x) {
+  var tableBuild = c.table, tableOld = false;
+  if (tableBuild === 'lazy') { // 서버의 파일을 직접 본다: 없으면 null, 판 표시가 없는 예전 파일이면 ''
+    var fb = globalFn_('tableUiFileBuild_'), b0 = fb ? fb() : null;
+    tableBuild = b0 || '';
+    tableOld = b0 === '';
+  }
+  [['App.html', c.app], ['Styles.html', c.styles], ['Index.html', c.index], ['TableUi.html', tableBuild]].forEach(function (x) {
     var f = x[0].replace('.html', '');
-    if (!x[1] && f === 'TableUi') add('코드 파일', x[0], 'bad', '파일이 없어요(취합 시트 화면)', "Apps Script 편집기에서 + → HTML로 'TableUi' 파일을 새로 만들고, 설치안내 표의 'TableUi' 파일을 Copy raw file로 붙여 넣어 주세요");
+    if (!x[1] && f === 'TableUi' && !tableOld) add('코드 파일', x[0], 'bad', '파일이 없어요(취합 시트 화면)', "Apps Script 편집기에서 + → HTML로 'TableUi' 파일을 새로 만들고, 설치안내 표의 'TableUi' 파일을 Copy raw file로 붙여 넣어 주세요");
     else if (!x[1]) add('코드 파일', x[0], 'warn', '판 표시를 찾지 못했어요(예전 파일일 수 있어요)', paste(f));
     else if (x[1] !== want(f)) add('코드 파일', x[0], 'warn', '예전 판이에요(' + x[1] + ')', paste(f));
     else add('코드 파일', x[0], 'ok', '최신 판 ' + x[1]);
