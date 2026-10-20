@@ -68,6 +68,16 @@ async function shot(page, name, full) {
   await page.screenshot({ path: path.join(OUT, String(n).padStart(2, '0') + '_' + name + '.png'), fullPage: !!full });
 }
 async function waitText(page, t) { await page.getByText(t, { exact: false }).first().waitFor({ timeout: 10000 }); }
+/**
+ * 창(openModal)은 열리고 0.03초 뒤 첫 칸으로 포커스를 옮긴다. 그 전에 다른 칸을 채우면 글이 첫 칸으로 들어갈 수 있어서
+ * (무거운 전체 점검에서 표 설명이 표 이름 앞에 붙은 적이 있음, 2026-10-20) 포커스가 창 안으로 옮겨진 뒤에 채운다. 창이 없으면 바로
+ */
+function modalSettled(page) {
+  return page.waitForFunction(() => {
+    const m = document.querySelector('.modal');
+    return !m || !!(document.activeElement && m.contains(document.activeElement));
+  }, null, { timeout: 3000 }).catch(() => {});
+}
 
 /** 분류 이름 칸: 6글자가 잘리지 않고, 단추가 카드 밖으로 나가지 않는지 */
 async function checkCatFields(page, label) {
@@ -110,6 +120,7 @@ async function scheduleFlow(page, kind) {
     await page.click('.bar [data-action=ev-add]');
   }
   await page.locator('#ev-form').waitFor();
+  await modalSettled(page);
   await page.fill('#ef-title', '전교 다모임');
   await page.fill('#ef-time', '5교시');
   await page.click('[data-tg="3"]');
@@ -225,6 +236,7 @@ async function libraryFlow(page, kind) {
   // 파일 올리기
   await page.click('[data-action=lib-new]');
   await page.locator('#lib-form').waitFor();
+  await modalSettled(page);
   await page.fill('#lf-title', '학급 운영 계획 양식');
   await page.fill('#lf-desc', '새 학년 학급 운영 계획을 적는 양식이에요.');
   await page.check('#lf-common');
@@ -260,6 +272,7 @@ async function libraryFlow(page, kind) {
   await shot(page, kind + '_도움말', true);
   await page.click('[data-action=help-new]');
   await page.locator('#help-form').waitFor();
+  await modalSettled(page);
   await page.fill('#hf-title', '연가 사용 안내(예시)');
   await page.fill('#hf-body', '학교에서 정한 내용을 여기에 적어요.');
   await shot(page, kind + '_도움말_쓰기');
@@ -308,6 +321,7 @@ async function uploadFlow(page, kind) {
     await page.locator('.up-table [data-action=up-edit]').first().click();
     await page.locator('#ue-form').waitFor();
     await shot(page, kind + '_학사일정_줄고치기');
+    await modalSettled(page);
     await page.fill('#ue-start', '2026-10-30');
     await page.click('#ue-form [type=submit]');
     await page.waitForTimeout(500);
@@ -351,6 +365,7 @@ async function noticeFlow(page, kind) {
   if ((await page.locator('.notice-card .sr-row').count()) !== 2) problems.push(kind + ': 홈 공지가 2개가 아님(지난 공지는 빠져야 함)');
   await page.click('.notice-card [data-action=notice-new]');
   await page.locator('#notice-form').waitFor();
+  await modalSettled(page);
   await page.fill('#nf-title', '다음 주 교직원 협의회 장소 변경');
   await page.fill('#nf-body', '회의실 대신 도서실에서 해요.');
   await shot(page, kind + '_공지_쓰기');
@@ -517,6 +532,7 @@ async function reviewFlow(page, kind) {
   const today = await page.evaluate(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); });
   await page.click('.bar [data-action=ev-add]');
   await page.locator('#ev-form').waitFor();
+  await modalSettled(page);
   await page.fill('#ef-start', today);
   await page.fill('#ef-title', '부서 행사 점검');
   await page.selectOption('#ef-dept', { label: '정보부' });
@@ -537,6 +553,7 @@ async function reviewFlow(page, kind) {
   await page.locator('[data-action=ev-open]', { hasText: '부서 행사 점검' }).first().click();
   await page.click('[data-action=ev-edit]');
   await page.locator('#ev-form').waitFor();
+  await modalSettled(page);
   await page.fill('#ef-title', '고친 행사 점검');
   await page.click('#ev-form [type=submit]');
   await waitText(page, '고친 행사 점검을 고쳤어요');
@@ -556,6 +573,7 @@ async function reviewFlow(page, kind) {
   await page.locator('.sv-card').first().waitFor();
   await page.click('[data-action=sv-new]');
   await page.locator('#svf').waitFor();
+  await modalSettled(page);
   await page.fill('#svf-title', 'Esc 점검');
   await page.keyboard.press('Escape');
   await page.waitForTimeout(200);
@@ -1499,6 +1517,7 @@ async function tableCheck(browser) {
   await shot(page, '표_만든분_표고치기_메뉴');
   await page.locator('.tb-menu button', { hasText: '표 이름·마감 고치기' }).click();
   await page.locator('#tbe-title').waitFor();
+  await modalSettled(page);
   await page.fill('#tbe-desc', '실마다 버리기 어려운 가구를 적어 주세요(예시). 10월 24일까지예요.');
   await shot(page, '표_이름마감_고치기');
   await page.click('#tbe-save');
@@ -1568,6 +1587,7 @@ async function tableCheck(browser) {
   await toList(page);
   await page.locator('[data-action=tb-new]').click();
   await page.locator('#tbm-paste').waitFor();
+  await modalSettled(page);
   await page.fill('#tbm-title', '2학기 상담 주간 신청(예시)');
   const sheetHtml = '<meta charset="utf-8"><google-sheets-html-origin><style type="text/css"><!--td {border: 1px solid #cccccc;}br {mso-data-placement:same-cell;}--></style>' +
     '<table xmlns="http://www.w3.org/1999/xhtml" cellspacing="0" cellpadding="0" dir="ltr" border="1" style="table-layout:fixed;font-size:10pt;font-family:Arial;width:0px;border-collapse:collapse;border:none" data-sheets-root="1">' +
@@ -2680,6 +2700,7 @@ async function svFixCheck(browser) {
   await page.locator('.notice-item').first().waitFor();
   await page.locator('.main [data-action=notice-new]').first().click();
   await page.locator('#notice-form').waitFor();
+  await modalSettled(page);
   await page.fill('#nf-title', '보완 지난 날 공지');
   await page.fill('#nf-until', plus(today, -2));
   await page.click('#notice-form [type=submit]');
