@@ -2031,7 +2031,7 @@ async function table2Check(browser) {
 }
 
 /**
- * 취합 시트(예전 이름 함께 쓰는 표)·시트 양식(판 2026-10-18b): 메뉴·제목 이름, 새 표 만들기 › 양식에서 고르기(기본 양식 5개, 교직원 소속으로 채운 학년·반),
+ * 취합 시트(예전 이름 함께 쓰는 표)·시트 양식(판 2026-10-18b): 메뉴·제목 이름, 새 표 만들기 › 양식에서 고르기(기본 양식 10개(2026-10-19a), 교직원 소속으로 채운 학년·반),
  * 시트 메뉴 › 양식으로 저장(잠근 열 글만), 시트 더하기 › 우리 학교 양식(이름 고치기·고르기·지우기), 관리자 › 휴지통 되살리기,
  * 다른 분의 시트 메뉴('양식으로 저장'만), 휴대폰에서 양식으로 새 표
  */
@@ -2059,7 +2059,7 @@ async function tplCheck(browser) {
   await page.click('#tbm-how [data-how="tpl"]');
   await page.locator('#tbm-tplbox .tb-tplb').first().waitFor();
   const names = await tplNames(page);
-  if (names.join('|') !== '학년·반별 제출 확인|실별 점검|교시×요일 시간표|날짜·시간 신청|업무 협의 안건') P('기본 양식이 ' + names.join('|'));
+  if (names.join('|') !== '학년·반별 제출 확인|실별 점검|교시×요일 시간표|날짜·시간 신청|업무 협의 안건|방학 근무 신청|연수 이수 확인|대피 훈련 인원 확인|학급별 안전교육 시수|위험 요소 신고·조치') P('기본 양식이 ' + names.join('|'));
   if (!(await page.locator('#tbm-tplbox', { hasText: '아직 저장한 양식이 없어요' }).count())) P('우리 학교 양식이 없다는 안내가 없음');
   if (await page.locator('#tbm-tplbox [data-tplm]').count()) P('기본 양식에 고치기 메뉴가 보임');
   await shot(page, '양식_고르기_PC');
@@ -2133,7 +2133,7 @@ async function tplCheck(browser) {
   await page.click('#tbm-how [data-how="tpl"]');
   await page.locator('#tbm-tplbox [data-tplm]').first().waitFor({ timeout: 6000 }).catch(() => P('우리 학교 양식이 보이지 않음'));
   const mine = await page.locator('#tbm-tplbox .tb-tpl:has([data-tplm]) .tb-tplb').innerText().catch(() => '');
-  if (!/방과후 제출 확인/.test(mine) || !/학년 · 반 · 담임 · 제출 · 비고/.test(mine) || !/8줄 · 홍길동 선생님/.test(mine)) P('우리 학교 양식 카드가 ' + JSON.stringify(mine));
+  if (!/방과후 제출 확인/.test(mine) || !/학년 · 반 · 담임 · 제출 · 비고/.test(mine) || !/8줄 · 할 일 열 · 홍길동 선생님/.test(mine)) P('우리 학교 양식 카드가 ' + JSON.stringify(mine)); // 학년·반별 제출 확인의 담임 열이 할 일 열(2026-10-19a)
   await shot(page, '양식_시트더하기_우리학교');
   await page.click('#tbm-tplbox [data-tplm]');
   await page.locator('.tb-menu button', { hasText: '이름·설명 고치기' }).click();
@@ -2208,7 +2208,7 @@ async function tplCheck(browser) {
   const saved2 = await page.locator('#tbm-tplbox .tb-tpl:has([data-tplm]) b').allInnerTexts();
   if (saved2.join('|') !== '폐기 물품') P('심청이 고칠 수 있는 양식이 ' + saved2.join('|'));
   const all2 = await tplNames(page);
-  if (all2.slice(5).join('|') !== '폐기 물품') P('우리 학교 양식이 ' + all2.slice(5).join('|')); // 미리보기는 창마다 가짜 서버가 따로라 이 창에서 저장한 것만
+  if (all2.slice(10).join('|') !== '폐기 물품') P('우리 학교 양식이 ' + all2.slice(10).join('|')); // 기본 양식 10개 다음. 미리보기는 창마다 가짜 서버가 따로라 이 창에서 저장한 것만
   const other = (await as(page, '장화', 'table.tpl.list', {})).data;
   if (!other || other.saved.map((x) => x.name + ':' + x.by + ':' + x.canEdit).join('|') !== '폐기 물품:심청:false') P('다른 분(장화)에게 보이는 양식이 ' + JSON.stringify(other && other.saved));
   await page.click('#tbm-tplbox .tb-tplb:has-text("폐기 물품")');
@@ -2982,6 +2982,180 @@ async function b5SchedCheck(browser) {
   await ctx.close();
 }
 
+/**
+ * 묶음 5-3(판 2026-10-19a): 취합 시트 목록 찾기·부서 고르기, 기본 양식(대피 훈련 인원 확인: 숫자 열·할 일 열), 숫자 열 합계·평균(걸러 보면 보이는 줄만),
+ * 할 일 열(표 위 남은 줄·안 채운 분 문구 복사, 홈 '내가 할 일'·채우기, 직접 본 시트가 더 새로우면 홈도 바로), 홈 검색의 취합 시트, 휴대폰 줄 찾기·내 이름이 있는 줄
+ */
+async function b5TableCheck(browser) {
+  const { open, toastHas, saved, cell, as, toList } = tbKit(browser);
+  const P = (m) => problems.push('보완5 표: ' + m);
+  // 1) 목록: 찾기 칸·부서 고르기(흥부, 인성안전부)
+  let { ctx, page } = await open({ width: 1440, height: 900 }, '흥부');
+  await toList(page);
+  await page.locator('.tb-card').first().waitFor();
+  await page.fill('#tb-lq', '특별실');
+  await page.waitForTimeout(150);
+  if ((await page.locator('.tb-card').count()) !== 2) P('목록 찾기 "특별실"(표 이름·시트 이름)이 ' + (await page.locator('.tb-card').count()) + '개');
+  await page.fill('#tb-lq', '과학실');
+  await page.waitForTimeout(150);
+  if ((await page.locator('.tb-card').count()) !== 1) P('목록 찾기 "과학실"이 ' + (await page.locator('.tb-card').count()) + '개');
+  await shot(page, '보완5_표목록_찾기');
+  await page.fill('#tb-lq', '');
+  const depts = await page.locator('#tb-ldept option').allInnerTexts();
+  if (depts.join(',') !== '모든 부서,연구부,인성안전부') P('부서 고르기가 ' + depts.join(','));
+  await page.selectOption('#tb-ldept', { label: '인성안전부' });
+  await page.waitForTimeout(150);
+  if ((await page.locator('.tb-card').count()) !== 2) P('부서 인성안전부가 ' + (await page.locator('.tb-card').count()) + '개');
+  await page.selectOption('#tb-ldept', '');
+  // 2) 새 표 › 양식에서 고르기 › 대피 훈련 인원 확인: 숫자 열 2개, 담임 열이 할 일 열
+  await page.click('[data-action=tb-new]');
+  await page.click('#tbm-how [data-how="tpl"]');
+  await page.locator('#tbm-tplbox [data-tpl="B8"]').waitFor();
+  const card8 = (await page.locator('#tbm-tplbox [data-tplw="B8"]').innerText()).replace(/\s+/g, ' ');
+  if (!/교직원 소속으로 8줄/.test(card8) || !/할 일 열/.test(card8)) P('대피 훈련 양식 카드가 ' + card8);
+  await page.click('#tbm-tplbox [data-tpl="B8"]');
+  await page.locator('#tbm-prev .tb-prevt').waitFor({ timeout: 6000 }).catch(() => P('양식 미리보기가 보이지 않음'));
+  const pv = await page.evaluate(() => ({
+    types: [...document.querySelectorAll('#tbm-prev thead [data-mk=type]')].map((x) => x.textContent).join(','),
+    todo: [...document.querySelectorAll('#tbm-prev thead [data-mk=todo].on')].map((x) => x.closest('th').querySelector('.tb-cn').value).join(','),
+    note: (document.querySelector('#tbm-auto') || {}).textContent || ''
+  }));
+  if (pv.types !== '글,글,글,숫자,숫자,글') P('열 종류가 ' + pv.types);
+  if (pv.todo !== '담임') P('할 일 열이 ' + pv.todo);
+  if (!/'담임' 열이 할 일 열이에요/.test(pv.note)) P('할 일 열 안내가 ' + pv.note);
+  await shot(page, '보완5_양식_대피훈련_미리보기');
+  await page.fill('#tbm-title', '대피 훈련 인원 확인(예시)');
+  await page.click('#tbm-go');
+  await page.locator(cell(0, 0)).waitFor({ timeout: 6000 }).catch(() => P('양식으로 만든 표가 열리지 않음'));
+  await page.waitForTimeout(300);
+  // 3) 숫자 열: 오른쪽 맞춤, 합계·평균, 숫자가 아닌 칸은 따로
+  const typeIn = async (i, j, v) => { await page.click(cell(i, j)); await page.keyboard.type(v); await page.keyboard.press('Enter'); await saved(page, v); };
+  await typeIn(0, 3, '25');
+  await typeIn(1, 3, '24');
+  await typeIn(0, 4, '25');
+  await typeIn(1, 4, '23');
+  await typeIn(4, 4, '스물'); // 4학년 1반(숫자가 아닌 값도 지우지 않고 따로 센다)
+  const bar = async () => (await page.locator('#tb-bar').innerText()).replace(/\s+/g, ' ');
+  let b = await bar();
+  if (!/재적 합계 49 · 평균 24\.5/.test(b) || !/대피 인원 합계 48 · 평균 24 · 숫자 아닌 칸 1/.test(b)) P('합계·평균이 ' + b);
+  if (!/할 일 남은 줄 5 · 5명/.test(b) || !(await page.locator('[data-action=tb-todo-copy]').count())) P('할 일 표시가 ' + b); // 1·2학년은 다 채움, 6학년 1반은 담임 이름이 없음
+  const align = await page.evaluate((s) => getComputedStyle(document.querySelector(s)).textAlign, cell(0, 3));
+  if (align !== 'right') P('숫자 칸이 오른쪽 맞춤이 아님(' + align + ')');
+  if (!(await page.locator('#tb-wrap th.tb-h .td').count())) P('열 이름에 할 일 열 표시가 없음');
+  await shot(page, '보완5_숫자열_합계_할일');
+  // 2학년만 걸러 보면 합계는 보이는 줄만(열 이름 ▾ › 모두 지우기 › 2학년 › 보기)
+  await page.click('#tb-wrap [data-action=tb-head][data-j="0"]');
+  await page.locator('.tb-menu .tb-fl').waitFor();
+  await page.click('.tb-menu [data-all="0"]');
+  await page.locator('.tb-menu .tb-fl label', { hasText: '2학년' }).locator('input').check();
+  await page.click('.tb-menu [data-apply="1"]');
+  await page.waitForTimeout(250);
+  b = await bar();
+  if (!/재적 합계 24 · 평균 24 대피 인원 합계 23 · 평균 23 합계·평균은 보이는 줄만/.test(b)) P('걸러 본 합계가 ' + b);
+  await shot(page, '보완5_숫자열_걸러본합계');
+  await page.click('[data-action=tb-local-clear]').catch(() => P('모두 풀기 단추가 없음'));
+  await page.waitForTimeout(200);
+  // 안 채운 분 문구 복사
+  await page.evaluate(() => { window.__copied = null; Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: (t) => { window.__copied = t; return Promise.resolve(); } }); });
+  await page.click('[data-action=tb-todo-copy]');
+  await toastHas(page, /문구를 복사했어요/);
+  const msg = await page.evaluate(() => window.__copied || '');
+  if (!/^\[취합 시트\] 대피 훈련 인원 확인\(예시\)\n아직 안 채운 분: 홍길동 선생님, 성춘향 선생님, 이몽룡 선생님, 심청 선생님, 흥부 선생님 \(5명\)\n/.test(msg)) P('안 채운 분 문구가 ' + JSON.stringify(msg));
+  // 열 고치기: 숫자 종류·할 일 열
+  await page.click('[data-action=tb-menu]');
+  await page.locator('.tb-menu button', { hasText: '열 고치기' }).click();
+  await page.locator('#tbc-list').waitFor();
+  const ed = await page.evaluate(() => ({
+    types: [...document.querySelectorAll('#tbc-list .tb-ct')].map((x) => x.value).join(','),
+    todo: [...document.querySelectorAll('#tbc-list .tb-ctd')].map((x) => (x.checked ? 'v' : '') + (x.disabled ? 'x' : '-')).join('')
+  }));
+  if (ed.types !== 'text,text,text,num,num,text' || ed.todo !== '--v-xx-') P('열 고치기 창이 ' + JSON.stringify(ed));
+  await shot(page, '보완5_열고치기_숫자_할일');
+  await page.click('#tbc-list .tb-colrow[data-k="0"] .tb-ctd'); // 다른 열을 켜면 담임은 꺼진다(하나만)
+  const one = await page.evaluate(() => [...document.querySelectorAll('#tbc-list .tb-ctd')].filter((x) => x.checked).length);
+  if (one !== 1) P('할 일 열이 ' + one + '개 켜짐');
+  await page.click('.modal [data-action=close-modal]');
+
+  // 4) 홈: 홍길동(3학년 1반 담임)의 '내가 할 일'에 취합 시트 → 채우기로 그 표 열기 → 채우면 홈에서도 바로 빠짐(직접 본 시트)
+  //    미리보기의 자료는 창(브라우저 탭)마다 따로라 같은 창에서 선생님을 바꾼다
+  await page.click('.side [data-action=switch]');
+  await verify(page, '홍길동');
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.todo-card').waitFor();
+  const todo = (await page.locator('.todo-card').innerText()).replace(/\s+/g, ' ');
+  if (!/취합 시트/.test(todo) || !/대피 훈련 인원 확인\(예시\)/.test(todo) || !/내 이름이 있는 줄 1개가 남았어요/.test(todo)) P('홈 내가 할 일이 ' + todo.slice(0, 200));
+  await page.locator('.todo-card [data-action=todo-table]').scrollIntoViewIfNeeded();
+  await shot(page, '보완5_홈_내가할일_취합시트');
+  await page.click('.todo-card [data-action=todo-table]');
+  await page.locator(cell(0, 0)).waitFor({ timeout: 6000 }).catch(() => P('채우기를 눌러도 표가 열리지 않음'));
+  if ((await page.evaluate(() => (window.__gy.S.table.d || { table: {} }).table.title)) !== '대피 훈련 인원 확인(예시)') P('다른 표가 열림');
+  await page.click(cell(2, 3));
+  await page.keyboard.type('21');
+  await page.keyboard.press('Enter');
+  await saved(page, '21');
+  await page.click(cell(2, 4));
+  await page.keyboard.type('20');
+  await page.keyboard.press('Enter');
+  await saved(page, '20');
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.todo-card').waitFor();
+  if (/대피 훈련 인원 확인/.test(await page.locator('.todo-card').innerText())) P('채웠는데 홈에 그대로(직접 본 시트를 믿지 않음)');
+  // 5) 홈 검색: 취합 시트
+  await page.fill('#home-q', '대피 훈련');
+  await page.press('#home-q', 'Enter');
+  await page.locator('.search-res').waitFor();
+  const sr = (await page.locator('.search-res').innerText()).replace(/\s+/g, ' ');
+  if (!/취합 시트/.test(sr) || !/대피 훈련 인원 확인\(예시\)/.test(sr)) P('홈 검색에 취합 시트가 없음 ' + sr.slice(0, 200));
+  await shot(page, '보완5_홈검색_취합시트');
+  await page.click('.search-res [data-action=sr-table]');
+  await page.locator(cell(0, 0)).waitFor({ timeout: 6000 }).catch(() => P('검색 결과를 눌러도 표가 열리지 않음'));
+  await ctx.close();
+
+  // 6) 휴대폰: 줄 찾기·내 이름이 있는 줄(새 창이라 표를 다시 만든다)
+  ({ ctx, page } = await open({ width: 390, height: 844 }, '심청', true));
+  const tp = await as(page, '흥부', 'table.tpl.get', { id: 'B8' });
+  const mk = await as(page, '흥부', 'table.create', { fields: { title: '대피 훈련 인원 확인(예시)' }, cols: tp.data.cols, rows: tp.data.rows });
+  if (!mk.ok) P('휴대폰 점검용 표를 만들지 못함 ' + mk.error);
+  await toList(page);
+  await page.locator('.tb-card', { hasText: '대피 훈련 인원 확인' }).first().click();
+  await page.locator('.tb-rowcard').first().waitFor();
+  await page.fill('#tb-rq', '4학년');
+  await page.waitForTimeout(200);
+  if ((await page.locator('.tb-rowcard').count()) !== 1) P('휴대폰 줄 찾기 "4학년"이 ' + (await page.locator('.tb-rowcard').count()) + '줄');
+  await page.fill('#tb-rq', '');
+  await page.click('[data-action=tb-rmine]');
+  await page.waitForTimeout(200);
+  const mine = await page.locator('.tb-rowcard').allInnerTexts();
+  if (mine.length !== 1 || !/심청/.test(mine[0])) P('내 이름이 있는 줄이 ' + JSON.stringify(mine));
+  await shot(page, '보완5_휴대폰_내이름줄', true);
+  await ctx.close();
+}
+
+/** 묶음 5-4(판 2026-10-19a): 운영 안내서의 바탕화면 바로가기 안내와 '바로가기 파일 받기'(.url 내려받기) */
+async function b5ShortcutCheck(browser) {
+  const { open, toastHas } = tbKit(browser);
+  const P = (m) => problems.push('보완5 바로가기: ' + m);
+  const { ctx, page } = await open({ width: 1440, height: 900 }, '심청');
+  await page.evaluate(() => window.__gy.go('guide'));
+  await page.locator('[data-action=shortcut-file]').waitFor();
+  await page.locator('[data-action=shortcut-file]').scrollIntoViewIfNeeded();
+  await shot(page, '보완5_운영안내서_바로가기');
+  await page.click('[data-action=shortcut-file]');
+  await page.locator('#sc-url').waitFor();
+  if (await page.inputValue('#sc-url')) P('미리보기는 웹앱 주소를 모르는데 칸이 채워짐');
+  await page.click('#sc-go');
+  if (!/https:\/\/로 시작하는/.test(await page.locator('#sc-err').innerText())) P('주소 없이 받을 때 안내가 없음');
+  await page.fill('#sc-url', 'https://script.google.com/macros/s/AKfy-preview/exec');
+  await shot(page, '보완5_바로가기_파일받기');
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 6000 }), page.click('#sc-go')]).catch(() => [null]);
+  if (!dl) { P('파일을 내려받지 않음'); await ctx.close(); return; }
+  if (dl.suggestedFilename() !== '온라인 교무실.url') P('파일 이름이 ' + dl.suggestedFilename());
+  const body = fs.readFileSync(await dl.path(), 'utf8');
+  if (body !== '[InternetShortcut]\r\nURL=https://script.google.com/macros/s/AKfy-preview/exec\r\n') P('파일 내용이 ' + JSON.stringify(body));
+  if (!(await toastHas(page, /바로가기 파일을 받았어요/))) P('받았다는 알림이 없음');
+  await ctx.close();
+}
+
 async function tableMissingCheck(browser) {
   const src = fs.readFileSync(PREVIEW, 'utf8');
   const a = src.indexOf('<style>\n/* ---------- 취합 시트(TableUi.html'), b = src.indexOf('window.__gyTableUi = function'), end = '\n};\n</script>', c = b < 0 ? -1 : src.indexOf(end, b);
@@ -3187,7 +3361,8 @@ async function introReducedMotionCheck(browser) {
 (async () => {
   await startServer();
   FILE = serveFile('미리보기.html', PREVIEW);
-  const browser = await chromium.launch();
+  // 한글 파일 이름(바로가기·CSV)이 'download'로 바뀌지 않게 UTF-8 로캘로 연다(이 컨테이너는 기본이 C 로캘, 2026-10-20 확인)
+  const browser = await chromium.launch({ env: Object.assign({}, process.env, { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' }) });
   // ONLY=print: 인쇄 점검만(고치는 동안 빨리 돌려 보기)
   if (process.env.ONLY === 'print') {
     await printCheck(browser);
@@ -3215,6 +3390,8 @@ async function introReducedMotionCheck(browser) {
   // ONLY=b5fix: 묶음 5 새 기능 점검만(판 2026-10-19a)
   if (process.env.ONLY === 'b5fix') {
     await b5SchedCheck(browser);
+    await b5TableCheck(browser);
+    await b5ShortcutCheck(browser);
     await browser.close();
     console.log('사진 ' + n + '장 → ' + OUT);
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
@@ -3359,6 +3536,8 @@ async function introReducedMotionCheck(browser) {
   await svFixCheck(browser);
   await b4FixCheck(browser);
   await b5SchedCheck(browser);
+  await b5TableCheck(browser);
+  await b5ShortcutCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
   await browser.close();

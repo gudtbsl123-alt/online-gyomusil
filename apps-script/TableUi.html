@@ -24,6 +24,19 @@
 .tb-live .dot{width:8px;height:8px;flex:none;border-radius:50%;background:var(--c-okFg);box-shadow:0 0 0 4px var(--c-okBg)}
 .tb-live.off .dot{background:var(--c-warnFg);box-shadow:0 0 0 4px var(--c-warnBg)}
 .tb-missing{display:flex;flex-direction:column;gap:12px}
+/* 숫자 열·할 일 열·목록 찾기·휴대폰 줄 찾기(판 2026-10-19a) */
+.tb-grid td.num{text-align:right;font-variant-numeric:tabular-nums}
+.tb-grid th .td{display:inline-flex;vertical-align:-2px;margin-left:4px;color:var(--accent)}
+.tb-sum b{font-weight:800;color:var(--c-t1)}
+.tb-todo{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px}
+.tb-todo .btn{min-height:30px}
+.tb-lfind{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.tb-lfind .search{flex:1 1 260px;height:44px}
+.tb-lfind select{flex:0 1 200px;width:auto}
+.tb-rfind{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px}
+.tb-rfind .search{flex:1 1 180px;height:44px}
+.tb-rfind .chip{min-height:40px;padding:0 14px;border:0;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.tb-rfind .chip[aria-pressed="true"]{background:var(--accent);color:var(--c-onAccent)}
 
 /* 시트 상자: 도구 막대 + (찾기·걸러 보기 알림) + 표 + 시트 탭 */
 .tb-box{display:flex;flex-direction:column;border:1px solid var(--c-line);border-radius:16px;background:var(--c-card)}
@@ -286,7 +299,8 @@ body.tb-resizing.rows,body.tb-resizing.rows *{cursor:row-resize!important}
 .tb-optx small{font-size:14px;font-weight:600;line-height:1.45;color:var(--c-t3)}
 /* 열 고치기 */
 .tb-cols{display:flex;flex-direction:column;gap:8px}
-.tb-colrow{display:grid;grid-template-columns:24px minmax(110px,1.3fr) 92px minmax(120px,1.3fr) auto auto auto;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--c-line);border-radius:12px}
+.tb-colrow{display:grid;grid-template-columns:24px minmax(110px,1.3fr) 92px minmax(120px,1.3fr) auto auto auto auto;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--c-line);border-radius:12px}
+.tb-colrow .check.off{opacity:.45}
 .tb-colrow .input-sm{width:100%}
 .tb-colrow .check{min-height:36px;gap:6px;font-size:14px;white-space:nowrap}
 .tb-colrow .check input{width:18px;height:18px}
@@ -429,7 +443,8 @@ window.__gyTableUi = function (core) {
     left: '<path d="M10 7 5 12l5 5M5 12h14"></path>',
     right: '<path d="m14 7 5 5-5 5M19 12H5"></path>',
     dup: '<rect x="8.5" y="8.5" width="11" height="11" rx="2"></rect><path d="M5 15.5V6a1.5 1.5 0 0 1 1.5-1.5H16M14 11.5v5M11.5 14h5"></path>',
-    layout: '<rect x="4" y="4.5" width="16" height="15" rx="2"></rect><path d="M4 9.5h16M9.5 9.5v10"></path>'
+    layout: '<rect x="4" y="4.5" width="16" height="15" rx="2"></rect><path d="M4 9.5h16M9.5 9.5v10"></path>',
+    todo: '<circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 19.5c.6-3.3 2.8-5.2 5.5-5.2 1.3 0 2.5.4 3.4 1.2M14.5 15.5l2.2 2.2 4-4.4"></path>'
   };
   function ti(name, size, sw, extra) {
     if (!TP[name]) return icon(name, size, extra);
@@ -447,7 +462,8 @@ window.__gyTableUi = function (core) {
   // ------------------------------------------------------------ 상태
   S.table = {
     tab: 'open', list: null, sel: '', sheet: '', d: null, cur: null, anchor: null, edit: null, drag: null, flash: {}, live: 'ok',
-    phoneGrid: false, make: null, menu: null, polling: false, vrows: [], loc: {}, find: null, last: {}, loading: false
+    phoneGrid: false, make: null, menu: null, polling: false, vrows: [], loc: {}, find: null, last: {}, loading: false,
+    lq: '', ldept: '', rf: { id: '', q: '', mine: false } // 목록 찾기·부서(이 창에서만), 휴대폰 줄 찾기·내 이름이 있는 줄(시트마다)
   };
   var TB_POLL_MS = 10000, TB_FLASH_MS = 8000, TB_RN_W = 44, TB_WHO_W = 128;
   var TB_TOUCH = !!(window.matchMedia && window.matchMedia('(hover: none)').matches); // 터치만 되는 기기: 칸을 고칠 때만 글자판을 띄운다
@@ -599,7 +615,72 @@ window.__gyTableUi = function (core) {
     var m = s.summary || { rows: 0 }, p = m.pick;
     return m.rows + '줄' + (p && m.rows ? ' · ' + p.options[0] + ' ' + (p.counts[p.options[0]] || 0) + '/' + m.rows : '');
   }
-  function tbColW(c) { return c.w || (c.type === 'pick' ? 130 : 160); }
+  function tbColW(c) { return c.w || (c.type === 'pick' ? 130 : c.type === 'num' ? 110 : 160); }
+  /** 숫자 열의 값 → 숫자(쉼표·띄어쓰기는 빼고 읽는다). 숫자가 아니면 null */
+  function tbNum(v) {
+    var x = String(v === undefined || v === null ? '' : v).replace(/[,\s]/g, '');
+    return /^[+-]?(\d+(\.\d*)?|\.\d+)$/.test(x) ? Number(x) : null;
+  }
+  function tbNumText(n) { return (Math.round(n * 100) / 100).toLocaleString('ko-KR', { maximumFractionDigits: 2 }); }
+  /** 숫자 열마다 보이는 줄의 합계·평균. 숫자가 아닌 값은 따로 세고, 합친 칸에 덮인 칸은 세지 않는다 */
+  function tbSums(cols, rows) {
+    var eff = S.table.eff || {};
+    return cols.filter(function (c) { return c.type === 'num'; }).map(function (c) {
+      var o = { c: c, sum: 0, n: 0, other: 0 };
+      rows.forEach(function (r) {
+        if (eff[r.id + '|' + c.id] !== undefined) return;
+        var v = tbVal(r, c.id).trim(), n = v ? tbNum(v) : null;
+        if (!v) return;
+        if (n === null) o.other++;
+        else { o.sum += n; o.n++; }
+      });
+      return o;
+    });
+  }
+  /**
+   * 줄이 끝났는지(할 일 열, 서버 Table.gs tbRowDone_과 같은 규칙): 첫 고르기 열이 맨 앞 값이면. 고르기 열이 없으면 잠그지 않은 숫자 열이
+   * 모두 차면, 숫자 열도 없으면 잠그지 않은 글 열(할 일 열 빼고)이 모두 차면. 합친 칸에 덮인 칸은 찬 것으로 본다
+   */
+  function tbRowDone(cols, r) {
+    var eff = S.table.eff || {};
+    var pick = cols.filter(function (c) { return c.type === 'pick'; })[0];
+    if (pick) return tbVal(r, pick.id).trim() === pick.options[0];
+    var nums = cols.filter(function (c) { return c.type === 'num' && !c.lock; });
+    var need = nums.length ? nums : cols.filter(function (c) { return c.type === 'text' && !c.lock && !c.todo; });
+    return need.every(function (c) { return eff[r.id + '|' + c.id] !== undefined || tbVal(r, c.id).trim() !== ''; });
+  }
+  /** 할 일 칸의 이름들(서버 tbTodoNames_와 같게): 쉼표·가운뎃점·빗금·줄 바꿈·띄어쓰기로 나누고 '선생님'은 뺀다 */
+  function tbTodoNames(v) {
+    var out = [];
+    String(v || '').split(/[\s,，·\/、]+/).forEach(function (x) {
+      x = x.replace(/선생님$/, '').trim();
+      if (x && x.length <= 20 && out.indexOf(x) < 0) out.push(x);
+    });
+    return out;
+  }
+  function tbTodoCol(cols) { return cols.filter(function (c) { return c.todo && c.type === 'text'; })[0] || null; }
+  /** 할 일 열이 있으면 끝나지 않은 줄: { col, names(줄 차례, 겹침 없이), rows(이름이 있는 끝나지 않은 줄 수), mine(그중 내 이름이 있는 줄) } */
+  function tbTodoLeft() {
+    var d = S.table.d, col = d ? tbTodoCol(d.table.cols) : null;
+    if (!col) return null;
+    var out = { col: col, names: [], rows: 0, mine: 0 }, me = S.me ? S.me.name : '';
+    d.rows.forEach(function (r) {
+      if (tbRowDone(d.table.cols, r)) return;
+      var list = tbTodoNames(tbEff(r, col.id));
+      if (!list.length) return;
+      out.rows++;
+      if (me && list.indexOf(me) >= 0) out.mine++;
+      list.forEach(function (n) { if (out.names.indexOf(n) < 0) out.names.push(n); });
+    });
+    return out;
+  }
+  /** 홈 '내가 할 일'에 쓰려고 이 시트에서 직접 본 내 남은 줄 수를 기억한다(서버 목록은 10분까지 늦을 수 있어, 그 뒤에 본 것을 믿는다) */
+  function tbSeen(left) {
+    var d = S.table.d;
+    if (!d || !S.me) return;
+    S.tbSeen = S.tbSeen || {};
+    S.tbSeen[d.table.id] = { n: left && !d.table.closed ? left.mine : 0, at: Date.now() };
+  }
   function tbZoom() { var z = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gy-zoom')); return z > 0 ? z : 1; }
 
   // ------------------------------------------------------------ 목록
@@ -618,28 +699,53 @@ window.__gyTableUi = function (core) {
     }, function (e) { var b = qs('#tb-body'); if (b) b.innerHTML = failHtml(e); });
   };
 
+  /** 목록: 탭(진행 중·마감됨·내가 만든 표) + 찾기 칸·부서 고르기(이 창에서만) + 카드 */
   function tbDrawList() {
-    var T = S.table, l = T.list, body = qs('#tb-body');
+    var T = S.table, l = T.list, body = qs('#tb-body'), lq = qs('#tb-lq');
     if (!body || !l) return;
-    var groups = { open: [], closed: [], mine: [] };
+    if (lq && document.activeElement === lq && qs('#tb-lcards')) { tbDrawCards(); return; } // 찾기 칸에 쓰는 중에 목록이 새로 오면 카드만(한글 입력이 끊기지 않게)
+    var depts = (l.depts || []).filter(function (x) { return l.tables.some(function (c) { return c.deptId === x.id; }); });
+    if (T.ldept && !depts.some(function (x) { return x.id === T.ldept; })) T.ldept = '';
+    body.innerHTML = '<div id="tb-ltabs"></div>' +
+      (S.me ? '' : '<p class="note">' + icon('info', 18) + '<span>지금은 보기만 할 수 있어요. 이름을 고르면 표를 만들고 칸을 고칠 수 있어요. ' +
+        '<button type="button" class="linkish" data-action="identity">이름 고르기</button></span></p>') +
+      (l.tables.length ? '<div class="tb-lfind print-hide" role="search"><label class="search">' + icon('search', 20) +
+        '<input id="tb-lq" type="search" placeholder="표 이름·시트 이름·만든 분으로 찾기" aria-label="취합 시트 찾기" autocomplete="off" value="' + esc(T.lq) + '"></label>' +
+        (depts.length ? '<select class="input" id="tb-ldept" aria-label="부서로 고르기"><option value="">모든 부서</option>' + depts.map(function (x) {
+          return '<option value="' + esc(x.id) + '"' + (x.id === T.ldept ? ' selected' : '') + '>' + esc(x.name) + '</option>';
+        }).join('') + '</select>' : '') + '</div>' : '') +
+      '<div class="tb-list" id="tb-lcards"></div>';
+    tbDrawCards();
+  }
+  function tbListMatch(c) {
+    var T = S.table, q = String(T.lq || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (T.ldept && c.deptId !== T.ldept) return false;
+    if (!q) return true;
+    var hay = [c.title, c.dept, c.by].concat((c.sheets || []).map(function (x) { return x.name; })).join(' ').toLowerCase();
+    return q.split(' ').every(function (w) { return hay.indexOf(w) >= 0; });
+  }
+  /** 탭과 카드만 다시 그린다(찾기 칸에 쓰는 동안 한글 입력이 끊기지 않게) */
+  function tbDrawCards() {
+    var T = S.table, l = T.list, tabsBox = qs('#tb-ltabs'), box = qs('#tb-lcards');
+    if (!l || !box || !tabsBox) return;
+    var groups = { open: [], closed: [], mine: [] }, filtering = !!(String(T.lq || '').trim() || T.ldept);
     l.tables.forEach(function (c) {
+      if (!tbListMatch(c)) return;
       groups[c.closed ? 'closed' : 'open'].push(c);
       if (c.mine) groups.mine.push(c);
     });
     var list = groups[T.tab] || groups.open;
-    var tabs = [['open', '진행 중', groups.open.length], ['closed', '마감됨', groups.closed.length], ['mine', '내가 만든 표', 0]];
-    body.innerHTML = '<div class="tabs print-hide" role="tablist">' + tabs.map(function (t) {
+    var tabs = [['open', '진행 중', groups.open.length], ['closed', '마감됨', groups.closed.length], ['mine', '내가 만든 표', filtering ? groups.mine.length : 0]];
+    tabsBox.innerHTML = '<div class="tabs print-hide" role="tablist">' + tabs.map(function (t) {
       return '<button type="button" class="tab" role="tab" data-tb-tab="' + t[0] + '" aria-selected="' + (T.tab === t[0]) + '">' + t[1] +
         (t[2] ? ' <b class="tab-n">' + t[2] + '</b>' : '') + '</button>';
-    }).join('') + '</div>' +
-      (S.me ? '' : '<p class="note">' + icon('info', 18) + '<span>지금은 보기만 할 수 있어요. 이름을 고르면 표를 만들고 칸을 고칠 수 있어요. ' +
-        '<button type="button" class="linkish" data-action="identity">이름 고르기</button></span></p>') +
-      '<div class="tb-list">' + (list.length ? list.map(function (c) { return tbCard(c, l.today); }).join('') :
-        '<div class="card"><p class="empty">' + {
-          open: '진행 중인 표가 없어요.' + (S.me ? ' "새 표 만들기"로 만들어 보세요.' : ''),
-          closed: '마감한 표가 없어요.',
-          mine: '내가 만든 표가 없어요.'
-        }[T.tab] + '</p></div>') + '</div>';
+    }).join('') + '</div>';
+    box.innerHTML = list.length ? list.map(function (c) { return tbCard(c, l.today); }).join('') :
+      '<div class="card"><p class="empty">' + (filtering ? '찾는 표가 없어요. 찾는 말이나 부서를 바꿔 보세요.' : {
+        open: '진행 중인 표가 없어요.' + (S.me ? ' "새 표 만들기"로 만들어 보세요.' : ''),
+        closed: '마감한 표가 없어요.',
+        mine: '내가 만든 표가 없어요.'
+      }[T.tab]) + '</p></div>';
   }
 
   function tbCard(c, today) {
@@ -762,6 +868,7 @@ window.__gyTableUi = function (core) {
         (t.cols.some(function (c) { return c.lock; }) ? '자물쇠 열은 만든 분과 연구부장·부담당(그 줄을 더한 분도)만 고칠 수 있어요. ' : '') +
         '여러 칸을 골라 복사(Ctrl+C)하면 구글 시트에 그대로 붙여 넣을 수 있고, 구글 시트에서 복사한 칸도 서식과 함께 붙여 넣을 수 있어요(값만은 Ctrl+Shift+V).</p>');
     document.title = t.title + ' · 취합 시트';
+    tbVisible(); // 표 위 숫자 열 합계는 보이는 줄로(정렬·걸러 보기를 바꾼 뒤 다시 그릴 때도)
     tbDrawBar();
     tbDrawMain(keep);
   }
@@ -775,8 +882,37 @@ window.__gyTableUi = function (core) {
       '<button type="button" class="btn btn-sm" data-action="tb-resend">' + icon('reload', 16) + '다시 보내기</button></span>' : '') +
       (s ? s.options.map(function (o, k) { return '<span class="chip' + (k === 0 ? ' chip-ok' : '') + '">' + esc(o) + ' ' + (s.counts[o] || 0) + '</span>'; }).join('') +
       (s.other ? '<span class="chip">기타 ' + s.other + '</span>' : '') + (s.empty ? '<span class="chip">비어 있음 ' + s.empty + '</span>' : '') : '') +
-      '<span class="chip">전체 ' + d.rows.length + '줄</span>' +
+      '<span class="chip">전체 ' + d.rows.length + '줄</span>' + tbSumsHtml(d) + tbTodoBarHtml(d) +
       '<span class="tb-live print-hide' + (S.table.live === 'off' ? ' off' : '') + '" id="tb-live" role="status"><i class="dot" aria-hidden="true"></i>' + tbLiveText() + '</span>';
+  }
+  /** 숫자 열: 보이는 줄의 합계·평균(걸러 보면 보이는 줄만) */
+  function tbSumsHtml(d) {
+    var sums = tbSums(d.table.cols, S.table.vrows || d.rows), part = Object.keys(tbLocal().filter).length > 0;
+    return sums.map(function (x) {
+      return '<span class="chip tb-sum">' + esc(x.c.name) + ' 합계 <b>' + tbNumText(x.sum) + '</b>' + (x.n ? ' · 평균 ' + tbNumText(x.sum / x.n) : '') +
+        (x.other ? ' · 숫자 아닌 칸 ' + x.other : '') + '</span>';
+    }).join('') + (sums.length && part ? '<span class="chip chip-warn">합계·평균은 보이는 줄만</span>' : '');
+  }
+  /** 할 일 열: 남은 줄·사람 수, 만든 분·관리는 '안 채운 분 문구 복사' */
+  function tbTodoBarHtml(d) {
+    var left = tbTodoLeft();
+    tbSeen(left);
+    if (!left) return '';
+    var tip = "'" + left.col.name + "' 열에 이름이 있는 분 홈 '내가 할 일'에 끝나지 않은 줄이 떠요(늦어도 10분 안에)";
+    return '<span class="tb-todo"><span class="chip' + (left.rows ? ' chip-accent' : ' chip-ok') + '" title="' + esc(tip) + '">' + ti('todo', 15) +
+      (left.rows ? '할 일 남은 줄 ' + left.rows + ' · ' + left.names.length + '명' : '할 일 모두 끝남') + '</span>' +
+      (d.table.canEdit && left.rows ? '<button type="button" class="btn btn-sm print-hide" data-action="tb-todo-copy">' + icon('copy', 16) + '안 채운 분 문구 복사</button>' : '') + '</span>';
+  }
+  /** 안 채운 분께 보낼 메신저 문구(할 일 열의 이름, 마감) */
+  function tbTodoCopy() {
+    var d = S.table.d, left = tbTodoLeft();
+    if (!d || !left) return;
+    if (!left.rows) { toast('모두 끝났어요'); return; }
+    var t = d.table;
+    var text = '[취합 시트] ' + t.title + (d.doc.sheets.length > 1 ? ' › ' + t.name : '') + '\n' +
+      '아직 안 채운 분: ' + left.names.map(function (n) { return n + ' 선생님'; }).join(', ') + ' (' + left.names.length + '명)\n' +
+      (t.deadline ? '마감: ' + mdw(t.deadline) + '까지\n' : '') + '온라인 교무실 › 취합 시트에서 채워 주세요.';
+    copyText(text).then(function (ok) { toast(ok ? '문구를 복사했어요. 메신저에 붙여 넣으세요' : '복사하지 못했어요', ok ? '' : 'error'); });
   }
   function tbLiveText() {
     if (S.table.live === 'off') return '연결이 잠시 끊겼어요 · 다시 받는 중';
@@ -806,6 +942,8 @@ window.__gyTableUi = function (core) {
       '<button type="button" data-action="tb-view" data-v="grid" aria-pressed="' + T.phoneGrid + '">표로 보기</button></div>' : '';
     if (phone && !T.phoneGrid) {
       T.edit = null;
+      var rb = qs('#tb-rowsbox'), rq = qs('#tb-rq');
+      if (rb && rq && document.activeElement === rq && !T.loading && T.rf.id === d.table.id) { rb.innerHTML = tbRowsInner(); return; } // 줄 찾기 칸에 쓰는 중이면 목록만(한글 입력이 끊기지 않게)
       main.innerHTML = seg + tbRowsHtml();
       return;
     }
@@ -984,8 +1122,8 @@ window.__gyTableUi = function (core) {
       '<col class="tb-who-col" style="width:' + TB_WHO_W + 'px">';
     var head = '<tr><th class="rn" scope="col"><button type="button" class="tb-all print-hide" data-action="tb-selall" aria-label="모두 고르기" tabindex="-1"></button></th>' + cols.map(function (c, j) {
       var z = frz(j), sorted = L.sort && L.sort.c === c.id, filt = !!L.filter[c.id];
-      return '<th scope="col" class="tb-h' + z.cls + (sorted || filt ? ' hb-on' : '') + '" style="' + z.st + '" data-j="' + j + '" title="' + esc(c.name + (c.type === 'pick' ? ' (고르기 열)' : '') + (c.lock ? ' · 잠근 열' : '')) + '">' + esc(c.name) +
-        (c.lock ? '<span class="lk">' + icon('lock', 14) + '</span>' : '') +
+      return '<th scope="col" class="tb-h' + z.cls + (sorted || filt ? ' hb-on' : '') + '" style="' + z.st + '" data-j="' + j + '" title="' + esc(c.name + (c.type === 'pick' ? ' (고르기 열)' : c.type === 'num' ? ' (숫자 열)' : '') + (c.lock ? ' · 잠근 열' : '') + (c.todo ? ' · 할 일 열' : '')) + '">' + esc(c.name) +
+        (c.lock ? '<span class="lk">' + icon('lock', 14) + '</span>' : '') + (c.todo ? '<span class="td">' + ti('todo', 15) + '</span>' : '') +
         '<button type="button" class="tb-hb print-hide' + (sorted || filt ? ' on' : '') + '" data-action="tb-head" data-j="' + j + '" aria-label="' + esc(c.name) + ' 열 정렬·걸러 보기" aria-haspopup="menu" aria-expanded="false">' +
         (filt ? ti('filter', 15, 2) : sorted ? ti(L.sort.dir > 0 ? 'sortA' : 'sortZ', 15, 2) : icon('chevd', 15)) + '</button>' +
         (t.canWrite ? '<span class="tb-cr print-hide" data-j="' + j + '" aria-hidden="true"></span>' : '') + '</th>';
@@ -1013,7 +1151,7 @@ window.__gyTableUi = function (core) {
     var T = S.table, ghost = !!o && o.ghost !== undefined && o.ghost !== null;
     var v = ghost ? o.ghost : tbVal(r, c.id), f = ghost && o.gf ? o.gf : tbFmt(r, c.id), p = tbPaint((r.colors || {})[c.id]), fl = T.flash[r.id + '|' + c.id];
     var lit = fl && fl.until > now, can = !ghost && tbCanCell(r, c), rs = (o && o.rs) || 1, cs = (o && o.cs) || 1;
-    var cls = 'tb-c' + (can ? '' : ' ro') + (o && o.run ? ' merged' : '') + (ghost ? ' ghost' : '') + (p ? ' paint' + (p.dark ? ' paint-dark' : '') : '') +
+    var cls = 'tb-c' + (can ? '' : ' ro') + (c.type === 'num' ? ' num' : '') + (o && o.run ? ' merged' : '') + (ghost ? ' ghost' : '') + (p ? ' paint' + (p.dark ? ' paint-dark' : '') : '') +
       (lit ? ' flash' : '') + tbSaveCls(r, c.id) + z.cls;
     var st = z.st + (p ? '--bg:' + p.rgb + ';' : '') + tbFmtStyle(f, dark) + tbEdgeStyle(lay, i, j, rs, cs);
     var inner = c.type === 'pick' && !ghost ? tbPickChip(c, v, can) : esc(v).replace(/\n/g, '<br>');
@@ -2862,6 +3000,7 @@ window.__gyTableUi = function (core) {
   function tbLocalChanged() {
     var T = S.table;
     tbRedraw();
+    tbDrawBar(); // 숫자 열 합계·평균은 보이는 줄만
     if (T.cur && tbRowIdx(T.cur.r) < 0) { T.cur = T.anchor = null; tbPaintSel(); }
     if (T.find) tbFindRun();
     tbFocusEd();
@@ -3265,14 +3404,29 @@ window.__gyTableUi = function (core) {
   }
 
   // ------------------------------------------------------------ 휴대폰: 줄 목록 → 줄 고치기
+  /** 줄 찾기 칸 + '내 이름이 있는 줄'(시트마다, 이 창에서만) + 줄 목록 */
   function tbRowsHtml() {
+    var T = S.table, d = T.d;
+    if (T.rf.id !== d.table.id) T.rf = { id: d.table.id, q: '', mine: false };
+    var find = d.rows.length ? '<div class="tb-rfind print-hide" role="search"><label class="search">' + icon('search', 20) +
+      '<input id="tb-rq" type="search" placeholder="줄 찾기" aria-label="이 시트에서 줄 찾기" autocomplete="off" value="' + esc(T.rf.q) + '"></label>' +
+      (S.me ? '<button type="button" class="chip" data-action="tb-rmine" aria-pressed="' + T.rf.mine + '">' + ti('todo', 16) + '내 이름이 있는 줄</button>' : '') + '</div>' : '';
+    return (T.loading ? '<p class="tb-loading">' + esc(T.loading) + '</p>' : '') + find + '<div id="tb-rowsbox">' + tbRowsInner() + '</div>';
+  }
+  function tbRowsInner() {
     var T = S.table, d = T.d, cols = d.table.cols, now = Date.now();
+    var q = String(T.rf.q || '').replace(/\s+/g, ' ').trim().toLowerCase(), me = T.rf.mine && S.me ? S.me.name : '';
+    var rows = q || me ? T.vrows.filter(function (r) {
+      var vals = cols.map(function (c) { return tbEff(r, c.id); });
+      if (me && !vals.some(function (v) { return v.indexOf(me) >= 0; })) return false;
+      return !q || vals.some(function (v) { return v.toLowerCase().indexOf(q) >= 0; });
+    }) : T.vrows;
     var g0 = cols[0] && (cols[0].merge || (T.merges || []).some(function (m) { return m.j === 0 && m.rs > 1; })) ? cols[0] : null; // 첫 열을 위아래로 합쳤으면 그 값으로 묶는다
     var pick = cols.filter(function (c) { return c.type === 'pick'; })[0];
     var titleCol = cols.filter(function (c) { return c !== g0 && c.type !== 'pick'; })[0] || cols[0];
     var subCols = cols.filter(function (c) { return c !== g0 && c !== titleCol && c !== pick; });
     var last = null, out = '';
-    T.vrows.forEach(function (r) {
+    rows.forEach(function (r) {
       if (g0) {
         var g = tbEff(r, g0.id);
         if (g !== last) { out += '<h3 class="tb-group">' + esc(g || '(비어 있음)') + '</h3>'; last = g; }
@@ -3287,7 +3441,8 @@ window.__gyTableUi = function (core) {
         (pick ? '<span class="tb-pick' + (pv && pv === pick.options[0] ? ' ok' : !pv ? ' none' : pick.options.indexOf(pv) < 0 ? ' other' : '') + '">' + esc(pv || '비어 있음') + '</span>' : '') +
         '</button>';
     });
-    return (T.loading ? '<p class="tb-loading">' + esc(T.loading) + '</p>' : '') + '<div class="tb-rows">' + (out || '<p class="empty">아직 줄이 없어요.</p>') + '</div>';
+    var none = q || me ? '찾는 줄이 없어요.' + (me ? ' 이 시트에는 ' + esc(me) + ' 선생님 이름이 있는 줄이 없어요.' : '') : '아직 줄이 없어요.';
+    return (q || me ? '<p class="faint" style="margin:0 2px 8px">' + rows.length + '줄 찾았어요</p>' : '') + '<div class="tb-rows">' + (out || '<p class="empty">' + none + '</p>') + '</div>';
   }
 
   /** 줄 고치기(휴대폰은 아래에서 올라오는 창, PC는 가운데 창): 그 줄의 칸을 한 번에 고친다. 합친 칸에 덮인 칸은 보기만 */
@@ -3308,7 +3463,8 @@ window.__gyTableUi = function (core) {
           opts.map(function (o, k) { return '<button type="button" data-v="' + esc(o) + '" aria-pressed="' + (o === v) + '"' + (k === 0 ? ' class="first"' : '') + '>' + esc(o) + '</button>'; }).join('') +
           '</div></div>';
       }
-      return '<div class="field"><label class="label" for="' + fid + '">' + name + '</label><textarea class="input tb-ta" id="' + fid + '" data-col="' + esc(c.id) + '" rows="1">' + esc(v) + '</textarea></div>';
+      return '<div class="field"><label class="label" for="' + fid + '">' + name + '</label><textarea class="input tb-ta" id="' + fid + '" data-col="' + esc(c.id) + '" rows="1"' +
+        (c.type === 'num' ? ' inputmode="decimal"' : '') + '>' + esc(v) + '</textarea></div>';
     }).join('');
     var html = '<h2 id="' + hid + '" class="tb-sheet-h">' + esc(tbRowLabel(r)) + ' 줄 ' + (t.canWrite ? '고치기' : '보기') + '</h2>' +
       (r.by ? '<p class="faint" style="margin:0">마지막 고친 분 ' + esc(r.by) + ' · ' + esc(tbAgo(r.at)) + '</p>' : '') +
@@ -3434,12 +3590,13 @@ window.__gyTableUi = function (core) {
     });
   }
 
-  /** 열 고치기(이 시트): 이름·종류(글/고르기)·고를 값·잠금·위아래 합침·순서·더하기·빼기 */
+  /** 열 고치기(이 시트): 이름·종류(글/고르기/숫자)·고를 값·잠금·위아래 합침·할 일 열·순서·더하기·빼기 */
   function tbEditCols() {
     var d = S.table.d, t = d.table;
-    var list = t.cols.map(function (c) { return { id: c.id, name: c.name, type: c.type, options: c.options.slice(), lock: !!c.lock, merge: !!c.merge, w: c.w || 0 }; });
+    var list = t.cols.map(function (c) { return { id: c.id, name: c.name, type: c.type, options: c.options.slice(), lock: !!c.lock, merge: !!c.merge, w: c.w || 0, todo: !!c.todo }; });
     openModal('<h2 id="m-title">열 고치기' + (d.doc.sheets.length > 1 ? ' · ' + esc(t.name) : '') + '</h2>' +
-      '<p class="hint">' + icon('info', 16) + '<span>잠근 열은 만든 분과 연구부장·부담당(그 줄을 더한 분도)만 고쳐요. 고르기 열은 정해 둔 값 중 하나를 고르고, 맨 앞 값이 표 위에 "끝난 것"으로 세어져요(예: 완료, 미완료). \'위아래 합침\'을 켜면 위아래로 같은 값이 이어지는 칸을 한 칸처럼 보여 줘요. 뺀 열의 내용은 시트에 남아요.</span></p>' +
+      '<p class="hint">' + icon('info', 16) + '<span>잠근 열은 만든 분과 연구부장·부담당(그 줄을 더한 분도)만 고쳐요. 고르기 열은 정해 둔 값 중 하나를 고르고, 맨 앞 값이 표 위에 "끝난 것"으로 세어져요(예: 완료, 미완료). 숫자 열은 표 위에 합계·평균이 나와요. \'위아래 합침\'을 켜면 위아래로 같은 값이 이어지는 칸을 한 칸처럼 보여 줘요. 뺀 열의 내용은 시트에 남아요.</span></p>' +
+      '<p class="hint">' + ti('todo', 16) + '<span><b>할 일 열</b>(글 열 하나, 예: 담임)에 이름이 있는 분은 홈 \'내가 할 일\'에 끝나지 않은 줄이 떠요(늦어도 10분 안에). 첫 고르기 열이 맨 앞 값이 되면 끝난 줄이에요. 고르기 열이 없으면 숫자 열이, 숫자 열도 없으면 잠그지 않은 글 열이 모두 채워지면 끝난 줄이에요.</span></p>' +
       '<div class="tb-cols" id="tbc-list"></div>' +
       '<button type="button" class="btn btn-sm" id="tbc-add" style="align-self:flex-start">' + icon('plus', 18) + '열 더하기</button>' +
       '<p class="err" id="tbc-err" role="alert"></p>' +
@@ -3454,16 +3611,19 @@ window.__gyTableUi = function (core) {
         if (o) c.options = tbOptList(o.value);
         c.lock = qs('.tb-cl', row).checked;
         c.merge = qs('.tb-cm', row).checked;
+        c.todo = c.type === 'text' && qs('.tb-ctd', row).checked;
       });
     };
     var draw = function () {
       box.innerHTML = list.map(function (c, k) {
         return '<div class="tb-colrow" data-k="' + k + '"><span class="tb-colno">' + (k + 1) + '</span>' +
           '<input class="input input-sm tb-cn" value="' + esc(c.name) + '" maxlength="40" aria-label="' + (k + 1) + '번째 열 이름">' +
-          '<select class="input input-sm tb-ct" aria-label="' + (k + 1) + '번째 열 종류"><option value="text"' + (c.type !== 'pick' ? ' selected' : '') + '>글</option><option value="pick"' + (c.type === 'pick' ? ' selected' : '') + '>고르기</option></select>' +
+          '<select class="input input-sm tb-ct" aria-label="' + (k + 1) + '번째 열 종류"><option value="text"' + (c.type !== 'pick' && c.type !== 'num' ? ' selected' : '') + '>글</option>' +
+          '<option value="pick"' + (c.type === 'pick' ? ' selected' : '') + '>고르기</option><option value="num"' + (c.type === 'num' ? ' selected' : '') + '>숫자</option></select>' +
           (c.type === 'pick' ? '<input class="input input-sm tb-co" value="' + esc(c.options.join(', ')) + '" placeholder="고를 값(쉼표로 나눠 적기)" aria-label="고를 값">' : '<span class="tb-co-ph"></span>') +
           '<label class="check"><input type="checkbox" class="tb-cl"' + (c.lock ? ' checked' : '') + '>잠금</label>' +
           '<label class="check"><input type="checkbox" class="tb-cm"' + (c.merge ? ' checked' : '') + '>위아래 합침</label>' +
+          '<label class="check' + (c.type === 'text' ? '' : ' off') + '" title="글 열 하나만 할 일 열로 정할 수 있어요"><input type="checkbox" class="tb-ctd"' + (c.todo && c.type === 'text' ? ' checked' : '') + (c.type === 'text' ? '' : ' disabled') + '>할 일</label>' +
           '<span class="tb-colbtns"><button type="button" class="icon-btn" data-m="up" aria-label="앞으로"' + (k ? '' : ' disabled') + '>' + icon('up', 18) + '</button>' +
           '<button type="button" class="icon-btn" data-m="down" aria-label="뒤로"' + (k < list.length - 1 ? '' : ' disabled') + '>' + icon('chevd', 18) + '</button>' +
           '<button type="button" class="icon-btn" data-m="del" aria-label="이 열 빼기"' + (list.length > 1 ? '' : ' disabled') + '>' + icon('x', 18) + '</button></span></div>';
@@ -3471,6 +3631,10 @@ window.__gyTableUi = function (core) {
     };
     draw();
     box.addEventListener('change', function (e) {
+      if (e.target.classList.contains('tb-ctd')) { // 할 일 열은 하나만
+        if (e.target.checked) qsa('.tb-ctd', box).forEach(function (x) { if (x !== e.target) x.checked = false; });
+        return;
+      }
       if (!e.target.classList.contains('tb-ct')) return;
       read();
       var c = list[+e.target.closest('.tb-colrow').getAttribute('data-k')];
@@ -3490,7 +3654,7 @@ window.__gyTableUi = function (core) {
     qs('#tbc-add').addEventListener('click', function () {
       read();
       if (list.length >= 30) { qs('#tbc-err').textContent = '열은 30개까지예요.'; return; }
-      list.push({ name: '열 ' + (list.length + 1), type: 'text', options: [], lock: false, merge: false, w: 0 });
+      list.push({ name: '열 ' + (list.length + 1), type: 'text', options: [], lock: false, merge: false, w: 0, todo: false });
       draw();
       var ins = qsa('.tb-cn', box);
       if (ins.length) { ins[ins.length - 1].focus(); ins[ins.length - 1].select(); }
@@ -3690,7 +3854,7 @@ window.__gyTableUi = function (core) {
         var cs = S.table.d.table.cols;
         M.g = { rows: [cs.map(function (c) { return c.name; })], colors: [], fmts: [], merges: [], vmerge: [], widths: cs.map(function (c) { return c.w || 0; }), bold: [], width: cs.length };
         M.header = true; M.blank = true;
-        M.cols = cs.map(function (c, k) { return { id: c.id, src: k, name: c.name, type: c.type, options: c.options.slice(), lock: !!c.lock, merge: !!c.merge, w: c.w || 0, auto: false }; });
+        M.cols = cs.map(function (c, k) { return { id: c.id, src: k, name: c.name, type: c.type, options: c.options.slice(), lock: !!c.lock, merge: !!c.merge, w: c.w || 0, todo: !!c.todo, auto: false }; });
         M.nextId = cs.reduce(function (n, c) { return Math.max(n, Number(String(c.id).slice(1)) || 0); }, 0) + 1;
         tbMakeDraw();
       } else if (M.how === 'tpl') { tbMakeDraw(); tbTplLoad(); }
@@ -3753,8 +3917,9 @@ window.__gyTableUi = function (core) {
   /** 양식 카드 한 장: 이름 · 열 이름 · 줄 수(저장한 분) */
   function tbTplCard(x, M) {
     var E = M.tplEdit && M.tplEdit.id === x.id ? M.tplEdit : null, on = M.tplSel === x.id;
-    var rows = x.blank ? '빈 줄로 시작' : x.staff ? '교직원 소속으로 ' + x.rows + '줄' : x.rows + '줄';
-    var meta = [rows, x.by ? x.by + ' 선생님' : ''].filter(Boolean).join(' · ');
+    var how = { 'class': '교직원 소속으로 ', people: '교직원 명단으로 ', vacation: '학기 기간으로 ' }[x.fill || (x.staff ? 'class' : '')] || '';
+    var rows = x.blank ? '빈 줄로 시작' : how + x.rows + '줄';
+    var meta = [rows, x.todo ? '할 일 열' : '', x.by ? x.by + ' 선생님' : ''].filter(Boolean).join(' · ');
     var data = ' data-tplw="' + esc(x.id) + '" data-name="' + esc(x.name.toLowerCase() + ' ' + x.cols.join(' ').toLowerCase()) + '"';
     if (E && E.mode === 'edit') {
       return '<div class="tb-tpl edit"' + data + '><div class="tb-tplf"><label class="label" for="tbt-name">양식 이름</label>' +
@@ -3895,7 +4060,10 @@ window.__gyTableUi = function (core) {
     M.g = g;
     M.header = true;
     M.blank = true; // 첫 줄(열 이름)은 정해져 있다
-    M.cols = cols.map(function (c, k) { return { id: 'c' + (k + 1), src: k, name: c.name, type: c.type === 'pick' ? 'pick' : 'text', options: (c.options || []).slice(), lock: !!c.lock, merge: !!c.merge, w: c.w || 0, auto: false }; });
+    M.cols = cols.map(function (c, k) {
+      var type = c.type === 'pick' || c.type === 'num' ? c.type : 'text';
+      return { id: 'c' + (k + 1), src: k, name: c.name, type: type, options: (c.options || []).slice(), lock: !!c.lock, merge: !!c.merge, w: c.w || 0, todo: type === 'text' && !!c.todo, auto: false };
+    });
     M.nextId = cols.length + 1;
     M.view = tp.view || { fr: 0, gap: 'n' };
     M.tpl = { id: tp.id, name: tp.name, builtin: !!tp.builtin };
@@ -3903,6 +4071,8 @@ window.__gyTableUi = function (core) {
     if (nm && !M.named) nm.value = String(tp.name || '').slice(0, 40); // 시트 이름은 양식 이름으로(바꿔 쓴 뒤에는 그대로)
     qs('#tbm-err').textContent = '';
     tbMakeDraw();
+    var pv = qs('#tbm-prev'); // 기본 양식이 10개라 고른 양식의 열 정하기가 창 아래에 있다 → 보이게
+    if (pv && pv.scrollIntoView) pv.scrollIntoView({ block: 'start' });
   }
 
   /** 지금 시트를 양식으로 저장(이름을 고른 누구나, 모든 선생님이 함께 씀) */
@@ -4007,8 +4177,9 @@ window.__gyTableUi = function (core) {
       return '<th style="min-width:' + Math.min(260, Math.max(130, 36 + c.name.length * 15)) + 'px"><input class="tb-cn" data-k="' + k + '" value="' + esc(c.name) + '" maxlength="40" aria-label="' + (k + 1) + '번째 열 이름">' +
         '<span class="tb-colset">' +
         '<button type="button" class="tb-chip' + (c.lock ? ' on' : '') + '" data-mk="lock" data-k="' + k + '" aria-pressed="' + c.lock + '">' + icon('lock', 12) + '잠금</button>' +
-        '<button type="button" class="tb-chip' + (c.type === 'pick' ? ' on' : '') + '" data-mk="type" data-k="' + k + '" title="누르면 글 ↔ 고르기">' + (c.type === 'pick' ? '고르기' : '글') + '</button>' +
+        '<button type="button" class="tb-chip' + (c.type !== 'text' ? ' on' : '') + '" data-mk="type" data-k="' + k + '" title="누르면 글 → 고르기 → 숫자">' + ({ pick: '고르기', num: '숫자' }[c.type] || '글') + '</button>' +
         (c.type === 'pick' ? '<button type="button" class="tb-chip" data-mk="opts" data-k="' + k + '" title="고를 값 고치기">' + esc(c.options.join('·')) + '</button>' : '') +
+        (c.type === 'text' && !copyMode ? '<button type="button" class="tb-chip' + (c.todo ? ' on' : '') + '" data-mk="todo" data-k="' + k + '" aria-pressed="' + !!c.todo + '" title="이 열에 이름이 있는 분 홈 \'내가 할 일\'에 끝나지 않은 줄이 떠요">' + ti('todo', 12) + '할 일</button>' : '') +
         (M.cols.length > 1 && !copyMode ? '<button type="button" class="tb-chip x" data-mk="del" data-k="' + k + '" aria-label="' + esc(c.name) + ' 열 빼기">' + icon('x', 12) + '</button>' : '') +
         '</span></th>';
     }).join('') + (copyMode ? '' : '<th class="tb-addcol"><button type="button" class="tb-chip" data-mk="add" aria-label="열 더하기">' + icon('plus', 12) + '열</button></th>');
@@ -4031,7 +4202,10 @@ window.__gyTableUi = function (core) {
       (body.length > show.length ? '<p class="faint" style="margin:0">…그리고 ' + (body.length - show.length) + '줄 더 있어요</p>' : '') +
       (body.length > 500 ? '<p class="err" style="margin:0">줄은 500개까지 넣을 수 있어요(지금 ' + body.length + '줄). 나눠서 만들어 주세요.</p>' : '') +
       (M.cols.length > 30 ? '<p class="err" style="margin:0">열은 30개까지예요(지금 ' + M.cols.length + '열). 필요 없는 열을 빼 주세요.</p>' : '');
-    auto.innerHTML = M.cols.filter(function (c) { return c.auto && c.type === 'pick'; }).slice(0, 3).map(function (c) {
+    var td = M.cols.filter(function (c) { return c.todo && c.type === 'text'; })[0];
+    auto.innerHTML = (td ? '<div class="tb-suggest">' + ti('todo', 18) + '<div>\'' + esc(td.name) + '\' 열이 <b>할 일 열</b>이에요. 이 열에 이름이 있는 선생님 홈 \'내가 할 일\'에 아직 끝나지 않은 줄이 떠요(늦어도 10분 안에).' +
+      (copyMode ? '' : '<button type="button" class="linkish" data-mk="todo" data-k="' + M.cols.indexOf(td) + '">할 일 열 끄기</button>') + '</div></div>' : '') +
+      M.cols.filter(function (c) { return c.auto && c.type === 'pick'; }).slice(0, 3).map(function (c) {
       var q = c.options.map(function (o) { return "'" + o + "'"; }), list;
       if (q.length === 1) list = q[0];
       else list = q.slice(0, -1).join(', ') + josa(c.options[c.options.length - 2], '과', '와') + ' ' + q[q.length - 1];
@@ -4051,11 +4225,17 @@ window.__gyTableUi = function (core) {
     else if (m === 'lock') c.lock = !c.lock;
     else if (m === 'del') { if (M.cols.length > 1) M.cols.splice(k, 1); }
     else if (m === 'untext') { c.type = 'text'; c.auto = false; }
-    else if (m === 'type') {
+    else if (m === 'todo') { // 할 일 열은 글 열 하나만
+      var on = !c.todo && c.type === 'text';
+      M.cols.forEach(function (x) { x.todo = false; });
+      c.todo = on;
+    } else if (m === 'type') { // 글 → 고르기 → 숫자 → 글
       c.auto = false;
-      if (c.type === 'pick') c.type = 'text';
+      if (c.type === 'pick') c.type = 'num';
+      else if (c.type === 'num') c.type = 'text';
       else {
         c.type = 'pick';
+        c.todo = false;
         if (!c.options.length) c.options = (c.src >= 0 ? tbOptsFrom(tbMakeBody(M).map(function (line) { return line[c.src]; })) : null) || ['완료', '미완료'];
       }
     } else if (m === 'opts') {
@@ -4083,7 +4263,7 @@ window.__gyTableUi = function (core) {
     var body = M.how === 'copy' && sheet ? [] : tbMakeBody(M), off = M.header ? 1 : 0;
     if (body.length > 500) { err.textContent = '줄은 500개까지 넣을 수 있어요(지금 ' + body.length + '줄). 나눠서 만들어 주세요.'; return; }
     if (M.cols.length > 30) { err.textContent = '열은 30개까지예요. 필요 없는 열을 빼 주세요.'; return; }
-    var cols = M.cols.map(function (c) { return { id: c.id, name: c.name.trim(), type: c.type, options: c.options, lock: c.lock, merge: c.merge, w: c.w }; });
+    var cols = M.cols.map(function (c) { return { id: c.id, name: c.name.trim(), type: c.type, options: c.options, lock: c.lock, merge: c.merge, w: c.w, todo: !!c.todo && c.type === 'text' }; });
     var rows = body.map(function (line, i) {
       var cells = {}, colors = {}, fmt = {};
       M.cols.forEach(function (c) {
@@ -4170,12 +4350,23 @@ window.__gyTableUi = function (core) {
       case 'tb-sheet-menu': tbToggleMenu(t, function () { tbSheetMenu(t); }); break;
       case 'tb-sheet-add': tbNew('sheet'); break;
       case 'tb-sheet-list': tbToggleMenu(t, function () { tbSheetList(t); }); break;
+      case 'tb-todo-copy': tbTodoCopy(); break;
+      case 'tb-rmine': T.rf.mine = !T.rf.mine; tbDrawMain(); break;
     }
   }
+  // 목록 찾기 칸·부서, 휴대폰 줄 찾기
+  document.addEventListener('input', function (e) {
+    var id = e.target && e.target.id;
+    if (id === 'tb-lq') { S.table.lq = e.target.value; tbDrawCards(); }
+    else if (id === 'tb-rq' && S.table.d) { S.table.rf.q = e.target.value; var rb = qs('#tb-rowsbox'); if (rb) rb.innerHTML = tbRowsInner(); }
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.id === 'tb-ldept') { S.table.ldept = e.target.value; tbDrawCards(); }
+  });
   document.addEventListener('click', function (e) {
     var t = e.target.closest('[data-action],[data-tb-tab]');
     if (!t) return;
-    if (t.hasAttribute('data-tb-tab')) { S.table.tab = t.getAttribute('data-tb-tab'); tbDrawList(); return; }
+    if (t.hasAttribute('data-tb-tab')) { S.table.tab = t.getAttribute('data-tb-tab'); tbDrawCards(); return; }
     var a = t.getAttribute('data-action') || '';
     if (a.indexOf('tb-') === 0) tbAction(a, t, e);
   });
@@ -4238,10 +4429,13 @@ window.__gyTableUi = function (core) {
   return {
     build: window.__gyTableUiBuild,
     /** 메뉴에서 '취합 시트'를 누르면 목록부터 */
-    reset: function () { S.table.sel = ''; S.table.sheet = ''; S.table.d = null; S.table.find = null; },
+    reset: function () { S.table.sel = ''; S.table.sheet = ''; S.table.d = null; S.table.find = null; S.table.lq = ''; S.table.ldept = ''; },
+    /** 홈(내가 할 일·검색)에서 표를 바로 연다. sheet: 시트ID(없으면 이 창에서 마지막에 본 시트) */
+    open: function (doc, sheet) { S.table.sel = doc; S.table.sheet = sheet || S.table.last[doc] || ''; S.table.d = null; S.table.find = null; },
     /** 누구로 보는지가 바뀌면 들고 있던 표를 버린다 */
     forget: function () {
       S.table.list = null; S.table.d = null; S.table.edit = null; S.table.find = null; S.table.loc = {}; S.table.last = {};
+      S.table.lq = ''; S.table.ldept = ''; S.table.rf = { id: '', q: '', mine: false }; S.tbSeen = {};
       tbUndo = []; tbRedo = []; // 다음 선생님이 앞 선생님이 고친 칸을 되돌리지 않게
       tbDropFailed();
       tbConfShown = null; tbConfQ = [];

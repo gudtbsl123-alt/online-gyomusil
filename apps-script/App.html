@@ -78,7 +78,7 @@
     'help.list': 1, 'staff.list': 1, 'notice.list': 1, 'admin.settings.get': 1, 'admin.cat.list': 1, 'admin.staff.list': 1,
     'admin.log.list': 1, 'admin.trash.list': 1, 'admin.trash.surveys': 1, 'admin.trash.library': 1, 'admin.year.preview': 1,
     'admin.check': 1, 'admin.speed': 1, 'admin.staff.importCheck': 1,
-    'table.list': 1, 'table.get': 1, 'table.poll': 1, 'table.find': 1, 'table.tpl.list': 1, 'table.tpl.get': 1, 'admin.trash.tables': 1
+    'table.list': 1, 'table.get': 1, 'table.poll': 1, 'table.find': 1, 'table.tpl.list': 1, 'table.tpl.get': 1, 'admin.trash.tables': 1, 'shortcut.url': 1
   };
   // 취합 시트에서 칸·열 너비·줄 높이·보기를 고치는 저장: 창 닫기를 막지 않는다(뒤에서 차례로 보냄)
   var QUIET_WRITES = { 'table.cell': 1, 'table.cells': 1, 'table.row.add': 1, 'table.colw': 1, 'table.rowh': 1, 'table.view': 1 };
@@ -1287,17 +1287,36 @@
     }
   }
 
-  /** 홈 '내가 할 일': 아직 안 낸 조사(다시 알림 받은 것이 맨 위) */
+  /**
+   * 홈 '내가 할 일' 중 취합 시트: 할 일 열에 내 이름이 있고 끝나지 않은 줄이 있는 시트(서버 목록은 10분까지 늦을 수 있어,
+   * 그 뒤에 이 창에서 직접 본 시트(TableUi.html S.tbSeen)는 그것을 믿는다: 다 채웠으면 빼고, 남은 줄 수는 본 대로)
+   */
+  function tableTodos(h) {
+    var seen = S.tbSeen || {};
+    return (h.tableTodos || []).map(function (x) {
+      var v = seen[x.sheet];
+      if (!v || !(v.at > (x.at || 0))) return x;
+      return v.n ? Object.assign({}, x, { n: v.n }) : null;
+    }).filter(Boolean);
+  }
+  /** 홈 '내가 할 일': 아직 안 낸 조사(다시 알림 받은 것이 맨 위) + 취합 시트(할 일 열에 내 이름이 있는 끝나지 않은 줄) */
   function todoCard(h) {
     if (!S.me) {
       return '<section class="card"><h2>내가 할 일</h2><div class="box"><p style="font-weight:800">이름을 고르면 보여요</p>' +
-        '<p class="faint">내가 낼 조사가 여기에 모여요.</p></div>' +
+        '<p class="faint">내가 낼 조사와 채울 취합 시트가 여기에 모여요.</p></div>' +
         '<button type="button" class="btn btn-primary" data-action="identity">이름 고르기</button></section>';
     }
-    var list = h.todos || [];
+    var list = h.todos || [], tables = tableTodos(h);
     setTodoCount(list.length);
     var first = list[0];
-    return '<section class="card todo-card"><div class="card-head"><h2>내가 할 일 <span class="accent-num">' + list.length + '</span></h2>' +
+    var tableRows = tables.slice(0, 4).map(function (x) {
+      return '<div class="todo-row"><div style="min-width:0"><div class="sv-chips"><span class="chip chip-accent">취합 시트</span>' +
+        (x.deadline ? daysLeftChip({ deadline: x.deadline }, h.today) : '') + '</div>' +
+        '<p class="todo-title sm">' + esc(x.title + (x.sheetName ? ' › ' + x.sheetName : '')) + '</p>' +
+        '<p class="faint">내 이름이 있는 줄 ' + x.n + '개가 남았어요</p></div>' +
+        '<button type="button" class="btn btn-sm" data-action="todo-table" data-id="' + esc(x.doc) + '" data-sheet="' + esc(x.sheet) + '">채우기</button></div>';
+    }).join('') + (tables.length > 4 ? '<p class="faint">취합 시트 ' + (tables.length - 4) + '개 더 있어요</p>' : '');
+    return '<section class="card todo-card"><div class="card-head"><h2>내가 할 일 <span class="accent-num">' + (list.length + tables.length) + '</span></h2>' +
       '<button type="button" class="linkish" data-go="survey">전체 보기</button></div>' +
       (first ? '<div class="todo-first"><div class="sv-chips">' + daysLeftChip(first, h.today) + (first.reminded ? '<span class="chip chip-warn">다시 알림</span>' : '') +
         (first.dept ? '<span class="faint">' + esc(first.dept) + '</span>' : '') + '</div>' +
@@ -1308,8 +1327,8 @@
             '<p class="todo-title sm">' + esc(c.title) + '</p></div>' +
             '<button type="button" class="btn btn-sm" data-action="todo-open" data-id="' + esc(c.id) + '">응답하기</button></div>';
         }).join('') + (list.length > 4 ? '<p class="faint">' + (list.length - 4) + '개 더 있어요</p>' : '')
-        : '<div class="box"><p style="font-weight:800">낼 조사가 없어요</p><p class="faint">새 조사가 오면 여기에 보여요.</p></div>') +
-      '</section>';
+        : tables.length ? '' : '<div class="box"><p style="font-weight:800">할 일이 없어요</p><p class="faint">새 조사가 오거나 취합 시트의 할 일 열에 내 이름이 들어가면 여기에 보여요.</p></div>') +
+      tableRows + '</section>';
   }
 
   // ============================================================ 일정
@@ -3321,7 +3340,9 @@
       sec(1, '들어오기', [
         '웹앱 주소를 열고 <b>공통 비밀번호</b>를 넣어요. 비밀번호는 연구부장·부담당이 알려 드려요.',
         st.pinMode ? '명단에서 내 이름을 고르고 <b>개인 번호 4자리</b>를 넣어요. 번호를 잊으면 연구부장·부담당이 새로 만들어 드려요.' : '명단에서 <b>내 이름</b>을 골라요. 일정·조사·자료에 고른 이름이 남아요.',
-        "'이 기기에서 기억하기'를 켜 두면 " + keep + ' 동안 다시 묻지 않아요. 여러 사람이 쓰는 컴퓨터에서는 끄고, 다 쓰면 메뉴 맨 아래 <b>나가기</b>를 눌러요.'
+        "'이 기기에서 기억하기'를 켜 두면 " + keep + ' 동안 다시 묻지 않아요. 여러 사람이 쓰는 컴퓨터에서는 끄고, 다 쓰면 메뉴 맨 아래 <b>나가기</b>를 눌러요.',
+        '내 PC에서는 <b>바탕화면 바로가기</b>를 만들어 두면 두 번 눌러 바로 열려요. <button type="button" class="btn btn-sm print-hide guide-sc" data-action="shortcut-file">' + icon('down', 16) + '바로가기 파일 받기</button>' +
+          '<span class="faint">크롬은 오른쪽 위 ⋮ 메뉴의 <b>바로가기 만들기</b>, 엣지는 … 메뉴 › 앱 › <b>이 사이트를 앱으로 설치</b>로도 만들 수 있어요(메뉴 이름은 브라우저 판마다 조금 달라요).</span>'
       ]) +
       sec(2, '홈·검색·공지', [
         '홈에서 오늘 일정, 내가 낼 조사(내가 할 일), 이번 주 일정, 지금 걸린 공지를 봐요.',
@@ -3375,6 +3396,32 @@
         '시트에서 칸을 직접 고치면 웹앱에 바로 보여요. 줄을 지우거나 정렬한 것은 조금 늦게(10분쯤) 보여요. 바로 보려면 <b>관리자 › 점검 › 시트 새로 읽기</b>를 눌러요.'
       ]) + '</div>';
   };
+
+  /**
+   * 바탕화면 바로가기 파일(.url, 윈도우 인터넷 바로가기) 받기(판 2026-10-19a, 교사 결정). 웹앱 주소는 서버가 알려 주고(apiShortcutUrl_),
+   * 모르면 주소창의 주소를 붙여 넣게 한다. 받은 파일을 바탕화면에 두면 두 번 눌러 기본 브라우저로 열린다(보안 경고가 뜨는지는 확인 필요)
+   */
+  function shortcutFile(btn) {
+    busy(btn, true, '주소를 찾는 중');
+    server('shortcut.url').then(function (r) { busy(btn, false); shortcutDialog(r.url || ''); }, function () { busy(btn, false); shortcutDialog(''); });
+  }
+  function shortcutDialog(url) {
+    openModal('<h2 id="m-title">바탕화면 바로가기 파일 받기</h2>' +
+      '<p class="muted" style="margin:0">받은 파일(<b>온라인 교무실.url</b>)을 바탕화면으로 옮겨 두면, 두 번 눌러 이 웹앱을 바로 열 수 있어요. 내려받은 폴더에서 바탕화면으로 끌어다 놓으면 돼요.</p>' +
+      '<div class="field"><label class="label" for="sc-url">웹앱 주소</label><input class="input" id="sc-url" value="' + esc(url) + '" placeholder="https://script.google.com/…/exec" spellcheck="false" autocomplete="off"></div>' +
+      '<p class="hint">' + icon('info', 16) + '<span>' + (url ? '주소창에 보이는 주소와 같은지 한 번 봐 주세요.' : '주소를 찾지 못했어요. 브라우저 주소창의 주소를 복사해 붙여 넣어 주세요.') +
+      ' 파일을 열 때 윈도우가 한 번 물어보면 \'열기\'를 눌러요.</span></p>' +
+      '<p class="err" id="sc-err" role="alert"></p>' +
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="button" class="btn btn-primary" id="sc-go">' + icon('down', 18) + '파일 받기</button></div>');
+    qs('#sc-url').addEventListener('input', function () { qs('#sc-err').textContent = ''; });
+    qs('#sc-go').addEventListener('click', function () {
+      var u = qs('#sc-url').value.trim(), err = qs('#sc-err');
+      if (!/^https:\/\/[^\s"<>]+$/.test(u)) { err.textContent = 'https://로 시작하는 웹앱 주소를 넣어 주세요.'; qs('#sc-url').focus(); return; }
+      saveBlob(new Blob(['[InternetShortcut]\r\nURL=' + u + '\r\n'], { type: 'application/octet-stream' }), '온라인 교무실.url');
+      closeModal();
+      toast('바로가기 파일을 받았어요. 바탕화면으로 옮겨 두세요');
+    });
+  }
 
   // ------------------------------------------------------------ 운영 안내서 › 선생님용 1쪽 인쇄
   // 인쇄 직전에 '모든 선생님' 부분(#guide-teacher)의 인쇄 모양 사본을 화면 밖에서 재서, A4 한 장보다 길면 그만큼 줄인다(월별 계획 인쇄와 같은 방법)
@@ -3472,6 +3519,10 @@
       { key: 'surveys', label: '조사·신청', icon: 'survey', row: function (c) {
         return srRow('sr-sv', c.id, 'survey', esc(c.title), (c.closed ? '끝남' : c.deadlineText + '까지') + (c.dept ? ' · ' + c.dept : ''),
           c.inTarget && !c.closed ? (c.answered ? '냈어요' : '아직 안 냄') : '');
+      } },
+      { key: 'tables', label: '취합 시트', icon: 'grid', row: function (x) {
+        return srRow('sr-table', x.id, 'grid', esc(x.title) + (x.sheetName ? ' <span class="faint">› ' + esc(x.sheetName) + '</span>' : ''),
+          [x.closed ? '마감됨' : x.deadline ? mdw(x.deadline) + ' 마감' : '', x.dept, x.sheets > 1 ? '시트 ' + x.sheets + '개' : ''].filter(Boolean).join(' · '), '', ' data-sheet="' + esc(x.sheet || '') + '"');
       } }
     ];
     groups = groups.filter(function (g) { return r[g.key]; });
@@ -5093,6 +5144,12 @@
         });
         break;
       case 'todo-open': S.survey.tab = 'answer'; S.survey.sel = id; go('survey'); break;
+      case 'shortcut-file': shortcutFile(t); break;
+      case 'todo-table':
+      case 'sr-table': // 홈 '내가 할 일'·검색에서 취합 시트(그 시트)를 바로 연다
+        if (TB && TB.open) TB.open(id, t.getAttribute('data-sheet') || '');
+        go('table');
+        break;
       case 'trash-restore': trashRestore(id); break;
       case 'trash-restore-tb':
         var tbKind = t.getAttribute('data-kind') || 'doc';

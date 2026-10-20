@@ -103,6 +103,7 @@ function routes_() {
     'help.delete': { need: 'identity', fn: 'apiHelpDelete_' },
     'staff.list': { need: 'login', fn: function () { return apiStaffDir_(); } },
     'search': { need: 'login', fn: 'apiSearch_' },
+    'shortcut.url': { need: 'login', fn: 'apiShortcutUrl_' }, // 바탕화면 바로가기 파일에 넣을 웹앱 주소(운영 안내서)
     'notice.list': { need: 'login', fn: 'apiNoticeList_' },
     'notice.save': { need: 'identity', fn: 'apiNoticeSave_' },
     'notice.delete': { need: 'identity', fn: 'apiNoticeDelete_' },
@@ -181,7 +182,7 @@ var BASE_TABS_ = ['설정', '교직원', '분류'];
 var ROUTE_TABS_ = {
   'start': [], 'staffPicker': [], 'staff.list': [],
   'session': ['응답', '알림', '조사', '공지'],
-  'home': ['일정', '월별중점', '학생수', '응답', '알림', '조사', '자료', '공지', '도움말'],
+  'home': ['일정', '월별중점', '학생수', '응답', '알림', '조사', '자료', '공지', '도움말', '@gy:tbtodo'], // '@키': 탭이 아닌 서버 기억(취합 시트 할 일 목록, Table.gs)
   'sched.month': ['일정', '월별중점', '학기'],
   'sched.year': ['일정', '학기'],
   'sched.range': ['일정'],
@@ -194,9 +195,9 @@ var ROUTE_TABS_ = {
   'table.get': ['함께표', '함께표줄'],
   'table.poll': ['함께표'], // 바뀐 것이 없으면 작은 탭만 보고 돌아간다
   'table.find': ['함께표', '함께표줄'],
-  'table.tpl.list': ['시트양식'],
-  'table.tpl.get': ['시트양식'],
-  'search': ['일정', '자료', '도움말', '공지', '조사', '응답', '알림']
+  'table.tpl.list': ['시트양식', '학기', '일정', '학생수'], // 기본 양식의 줄(방학 근무·대피 훈련 재적)
+  'table.tpl.get': ['시트양식', '학기', '일정', '학생수'],
+  'search': ['일정', '자료', '도움말', '공지', '조사', '응답', '알림', '함께표']
 };
 
 /** 요청이 읽을 탭 목록. boot·batch·이어 읽기(then)는 합친다 */
@@ -319,6 +320,16 @@ function apiStart_() {
     rememberDays: ready ? rememberDays_() : 365,
     pinMode: ready ? pinMode_() : false
   };
+}
+
+/**
+ * 바탕화면 바로가기 파일(.url)에 넣을 웹앱 주소(판 2026-10-19a, 교사 결정). /exec로 끝나는 주소만 보내고, 아니면 ''(화면이 주소창의
+ * 주소를 붙여 넣게 한다). 확인 필요: 배포가 여러 개일 때 getUrl()이 어느 배포 주소를 주는지
+ */
+function apiShortcutUrl_() {
+  var u = '';
+  try { u = String(ScriptApp.getService().getUrl() || ''); } catch (e) { u = ''; }
+  return { url: /^https:\/\/script\.google\.com\/[^\s"<>]+\/exec$/.test(u) ? u : '' };
 }
 
 /** 미리 받기: 화면이 뒤에서 자주 여는 화면들을 한 번에 받아 둔다. args.reads = [[읽기 이름, args], …] (8개까지, 이어 읽기와 같은 읽기만) */

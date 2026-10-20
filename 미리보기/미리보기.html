@@ -692,6 +692,8 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .guide-card h2{display:flex;align-items:center;gap:10px}
 .guide-list{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;color:var(--c-t2)}
 .guide-list b{color:var(--c-t1)}
+.guide-list .guide-sc{margin:6px 0 2px;vertical-align:middle}
+.guide-list .guide-sc + .faint{display:block;margin-top:4px;font-size:14px}
 .guide-part{display:flex;flex-direction:column;gap:24px}
 .guide-print-head{display:none;margin:0;font-size:13px;font-weight:700;color:var(--c-t3)}
 /* 운영 안내서 › 선생님용 1쪽 인쇄(App.html guideTeacherStart): '모든 선생님' 부분만 A4 세로 한 장 */
@@ -747,6 +749,14 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .check-fix{display:flex;align-items:flex-start;gap:4px;font-size:14px;font-weight:600;color:var(--c-t2)}
 .check-fix svg{margin-top:2px;color:var(--accent)}
 .check-todo{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px} /* 점검 맨 위: 고칠 것·확인할 것 */
+/* 홈 '비상 시 이것부터'(2026-10-19a): 도움말에서 고른 글 3개까지 */
+.sos-card{border-color:var(--c-red);box-shadow:inset 3px 0 0 var(--c-red)}
+.sos-card h2{display:flex;align-items:center;gap:8px}
+.sos-ico{color:var(--c-red)}
+.sos-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.sos-item{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:56px;padding:12px 14px;border:1px solid var(--c-line);border-radius:12px;background:var(--c-card2);color:var(--c-t1);font:inherit;text-align:left;cursor:pointer}
+.sos-item b{font-size:16px}
+.sos-item .faint{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .check-todo li{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:12px;background:var(--c-card2)}
 .check-todo .chip{flex:none;min-width:72px;justify-content:center}
 .check-todo .check-main{flex:1 1 auto}
@@ -764,6 +774,8 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .lg-ev{background:var(--c-pill);border:1px solid var(--c-line2)}
 .lg-act{background:var(--c-okBg);border:1px solid var(--c-okFg)}
 .lg-off{background:var(--c-red)}
+.lg-meet{background:var(--accent-soft);border:1px solid var(--accent)}
+.lg-duty{background:transparent;border:1px solid var(--c-line2)}
 .nav-item{position:relative}
 .nav-dot{margin-left:auto;width:9px;height:9px;border-radius:50%;background:var(--accent)}
 .bn-dot{position:absolute;top:6px;left:50%;margin-left:8px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
@@ -1590,6 +1602,19 @@ window.__gyIntroU = (function () {
 .tb-live .dot{width:8px;height:8px;flex:none;border-radius:50%;background:var(--c-okFg);box-shadow:0 0 0 4px var(--c-okBg)}
 .tb-live.off .dot{background:var(--c-warnFg);box-shadow:0 0 0 4px var(--c-warnBg)}
 .tb-missing{display:flex;flex-direction:column;gap:12px}
+/* 숫자 열·할 일 열·목록 찾기·휴대폰 줄 찾기(판 2026-10-19a) */
+.tb-grid td.num{text-align:right;font-variant-numeric:tabular-nums}
+.tb-grid th .td{display:inline-flex;vertical-align:-2px;margin-left:4px;color:var(--accent)}
+.tb-sum b{font-weight:800;color:var(--c-t1)}
+.tb-todo{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px}
+.tb-todo .btn{min-height:30px}
+.tb-lfind{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.tb-lfind .search{flex:1 1 260px;height:44px}
+.tb-lfind select{flex:0 1 200px;width:auto}
+.tb-rfind{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px}
+.tb-rfind .search{flex:1 1 180px;height:44px}
+.tb-rfind .chip{min-height:40px;padding:0 14px;border:0;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.tb-rfind .chip[aria-pressed="true"]{background:var(--accent);color:var(--c-onAccent)}
 
 /* 시트 상자: 도구 막대 + (찾기·걸러 보기 알림) + 표 + 시트 탭 */
 .tb-box{display:flex;flex-direction:column;border:1px solid var(--c-line);border-radius:16px;background:var(--c-card)}
@@ -1852,7 +1877,8 @@ body.tb-resizing.rows,body.tb-resizing.rows *{cursor:row-resize!important}
 .tb-optx small{font-size:14px;font-weight:600;line-height:1.45;color:var(--c-t3)}
 /* 열 고치기 */
 .tb-cols{display:flex;flex-direction:column;gap:8px}
-.tb-colrow{display:grid;grid-template-columns:24px minmax(110px,1.3fr) 92px minmax(120px,1.3fr) auto auto auto;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--c-line);border-radius:12px}
+.tb-colrow{display:grid;grid-template-columns:24px minmax(110px,1.3fr) 92px minmax(120px,1.3fr) auto auto auto auto;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--c-line);border-radius:12px}
+.tb-colrow .check.off{opacity:.45}
 .tb-colrow .input-sm{width:100%}
 .tb-colrow .check{min-height:36px;gap:6px;font-size:14px;white-space:nowrap}
 .tb-colrow .check input{width:18px;height:18px}
@@ -1995,7 +2021,8 @@ window.__gyTableUi = function (core) {
     left: '<path d="M10 7 5 12l5 5M5 12h14"></path>',
     right: '<path d="m14 7 5 5-5 5M19 12H5"></path>',
     dup: '<rect x="8.5" y="8.5" width="11" height="11" rx="2"></rect><path d="M5 15.5V6a1.5 1.5 0 0 1 1.5-1.5H16M14 11.5v5M11.5 14h5"></path>',
-    layout: '<rect x="4" y="4.5" width="16" height="15" rx="2"></rect><path d="M4 9.5h16M9.5 9.5v10"></path>'
+    layout: '<rect x="4" y="4.5" width="16" height="15" rx="2"></rect><path d="M4 9.5h16M9.5 9.5v10"></path>',
+    todo: '<circle cx="9" cy="8" r="3.2"></circle><path d="M3.5 19.5c.6-3.3 2.8-5.2 5.5-5.2 1.3 0 2.5.4 3.4 1.2M14.5 15.5l2.2 2.2 4-4.4"></path>'
   };
   function ti(name, size, sw, extra) {
     if (!TP[name]) return icon(name, size, extra);
@@ -2013,7 +2040,8 @@ window.__gyTableUi = function (core) {
   // ------------------------------------------------------------ 상태
   S.table = {
     tab: 'open', list: null, sel: '', sheet: '', d: null, cur: null, anchor: null, edit: null, drag: null, flash: {}, live: 'ok',
-    phoneGrid: false, make: null, menu: null, polling: false, vrows: [], loc: {}, find: null, last: {}, loading: false
+    phoneGrid: false, make: null, menu: null, polling: false, vrows: [], loc: {}, find: null, last: {}, loading: false,
+    lq: '', ldept: '', rf: { id: '', q: '', mine: false } // 목록 찾기·부서(이 창에서만), 휴대폰 줄 찾기·내 이름이 있는 줄(시트마다)
   };
   var TB_POLL_MS = 10000, TB_FLASH_MS = 8000, TB_RN_W = 44, TB_WHO_W = 128;
   var TB_TOUCH = !!(window.matchMedia && window.matchMedia('(hover: none)').matches); // 터치만 되는 기기: 칸을 고칠 때만 글자판을 띄운다
@@ -2165,7 +2193,72 @@ window.__gyTableUi = function (core) {
     var m = s.summary || { rows: 0 }, p = m.pick;
     return m.rows + '줄' + (p && m.rows ? ' · ' + p.options[0] + ' ' + (p.counts[p.options[0]] || 0) + '/' + m.rows : '');
   }
-  function tbColW(c) { return c.w || (c.type === 'pick' ? 130 : 160); }
+  function tbColW(c) { return c.w || (c.type === 'pick' ? 130 : c.type === 'num' ? 110 : 160); }
+  /** 숫자 열의 값 → 숫자(쉼표·띄어쓰기는 빼고 읽는다). 숫자가 아니면 null */
+  function tbNum(v) {
+    var x = String(v === undefined || v === null ? '' : v).replace(/[,\s]/g, '');
+    return /^[+-]?(\d+(\.\d*)?|\.\d+)$/.test(x) ? Number(x) : null;
+  }
+  function tbNumText(n) { return (Math.round(n * 100) / 100).toLocaleString('ko-KR', { maximumFractionDigits: 2 }); }
+  /** 숫자 열마다 보이는 줄의 합계·평균. 숫자가 아닌 값은 따로 세고, 합친 칸에 덮인 칸은 세지 않는다 */
+  function tbSums(cols, rows) {
+    var eff = S.table.eff || {};
+    return cols.filter(function (c) { return c.type === 'num'; }).map(function (c) {
+      var o = { c: c, sum: 0, n: 0, other: 0 };
+      rows.forEach(function (r) {
+        if (eff[r.id + '|' + c.id] !== undefined) return;
+        var v = tbVal(r, c.id).trim(), n = v ? tbNum(v) : null;
+        if (!v) return;
+        if (n === null) o.other++;
+        else { o.sum += n; o.n++; }
+      });
+      return o;
+    });
+  }
+  /**
+   * 줄이 끝났는지(할 일 열, 서버 Table.gs tbRowDone_과 같은 규칙): 첫 고르기 열이 맨 앞 값이면. 고르기 열이 없으면 잠그지 않은 숫자 열이
+   * 모두 차면, 숫자 열도 없으면 잠그지 않은 글 열(할 일 열 빼고)이 모두 차면. 합친 칸에 덮인 칸은 찬 것으로 본다
+   */
+  function tbRowDone(cols, r) {
+    var eff = S.table.eff || {};
+    var pick = cols.filter(function (c) { return c.type === 'pick'; })[0];
+    if (pick) return tbVal(r, pick.id).trim() === pick.options[0];
+    var nums = cols.filter(function (c) { return c.type === 'num' && !c.lock; });
+    var need = nums.length ? nums : cols.filter(function (c) { return c.type === 'text' && !c.lock && !c.todo; });
+    return need.every(function (c) { return eff[r.id + '|' + c.id] !== undefined || tbVal(r, c.id).trim() !== ''; });
+  }
+  /** 할 일 칸의 이름들(서버 tbTodoNames_와 같게): 쉼표·가운뎃점·빗금·줄 바꿈·띄어쓰기로 나누고 '선생님'은 뺀다 */
+  function tbTodoNames(v) {
+    var out = [];
+    String(v || '').split(/[\s,，·\/、]+/).forEach(function (x) {
+      x = x.replace(/선생님$/, '').trim();
+      if (x && x.length <= 20 && out.indexOf(x) < 0) out.push(x);
+    });
+    return out;
+  }
+  function tbTodoCol(cols) { return cols.filter(function (c) { return c.todo && c.type === 'text'; })[0] || null; }
+  /** 할 일 열이 있으면 끝나지 않은 줄: { col, names(줄 차례, 겹침 없이), rows(이름이 있는 끝나지 않은 줄 수), mine(그중 내 이름이 있는 줄) } */
+  function tbTodoLeft() {
+    var d = S.table.d, col = d ? tbTodoCol(d.table.cols) : null;
+    if (!col) return null;
+    var out = { col: col, names: [], rows: 0, mine: 0 }, me = S.me ? S.me.name : '';
+    d.rows.forEach(function (r) {
+      if (tbRowDone(d.table.cols, r)) return;
+      var list = tbTodoNames(tbEff(r, col.id));
+      if (!list.length) return;
+      out.rows++;
+      if (me && list.indexOf(me) >= 0) out.mine++;
+      list.forEach(function (n) { if (out.names.indexOf(n) < 0) out.names.push(n); });
+    });
+    return out;
+  }
+  /** 홈 '내가 할 일'에 쓰려고 이 시트에서 직접 본 내 남은 줄 수를 기억한다(서버 목록은 10분까지 늦을 수 있어, 그 뒤에 본 것을 믿는다) */
+  function tbSeen(left) {
+    var d = S.table.d;
+    if (!d || !S.me) return;
+    S.tbSeen = S.tbSeen || {};
+    S.tbSeen[d.table.id] = { n: left && !d.table.closed ? left.mine : 0, at: Date.now() };
+  }
   function tbZoom() { var z = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gy-zoom')); return z > 0 ? z : 1; }
 
   // ------------------------------------------------------------ 목록
@@ -2184,28 +2277,53 @@ window.__gyTableUi = function (core) {
     }, function (e) { var b = qs('#tb-body'); if (b) b.innerHTML = failHtml(e); });
   };
 
+  /** 목록: 탭(진행 중·마감됨·내가 만든 표) + 찾기 칸·부서 고르기(이 창에서만) + 카드 */
   function tbDrawList() {
-    var T = S.table, l = T.list, body = qs('#tb-body');
+    var T = S.table, l = T.list, body = qs('#tb-body'), lq = qs('#tb-lq');
     if (!body || !l) return;
-    var groups = { open: [], closed: [], mine: [] };
+    if (lq && document.activeElement === lq && qs('#tb-lcards')) { tbDrawCards(); return; } // 찾기 칸에 쓰는 중에 목록이 새로 오면 카드만(한글 입력이 끊기지 않게)
+    var depts = (l.depts || []).filter(function (x) { return l.tables.some(function (c) { return c.deptId === x.id; }); });
+    if (T.ldept && !depts.some(function (x) { return x.id === T.ldept; })) T.ldept = '';
+    body.innerHTML = '<div id="tb-ltabs"></div>' +
+      (S.me ? '' : '<p class="note">' + icon('info', 18) + '<span>지금은 보기만 할 수 있어요. 이름을 고르면 표를 만들고 칸을 고칠 수 있어요. ' +
+        '<button type="button" class="linkish" data-action="identity">이름 고르기</button></span></p>') +
+      (l.tables.length ? '<div class="tb-lfind print-hide" role="search"><label class="search">' + icon('search', 20) +
+        '<input id="tb-lq" type="search" placeholder="표 이름·시트 이름·만든 분으로 찾기" aria-label="취합 시트 찾기" autocomplete="off" value="' + esc(T.lq) + '"></label>' +
+        (depts.length ? '<select class="input" id="tb-ldept" aria-label="부서로 고르기"><option value="">모든 부서</option>' + depts.map(function (x) {
+          return '<option value="' + esc(x.id) + '"' + (x.id === T.ldept ? ' selected' : '') + '>' + esc(x.name) + '</option>';
+        }).join('') + '</select>' : '') + '</div>' : '') +
+      '<div class="tb-list" id="tb-lcards"></div>';
+    tbDrawCards();
+  }
+  function tbListMatch(c) {
+    var T = S.table, q = String(T.lq || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (T.ldept && c.deptId !== T.ldept) return false;
+    if (!q) return true;
+    var hay = [c.title, c.dept, c.by].concat((c.sheets || []).map(function (x) { return x.name; })).join(' ').toLowerCase();
+    return q.split(' ').every(function (w) { return hay.indexOf(w) >= 0; });
+  }
+  /** 탭과 카드만 다시 그린다(찾기 칸에 쓰는 동안 한글 입력이 끊기지 않게) */
+  function tbDrawCards() {
+    var T = S.table, l = T.list, tabsBox = qs('#tb-ltabs'), box = qs('#tb-lcards');
+    if (!l || !box || !tabsBox) return;
+    var groups = { open: [], closed: [], mine: [] }, filtering = !!(String(T.lq || '').trim() || T.ldept);
     l.tables.forEach(function (c) {
+      if (!tbListMatch(c)) return;
       groups[c.closed ? 'closed' : 'open'].push(c);
       if (c.mine) groups.mine.push(c);
     });
     var list = groups[T.tab] || groups.open;
-    var tabs = [['open', '진행 중', groups.open.length], ['closed', '마감됨', groups.closed.length], ['mine', '내가 만든 표', 0]];
-    body.innerHTML = '<div class="tabs print-hide" role="tablist">' + tabs.map(function (t) {
+    var tabs = [['open', '진행 중', groups.open.length], ['closed', '마감됨', groups.closed.length], ['mine', '내가 만든 표', filtering ? groups.mine.length : 0]];
+    tabsBox.innerHTML = '<div class="tabs print-hide" role="tablist">' + tabs.map(function (t) {
       return '<button type="button" class="tab" role="tab" data-tb-tab="' + t[0] + '" aria-selected="' + (T.tab === t[0]) + '">' + t[1] +
         (t[2] ? ' <b class="tab-n">' + t[2] + '</b>' : '') + '</button>';
-    }).join('') + '</div>' +
-      (S.me ? '' : '<p class="note">' + icon('info', 18) + '<span>지금은 보기만 할 수 있어요. 이름을 고르면 표를 만들고 칸을 고칠 수 있어요. ' +
-        '<button type="button" class="linkish" data-action="identity">이름 고르기</button></span></p>') +
-      '<div class="tb-list">' + (list.length ? list.map(function (c) { return tbCard(c, l.today); }).join('') :
-        '<div class="card"><p class="empty">' + {
-          open: '진행 중인 표가 없어요.' + (S.me ? ' "새 표 만들기"로 만들어 보세요.' : ''),
-          closed: '마감한 표가 없어요.',
-          mine: '내가 만든 표가 없어요.'
-        }[T.tab] + '</p></div>') + '</div>';
+    }).join('') + '</div>';
+    box.innerHTML = list.length ? list.map(function (c) { return tbCard(c, l.today); }).join('') :
+      '<div class="card"><p class="empty">' + (filtering ? '찾는 표가 없어요. 찾는 말이나 부서를 바꿔 보세요.' : {
+        open: '진행 중인 표가 없어요.' + (S.me ? ' "새 표 만들기"로 만들어 보세요.' : ''),
+        closed: '마감한 표가 없어요.',
+        mine: '내가 만든 표가 없어요.'
+      }[T.tab]) + '</p></div>';
   }
 
   function tbCard(c, today) {
@@ -2328,6 +2446,7 @@ window.__gyTableUi = function (core) {
         (t.cols.some(function (c) { return c.lock; }) ? '자물쇠 열은 만든 분과 연구부장·부담당(그 줄을 더한 분도)만 고칠 수 있어요. ' : '') +
         '여러 칸을 골라 복사(Ctrl+C)하면 구글 시트에 그대로 붙여 넣을 수 있고, 구글 시트에서 복사한 칸도 서식과 함께 붙여 넣을 수 있어요(값만은 Ctrl+Shift+V).</p>');
     document.title = t.title + ' · 취합 시트';
+    tbVisible(); // 표 위 숫자 열 합계는 보이는 줄로(정렬·걸러 보기를 바꾼 뒤 다시 그릴 때도)
     tbDrawBar();
     tbDrawMain(keep);
   }
@@ -2341,8 +2460,37 @@ window.__gyTableUi = function (core) {
       '<button type="button" class="btn btn-sm" data-action="tb-resend">' + icon('reload', 16) + '다시 보내기</button></span>' : '') +
       (s ? s.options.map(function (o, k) { return '<span class="chip' + (k === 0 ? ' chip-ok' : '') + '">' + esc(o) + ' ' + (s.counts[o] || 0) + '</span>'; }).join('') +
       (s.other ? '<span class="chip">기타 ' + s.other + '</span>' : '') + (s.empty ? '<span class="chip">비어 있음 ' + s.empty + '</span>' : '') : '') +
-      '<span class="chip">전체 ' + d.rows.length + '줄</span>' +
+      '<span class="chip">전체 ' + d.rows.length + '줄</span>' + tbSumsHtml(d) + tbTodoBarHtml(d) +
       '<span class="tb-live print-hide' + (S.table.live === 'off' ? ' off' : '') + '" id="tb-live" role="status"><i class="dot" aria-hidden="true"></i>' + tbLiveText() + '</span>';
+  }
+  /** 숫자 열: 보이는 줄의 합계·평균(걸러 보면 보이는 줄만) */
+  function tbSumsHtml(d) {
+    var sums = tbSums(d.table.cols, S.table.vrows || d.rows), part = Object.keys(tbLocal().filter).length > 0;
+    return sums.map(function (x) {
+      return '<span class="chip tb-sum">' + esc(x.c.name) + ' 합계 <b>' + tbNumText(x.sum) + '</b>' + (x.n ? ' · 평균 ' + tbNumText(x.sum / x.n) : '') +
+        (x.other ? ' · 숫자 아닌 칸 ' + x.other : '') + '</span>';
+    }).join('') + (sums.length && part ? '<span class="chip chip-warn">합계·평균은 보이는 줄만</span>' : '');
+  }
+  /** 할 일 열: 남은 줄·사람 수, 만든 분·관리는 '안 채운 분 문구 복사' */
+  function tbTodoBarHtml(d) {
+    var left = tbTodoLeft();
+    tbSeen(left);
+    if (!left) return '';
+    var tip = "'" + left.col.name + "' 열에 이름이 있는 분 홈 '내가 할 일'에 끝나지 않은 줄이 떠요(늦어도 10분 안에)";
+    return '<span class="tb-todo"><span class="chip' + (left.rows ? ' chip-accent' : ' chip-ok') + '" title="' + esc(tip) + '">' + ti('todo', 15) +
+      (left.rows ? '할 일 남은 줄 ' + left.rows + ' · ' + left.names.length + '명' : '할 일 모두 끝남') + '</span>' +
+      (d.table.canEdit && left.rows ? '<button type="button" class="btn btn-sm print-hide" data-action="tb-todo-copy">' + icon('copy', 16) + '안 채운 분 문구 복사</button>' : '') + '</span>';
+  }
+  /** 안 채운 분께 보낼 메신저 문구(할 일 열의 이름, 마감) */
+  function tbTodoCopy() {
+    var d = S.table.d, left = tbTodoLeft();
+    if (!d || !left) return;
+    if (!left.rows) { toast('모두 끝났어요'); return; }
+    var t = d.table;
+    var text = '[취합 시트] ' + t.title + (d.doc.sheets.length > 1 ? ' › ' + t.name : '') + '\n' +
+      '아직 안 채운 분: ' + left.names.map(function (n) { return n + ' 선생님'; }).join(', ') + ' (' + left.names.length + '명)\n' +
+      (t.deadline ? '마감: ' + mdw(t.deadline) + '까지\n' : '') + '온라인 교무실 › 취합 시트에서 채워 주세요.';
+    copyText(text).then(function (ok) { toast(ok ? '문구를 복사했어요. 메신저에 붙여 넣으세요' : '복사하지 못했어요', ok ? '' : 'error'); });
   }
   function tbLiveText() {
     if (S.table.live === 'off') return '연결이 잠시 끊겼어요 · 다시 받는 중';
@@ -2372,6 +2520,8 @@ window.__gyTableUi = function (core) {
       '<button type="button" data-action="tb-view" data-v="grid" aria-pressed="' + T.phoneGrid + '">표로 보기</button></div>' : '';
     if (phone && !T.phoneGrid) {
       T.edit = null;
+      var rb = qs('#tb-rowsbox'), rq = qs('#tb-rq');
+      if (rb && rq && document.activeElement === rq && !T.loading && T.rf.id === d.table.id) { rb.innerHTML = tbRowsInner(); return; } // 줄 찾기 칸에 쓰는 중이면 목록만(한글 입력이 끊기지 않게)
       main.innerHTML = seg + tbRowsHtml();
       return;
     }
@@ -2550,8 +2700,8 @@ window.__gyTableUi = function (core) {
       '<col class="tb-who-col" style="width:' + TB_WHO_W + 'px">';
     var head = '<tr><th class="rn" scope="col"><button type="button" class="tb-all print-hide" data-action="tb-selall" aria-label="모두 고르기" tabindex="-1"></button></th>' + cols.map(function (c, j) {
       var z = frz(j), sorted = L.sort && L.sort.c === c.id, filt = !!L.filter[c.id];
-      return '<th scope="col" class="tb-h' + z.cls + (sorted || filt ? ' hb-on' : '') + '" style="' + z.st + '" data-j="' + j + '" title="' + esc(c.name + (c.type === 'pick' ? ' (고르기 열)' : '') + (c.lock ? ' · 잠근 열' : '')) + '">' + esc(c.name) +
-        (c.lock ? '<span class="lk">' + icon('lock', 14) + '</span>' : '') +
+      return '<th scope="col" class="tb-h' + z.cls + (sorted || filt ? ' hb-on' : '') + '" style="' + z.st + '" data-j="' + j + '" title="' + esc(c.name + (c.type === 'pick' ? ' (고르기 열)' : c.type === 'num' ? ' (숫자 열)' : '') + (c.lock ? ' · 잠근 열' : '') + (c.todo ? ' · 할 일 열' : '')) + '">' + esc(c.name) +
+        (c.lock ? '<span class="lk">' + icon('lock', 14) + '</span>' : '') + (c.todo ? '<span class="td">' + ti('todo', 15) + '</span>' : '') +
         '<button type="button" class="tb-hb print-hide' + (sorted || filt ? ' on' : '') + '" data-action="tb-head" data-j="' + j + '" aria-label="' + esc(c.name) + ' 열 정렬·걸러 보기" aria-haspopup="menu" aria-expanded="false">' +
         (filt ? ti('filter', 15, 2) : sorted ? ti(L.sort.dir > 0 ? 'sortA' : 'sortZ', 15, 2) : icon('chevd', 15)) + '</button>' +
         (t.canWrite ? '<span class="tb-cr print-hide" data-j="' + j + '" aria-hidden="true"></span>' : '') + '</th>';
@@ -2579,7 +2729,7 @@ window.__gyTableUi = function (core) {
     var T = S.table, ghost = !!o && o.ghost !== undefined && o.ghost !== null;
     var v = ghost ? o.ghost : tbVal(r, c.id), f = ghost && o.gf ? o.gf : tbFmt(r, c.id), p = tbPaint((r.colors || {})[c.id]), fl = T.flash[r.id + '|' + c.id];
     var lit = fl && fl.until > now, can = !ghost && tbCanCell(r, c), rs = (o && o.rs) || 1, cs = (o && o.cs) || 1;
-    var cls = 'tb-c' + (can ? '' : ' ro') + (o && o.run ? ' merged' : '') + (ghost ? ' ghost' : '') + (p ? ' paint' + (p.dark ? ' paint-dark' : '') : '') +
+    var cls = 'tb-c' + (can ? '' : ' ro') + (c.type === 'num' ? ' num' : '') + (o && o.run ? ' merged' : '') + (ghost ? ' ghost' : '') + (p ? ' paint' + (p.dark ? ' paint-dark' : '') : '') +
       (lit ? ' flash' : '') + tbSaveCls(r, c.id) + z.cls;
     var st = z.st + (p ? '--bg:' + p.rgb + ';' : '') + tbFmtStyle(f, dark) + tbEdgeStyle(lay, i, j, rs, cs);
     var inner = c.type === 'pick' && !ghost ? tbPickChip(c, v, can) : esc(v).replace(/\n/g, '<br>');
@@ -4428,6 +4578,7 @@ window.__gyTableUi = function (core) {
   function tbLocalChanged() {
     var T = S.table;
     tbRedraw();
+    tbDrawBar(); // 숫자 열 합계·평균은 보이는 줄만
     if (T.cur && tbRowIdx(T.cur.r) < 0) { T.cur = T.anchor = null; tbPaintSel(); }
     if (T.find) tbFindRun();
     tbFocusEd();
@@ -4831,14 +4982,29 @@ window.__gyTableUi = function (core) {
   }
 
   // ------------------------------------------------------------ 휴대폰: 줄 목록 → 줄 고치기
+  /** 줄 찾기 칸 + '내 이름이 있는 줄'(시트마다, 이 창에서만) + 줄 목록 */
   function tbRowsHtml() {
+    var T = S.table, d = T.d;
+    if (T.rf.id !== d.table.id) T.rf = { id: d.table.id, q: '', mine: false };
+    var find = d.rows.length ? '<div class="tb-rfind print-hide" role="search"><label class="search">' + icon('search', 20) +
+      '<input id="tb-rq" type="search" placeholder="줄 찾기" aria-label="이 시트에서 줄 찾기" autocomplete="off" value="' + esc(T.rf.q) + '"></label>' +
+      (S.me ? '<button type="button" class="chip" data-action="tb-rmine" aria-pressed="' + T.rf.mine + '">' + ti('todo', 16) + '내 이름이 있는 줄</button>' : '') + '</div>' : '';
+    return (T.loading ? '<p class="tb-loading">' + esc(T.loading) + '</p>' : '') + find + '<div id="tb-rowsbox">' + tbRowsInner() + '</div>';
+  }
+  function tbRowsInner() {
     var T = S.table, d = T.d, cols = d.table.cols, now = Date.now();
+    var q = String(T.rf.q || '').replace(/\s+/g, ' ').trim().toLowerCase(), me = T.rf.mine && S.me ? S.me.name : '';
+    var rows = q || me ? T.vrows.filter(function (r) {
+      var vals = cols.map(function (c) { return tbEff(r, c.id); });
+      if (me && !vals.some(function (v) { return v.indexOf(me) >= 0; })) return false;
+      return !q || vals.some(function (v) { return v.toLowerCase().indexOf(q) >= 0; });
+    }) : T.vrows;
     var g0 = cols[0] && (cols[0].merge || (T.merges || []).some(function (m) { return m.j === 0 && m.rs > 1; })) ? cols[0] : null; // 첫 열을 위아래로 합쳤으면 그 값으로 묶는다
     var pick = cols.filter(function (c) { return c.type === 'pick'; })[0];
     var titleCol = cols.filter(function (c) { return c !== g0 && c.type !== 'pick'; })[0] || cols[0];
     var subCols = cols.filter(function (c) { return c !== g0 && c !== titleCol && c !== pick; });
     var last = null, out = '';
-    T.vrows.forEach(function (r) {
+    rows.forEach(function (r) {
       if (g0) {
         var g = tbEff(r, g0.id);
         if (g !== last) { out += '<h3 class="tb-group">' + esc(g || '(비어 있음)') + '</h3>'; last = g; }
@@ -4853,7 +5019,8 @@ window.__gyTableUi = function (core) {
         (pick ? '<span class="tb-pick' + (pv && pv === pick.options[0] ? ' ok' : !pv ? ' none' : pick.options.indexOf(pv) < 0 ? ' other' : '') + '">' + esc(pv || '비어 있음') + '</span>' : '') +
         '</button>';
     });
-    return (T.loading ? '<p class="tb-loading">' + esc(T.loading) + '</p>' : '') + '<div class="tb-rows">' + (out || '<p class="empty">아직 줄이 없어요.</p>') + '</div>';
+    var none = q || me ? '찾는 줄이 없어요.' + (me ? ' 이 시트에는 ' + esc(me) + ' 선생님 이름이 있는 줄이 없어요.' : '') : '아직 줄이 없어요.';
+    return (q || me ? '<p class="faint" style="margin:0 2px 8px">' + rows.length + '줄 찾았어요</p>' : '') + '<div class="tb-rows">' + (out || '<p class="empty">' + none + '</p>') + '</div>';
   }
 
   /** 줄 고치기(휴대폰은 아래에서 올라오는 창, PC는 가운데 창): 그 줄의 칸을 한 번에 고친다. 합친 칸에 덮인 칸은 보기만 */
@@ -4874,7 +5041,8 @@ window.__gyTableUi = function (core) {
           opts.map(function (o, k) { return '<button type="button" data-v="' + esc(o) + '" aria-pressed="' + (o === v) + '"' + (k === 0 ? ' class="first"' : '') + '>' + esc(o) + '</button>'; }).join('') +
           '</div></div>';
       }
-      return '<div class="field"><label class="label" for="' + fid + '">' + name + '</label><textarea class="input tb-ta" id="' + fid + '" data-col="' + esc(c.id) + '" rows="1">' + esc(v) + '</textarea></div>';
+      return '<div class="field"><label class="label" for="' + fid + '">' + name + '</label><textarea class="input tb-ta" id="' + fid + '" data-col="' + esc(c.id) + '" rows="1"' +
+        (c.type === 'num' ? ' inputmode="decimal"' : '') + '>' + esc(v) + '</textarea></div>';
     }).join('');
     var html = '<h2 id="' + hid + '" class="tb-sheet-h">' + esc(tbRowLabel(r)) + ' 줄 ' + (t.canWrite ? '고치기' : '보기') + '</h2>' +
       (r.by ? '<p class="faint" style="margin:0">마지막 고친 분 ' + esc(r.by) + ' · ' + esc(tbAgo(r.at)) + '</p>' : '') +
@@ -5000,12 +5168,13 @@ window.__gyTableUi = function (core) {
     });
   }
 
-  /** 열 고치기(이 시트): 이름·종류(글/고르기)·고를 값·잠금·위아래 합침·순서·더하기·빼기 */
+  /** 열 고치기(이 시트): 이름·종류(글/고르기/숫자)·고를 값·잠금·위아래 합침·할 일 열·순서·더하기·빼기 */
   function tbEditCols() {
     var d = S.table.d, t = d.table;
-    var list = t.cols.map(function (c) { return { id: c.id, name: c.name, type: c.type, options: c.options.slice(), lock: !!c.lock, merge: !!c.merge, w: c.w || 0 }; });
+    var list = t.cols.map(function (c) { return { id: c.id, name: c.name, type: c.type, options: c.options.slice(), lock: !!c.lock, merge: !!c.merge, w: c.w || 0, todo: !!c.todo }; });
     openModal('<h2 id="m-title">열 고치기' + (d.doc.sheets.length > 1 ? ' · ' + esc(t.name) : '') + '</h2>' +
-      '<p class="hint">' + icon('info', 16) + '<span>잠근 열은 만든 분과 연구부장·부담당(그 줄을 더한 분도)만 고쳐요. 고르기 열은 정해 둔 값 중 하나를 고르고, 맨 앞 값이 표 위에 "끝난 것"으로 세어져요(예: 완료, 미완료). \'위아래 합침\'을 켜면 위아래로 같은 값이 이어지는 칸을 한 칸처럼 보여 줘요. 뺀 열의 내용은 시트에 남아요.</span></p>' +
+      '<p class="hint">' + icon('info', 16) + '<span>잠근 열은 만든 분과 연구부장·부담당(그 줄을 더한 분도)만 고쳐요. 고르기 열은 정해 둔 값 중 하나를 고르고, 맨 앞 값이 표 위에 "끝난 것"으로 세어져요(예: 완료, 미완료). 숫자 열은 표 위에 합계·평균이 나와요. \'위아래 합침\'을 켜면 위아래로 같은 값이 이어지는 칸을 한 칸처럼 보여 줘요. 뺀 열의 내용은 시트에 남아요.</span></p>' +
+      '<p class="hint">' + ti('todo', 16) + '<span><b>할 일 열</b>(글 열 하나, 예: 담임)에 이름이 있는 분은 홈 \'내가 할 일\'에 끝나지 않은 줄이 떠요(늦어도 10분 안에). 첫 고르기 열이 맨 앞 값이 되면 끝난 줄이에요. 고르기 열이 없으면 숫자 열이, 숫자 열도 없으면 잠그지 않은 글 열이 모두 채워지면 끝난 줄이에요.</span></p>' +
       '<div class="tb-cols" id="tbc-list"></div>' +
       '<button type="button" class="btn btn-sm" id="tbc-add" style="align-self:flex-start">' + icon('plus', 18) + '열 더하기</button>' +
       '<p class="err" id="tbc-err" role="alert"></p>' +
@@ -5020,16 +5189,19 @@ window.__gyTableUi = function (core) {
         if (o) c.options = tbOptList(o.value);
         c.lock = qs('.tb-cl', row).checked;
         c.merge = qs('.tb-cm', row).checked;
+        c.todo = c.type === 'text' && qs('.tb-ctd', row).checked;
       });
     };
     var draw = function () {
       box.innerHTML = list.map(function (c, k) {
         return '<div class="tb-colrow" data-k="' + k + '"><span class="tb-colno">' + (k + 1) + '</span>' +
           '<input class="input input-sm tb-cn" value="' + esc(c.name) + '" maxlength="40" aria-label="' + (k + 1) + '번째 열 이름">' +
-          '<select class="input input-sm tb-ct" aria-label="' + (k + 1) + '번째 열 종류"><option value="text"' + (c.type !== 'pick' ? ' selected' : '') + '>글</option><option value="pick"' + (c.type === 'pick' ? ' selected' : '') + '>고르기</option></select>' +
+          '<select class="input input-sm tb-ct" aria-label="' + (k + 1) + '번째 열 종류"><option value="text"' + (c.type !== 'pick' && c.type !== 'num' ? ' selected' : '') + '>글</option>' +
+          '<option value="pick"' + (c.type === 'pick' ? ' selected' : '') + '>고르기</option><option value="num"' + (c.type === 'num' ? ' selected' : '') + '>숫자</option></select>' +
           (c.type === 'pick' ? '<input class="input input-sm tb-co" value="' + esc(c.options.join(', ')) + '" placeholder="고를 값(쉼표로 나눠 적기)" aria-label="고를 값">' : '<span class="tb-co-ph"></span>') +
           '<label class="check"><input type="checkbox" class="tb-cl"' + (c.lock ? ' checked' : '') + '>잠금</label>' +
           '<label class="check"><input type="checkbox" class="tb-cm"' + (c.merge ? ' checked' : '') + '>위아래 합침</label>' +
+          '<label class="check' + (c.type === 'text' ? '' : ' off') + '" title="글 열 하나만 할 일 열로 정할 수 있어요"><input type="checkbox" class="tb-ctd"' + (c.todo && c.type === 'text' ? ' checked' : '') + (c.type === 'text' ? '' : ' disabled') + '>할 일</label>' +
           '<span class="tb-colbtns"><button type="button" class="icon-btn" data-m="up" aria-label="앞으로"' + (k ? '' : ' disabled') + '>' + icon('up', 18) + '</button>' +
           '<button type="button" class="icon-btn" data-m="down" aria-label="뒤로"' + (k < list.length - 1 ? '' : ' disabled') + '>' + icon('chevd', 18) + '</button>' +
           '<button type="button" class="icon-btn" data-m="del" aria-label="이 열 빼기"' + (list.length > 1 ? '' : ' disabled') + '>' + icon('x', 18) + '</button></span></div>';
@@ -5037,6 +5209,10 @@ window.__gyTableUi = function (core) {
     };
     draw();
     box.addEventListener('change', function (e) {
+      if (e.target.classList.contains('tb-ctd')) { // 할 일 열은 하나만
+        if (e.target.checked) qsa('.tb-ctd', box).forEach(function (x) { if (x !== e.target) x.checked = false; });
+        return;
+      }
       if (!e.target.classList.contains('tb-ct')) return;
       read();
       var c = list[+e.target.closest('.tb-colrow').getAttribute('data-k')];
@@ -5056,7 +5232,7 @@ window.__gyTableUi = function (core) {
     qs('#tbc-add').addEventListener('click', function () {
       read();
       if (list.length >= 30) { qs('#tbc-err').textContent = '열은 30개까지예요.'; return; }
-      list.push({ name: '열 ' + (list.length + 1), type: 'text', options: [], lock: false, merge: false, w: 0 });
+      list.push({ name: '열 ' + (list.length + 1), type: 'text', options: [], lock: false, merge: false, w: 0, todo: false });
       draw();
       var ins = qsa('.tb-cn', box);
       if (ins.length) { ins[ins.length - 1].focus(); ins[ins.length - 1].select(); }
@@ -5256,7 +5432,7 @@ window.__gyTableUi = function (core) {
         var cs = S.table.d.table.cols;
         M.g = { rows: [cs.map(function (c) { return c.name; })], colors: [], fmts: [], merges: [], vmerge: [], widths: cs.map(function (c) { return c.w || 0; }), bold: [], width: cs.length };
         M.header = true; M.blank = true;
-        M.cols = cs.map(function (c, k) { return { id: c.id, src: k, name: c.name, type: c.type, options: c.options.slice(), lock: !!c.lock, merge: !!c.merge, w: c.w || 0, auto: false }; });
+        M.cols = cs.map(function (c, k) { return { id: c.id, src: k, name: c.name, type: c.type, options: c.options.slice(), lock: !!c.lock, merge: !!c.merge, w: c.w || 0, todo: !!c.todo, auto: false }; });
         M.nextId = cs.reduce(function (n, c) { return Math.max(n, Number(String(c.id).slice(1)) || 0); }, 0) + 1;
         tbMakeDraw();
       } else if (M.how === 'tpl') { tbMakeDraw(); tbTplLoad(); }
@@ -5319,8 +5495,9 @@ window.__gyTableUi = function (core) {
   /** 양식 카드 한 장: 이름 · 열 이름 · 줄 수(저장한 분) */
   function tbTplCard(x, M) {
     var E = M.tplEdit && M.tplEdit.id === x.id ? M.tplEdit : null, on = M.tplSel === x.id;
-    var rows = x.blank ? '빈 줄로 시작' : x.staff ? '교직원 소속으로 ' + x.rows + '줄' : x.rows + '줄';
-    var meta = [rows, x.by ? x.by + ' 선생님' : ''].filter(Boolean).join(' · ');
+    var how = { 'class': '교직원 소속으로 ', people: '교직원 명단으로 ', vacation: '학기 기간으로 ' }[x.fill || (x.staff ? 'class' : '')] || '';
+    var rows = x.blank ? '빈 줄로 시작' : how + x.rows + '줄';
+    var meta = [rows, x.todo ? '할 일 열' : '', x.by ? x.by + ' 선생님' : ''].filter(Boolean).join(' · ');
     var data = ' data-tplw="' + esc(x.id) + '" data-name="' + esc(x.name.toLowerCase() + ' ' + x.cols.join(' ').toLowerCase()) + '"';
     if (E && E.mode === 'edit') {
       return '<div class="tb-tpl edit"' + data + '><div class="tb-tplf"><label class="label" for="tbt-name">양식 이름</label>' +
@@ -5461,7 +5638,10 @@ window.__gyTableUi = function (core) {
     M.g = g;
     M.header = true;
     M.blank = true; // 첫 줄(열 이름)은 정해져 있다
-    M.cols = cols.map(function (c, k) { return { id: 'c' + (k + 1), src: k, name: c.name, type: c.type === 'pick' ? 'pick' : 'text', options: (c.options || []).slice(), lock: !!c.lock, merge: !!c.merge, w: c.w || 0, auto: false }; });
+    M.cols = cols.map(function (c, k) {
+      var type = c.type === 'pick' || c.type === 'num' ? c.type : 'text';
+      return { id: 'c' + (k + 1), src: k, name: c.name, type: type, options: (c.options || []).slice(), lock: !!c.lock, merge: !!c.merge, w: c.w || 0, todo: type === 'text' && !!c.todo, auto: false };
+    });
     M.nextId = cols.length + 1;
     M.view = tp.view || { fr: 0, gap: 'n' };
     M.tpl = { id: tp.id, name: tp.name, builtin: !!tp.builtin };
@@ -5469,6 +5649,8 @@ window.__gyTableUi = function (core) {
     if (nm && !M.named) nm.value = String(tp.name || '').slice(0, 40); // 시트 이름은 양식 이름으로(바꿔 쓴 뒤에는 그대로)
     qs('#tbm-err').textContent = '';
     tbMakeDraw();
+    var pv = qs('#tbm-prev'); // 기본 양식이 10개라 고른 양식의 열 정하기가 창 아래에 있다 → 보이게
+    if (pv && pv.scrollIntoView) pv.scrollIntoView({ block: 'start' });
   }
 
   /** 지금 시트를 양식으로 저장(이름을 고른 누구나, 모든 선생님이 함께 씀) */
@@ -5573,8 +5755,9 @@ window.__gyTableUi = function (core) {
       return '<th style="min-width:' + Math.min(260, Math.max(130, 36 + c.name.length * 15)) + 'px"><input class="tb-cn" data-k="' + k + '" value="' + esc(c.name) + '" maxlength="40" aria-label="' + (k + 1) + '번째 열 이름">' +
         '<span class="tb-colset">' +
         '<button type="button" class="tb-chip' + (c.lock ? ' on' : '') + '" data-mk="lock" data-k="' + k + '" aria-pressed="' + c.lock + '">' + icon('lock', 12) + '잠금</button>' +
-        '<button type="button" class="tb-chip' + (c.type === 'pick' ? ' on' : '') + '" data-mk="type" data-k="' + k + '" title="누르면 글 ↔ 고르기">' + (c.type === 'pick' ? '고르기' : '글') + '</button>' +
+        '<button type="button" class="tb-chip' + (c.type !== 'text' ? ' on' : '') + '" data-mk="type" data-k="' + k + '" title="누르면 글 → 고르기 → 숫자">' + ({ pick: '고르기', num: '숫자' }[c.type] || '글') + '</button>' +
         (c.type === 'pick' ? '<button type="button" class="tb-chip" data-mk="opts" data-k="' + k + '" title="고를 값 고치기">' + esc(c.options.join('·')) + '</button>' : '') +
+        (c.type === 'text' && !copyMode ? '<button type="button" class="tb-chip' + (c.todo ? ' on' : '') + '" data-mk="todo" data-k="' + k + '" aria-pressed="' + !!c.todo + '" title="이 열에 이름이 있는 분 홈 \'내가 할 일\'에 끝나지 않은 줄이 떠요">' + ti('todo', 12) + '할 일</button>' : '') +
         (M.cols.length > 1 && !copyMode ? '<button type="button" class="tb-chip x" data-mk="del" data-k="' + k + '" aria-label="' + esc(c.name) + ' 열 빼기">' + icon('x', 12) + '</button>' : '') +
         '</span></th>';
     }).join('') + (copyMode ? '' : '<th class="tb-addcol"><button type="button" class="tb-chip" data-mk="add" aria-label="열 더하기">' + icon('plus', 12) + '열</button></th>');
@@ -5597,7 +5780,10 @@ window.__gyTableUi = function (core) {
       (body.length > show.length ? '<p class="faint" style="margin:0">…그리고 ' + (body.length - show.length) + '줄 더 있어요</p>' : '') +
       (body.length > 500 ? '<p class="err" style="margin:0">줄은 500개까지 넣을 수 있어요(지금 ' + body.length + '줄). 나눠서 만들어 주세요.</p>' : '') +
       (M.cols.length > 30 ? '<p class="err" style="margin:0">열은 30개까지예요(지금 ' + M.cols.length + '열). 필요 없는 열을 빼 주세요.</p>' : '');
-    auto.innerHTML = M.cols.filter(function (c) { return c.auto && c.type === 'pick'; }).slice(0, 3).map(function (c) {
+    var td = M.cols.filter(function (c) { return c.todo && c.type === 'text'; })[0];
+    auto.innerHTML = (td ? '<div class="tb-suggest">' + ti('todo', 18) + '<div>\'' + esc(td.name) + '\' 열이 <b>할 일 열</b>이에요. 이 열에 이름이 있는 선생님 홈 \'내가 할 일\'에 아직 끝나지 않은 줄이 떠요(늦어도 10분 안에).' +
+      (copyMode ? '' : '<button type="button" class="linkish" data-mk="todo" data-k="' + M.cols.indexOf(td) + '">할 일 열 끄기</button>') + '</div></div>' : '') +
+      M.cols.filter(function (c) { return c.auto && c.type === 'pick'; }).slice(0, 3).map(function (c) {
       var q = c.options.map(function (o) { return "'" + o + "'"; }), list;
       if (q.length === 1) list = q[0];
       else list = q.slice(0, -1).join(', ') + josa(c.options[c.options.length - 2], '과', '와') + ' ' + q[q.length - 1];
@@ -5617,11 +5803,17 @@ window.__gyTableUi = function (core) {
     else if (m === 'lock') c.lock = !c.lock;
     else if (m === 'del') { if (M.cols.length > 1) M.cols.splice(k, 1); }
     else if (m === 'untext') { c.type = 'text'; c.auto = false; }
-    else if (m === 'type') {
+    else if (m === 'todo') { // 할 일 열은 글 열 하나만
+      var on = !c.todo && c.type === 'text';
+      M.cols.forEach(function (x) { x.todo = false; });
+      c.todo = on;
+    } else if (m === 'type') { // 글 → 고르기 → 숫자 → 글
       c.auto = false;
-      if (c.type === 'pick') c.type = 'text';
+      if (c.type === 'pick') c.type = 'num';
+      else if (c.type === 'num') c.type = 'text';
       else {
         c.type = 'pick';
+        c.todo = false;
         if (!c.options.length) c.options = (c.src >= 0 ? tbOptsFrom(tbMakeBody(M).map(function (line) { return line[c.src]; })) : null) || ['완료', '미완료'];
       }
     } else if (m === 'opts') {
@@ -5649,7 +5841,7 @@ window.__gyTableUi = function (core) {
     var body = M.how === 'copy' && sheet ? [] : tbMakeBody(M), off = M.header ? 1 : 0;
     if (body.length > 500) { err.textContent = '줄은 500개까지 넣을 수 있어요(지금 ' + body.length + '줄). 나눠서 만들어 주세요.'; return; }
     if (M.cols.length > 30) { err.textContent = '열은 30개까지예요. 필요 없는 열을 빼 주세요.'; return; }
-    var cols = M.cols.map(function (c) { return { id: c.id, name: c.name.trim(), type: c.type, options: c.options, lock: c.lock, merge: c.merge, w: c.w }; });
+    var cols = M.cols.map(function (c) { return { id: c.id, name: c.name.trim(), type: c.type, options: c.options, lock: c.lock, merge: c.merge, w: c.w, todo: !!c.todo && c.type === 'text' }; });
     var rows = body.map(function (line, i) {
       var cells = {}, colors = {}, fmt = {};
       M.cols.forEach(function (c) {
@@ -5736,12 +5928,23 @@ window.__gyTableUi = function (core) {
       case 'tb-sheet-menu': tbToggleMenu(t, function () { tbSheetMenu(t); }); break;
       case 'tb-sheet-add': tbNew('sheet'); break;
       case 'tb-sheet-list': tbToggleMenu(t, function () { tbSheetList(t); }); break;
+      case 'tb-todo-copy': tbTodoCopy(); break;
+      case 'tb-rmine': T.rf.mine = !T.rf.mine; tbDrawMain(); break;
     }
   }
+  // 목록 찾기 칸·부서, 휴대폰 줄 찾기
+  document.addEventListener('input', function (e) {
+    var id = e.target && e.target.id;
+    if (id === 'tb-lq') { S.table.lq = e.target.value; tbDrawCards(); }
+    else if (id === 'tb-rq' && S.table.d) { S.table.rf.q = e.target.value; var rb = qs('#tb-rowsbox'); if (rb) rb.innerHTML = tbRowsInner(); }
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.id === 'tb-ldept') { S.table.ldept = e.target.value; tbDrawCards(); }
+  });
   document.addEventListener('click', function (e) {
     var t = e.target.closest('[data-action],[data-tb-tab]');
     if (!t) return;
-    if (t.hasAttribute('data-tb-tab')) { S.table.tab = t.getAttribute('data-tb-tab'); tbDrawList(); return; }
+    if (t.hasAttribute('data-tb-tab')) { S.table.tab = t.getAttribute('data-tb-tab'); tbDrawCards(); return; }
     var a = t.getAttribute('data-action') || '';
     if (a.indexOf('tb-') === 0) tbAction(a, t, e);
   });
@@ -5804,10 +6007,13 @@ window.__gyTableUi = function (core) {
   return {
     build: window.__gyTableUiBuild,
     /** 메뉴에서 '취합 시트'를 누르면 목록부터 */
-    reset: function () { S.table.sel = ''; S.table.sheet = ''; S.table.d = null; S.table.find = null; },
+    reset: function () { S.table.sel = ''; S.table.sheet = ''; S.table.d = null; S.table.find = null; S.table.lq = ''; S.table.ldept = ''; },
+    /** 홈(내가 할 일·검색)에서 표를 바로 연다. sheet: 시트ID(없으면 이 창에서 마지막에 본 시트) */
+    open: function (doc, sheet) { S.table.sel = doc; S.table.sheet = sheet || S.table.last[doc] || ''; S.table.d = null; S.table.find = null; },
     /** 누구로 보는지가 바뀌면 들고 있던 표를 버린다 */
     forget: function () {
       S.table.list = null; S.table.d = null; S.table.edit = null; S.table.find = null; S.table.loc = {}; S.table.last = {};
+      S.table.lq = ''; S.table.ldept = ''; S.table.rf = { id: '', q: '', mine: false }; S.tbSeen = {};
       tbUndo = []; tbRedo = []; // 다음 선생님이 앞 선생님이 고친 칸을 되돌리지 않게
       tbDropFailed();
       tbConfShown = null; tbConfQ = [];
@@ -6311,9 +6517,11 @@ function routes_() {
     'file.get': { need: 'login', fn: 'apiFileGet_' },
     'help.list': { need: 'login', fn: 'apiHelpList_' },
     'help.save': { need: 'identity', fn: 'apiHelpSave_' },
+    'help.seedSafety': { need: 'admin', fn: 'apiHelpSeedSafety_' },
     'help.delete': { need: 'identity', fn: 'apiHelpDelete_' },
     'staff.list': { need: 'login', fn: function () { return apiStaffDir_(); } },
     'search': { need: 'login', fn: 'apiSearch_' },
+    'shortcut.url': { need: 'login', fn: 'apiShortcutUrl_' }, // 바탕화면 바로가기 파일에 넣을 웹앱 주소(운영 안내서)
     'notice.list': { need: 'login', fn: 'apiNoticeList_' },
     'notice.save': { need: 'identity', fn: 'apiNoticeSave_' },
     'notice.delete': { need: 'identity', fn: 'apiNoticeDelete_' },
@@ -6366,6 +6574,7 @@ function routes_() {
     'admin.trash.tables': { need: 'admin', fn: 'adminTableTrash_' },
     'admin.trash.restoreTable': { need: 'admin', fn: 'adminTableRestore_' },
     'admin.year.preview': { need: 'admin', fn: function () { return adminYearPreview_(); } },
+    'admin.year.check': { need: 'admin', fn: 'adminYearCheck_' },
     'admin.year.start': { need: 'admin', fn: 'adminYearStart_' },
     'admin.pw.common': { need: 'admin', fn: 'adminChangeCommonPw_' },
     'admin.pw.admin': { need: 'admin', fn: 'adminChangeAdminPw_' },
@@ -6391,7 +6600,7 @@ var BASE_TABS_ = ['설정', '교직원', '분류'];
 var ROUTE_TABS_ = {
   'start': [], 'staffPicker': [], 'staff.list': [],
   'session': ['응답', '알림', '조사', '공지'],
-  'home': ['일정', '월별중점', '학생수', '응답', '알림', '조사', '자료', '공지'],
+  'home': ['일정', '월별중점', '학생수', '응답', '알림', '조사', '자료', '공지', '도움말', '@gy:tbtodo'], // '@키': 탭이 아닌 서버 기억(취합 시트 할 일 목록, Table.gs)
   'sched.month': ['일정', '월별중점', '학기'],
   'sched.year': ['일정', '학기'],
   'sched.range': ['일정'],
@@ -6404,9 +6613,9 @@ var ROUTE_TABS_ = {
   'table.get': ['함께표', '함께표줄'],
   'table.poll': ['함께표'], // 바뀐 것이 없으면 작은 탭만 보고 돌아간다
   'table.find': ['함께표', '함께표줄'],
-  'table.tpl.list': ['시트양식'],
-  'table.tpl.get': ['시트양식'],
-  'search': ['일정', '자료', '도움말', '공지', '조사', '응답', '알림']
+  'table.tpl.list': ['시트양식', '학기', '일정', '학생수'], // 기본 양식의 줄(방학 근무·대피 훈련 재적)
+  'table.tpl.get': ['시트양식', '학기', '일정', '학생수'],
+  'search': ['일정', '자료', '도움말', '공지', '조사', '응답', '알림', '함께표']
 };
 
 /** 요청이 읽을 탭 목록. boot·batch·이어 읽기(then)는 합친다 */
@@ -6531,6 +6740,16 @@ function apiStart_() {
   };
 }
 
+/**
+ * 바탕화면 바로가기 파일(.url)에 넣을 웹앱 주소(판 2026-10-19a, 교사 결정). /exec로 끝나는 주소만 보내고, 아니면 ''(화면이 주소창의
+ * 주소를 붙여 넣게 한다). 확인 필요: 배포가 여러 개일 때 getUrl()이 어느 배포 주소를 주는지
+ */
+function apiShortcutUrl_() {
+  var u = '';
+  try { u = String(ScriptApp.getService().getUrl() || ''); } catch (e) { u = ''; }
+  return { url: /^https:\/\/script\.google\.com\/[^\s"<>]+\/exec$/.test(u) ? u : '' };
+}
+
 /** 미리 받기: 화면이 뒤에서 자주 여는 화면들을 한 번에 받아 둔다. args.reads = [[읽기 이름, args], …] (8개까지, 이어 읽기와 같은 읽기만) */
 function apiBatch_(args, actor, ctx) {
   return thenReads_(args.reads, actor, ctx, 8) || [];
@@ -6606,7 +6825,7 @@ function tabs_() {
     '알림': ['알림ID', '조사ID', '대상 교직원ID', '알린 시각'].concat(A),
     '자료': ['자료ID', '학년도', '분류ID', '부서ID', '제목', '설명', '링크', '파일ID', '담당', '보관 여부'].concat(A)
       .concat(['파일 이름', '파일 크기', '홈에 보이기', '원본 자료ID', '공통', '공통 순서']),
-    '도움말': ['항목ID', '분류ID', '제목', '내용', '링크', '순서'].concat(A).concat(['파일ID', '파일 이름', '파일 크기']),
+    '도움말': ['항목ID', '분류ID', '제목', '내용', '링크', '순서'].concat(A).concat(['파일ID', '파일 이름', '파일 크기', '홈에 보이기']), // 홈에 보이기: 홈 '비상 시 이것부터'(2026-10-19a)
     '공지': ['공지ID', '제목', '내용', '링크', '부서ID', '게시 끝일', '고정'].concat(A),
     '학생수': ['학생수ID', '학년도', '기준일', '1학년', '2학년', '3학년', '4학년', '5학년', '6학년'].concat(A).concat(['반별']),
     '함께표': ['표ID', '제목', '부서ID', '설명', '마감', '상태', '열', '판'].concat(A) // 취합 시트(Table.gs, 예전 이름 '함께 쓰는 표'), 처음 만들 때 저절로 생긴다
@@ -6669,6 +6888,7 @@ function dbReset_() {
   DB_SHEETS_ = {};
   MEMO_EP_ = null;
   MEMO_PRE_ = {};
+  MEMO_RAW_ = {};
 }
 
 /**
@@ -6729,6 +6949,7 @@ var MEMO_BYPASS_ = false;   // 속도 재기에서 '시트에서 읽을 때'를 
 var DB_WRITTEN_ = {};       // 이번 잠금 안에서 쓴 탭
 var MEMO_PRE_ = {};         // 이번 요청에서 미리 꺼내 둔 탭 기억 { 탭: { v, chunks: [첫 칸, …] } } (memoPreload_)
 var MEMO_PRE_CHUNKS_ = 4;   // 미리 꺼낼 때 탭마다 앞에서부터 이만큼 칸을 함께 꺼낸다(없는 칸은 그냥 비어 온다)
+var MEMO_RAW_ = {};         // 이번 요청에서 탭과 함께 꺼내 둔 그 밖의 기억 { 키: 값(없으면 null) } (목록의 '@키', 예: 취합 시트 할 일 목록)
 
 function memoCache_() {
   try { return CacheService.getScriptCache(); } catch (e) { return null; }
@@ -6747,15 +6968,17 @@ function memoTakeEp_(cache, got) {
 /**
  * 이 요청이 읽을 탭들의 판과 기억(앞쪽 칸)을 서버 기억에서 한 번에 꺼내 둔다(탭마다 따로 다녀오지 않게, 속도).
  * 판이 없는 탭은 여기서 한 번에 판을 정한다(시트를 읽기 전에 정해야 옛 값이 새 판으로 기억되지 않는다).
- * 이미 읽었거나 꺼내 둔 탭, '기록' 탭, 잠금 안(쓰기)에서는 꺼내지 않는다. 꺼내 둔 것은 memoLookup_이 한 번 쓰고 버린다
+ * 이미 읽었거나 꺼내 둔 탭, '기록' 탭, 잠금 안(쓰기)에서는 꺼내지 않는다. 꺼내 둔 것은 memoLookup_이 한 번 쓰고 버린다.
+ * '@'로 시작하는 것은 탭이 아니라 서버 기억의 키다(예: '@gy:tbtodo'). 함께 꺼내 MEMO_RAW_에 둔다(memoRaw_)
  */
 function memoPreload_(tabs) {
   if (DB_LOCK_DEPTH_ > 0 || MEMO_BYPASS_ || !tabs || !tabs.length) return;
-  var defs = tabs_(), want = [];
+  var defs = tabs_(), want = [], raws = [];
   tabs.forEach(function (t) {
+    if (String(t).charAt(0) === '@') { var k = String(t).slice(1); if (k && MEMO_RAW_[k] === undefined && raws.indexOf(k) < 0) raws.push(k); return; }
     if (defs[t] && !MEMO_SKIP_[t] && !DB_CACHE_[t] && !MEMO_PRE_[t] && want.indexOf(t) < 0) want.push(t);
   });
-  if (!want.length) return;
+  if (!want.length && !raws.length) return;
   var cache = memoCache_();
   if (!cache) return;
   var t0 = Date.now();
@@ -6765,8 +6988,10 @@ function memoPreload_(tabs) {
       keys.push('gy:v:' + t);
       for (var i = 0; i < MEMO_PRE_CHUNKS_; i++) keys.push('gy:d:' + t + ':' + i);
     });
+    raws.forEach(function (k) { keys.push(k); });
     PERF_.memoCalls++;
     var got = cache.getAll(keys);
+    raws.forEach(function (k) { MEMO_RAW_[k] = typeof got[k] === 'string' ? got[k] : null; });
     if (!MEMO_EP_) memoTakeEp_(cache, got);
     var fresh = {}, pre = {};
     want.forEach(function (t) {
@@ -6780,6 +7005,15 @@ function memoPreload_(tabs) {
     want.forEach(function (t) { MEMO_PRE_[t] = pre[t]; });
   } catch (e) { /* 꺼내지 못하면 탭마다 찾는다 */ }
   PERF_.memoMs += Date.now() - t0;
+}
+
+/** 탭과 함께 꺼내 둔 서버 기억 한 칸: 꺼냈으면 값(없으면 null), 꺼내지 않았으면 undefined(부른 쪽이 따로 꺼낸다) */
+function memoRaw_(key) {
+  return Object.prototype.hasOwnProperty.call(MEMO_RAW_, key) ? MEMO_RAW_[key] : undefined;
+}
+/** 그 키를 버렸으면(바뀌었으면) 이번 요청에서 꺼내 둔 값도 버린다 */
+function memoRawForget_(key) {
+  delete MEMO_RAW_[key];
 }
 
 /** 탭 기억 찾기 → { ep, v, vals(없으면 null) }. 서버 기억을 쓸 수 없으면 null */
@@ -6878,6 +7112,7 @@ function memoBump_(tabs) {
 function memoClearAll_() {
   MEMO_EP_ = null;
   MEMO_PRE_ = {};
+  MEMO_RAW_ = {};
   var cache = memoCache_();
   if (!cache) return false;
   try {
@@ -8692,9 +8927,11 @@ function apiHome_(args, actor, ctx) {
     canManage: canManage_(ctx),
     depts: deptOptions_(), // 홈에서 일정을 고칠 때 부서 목록
     todos: optional_('todoList_', [])(ctx),
+    tableTodos: optional_('tbTodosFor_', [])(ctx), // 취합 시트 할 일 열에 내 이름이 있는 끝나지 않은 줄(서버 기억 10분)
     library: homeLib.slice(0, 6), // 홈에는 6개까지
     libraryTotal: homeLib.length,
     notices: optional_('homeNotices_', { items: [], total: 0 })(ctx),
+    emergency: optional_('homeHelp_', [])(ctx), // 비상 시 이것부터(도움말 '홈에 보이기', 3개까지)
     noticeLatest: optional_('latestNoticeAt_', '')()
   };
 }
@@ -9838,6 +10075,7 @@ function apiSurveyGet_(args, actor, ctx) {
     target: target,
     deptId: s['부서ID'],
     messenger: s['메신저 문구'] || defaultMessenger_(s['제목'], card.dept, s['마감 일시']),
+    messengerCustom: !!s['메신저 문구'], // 직접 쓴 문구만 '지난 조사에서 가져오기'로 옮긴다(자동 문구는 새 마감으로 다시 만든다)
     myAnswer: mine ? { answers: safeParse_(mine['답'], {}), note: mine['하고 싶은 말'], at: mine['고친 시각'] || mine['낸 시각'] } : null,
     owner: owner,
     canSeeResults: owner || (card.showResults && (card.inTarget || card.byId === me)),
@@ -10495,6 +10733,47 @@ function adminYearPreview_() {
 }
 
 /**
+ * 새 학년도 준비 점검(관리자 › 새 학년도 맨 위, 2026-10-19a). 넘기기 전에 살펴볼 것만 알려 주고 아무것도 바꾸지 않는다.
+ * state: ok(됨) · warn(해 두면 좋음) · info(알아 두기)
+ */
+function adminYearCheck_() {
+  var cur = Number(libYear_()) || schoolYearOf_(todayYmd_()), next = cur + 1, items = [];
+  var c = libCache_(), ctx = { identity: null, tokens: {} };
+  // 1) 자료 제목에 지금·지난 학년도 숫자: 옮겨 적으면 제목이 그대로 간다
+  var stale = liveRows_('자료').map(function (r) { return libView_(r, ctx, c); }).filter(function (v) {
+    return !v.archived && (v.title.indexOf(String(cur)) >= 0 || v.title.indexOf(String(cur - 1)) >= 0);
+  });
+  items.push({ key: 'lib', state: stale.length ? 'warn' : 'ok', label: '자료 제목의 학년도 숫자',
+    detail: stale.length ? '새 학년도로 옮겨 적으면 제목이 그대로 가요. 넘긴 뒤 고쳐 주세요: ' + stale.slice(0, 8).map(function (v) { return v.title; }).join(', ') + (stale.length > 8 ? ' 외 ' + (stale.length - 8) + '개' : '')
+      : '지금 학년도 자료 제목에 ' + cur + '·' + (cur - 1) + ' 숫자가 없어요.' });
+  // 2) 소속 꼴: 학년 대상 조사·학년·반별 양식·학생 수 칸은 '3학년 2반' 꼴로 알아본다
+  var odd = sortStaff_(activeStaff_()).filter(function (r) { return !/^[1-6]학년 \d{1,2}반$/.test(String(r['소속'] || '').trim()); });
+  items.push({ key: 'group', state: odd.length ? 'info' : 'ok', label: "교직원 소속 꼴('3학년 2반')",
+    detail: odd.length ? "학년·반 꼴이 아닌 분 " + odd.length + '명: ' + odd.slice(0, 10).map(function (r) { return r['이름'] + '(' + (r['소속'] || '비어 있음') + ')'; }).join(', ') + (odd.length > 10 ? ' 외 ' + (odd.length - 10) + '명' : '') +
+      ". 전담·부장 등은 그대로 두어도 돼요. 담임이면 '3학년 2반'처럼 적어야 학년 대상 조사·학년·반별 양식에 들어가요."
+      : "모두 '○학년 ○반' 꼴이에요." });
+  // 3) 새 학년도 학기 기간
+  var sems = semesters_(next);
+  items.push({ key: 'sem', state: sems.length >= 2 ? 'ok' : 'warn', label: next + '학년도 학기 기간',
+    detail: sems.length >= 2 ? '1·2학기 기간이 들어 있어요.' : "관리자 › 설정 › 학기 기간에 " + next + "학년도 기간을 넣어 주세요(수업일수 계산에 써요)." });
+  // 4) 새 학년도 공휴일·휴업일
+  var r = schoolYearRange_(next);
+  var offs = liveRows_('일정').filter(function (e) { return isOffKind_(e['구분']) && e['시작일'] >= r.from && e['시작일'] <= r.to; }).length;
+  items.push({ key: 'off', state: offs ? 'ok' : 'warn', label: next + '학년도 공휴일·휴업일',
+    detail: offs ? offs + '개 들어 있어요.' : '아직 없어요. 학사일정 올리기나 일정 › 행사 추가로 넣어 주세요(날짜는 학교 학사일정을 보고 넣어요).' });
+  // 5) 새 학년도 학생 수(3월 1일 뒤에 넣는다)
+  var st = studentsOf_(next);
+  items.push({ key: 'stu', state: st.id ? 'ok' : 'info', label: next + '학년도 학생 수',
+    detail: st.id ? '들어 있어요.' : '3월 1일 뒤에 홈의 학생 수 현황에서 반마다 넣어 주세요.' });
+  // 6) 공통 비밀번호: 새 학년도에 바꾸고 메신저로 알리기(마지막으로 바꾼 날은 기록에서)
+  var last = '';
+  tailRows_('기록', 5000).forEach(function (x) { if (x['동작'] === '비밀번호 바꿈' && /공통 비밀번호/.test(x['요약'] || '') && x['시각'] > last) last = x['시각']; });
+  items.push({ key: 'pw', state: 'info', label: '공통 비밀번호 바꾸기',
+    detail: (last ? '마지막으로 바꾼 때: ' + last.slice(0, 10) + '. ' : '웹앱에서 바꾼 기록이 없어요. ') + '새 학년도에는 관리자 › 비밀번호에서 바꾸고, 새 비밀번호를 메신저로 알려 주세요(모든 기기가 다시 로그인해요).' });
+  return { year: String(cur), next: String(next), items: items };
+}
+
+/**
  * args = { year: '2027', keep: [자료ID…] }
  * 1) 지금 학년도 자료를 모두 '보관'으로 표시 → 보관함
  * 2) keep에 든 자료만 새 학년도로 옮겨 적기(처음 넣은 분·수정일 그대로)
@@ -10606,6 +10885,7 @@ function helpView_(r, ctx, kinds, names) {
     order: r['순서'],
     by: names[r['입력자ID']] || '',
     updated: (r['수정 시각'] || r['입력 시각'] || '').slice(0, 10),
+    home: r['홈에 보이기'] === '예',
     canEdit: canEditOwned_(r, ctx)
   };
 }
@@ -10646,6 +10926,14 @@ function apiHelpSave_(args, actor, ctx) {
     if (!row || row['삭제 여부']) throw userError_('도움말을 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
     if (!canEditOwned_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
   }
+  // 홈 '비상 시 이것부터'에 보이기: 관리만, 3개까지(2026-10-19a)
+  if (canManage_(ctx) && f.home !== undefined) {
+    rec['홈에 보이기'] = f.home ? '예' : '';
+    if (f.home && (!row || row['홈에 보이기'] !== '예')) {
+      var on = liveRows_('도움말').filter(function (r) { return r['홈에 보이기'] === '예'; }).length;
+      if (on >= HOME_HELP_MAX_) throw userError_("홈 '비상 시 이것부터'에는 " + HOME_HELP_MAX_ + '개까지 보여요. 다른 글의 \'홈에 보이기\'를 끄고 다시 해 주세요.');
+    }
+  }
   if (f.removeFile) {
     rec['파일ID'] = '';
     rec['파일 이름'] = '';
@@ -10664,6 +10952,40 @@ function apiHelpSave_(args, actor, ctx) {
     ? updateRow_('도움말', row['항목ID'], rec, actor, '도움말 고침: ' + rec['제목'])
     : insertRow_('도움말', rec, actor, '도움말 추가: ' + rec['제목']);
   return helpView_(findRow_('도움말', saved['항목ID']), ctx, categoryNames_('도움말 분류'), staffNames_());
+}
+
+// ---------------------------------------------------------------- 안전·생활교육 안내 + 홈 '비상 시 이것부터' (2026-10-19a)
+// 관리가 '안전·생활교육 안내 만들기'를 누르면 도움말 분류와 빈 글 2개가 생긴다. 내용은 학교에서 적는다(지어내지 않음, '여기에 적어 주세요')
+var SAFETY_KIND_ = '안전·생활교육';
+var SAFETY_POSTS_ = ['대피 경로·집결지', '학교폭력 사안 처리 순서'];
+var HOME_HELP_MAX_ = 3;
+
+function apiHelpSeedSafety_(args, actor, ctx) {
+  return withLock_(function () {
+    var cat = liveRows_('분류').filter(function (r) { return r['종류'] === '도움말 분류' && r['이름'] === SAFETY_KIND_; })[0];
+    if (!cat) cat = insertRow_('분류', { '종류': '도움말 분류', '이름': SAFETY_KIND_, '순서': '', '사용 여부': '사용' }, actor, '도움말 분류 "' + SAFETY_KIND_ + '" 추가(안전·생활교육 안내 만들기)');
+    else if (cat['사용 여부'] === '사용 안 함') updateRow_('분류', cat['분류ID'], { '사용 여부': '사용' }, actor, '도움말 분류 "' + SAFETY_KIND_ + '" 다시 사용');
+    var kindId = cat['분류ID'], have = {}, made = 0;
+    liveRows_('도움말').forEach(function (r) { if (r['분류ID'] === kindId) have[r['제목']] = true; });
+    ensureCols_('도움말');
+    SAFETY_POSTS_.forEach(function (title, i) {
+      if (have[title]) return;
+      insertRow_('도움말', { '분류ID': kindId, '제목': title, '내용': '여기에 적어 주세요', '순서': String(i + 1) }, actor, '도움말 추가: ' + title + '(안전·생활교육 안내 만들기)');
+      made++;
+    });
+    return { kindId: kindId, kind: SAFETY_KIND_, made: made };
+  });
+}
+
+/** 홈 '비상 시 이것부터': '홈에 보이기'를 켠 도움말 3개까지(분류 순서 → 순서 → 제목) */
+function homeHelp_(ctx) {
+  var rows = liveRows_('도움말').filter(function (r) { return r['홈에 보이기'] === '예'; });
+  if (!rows.length) return [];
+  var order = {}, kindNames = categoryNames_('도움말 분류'), names = staffNames_();
+  catOptions_('도움말 분류').forEach(function (k, i) { order[k.id] = i; });
+  return sortHelp_(rows.map(function (r) { return helpView_(r, ctx, kindNames, names); }), order).slice(0, HOME_HELP_MAX_).map(function (h) {
+    return { id: h.id, title: h.title, kind: h.kind, body: String(h.body || '').slice(0, 160), hasFile: h.hasFile, link: h.link };
+  });
 }
 
 function apiHelpDelete_(args, actor, ctx) {
@@ -10718,7 +11040,7 @@ function apiSearch_(args, actor, ctx) {
   var q = String(args.q || '').trim().slice(0, 40);
   var terms = searchTerms_(q);
   var empty = { total: 0, items: [] };
-  if (!terms.length) return { q: q, library: empty, events: empty, staff: empty, help: empty, surveys: empty, notices: empty };
+  if (!terms.length) return { q: q, library: empty, events: empty, staff: empty, help: empty, surveys: empty, notices: empty, tables: empty };
   var depts = categoryNames_('부서');
   var names = staffNames_();
   function pack(list, n) { return { total: list.length, items: list.slice(0, n) }; }
@@ -10766,7 +11088,8 @@ function apiSearch_(args, actor, ctx) {
     staff: pack(staff, 6),
     help: pack(help, 6),
     surveys: pack(surveys, 4),
-    notices: pack(noticeViews_(ctx).filter(function (n) { return matchAll_(terms, [n.title, n.body, n.dept]); }), 4)
+    notices: pack(noticeViews_(ctx).filter(function (n) { return matchAll_(terms, [n.title, n.body, n.dept]); }), 4),
+    tables: pack(optional_('tbSearch_', [])(terms, ctx), 4) // 취합 시트: 표 이름·시트 이름·설명·부서
   };
 }
 
@@ -11228,8 +11551,10 @@ function setPinForTest_(row, pin) {
  *   · 합친 칸은 왼쪽 위 칸에만 적는다. 덮인 칸의 값은 지우지 않고 숨겨 둔다(합치기를 풀면 다시 보인다)
  *   · 줄을 빼거나 합친 칸 바로 아래에 줄을 더하면 서버가 합친 칸의 끝을 맞춘다(합친 칸이 깨지지 않게)
  *   · 높이: 줄 높이(px, 비어 있으면 글에 맞춤)
- * - 열(JSON): [{ id, name, type: 'text'|'pick', options, lock, merge, w, del }]
- *   pick: 고르기(정해 둔 값 중 하나, 맨 앞 값을 '끝난 것'으로 센다) · lock: 잠근 열 · merge: 위아래 같은 값을 한 칸처럼(예전 표·열 고치기)
+ * - 열(JSON): [{ id, name, type: 'text'|'pick'|'num', options, lock, merge, w, todo, del }]
+ *   pick: 고르기(정해 둔 값 중 하나, 맨 앞 값을 '끝난 것'으로 센다) · num: 숫자(표 위에 합계·평균, 숫자가 아닌 값도 지우지 않고 따로 센다)
+ *   lock: 잠근 열 · merge: 위아래 같은 값을 한 칸처럼(예전 표·열 고치기)
+ *   todo: 할 일 열(글 열 하나만, 그 칸에 이름이 있는 분 홈 '내가 할 일'에 끝나지 않은 줄이 뜬다. 아래 '할 일 열')
  *   w: 열 너비(px) · del: 뺀 열(값은 시트에 그대로 두고 화면에서만 뺀다. 열 ID를 다시 쓰지 않으려고 남겨 둔다)
  * - 보기(JSON {fr: 왼쪽에 고정할 열 수, gap: 's'|'n'|'w' 줄 간격}): 이 시트를 보는 모든 선생님 화면에 함께 바뀐다(교사 결정)
  * - 판: 시트에서 무엇이든 바뀔 때마다 1씩 는다. 줄마다 마지막으로 바뀐 판을 적어 두어, 화면은 10초마다 '내 판 다음'만 받아 간다
@@ -11372,14 +11697,14 @@ function tbCleanCols_(list, prevAll) {
     if (/^c\d{1,4}$/.test(id) && !keep[id] && (first || known[id])) keep[id] = 1;
   });
   Object.keys(keep).forEach(function (id) { used[id] = true; var k = Number(id.slice(1)); if (k > n) n = k; });
-  var seen = {};
+  var seen = {}, todo = false;
   return list.map(function (c, i) {
     c = c || {};
     var id = String(c.id || '');
     if (!keep[id] || seen[id]) { do { n++; id = 'c' + n; } while (used[id]); used[id] = true; }
     seen[id] = true;
     var name = cleanText_(c.name, 40, (i + 1) + '번째 열 이름') || ('열 ' + (i + 1));
-    var type = c.type === 'pick' ? 'pick' : 'text';
+    var type = c.type === 'pick' || c.type === 'num' ? c.type : 'text';
     var options = [];
     if (type === 'pick') {
       (Array.isArray(c.options) ? c.options : []).forEach(function (o) {
@@ -11389,7 +11714,9 @@ function tbCleanCols_(list, prevAll) {
       if (!options.length) throw userError_("'" + name + "' 열에서 고를 값을 적어 주세요.");
       if (options.length > TB_MAX_OPTIONS_) throw userError_("'" + name + "' 열에서 고를 값은 " + TB_MAX_OPTIONS_ + '개까지예요.');
     }
-    return { id: id, name: name, type: type, options: options, lock: !!c.lock, merge: !!c.merge, w: tbCleanWidth_(c.w) };
+    var out = { id: id, name: name, type: type, options: options, lock: !!c.lock, merge: !!c.merge, w: tbCleanWidth_(c.w) };
+    if (c.todo && type === 'text' && !todo) { out.todo = true; todo = true; } // 할 일 열은 글 열 하나만(앞의 것)
+    return out;
   });
 }
 /** 열 너비(px): 40~900, 그 밖이면 0(기본 너비) */
@@ -11480,8 +11807,8 @@ function tbCleanHeight_(h) {
 }
 
 /**
- * 합친 칸에 덮여 화면에 안 보이는 칸 {'줄ID|열ID': 1} (찾기에서 세지 않게). rows: 순서대로 정렬한 줄.
- * 예전 표의 '위아래 같은 값 합침' 열은 이어지는 같은 값의 둘째 칸부터
+ * 합친 칸에 덮여 화면에 안 보이는 칸 {'줄ID|열ID': 덮은 칸 '줄ID|열ID'} (찾기에서 세지 않게, 할 일 열은 덮은 칸의 이름을 쓴다).
+ * rows: 순서대로 정렬한 줄. 예전 표의 '위아래 같은 값 합침' 열은 이어지는 같은 값의 둘째 칸부터
  */
 function tbCovered_(cols, rows) {
   var ci = {}, ri = {}, out = {};
@@ -11493,16 +11820,16 @@ function tbCovered_(cols, rows) {
       var m = f[cid] && f[cid].m, j = ci[cid];
       if (!Array.isArray(m) || j === undefined || out[r['줄ID'] + '|' + cid]) return;
       var i2 = ri[m[0]] !== undefined ? Math.max(i, ri[m[0]]) : i, j2 = ci[m[1]] !== undefined ? Math.max(j, ci[m[1]]) : j;
-      for (var a = i; a <= i2; a++) for (var b = j; b <= j2; b++) if (a !== i || b !== j) out[rows[a]['줄ID'] + '|' + cols[b].id] = 1;
+      for (var a = i; a <= i2; a++) for (var b = j; b <= j2; b++) if (a !== i || b !== j) out[rows[a]['줄ID'] + '|' + cols[b].id] = r['줄ID'] + '|' + cid;
     });
   });
   cols.forEach(function (c) {
     if (!c.merge) return;
-    var prev = null;
+    var prev = null, from = '';
     rows.forEach(function (r) {
       var v = String(tbParse_(r['칸'], {})[c.id] || '').trim(), key = r['줄ID'] + '|' + c.id;
-      if (v && v === prev && !out[key]) out[key] = 1;
-      prev = out[key] ? prev : v;
+      if (v && v === prev && !out[key]) out[key] = from;
+      if (!out[key]) { prev = v; from = key; }
     });
   });
   return out;
@@ -11643,7 +11970,7 @@ function apiTableList_(args, actor, ctx) {
     var v = tbView_(t, sheets[0] || t, ctx, names, depts);
     var list = sheets.map(function (s) { return { id: s['표ID'], name: tbSheetName_(s), summary: tbSummary_(tbCols_(s), rowsBy[s['표ID']] || []) }; });
     return {
-      id: t['표ID'], title: v.title, dept: v.dept, deadline: v.deadline, closed: v.closed, by: v.by, at: v.at,
+      id: t['표ID'], title: v.title, dept: v.dept, deptId: v.deptId, deadline: v.deadline, closed: v.closed, by: v.by, at: v.at,
       mine: !!me && t['입력자ID'] === me, cols: v.cols.length,
       last: last ? { by: names[last.id] || '', at: last.at.slice(0, 16) } : null,
       summary: list.length ? list[0].summary : { rows: 0 }, sheets: list
@@ -11721,6 +12048,134 @@ function apiTableFind_(args, actor, ctx) {
     counts[s['표ID']] = n;
   });
   return { q: q, counts: counts };
+}
+
+// ---------------------------------------------------------------- 할 일 열·홈 검색(판 2026-10-19a, 교사 결정)
+// - 시트마다 글 열 하나를 '할 일 열'로 정한다(예: 담임). 그 칸에 이름이 있고 아직 끝나지 않은 줄이 그분 홈 '내가 할 일'에 뜬다
+// - 끝난 줄은 tbRowDone_(화면 TableUi.html의 tbRowDone과 같은 규칙). 마감한 표·지운 표·지운 시트는 넣지 않는다
+// - 속도: 모든 표의 줄을 읽어 만든 목록(이름 → 시트마다 남은 줄 수)을 서버 기억에 10분 둔다. 홈은 그 목록만 꺼내 쓰고
+//   (홈 요청의 한 번에 꺼내기에 함께 들어 있다, Code.gs ROUTE_TABS_의 '@gy:tbtodo'), 늦어도 10분 안에 바뀐다
+//   표를 만들거나 지우거나 열·마감·시트를 바꾸면 곧바로 버린다. 칸을 고칠 때는 버리지 않는다(여럿이 채우는 동안 홈이 느려지지 않게)
+var TB_TODO_KEY_ = 'gy:tbtodo';
+var TB_TODO_TTL_ = 600;   // 초(10분)
+var TB_TODO_MAX_ = 90000; // 서버 기억 한 칸(100KB)에 넣는 글자 수. 넘으면 기억하지 않고 그때마다 만든다
+
+/** 할 일 칸의 이름들: 쉼표·가운뎃점·빗금·줄 바꿈·띄어쓰기로 나눈다('홍길동 선생님'의 '선생님'은 뺀다) */
+function tbTodoNames_(v) {
+  var out = [];
+  String(v === undefined || v === null ? '' : v).split(/[\s,，·\/、]+/).forEach(function (s) {
+    s = s.replace(/선생님$/, '').trim();
+    if (s && s !== '__proto__' && s.length <= 20 && out.indexOf(s) < 0) out.push(s);
+  });
+  return out;
+}
+
+/**
+ * 줄이 끝났는지(할 일 열): 첫 고르기 열이 맨 앞 값이면(예: 완료·제출). 고르기 열이 없으면 잠그지 않은 숫자 열이 모두 차면,
+ * 숫자 열도 없으면 잠그지 않은 글 열(할 일 열 빼고)이 모두 차면. covered: 합친 칸에 덮인 칸 {열ID: 1}(찬 것으로 본다)
+ */
+function tbRowDone_(cols, cells, covered) {
+  var val = function (c) { var v = cells[c.id]; return String(v === undefined || v === null ? '' : v).trim(); };
+  var pick = cols.filter(function (c) { return c.type === 'pick'; })[0];
+  if (pick) return val(pick) === pick.options[0];
+  var nums = cols.filter(function (c) { return c.type === 'num' && !c.lock; });
+  var need = nums.length ? nums : cols.filter(function (c) { return c.type === 'text' && !c.lock && !c.todo; });
+  return need.every(function (c) { return !!covered[c.id] || val(c) !== ''; });
+}
+
+/** 모든 표의 할 일: { at, s: { 시트ID: [표ID, 표 이름, 시트 이름(시트가 하나면 ''), 마감] }, n: { 이름: { 시트ID: 남은 줄 수 } } } */
+function tbTodoBuild_() {
+  var out = { at: Date.now(), s: {}, n: {} }, all = tbRows_('함께표'), want = {}, has = Object.prototype.hasOwnProperty;
+  all.forEach(function (m) {
+    if (!tbIsMain_(m) || m['삭제 여부'] || tbClosed_(m)) return;
+    var sheets = tbSheetsOf_(all, m['표ID']);
+    sheets.forEach(function (s) {
+      var cols = tbCols_(s), todo = cols.filter(function (c) { return c.todo && c.type === 'text'; })[0];
+      if (todo) want[s['표ID']] = { m: m, s: s, cols: cols, todo: todo, many: sheets.length > 1, rows: [] };
+    });
+  });
+  if (!Object.keys(want).length) return out;
+  tbRows_('함께표줄').forEach(function (r) { var w = want[r['표ID']]; if (w && !r['삭제 여부']) w.rows.push(r); });
+  Object.keys(want).forEach(function (sid) {
+    var w = want[sid], rows = tbSortRows_(w.rows), cov = tbCovered_(w.cols, rows), byId = {}, hit = false;
+    rows.forEach(function (r) { byId[r['줄ID']] = r; });
+    rows.forEach(function (r) {
+      var cells = tbParse_(r['칸'], {}), mine = {};
+      w.cols.forEach(function (c) { if (cov[r['줄ID'] + '|' + c.id]) mine[c.id] = 1; });
+      if (tbRowDone_(w.cols, cells, mine)) return;
+      var src = cov[r['줄ID'] + '|' + w.todo.id], v = cells[w.todo.id];
+      if (src) { // 합친 칸에 덮인 할 일 칸은 덮은 칸(같은 열일 때)의 이름
+        var p = String(src).split('|');
+        v = p[1] === w.todo.id && byId[p[0]] ? tbParse_(byId[p[0]]['칸'], {})[w.todo.id] : '';
+      }
+      tbTodoNames_(v).forEach(function (name) {
+        var e = has.call(out.n, name) ? out.n[name] : (out.n[name] = {});
+        e[sid] = (e[sid] || 0) + 1;
+        hit = true;
+      });
+    });
+    if (hit) out.s[sid] = [w.m['표ID'], String(w.m['제목'] || ''), w.many ? tbSheetName_(w.s) : '', w.m['마감'] || ''];
+  });
+  return out;
+}
+
+/** 할 일 목록(서버 기억 10분). 홈 요청은 한 번에 꺼내 둔 것을 쓴다(Db.gs memoRaw_) */
+function tbTodoIndex_() {
+  var pre = globalFn_('memoRaw_'), raw = pre ? pre(TB_TODO_KEY_) : undefined, cache = memoCache_();
+  if (raw === undefined && cache) { try { PERF_.memoCalls++; raw = cache.get(TB_TODO_KEY_); } catch (e) { raw = null; } }
+  var idx = raw ? tbParse_(raw, null) : null;
+  // 관리자 › 점검 '시트 새로 읽기'로 서버 기억을 모두 버렸으면(전체 판이 바뀜) 새로 만든다
+  if (idx && idx.n && idx.s && (!idx.ep || !MEMO_EP_ || idx.ep === MEMO_EP_)) return idx;
+  idx = tbTodoBuild_();
+  idx.ep = MEMO_EP_ || '';
+  var text = JSON.stringify(idx);
+  if (cache && text.length <= TB_TODO_MAX_) { try { PERF_.memoCalls++; cache.put(TB_TODO_KEY_, text, TB_TODO_TTL_); } catch (e) { /* 기억을 못 써도 만든 목록은 쓴다 */ } }
+  return idx;
+}
+
+/** 할 일 목록 버리기: 표를 만들거나 지우거나 되살리거나 열·마감·시트를 바꿨을 때(다음 홈이 새로 만든다) */
+function tbTodoForget_() {
+  var f = globalFn_('memoRawForget_'), cache = memoCache_();
+  if (f) f(TB_TODO_KEY_);
+  if (cache) { try { cache.remove(TB_TODO_KEY_); } catch (e) { /* 10분 뒤 저절로 바뀐다 */ } }
+}
+
+/**
+ * 홈 '내가 할 일'의 취합 시트: 고른 이름이 할 일 열에 있고 끝나지 않은 줄의 시트 → [{ doc, sheet, title, sheetName, deadline, n, at }]
+ * (마감이 가까운 것부터 8개까지). at: 목록을 만든 때(화면은 그 뒤에 직접 본 시트가 있으면 그것을 믿는다)
+ */
+function tbTodosFor_(ctx) {
+  var name = ctx && ctx.identity ? String(ctx.identity['이름'] || '').trim() : '';
+  if (!name) return [];
+  var idx = tbTodoIndex_(), mine = Object.prototype.hasOwnProperty.call(idx.n, name) ? idx.n[name] : null, today = tbToday_();
+  if (!mine) return [];
+  return Object.keys(mine).filter(function (sid) { return idx.s[sid] && (!idx.s[sid][3] || idx.s[sid][3] >= today); }).map(function (sid) {
+    var s = idx.s[sid];
+    return { doc: s[0], sheet: sid, title: s[1], sheetName: s[2], deadline: s[3], n: mine[sid], at: idx.at };
+  }).sort(function (a, b) {
+    var x = a.deadline || '9999', y = b.deadline || '9999';
+    return x < y ? -1 : x > y ? 1 : a.title.localeCompare(b.title, 'ko');
+  }).slice(0, 8);
+}
+
+/** 홈 검색: 표 이름·시트 이름·시트 설명·부서·만든 분(지운 표·시트는 빼고 진행 중인 표 먼저). sheet: 이름·설명이 맞는 첫 시트 */
+function tbSearch_(terms, ctx) {
+  var all = tbRows_('함께표'), depts = categoryNames_('부서'), names = staffNames_(), out = [];
+  all.forEach(function (m) {
+    if (!tbIsMain_(m) || m['삭제 여부']) return;
+    var sheets = tbSheetsOf_(all, m['표ID']), dept = depts[m['부서ID']] || '';
+    var hay = [m['제목'], dept, names[m['입력자ID']] || ''];
+    sheets.forEach(function (s) { hay.push(tbSheetName_(s), s['설명'] || ''); });
+    if (!matchAll_(terms, hay)) return;
+    var hit = sheets.length > 1 ? sheets.filter(function (s) { return matchAll_(terms, [tbSheetName_(s), s['설명'] || '']); })[0] : null;
+    out.push({ id: m['표ID'], title: String(m['제목'] || ''), dept: dept, deadline: m['마감'] || '', closed: tbClosed_(m), sheets: sheets.length,
+      sheet: hit ? hit['표ID'] : '', sheetName: hit ? tbSheetName_(hit) : '' });
+  });
+  return out.sort(function (a, b) {
+    if (a.closed !== b.closed) return a.closed ? 1 : -1;
+    var x = a.deadline || '9999', y = b.deadline || '9999';
+    return x < y ? -1 : x > y ? 1 : a.title.localeCompare(b.title, 'ko');
+  });
 }
 
 // ---------------------------------------------------------------- 잠금 안에서 한 줄만 읽고 쓰기
@@ -12124,6 +12579,7 @@ function apiTableCreate_(args, actor, ctx) {
     Object.keys(meta).forEach(function (k) { rec[k] = meta[k]; });
     var t = insertRow_('함께표', rec, actor, '취합 시트 만듦: ' + meta['제목'] + tbTplNote_(args));
     tbInsertSheetRows_(t['표ID'], cols, rows, actor, '취합 시트 "' + meta['제목'] + '" 줄 ' + rows.length + '개 넣음');
+    if (cols.some(function (c) { return c.todo; })) tbTodoForget_();
     return { id: t['표ID'] };
   });
 }
@@ -12140,6 +12596,7 @@ function apiTableSave_(args, actor, ctx) {
     if (!main || main['삭제 여부']) throw userError_('이 표가 지워졌어요.', 'NOTFOUND');
     rec['문서 판'] = String((Number(main['문서 판']) || 0) + 1);
     updateRow_('함께표', main['표ID'], rec, actor, '취합 시트 고침: ' + rec['제목']);
+    tbTodoForget_(); // 표 이름·마감이 홈 '내가 할 일'에 보인다
     return { dver: Number(rec['문서 판']) };
   });
 }
@@ -12156,6 +12613,7 @@ function apiTableSetOpen_(args, actor, ctx) {
     if (args.open && main['마감'] && main['마감'] < tbToday_()) throw userError_('마감 날짜가 지났어요. "표 고치기"에서 마감을 늦추거나 지운 뒤 다시 열어 주세요.');
     var dver = (Number(main['문서 판']) || 0) + 1;
     updateRow_('함께표', main['표ID'], { '상태': args.open ? '' : '마감', '문서 판': String(dver) }, actor, '취합 시트 ' + (args.open ? '다시 엶: ' : '마감함: ') + main['제목']);
+    tbTodoForget_();
     return { dver: dver };
   });
 }
@@ -12171,6 +12629,7 @@ function apiTableDelete_(args, actor, ctx) {
     var patch = { '삭제 여부': '삭제' };
     if (headOf_('함께표').indexOf('문서 판') >= 0) patch['문서 판'] = String((Number(main['문서 판']) || 0) + 1);
     updateRow_('함께표', main['표ID'], patch, actor, '취합 시트 지움: ' + main['제목'], '삭제');
+    tbTodoForget_();
     return { done: true };
   });
 }
@@ -12207,6 +12666,7 @@ function apiTableSheetAdd_(args, actor, ctx) {
       actor, tbLabel_(D.main) + ' 시트 더함: ' + name + tbTplNote_(args));
     tbInsertSheetRows_(t['표ID'], cols, rows, actor, tbLabel_(D.main) + ' › ' + name + ' 줄 ' + rows.length + '개 넣음');
     var head = tbHead_('함께표'), dver = tbBumpDoc_(D.main, head);
+    tbTodoForget_(); // 시트 이름이 홈 '내가 할 일'에 보인다(시트가 둘이 되면)
     return { id: t['표ID'], dver: dver };
   });
 }
@@ -12222,6 +12682,7 @@ function apiTableSheetSave_(args, actor, ctx) {
     updateRow_('함께표', t['표ID'], { '시트 이름': nameKey, '설명': desc, '판': String((Number(t['판']) || 0) + 1) }, actor, tbLabel_(D.main, t) + ' 시트 고침');
     tbLogMeta_(t['표ID'], (Number(t['판']) || 0) + 1);
     var dver = tbBumpDoc_(D.main, tbHead_('함께표'));
+    tbTodoForget_();
     return { dver: dver };
   });
 }
@@ -12272,6 +12733,7 @@ function apiTableSheetCopy_(args, actor, ctx) {
     order.splice(k + 1, 0, mine);
     var head = tbHead_('함께표');
     tbRenumber_(order, head);
+    tbTodoForget_();
     return { id: t['표ID'], dver: tbBumpDoc_(tbById_(all, D.main['표ID']), head) };
   });
 }
@@ -12284,6 +12746,7 @@ function apiTableSheetDelete_(args, actor, ctx) {
     if (D.sheets.length <= 1) throw userError_('시트가 하나뿐이라 지울 수 없어요. 표 전체를 지우려면 "표 고치기 › 표 지우기"를 눌러 주세요.');
     updateRow_('함께표', t['표ID'], tbIsMain_(t) ? { '시트 지움': '지움' } : { '삭제 여부': '삭제' }, actor, tbLabel_(D.main, t) + ' 시트 지움', '삭제');
     var main = findRow_('함께표', D.main['표ID']);
+    tbTodoForget_();
     return { dver: tbBumpDoc_(main, tbHead_('함께표')) };
   });
 }
@@ -12597,6 +13060,7 @@ function apiTableCols_(args, actor, ctx) {
     var ver = (Number(t['판']) || 0) + 1;
     updateRow_('함께표', t['표ID'], { '열': json, '판': String(ver) }, actor, tbLabel_(m0, t) + ' 열 고침');
     tbLogMeta_(t['표ID'], ver);
+    tbTodoForget_(); // 할 일 열·끝난 줄 규칙(고르기·숫자 열)이 바뀔 수 있다
     return { ver: ver };
   });
 }
@@ -12711,6 +13175,7 @@ function adminTableRestore_(args, actor) {
     if (tbIsMain_(t) && t['삭제 여부'] && args.kind !== 'sheet') {
       updateRow_('함께표', t['표ID'], { '삭제 여부': '' }, actor, '취합 시트 되살림: ' + t['제목'], '되살리기');
       tbBumpDoc_(findRow_('함께표', t['표ID']), head);
+      tbTodoForget_();
       return { done: true };
     }
     if (!tbSheetGone_(t)) throw userError_('되살릴 시트를 찾지 못했어요.');
@@ -12720,6 +13185,7 @@ function adminTableRestore_(args, actor) {
     if (sheets.some(function (s) { return tbSheetName_(s).toLowerCase() === name.toLowerCase(); })) patch['시트 이름'] = tbFreeSheetName_(name + ' (되살림)', sheets);
     updateRow_('함께표', t['표ID'], patch, actor, tbLabel_(main, t) + ' 시트 되살림', '되살리기');
     tbBumpDoc_(findRow_('함께표', main['표ID']), head);
+    tbTodoForget_();
     return { done: true };
   });
 }
@@ -12727,7 +13193,7 @@ function adminTableRestore_(args, actor) {
 // ---------------------------------------------------------------- 시트 양식(판 2026-10-18b, 교사 요청)
 // - 자주 쓰는 시트 모양(열·서식·줄)을 양식으로 저장해 두고, 새 표·시트를 만들 때 '양식에서 고르기'로 쓴다
 //   (화면이 양식을 받아 만들기 창에 채우고, 만들기는 table.create·table.sheet.add 그대로)
-// - 기본 양식 5개(코드 안에 있고 고치거나 지울 수 없음) + 우리 학교 양식('시트양식' 탭, 처음 저장할 때 저절로 생긴다)
+// - 기본 양식 10개(코드 안에 있고 고치거나 지울 수 없음, B6~B10은 판 2026-10-19a) + 우리 학교 양식('시트양식' 탭, 처음 저장할 때 저절로 생긴다)
 // - 저장은 이름을 고른 교직원 누구나, 모든 선생님이 함께 쓴다(교사 결정). 이름·설명 고치기·지우기는 저장한 분과 관리
 // - '열': 시트의 열과 같은 모양(ID는 c1부터 다시 매김) · '줄': [{ cells, colors, fmt, ms, h }] 표 만들기와 같은 모양
 //   (합친 칸은 ms: [아래로 줄 수, 오른쪽으로 열 수]). 줄이 없는 양식(열 모양만)은 빈 줄 10개로 시작한다
@@ -12743,25 +13209,44 @@ function tbTplNote_(args) {
   return n ? ' (양식: ' + n + ')' : '';
 }
 
-/** 기본 양식(교사 확인: 틀만, 내용은 비움). staff: 교직원 소속으로 학년·반 줄을 채움, periods: 1~6교시 줄 */
+/**
+ * 기본 양식(교사 확인: 틀만, 내용은 비움). B6~B10은 판 2026-10-19a에 더함(교사 결정).
+ * fill: 줄을 채우는 방법 — 'class' 교직원 소속('3학년 2반')으로 학년·반·담임, 'people' 사용 중인 교직원 이름·소속,
+ *   'vacation' 방학 중 평일(학기 기간·공휴일로), 'periods' 1~6교시. 채울 것이 없으면 빈 줄 10개(짐작해 채우지 않는다)
+ * census: 학생 수 현황(반별)의 재적을 채울 열(없으면 비워 둔다). todo: 할 일 열(만들 때 끌 수 있다)
+ */
 function tbBuiltinTpls_() {
   var col = function (id, name, w, more) {
     var c = { id: id, name: name, type: 'text', options: [], lock: false, merge: false, w: w };
     Object.keys(more || {}).forEach(function (k) { c[k] = more[k]; });
     return c;
   };
-  var lock = { lock: true }, pick = function (opts) { return { type: 'pick', options: opts }; };
+  var lock = { lock: true }, num = { type: 'num' }, pick = function (opts) { return { type: 'pick', options: opts }; };
+  var classCols = function () { return [col('c1', '학년', 80, lock), col('c2', '반', 70, lock), col('c3', '담임', 100, { lock: true, todo: true })]; };
+  // 학교 안전교육 7대 영역(확인 필요: 학교 계획의 영역 이름과 다르면 열 이름을 고쳐 쓴다)
+  var areas = [['생활안전', 100], ['교통안전', 100], ['폭력예방·신변보호', 150], ['약물·사이버중독 예방', 170], ['재난안전', 100], ['직업안전', 100], ['응급처치', 100]];
   return [
-    { id: 'B1', name: '학년·반별 제출 확인', staff: true, desc: '교직원 소속(○학년 ○반)으로 학년·반·담임을 채워요. 반마다 냈는지 골라요.',
-      cols: [col('c1', '학년', 80, lock), col('c2', '반', 70, lock), col('c3', '담임', 100, lock), col('c4', '제출', 110, pick(['제출', '미제출'])), col('c5', '비고', 260)] },
+    { id: 'B1', name: '학년·반별 제출 확인', fill: 'class', desc: '교직원 소속(○학년 ○반)으로 학년·반·담임을 채워요. 반마다 냈는지 골라요.',
+      cols: classCols().concat([col('c4', '제출', 110, pick(['제출', '미제출'])), col('c5', '비고', 260)]) },
     { id: 'B2', name: '실별 점검', desc: '층·실마다 관리하는 분이 점검했는지 고르고, 내용을 적어요.',
       cols: [col('c1', '층', 70, lock), col('c2', '실', 120, lock), col('c3', '관리자', 100, lock), col('c4', '점검', 110, pick(['완료', '미완료'])), col('c5', '내용', 280)] },
-    { id: 'B3', name: '교시×요일 시간표', periods: true, desc: '1~6교시 × 월~금. 칸마다 쓰는 반이나 내용을 적어요.',
+    { id: 'B3', name: '교시×요일 시간표', fill: 'periods', desc: '1~6교시 × 월~금. 칸마다 쓰는 반이나 내용을 적어요.',
       cols: [col('c1', '교시', 70, lock)].concat(['월', '화', '수', '목', '금'].map(function (d, i) { return col('c' + (i + 2), d, 110); })) },
     { id: 'B4', name: '날짜·시간 신청', desc: '날짜·시간을 정해 두고 신청을 받아요. 신청을 확인했는지 골라요.',
       cols: [col('c1', '날짜', 110, lock), col('c2', '시간', 80, lock), col('c3', '학년 반', 90), col('c4', '신청한 분', 100), col('c5', '확인', 110, pick(['확인', '미확인']))] },
     { id: 'B5', name: '업무 협의 안건', desc: '협의할 안건과 담당을 적고, 협의 결과와 완료를 함께 채워요.',
-      cols: [col('c1', '번호', 60), col('c2', '안건', 280), col('c3', '담당 부서', 110), col('c4', '담당자', 90), col('c5', '협의 결과', 260), col('c6', '완료', 100, pick(['완료', '미완료']))] }
+      cols: [col('c1', '번호', 60), col('c2', '안건', 280), col('c3', '담당 부서', 110), col('c4', '담당자', 90), col('c5', '협의 결과', 260), col('c6', '완료', 100, pick(['완료', '미완료']))] },
+    { id: 'B6', name: '방학 근무 신청', fill: 'vacation', desc: '학기 기간으로 방학 중 평일(토·일·공휴일 빼고) 줄을 만들어요. 근무하실 날에 이름을 적어요.',
+      cols: [col('c1', '방학', 90, lock), col('c2', '날짜', 130, lock), col('c3', '근무자', 130), col('c4', '비고', 240)] },
+    { id: 'B7', name: '연수 이수 확인', fill: 'people', desc: '교직원 이름·소속 줄에 연수를 마쳤는지 고르고 이수일을 적어요.',
+      cols: [col('c1', '이름', 100, { lock: true, todo: true }), col('c2', '소속', 120, lock), col('c3', '이수', 110, pick(['이수', '미이수'])), col('c4', '이수일', 120), col('c5', '비고', 220)] },
+    { id: 'B8', name: '대피 훈련 인원 확인', fill: 'class', census: 'c4', desc: '학년·반·담임 줄에 재적과 대피 인원을 적어요. 재적은 학생 수 현황(반별)에서 가져와요(없으면 비어 있어요).',
+      cols: classCols().concat([col('c4', '재적', 80, num), col('c5', '대피 인원', 100, num), col('c6', '비고', 220)]) },
+    { id: 'B9', name: '학급별 안전교육 시수', fill: 'class', desc: '학년·반 줄에 안전교육 7대 영역별 시수를 적어요. 영역 이름이 학교 계획과 다르면 열 이름을 고쳐 주세요.',
+      cols: classCols().concat(areas.map(function (a, i) { return col('c' + (i + 4), a[0], a[1], num); })).concat([col('c11', '비고', 180)]) },
+    { id: 'B10', name: '위험 요소 신고·조치', desc: '학교 안에서 발견한 위험한 곳을 적고, 조치했는지 골라요.',
+      cols: [col('c1', '발견한 날', 110), col('c2', '장소', 130), col('c3', '위험한 점', 260), col('c4', '알린 분', 100),
+        col('c5', '조치', 110, pick(['완료', '조치 중', '접수'])), col('c6', '조치 내용', 240)] }
   ];
 }
 function tbBlankRows_() {
@@ -12771,9 +13256,10 @@ function tbBlankRows_() {
 }
 /**
  * 교직원 소속('3학년 2반')으로 학년·반 줄: 소속에 나온 학년마다 1반부터 가장 큰 반까지(담임은 소속이 그 반인 분, 없으면 비움).
- * 사용 안 함인 분은 빼고, 학년 칸은 학년마다 위아래로 합친다. 소속에 학년·반이 하나도 없으면 빈 목록(짐작해 채우지 않는다)
+ * 사용 안 함인 분은 빼고, 학년 칸은 학년마다 위아래로 합친다. 소속에 학년·반이 하나도 없으면 빈 목록(짐작해 채우지 않는다).
+ * census: 재적을 채울 열ID(지금 학년도 학생 수 현황의 반별 남+여, 그 반 숫자가 없으면 비움)
  */
-function tbClassRows_() {
+function tbClassRows_(census) {
   var by = {}, max = {};
   liveRows_('교직원').forEach(function (s) {
     if (s['사용 여부'] === '사용 안 함') return;
@@ -12784,11 +13270,15 @@ function tbClassRows_() {
     if (name) (by[g + '-' + c] = by[g + '-' + c] || []).push(name);
     max[g] = Math.max(max[g] || 0, c);
   });
+  var cls = null;
+  if (census && Object.keys(max).length) { try { cls = studentsOf_(curSchoolYear_()).classes; } catch (e) { cls = null; } }
   var rows = [];
   Object.keys(max).map(Number).sort(function (a, b) { return a - b; }).forEach(function (g) {
     for (var c = 1; c <= max[g]; c++) {
       var r = { cells: { c1: g + '학년', c2: c + '반' }, fmt: { c2: { ha: 'c' } } }, names = by[g + '-' + c];
       if (names) r.cells.c3 = names.join(', ');
+      var p = cls && cls[String(g)] && cls[String(g)][c - 1];
+      if (p) r.cells[census] = String(p[0] + p[1]);
       if (c === 1) {
         r.fmt.c1 = { b: 1, ha: 'c' };
         if (max[g] > 1) r.ms = { c1: [max[g], 1] };
@@ -12798,11 +13288,47 @@ function tbClassRows_() {
   });
   return rows;
 }
+/** 사용 중인 교직원 이름·소속 줄(교직원 순서대로). 휴대폰 번호 같은 다른 칸은 넣지 않는다 */
+function tbPeopleRows_() {
+  return sortStaff_(liveRows_('교직원').filter(function (s) { return s['사용 여부'] !== '사용 안 함' && String(s['이름'] || '').trim(); }))
+    .slice(0, TB_MAX_ROWS_).map(function (s) { return { cells: { c1: String(s['이름']).trim(), c2: String(s['소속'] || '').trim() } }; });
+}
+/**
+ * 방학 근무 신청 줄: 지금 학년도의 여름방학(1학기 끝 다음 날 ~ 2학기 시작 전날)·겨울방학(2학기 끝 다음 날 ~ 학년도 끝 2월 말일)
+ * 중 평일. 토·일과 공휴일(일정 구분 '공휴일')은 빼고, 오늘보다 앞선 날은 넣지 않는다. 학기 기간이 없으면 빈 목록(짐작해 채우지 않는다)
+ */
+function tbVacationRows_() {
+  var sy = curSchoolYear_(), by = {}, today = tbToday_(), spans = [], out = [], off = {};
+  semesters_(sy).forEach(function (s) { by[s.name] = s; });
+  if (by['1학기'] && by['2학기']) spans.push(['여름방학', addDays_(by['1학기'].to, 1), addDays_(by['2학기'].from, -1)]);
+  if (by['2학기']) spans.push(['겨울방학', addDays_(by['2학기'].to, 1), schoolYearRange_(sy).to]);
+  if (!spans.length) return out;
+  liveRows_('일정').forEach(function (e) {
+    if (e['구분'] !== '공휴일' || !isDate_(e['시작일'])) return;
+    for (var d = e['시작일'], k = 0; d <= eventEnd_(e) && k < 400; d = addDays_(d, 1), k++) off[d] = 1;
+  });
+  spans.forEach(function (sp) {
+    var first = out.length;
+    for (var d = sp[1] > today ? sp[1] : today; d <= sp[2] && out.length < TB_MAX_ROWS_; d = addDays_(d, 1)) {
+      var w = weekday_(d);
+      if (w === 0 || w === 6 || off[d]) continue;
+      out.push({ cells: { c1: sp[0], c2: Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일 (' + '일월화수목금토'.charAt(w) + ')' }, fmt: { c2: { ha: 'c' } } });
+    }
+    var n = out.length - first;
+    if (!n) return;
+    out[first].fmt.c1 = { b: 1, ha: 'c' };
+    if (n > 1) out[first].ms = { c1: [n, 1] };
+  });
+  return out;
+}
 /** 기본 양식의 줄: { rows, blank: 빈 줄로 시작하는지 } */
 function tbBuiltinRows_(b) {
-  if (b.staff) { var rows = tbClassRows_(); if (rows.length) return { rows: rows, blank: false }; }
-  if (b.periods) return { rows: [1, 2, 3, 4, 5, 6].map(function (k) { return { cells: { c1: k + '교시' }, fmt: { c1: { b: 1, ha: 'c' } } }; }), blank: false };
-  return { rows: tbBlankRows_(), blank: true };
+  var rows = [];
+  if (b.fill === 'class') rows = tbClassRows_(b.census);
+  else if (b.fill === 'people') rows = tbPeopleRows_();
+  else if (b.fill === 'vacation') rows = tbVacationRows_();
+  else if (b.fill === 'periods') rows = [1, 2, 3, 4, 5, 6].map(function (k) { return { cells: { c1: k + '교시' }, fmt: { c1: { b: 1, ha: 'c' } } }; });
+  return rows.length ? { rows: rows, blank: false } : { rows: tbBlankRows_(), blank: true };
 }
 
 /** 우리 학교 양식(지우지 않은 것) */
@@ -12832,13 +13358,14 @@ function apiTableTplList_(args, actor, ctx) {
   var names = staffNames_();
   var builtin = tbBuiltinTpls_().map(function (b) {
     var x = tbBuiltinRows_(b);
-    return { id: b.id, name: b.name, desc: b.desc, cols: b.cols.map(function (c) { return c.name; }), rows: x.blank ? 0 : x.rows.length, blank: x.blank, staff: !!b.staff, builtin: true };
+    return { id: b.id, name: b.name, desc: b.desc, cols: b.cols.map(function (c) { return c.name; }), rows: x.blank ? 0 : x.rows.length, blank: x.blank,
+      fill: b.fill || '', staff: b.fill === 'class', todo: b.cols.some(function (c) { return c.todo; }), builtin: true };
   });
   var saved = tbTplRows_().map(function (r) {
     var rows = tbTplParsedRows_(r);
     return {
       id: r['양식ID'], name: r['이름'], desc: r['설명'] || '', cols: tbCols_(r).map(function (c) { return c.name; }),
-      rows: rows.length, blank: !rows.length, by: names[r['입력자ID']] || '', byId: r['입력자ID'] || '',
+      rows: rows.length, blank: !rows.length, todo: tbCols_(r).some(function (c) { return c.todo; }), by: names[r['입력자ID']] || '', byId: r['입력자ID'] || '',
       at: String(r['수정 시각'] || r['입력 시각'] || '').slice(0, 16), canEdit: tbTplOwner_(r, ctx)
     };
   }).sort(function (a, b) { var x = tbTplKey_(a.name), y = tbTplKey_(b.name); return x < y ? -1 : x > y ? 1 : 0; });
@@ -12871,7 +13398,9 @@ function apiTableTplSave_(args, actor, ctx) {
   var cols = src.map(function (c, j) {
     ids[c.id] = 'c' + (j + 1);
     ci[c.id] = j;
-    return { id: 'c' + (j + 1), name: c.name, type: c.type === 'pick' ? 'pick' : 'text', options: (c.options || []).slice(), lock: !!c.lock, merge: !!c.merge, w: tbCleanWidth_(c.w) };
+    var o = { id: 'c' + (j + 1), name: c.name, type: c.type === 'pick' || c.type === 'num' ? c.type : 'text', options: (c.options || []).slice(), lock: !!c.lock, merge: !!c.merge, w: tbCleanWidth_(c.w) };
+    if (c.todo && o.type === 'text') o.todo = true;
+    return o;
   });
   if (!cols.length) throw userError_('열이 없는 시트는 양식으로 저장할 수 없어요.');
   var rows = [];
@@ -13155,7 +13684,7 @@ function seedTestTables_() {
     'help.list': 1, 'staff.list': 1, 'notice.list': 1, 'admin.settings.get': 1, 'admin.cat.list': 1, 'admin.staff.list': 1,
     'admin.log.list': 1, 'admin.trash.list': 1, 'admin.trash.surveys': 1, 'admin.trash.library': 1, 'admin.year.preview': 1,
     'admin.check': 1, 'admin.speed': 1, 'admin.staff.importCheck': 1,
-    'table.list': 1, 'table.get': 1, 'table.poll': 1, 'table.find': 1, 'table.tpl.list': 1, 'table.tpl.get': 1, 'admin.trash.tables': 1
+    'table.list': 1, 'table.get': 1, 'table.poll': 1, 'table.find': 1, 'table.tpl.list': 1, 'table.tpl.get': 1, 'admin.trash.tables': 1, 'shortcut.url': 1
   };
   // 취합 시트에서 칸·열 너비·줄 높이·보기를 고치는 저장: 창 닫기를 막지 않는다(뒤에서 차례로 보냄)
   var QUIET_WRITES = { 'table.cell': 1, 'table.cells': 1, 'table.row.add': 1, 'table.colw': 1, 'table.rowh': 1, 'table.view': 1 };
@@ -14083,7 +14612,7 @@ function seedTestTables_() {
         ? tomorrow.map(function (e) { return esc(e.title) + (e.time ? ' ' + esc(e.time) : ''); }).join(' · ')
         : '일정이 없어요') + '</p></section>' +
       todoCard(h) + '</div>' +
-
+      sosCard(h) +
       (isPhone() ? homeNoticeCard(h) : '') +
       '<section class="card"><div class="card-head"><h2>' + (h.weekNext ? '다음 주 일정' : '이번 주 일정') + ' <span class="faint" style="font-weight:600">' + md(h.monday) + ' – ' + md(addD(h.monday, 4)) + '</span></h2>' +
       '<div class="seg print-hide" role="group" aria-label="' + (h.weekNext ? '다음 주' : '이번 주') + ' 일정 보기">' +
@@ -14364,17 +14893,36 @@ function seedTestTables_() {
     }
   }
 
-  /** 홈 '내가 할 일': 아직 안 낸 조사(다시 알림 받은 것이 맨 위) */
+  /**
+   * 홈 '내가 할 일' 중 취합 시트: 할 일 열에 내 이름이 있고 끝나지 않은 줄이 있는 시트(서버 목록은 10분까지 늦을 수 있어,
+   * 그 뒤에 이 창에서 직접 본 시트(TableUi.html S.tbSeen)는 그것을 믿는다: 다 채웠으면 빼고, 남은 줄 수는 본 대로)
+   */
+  function tableTodos(h) {
+    var seen = S.tbSeen || {};
+    return (h.tableTodos || []).map(function (x) {
+      var v = seen[x.sheet];
+      if (!v || !(v.at > (x.at || 0))) return x;
+      return v.n ? Object.assign({}, x, { n: v.n }) : null;
+    }).filter(Boolean);
+  }
+  /** 홈 '내가 할 일': 아직 안 낸 조사(다시 알림 받은 것이 맨 위) + 취합 시트(할 일 열에 내 이름이 있는 끝나지 않은 줄) */
   function todoCard(h) {
     if (!S.me) {
       return '<section class="card"><h2>내가 할 일</h2><div class="box"><p style="font-weight:800">이름을 고르면 보여요</p>' +
-        '<p class="faint">내가 낼 조사가 여기에 모여요.</p></div>' +
+        '<p class="faint">내가 낼 조사와 채울 취합 시트가 여기에 모여요.</p></div>' +
         '<button type="button" class="btn btn-primary" data-action="identity">이름 고르기</button></section>';
     }
-    var list = h.todos || [];
+    var list = h.todos || [], tables = tableTodos(h);
     setTodoCount(list.length);
     var first = list[0];
-    return '<section class="card todo-card"><div class="card-head"><h2>내가 할 일 <span class="accent-num">' + list.length + '</span></h2>' +
+    var tableRows = tables.slice(0, 4).map(function (x) {
+      return '<div class="todo-row"><div style="min-width:0"><div class="sv-chips"><span class="chip chip-accent">취합 시트</span>' +
+        (x.deadline ? daysLeftChip({ deadline: x.deadline }, h.today) : '') + '</div>' +
+        '<p class="todo-title sm">' + esc(x.title + (x.sheetName ? ' › ' + x.sheetName : '')) + '</p>' +
+        '<p class="faint">내 이름이 있는 줄 ' + x.n + '개가 남았어요</p></div>' +
+        '<button type="button" class="btn btn-sm" data-action="todo-table" data-id="' + esc(x.doc) + '" data-sheet="' + esc(x.sheet) + '">채우기</button></div>';
+    }).join('') + (tables.length > 4 ? '<p class="faint">취합 시트 ' + (tables.length - 4) + '개 더 있어요</p>' : '');
+    return '<section class="card todo-card"><div class="card-head"><h2>내가 할 일 <span class="accent-num">' + (list.length + tables.length) + '</span></h2>' +
       '<button type="button" class="linkish" data-go="survey">전체 보기</button></div>' +
       (first ? '<div class="todo-first"><div class="sv-chips">' + daysLeftChip(first, h.today) + (first.reminded ? '<span class="chip chip-warn">다시 알림</span>' : '') +
         (first.dept ? '<span class="faint">' + esc(first.dept) + '</span>' : '') + '</div>' +
@@ -14385,8 +14933,8 @@ function seedTestTables_() {
             '<p class="todo-title sm">' + esc(c.title) + '</p></div>' +
             '<button type="button" class="btn btn-sm" data-action="todo-open" data-id="' + esc(c.id) + '">응답하기</button></div>';
         }).join('') + (list.length > 4 ? '<p class="faint">' + (list.length - 4) + '개 더 있어요</p>' : '')
-        : '<div class="box"><p style="font-weight:800">낼 조사가 없어요</p><p class="faint">새 조사가 오면 여기에 보여요.</p></div>') +
-      '</section>';
+        : tables.length ? '' : '<div class="box"><p style="font-weight:800">할 일이 없어요</p><p class="faint">새 조사가 오거나 취합 시트의 할 일 열에 내 이름이 들어가면 여기에 보여요.</p></div>') +
+      tableRows + '</section>';
   }
 
   // ============================================================ 일정
@@ -14546,7 +15094,7 @@ function seedTestTables_() {
   function calLegend() {
     return '<div class="legend" aria-label="색 설명">' +
       '<span><i class="lg lg-imp"></i>★ 중요</span><span><i class="lg lg-ev"></i>행사</span>' +
-      '<span><i class="lg lg-act"></i>교육활동</span><span><i class="lg lg-off"></i>휴업일·공휴일</span></div>';
+      '<span><i class="lg lg-act"></i>교육활동</span><span><i class="lg lg-meet"></i>회의</span><span><i class="lg lg-off"></i>휴업일·공휴일</span><span><i class="lg lg-duty"></i>관리자 근무</span></div>';
   }
 
   function calGrid(shown) {
@@ -15566,6 +16114,7 @@ function seedTestTables_() {
       '<p class="faint">' + esc([c.dept, c.by ? c.by + ' 선생님이 ' + c.createdAt.slice(5, 10).replace('-', '월 ') + '일에 만들었어요' : '', '대상 ' + c.targetText + ' ' + c.targetCount + '명'].filter(Boolean).join(' · ')) + '</p></div>' +
       '<div class="row-btns print-hide sv-actions">' +
       '<button type="button" class="btn btn-sm" data-action="sv-edit">고치기·마감 연장</button>' +
+      '<button type="button" class="btn btn-sm" data-action="sv-dup">' + icon('copy', 16) + '복사해 새로 만들기</button>' +
       '<button type="button" class="btn btn-sm" data-action="sv-close" data-open="' + (c.closed ? '1' : '0') + '">' + (c.closed ? '다시 열기' : '지금 끝내기') + '</button>' +
       '<button type="button" class="btn btn-sm" data-action="sv-csv">' + icon('down', 18) + '엑셀로 받기</button>' +
       '<button type="button" class="btn btn-sm btn-ghost btn-danger" data-action="sv-del">지우기</button></div></div>' +
@@ -15668,10 +16217,12 @@ function seedTestTables_() {
   // ------------------------------------------------------------ 새 조사 만들기·고치기
   var Q_TYPES = [['one', '하나 고르기'], ['many', '여러 개 고르기'], ['short', '짧은 글'], ['long', '긴 글'], ['number', '숫자'], ['date', '날짜']];
 
-  function openSurveyForm(edit) {
+  /** 새 조사 만들기·고치기. copyFrom(지난 조사의 내용)을 주면 그 조사로 채운 새 조사(마감은 새로, 답은 가져오지 않음) */
+  function openSurveyForm(edit, copyFrom) {
     if (!needMe('조사를 만들면')) return;
-    var start = function (depts, people) { drawSurveyForm(edit, depts, people); };
+    var start = function (depts, people) { drawSurveyForm(edit, depts, people, copyFrom); };
     if (edit) return start(edit.depts || [], null);
+    if (copyFrom && copyFrom.depts) return start(copyFrom.depts, null);
     // 부서 목록은 일정 화면과 같은 곳에서 받아 온다(미리 받아 둔 것이 있으면 바로)
     var key = { year: +localToday().slice(0, 4), month: +localToday().slice(5, 7) };
     var mm = MEMO[memoKey('sched.month', key)];
@@ -15685,18 +16236,30 @@ function seedTestTables_() {
   }
   var surveyFormOpening = false;
 
-  function drawSurveyForm(edit, depts, people) {
-    var d = edit || {};
+  function drawSurveyForm(edit, depts, people, copyFrom) {
+    var src = edit || copyFrom || null; // 고치기: 이 조사, 가져오기: 지난 조사(마감·답은 빼고)
+    var d = src || {};
     var c = d.card || {};
     var tg = d.target || { type: 'all' };
     var locked = !!(edit && d.hasResponses);
     var def = addD(localToday(), 3) + ' 17:00';
-    var dl = (c.deadline || def);
-    var deptId = edit ? d.deptId : (S.me && S.me.deptId) || '';
+    var dl = edit ? (c.deadline || def) : def;
+    var deptId = src ? d.deptId || '' : (S.me && S.me.deptId) || '';
     var qsList = (d.questions && d.questions.length ? d.questions : [{ type: 'one', title: '', required: true, options: [] }]);
+    if (copyFrom) qsList = qsList.map(function (q) { var o = {}; Object.keys(q).forEach(function (k) { if (k !== 'id') o[k] = q[k]; }); return o; }); // 새 질문으로
+    // 지난 조사에서 가져오기(새 조사만): 보이는 조사(낼 것·만든 것·지난 것) 중에서 고른다
+    var pool = [];
+    if (!edit && S.survey.list) {
+      var seen = {};
+      [].concat(S.survey.list.mine || [], S.survey.list.past || [], S.survey.list.toAnswer || []).forEach(function (x) { if (!seen[x.id]) { seen[x.id] = 1; pool.push(x); } });
+      pool.sort(function (a, b) { return a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0; });
+    }
     openModal('<form class="form" id="svf" novalidate>' +
       '<div class="card-head"><h2 id="m-title">' + (edit ? '조사 고치기' : '새 조사 만들기') + '</h2>' +
       '<button type="button" class="icon-btn" data-action="close-modal" aria-label="닫기">' + icon('x') + '</button></div>' +
+      (pool.length ? '<div class="field"><label class="label" for="svf-from">지난 조사에서 가져오기 <span class="faint">(안 골라도 돼요)</span></label><select id="svf-from" class="input"><option value="">(새로 쓰기)</option>' +
+        pool.map(function (x) { return '<option value="' + esc(x.id) + '"' + (copyFrom && copyFrom.card && copyFrom.card.id === x.id ? ' selected' : '') + '>' + esc(x.title) + ' · ' + esc((x.createdAt || '').slice(0, 10)) + '</option>'; }).join('') +
+        '</select><p class="hint">제목·설명·대상·질문·안내 문구를 채워요. 마감은 새로 정하고, 낸 답은 가져오지 않아요.</p></div>' : '') +
       '<div class="field"><label class="label" for="svf-title">제목 <span class="req">*</span></label><input id="svf-title" class="input" maxlength="80" value="' + esc(c.title || '') + '" placeholder="예: 교직원 체육대회 참가 신청"></div>' +
       '<div class="field"><label class="label" for="svf-desc">설명 (선택)</label><textarea id="svf-desc" class="input" rows="2" maxlength="1000">' + esc(d.description || '') + '</textarea></div>' +
       '<div class="form-grid2"><div class="field"><label class="label" for="svf-dept">담당 부서</label><select id="svf-dept" class="input"><option value="">(없음)</option>' +
@@ -15714,13 +16277,23 @@ function seedTestTables_() {
       '<label class="check"><input type="checkbox" id="svf-public"' + (c.showResults ? ' checked' : '') + '>답을 대상 교직원 모두에게 보여 주기 <span class="faint">(참석 여부처럼 함께 봐야 할 때)</span></label>' +
       (edit && d.hasResponses && !c.showResults ? '<div class="note warn pub-ask" id="svf-pub-ask" hidden>' + icon('info', 18) + '<div><p>벌써 낸 답이 ' + ((d.responses || []).length ? d.responses.length + '개 ' : '') + '있어요. 켜면 지금까지 낸 답도 대상 선생님 모두에게 보여요. 낸 분들은 공개될 줄 모르고 냈을 수 있어요.</p>' +
         '<div class="row-btns"><button type="button" class="btn btn-sm" data-pub-ask="0">그만두기</button><button type="button" class="btn btn-sm btn-primary" data-pub-ask="1">그래도 보여 주기</button></div></div></div>' : '') +
-      '<div class="field"><label class="label" for="svf-msg">메신저 안내 문구 (선택)</label><textarea id="svf-msg" class="input" rows="2" maxlength="500" placeholder="비워 두면 제목과 마감으로 알아서 만들어요">' + esc(edit ? d.messenger : '') + '</textarea></div>' +
+      '<div class="field"><label class="label" for="svf-msg">메신저 안내 문구 (선택)</label><textarea id="svf-msg" class="input" rows="2" maxlength="500" placeholder="비워 두면 제목과 마감으로 알아서 만들어요">' + esc(edit ? d.messenger : copyFrom && copyFrom.messengerCustom ? d.messenger : '') + '</textarea></div>' +
       '<p class="err" id="svf-err" role="alert"></p>' +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">취소</button><button type="submit" class="btn btn-primary">' + (edit ? '저장' : '만들기') + '</button></div>' +
       '</form>', { wide: true, noBackdropClose: true });
 
     var form = qs('#svf');
     var qbox = qs('#svf-qs');
+    var from = qs('#svf-from');
+    if (from) from.addEventListener('change', function () {
+      var id = from.value;
+      if (!id) { drawSurveyForm(null, depts, people, null); return; }
+      from.disabled = true;
+      loadMemo('survey.get', { id: id }, function (src2) {
+        if (!qs('#svf') || qs('#svf-from') !== from) return; // 그사이 창을 닫았으면
+        drawSurveyForm(null, depts, people, src2);
+      }, function (e) { from.disabled = false; qs('#svf-err').textContent = e.message; });
+    });
     var state = { tt: tg.type, ids: (tg.ids || []).slice(), grades: (tg.grades || []).slice() };
     // 답이 있는 조사에서 '결과 공개'를 켤 때 한 번 묻는다(창 위에 창을 띄우지 않고 이 자리에서)
     var pub = qs('#svf-public'), pubAsk = qs('#svf-pub-ask'), pubOk = false;
@@ -16258,7 +16831,8 @@ function seedTestTables_() {
     var H = S.help, d = H.data, body = qs('#help-body');
     if (!body || !d) return;
     var kinds = d.kinds.filter(function (k) { return k.active || d.items.some(function (i) { return i.kindId === k.id; }); });
-    body.innerHTML = '<div class="toolbar print-hide">' + findBox('help-q', '도움말 찾기', '제목·내용으로 찾기', H.q) + '</div>' +
+    body.innerHTML = '<div class="toolbar print-hide">' + findBox('help-q', '도움말 찾기', '제목·내용으로 찾기', H.q) +
+      (d.canManage ? '<button type="button" class="btn btn-sm" data-action="help-safety">' + icon('plus', 18) + '안전·생활교육 안내 만들기</button>' : '') + '</div>' +
       '<div class="tgs print-hide" role="group" aria-label="분류">' +
       [{ id: '', name: '전체' }].concat(kinds).map(function (k) {
         return '<button type="button" class="tg" data-action="help-kind" data-id="' + esc(k.id) + '" aria-pressed="' + (H.kind === k.id) + '">' + esc(k.name) + '</button>';
@@ -16292,7 +16866,7 @@ function seedTestTables_() {
 
   function helpItem(i, open) {
     return '<details class="help-item" id="help-' + esc(i.id) + '"' + (open ? ' open' : '') + '>' +
-      '<summary><span class="help-t">' + esc(i.title) + '</span>' +
+      '<summary><span class="help-t">' + esc(i.title) + '</span>' + (i.home ? '<span class="chip chip-accent">홈에 보임</span>' : '') +
       (i.hasFile ? icon('doc', 18, ' class="help-ico" aria-label="파일 있음"') : '') + icon('chevd', 20, ' class="help-chev"') + '</summary>' +
       '<div class="help-body">' + (i.body ? '<p class="help-text">' + esc(i.body) + '</p>' : '') +
       ((i.link || i.hasFile) ? '<div class="row-btns">' + linkBtn(i.link, false, '링크 열기') + (i.hasFile ? fileBtn('도움말', i) : '') + '</div>' : '') +
@@ -16324,6 +16898,7 @@ function seedTestTables_() {
       (i.hasFile ? '<p class="box file-now">' + icon('doc', 18) + '<span>지금 파일: <b>' + esc(i.fileName) + '</b> · ' + esc(sizeText(i.fileSize)) + '</span></p>' +
         '<label class="check"><input type="checkbox" id="hf-nofile">이 파일 빼기</label>' : '') +
       '<input id="hf-file" class="input input-file" type="file"><p class="hint">' + icon('info', 16) + '<span>' + d.maxMb + 'MB까지 올릴 수 있어요. 규정 한글·PDF 파일을 올려 두면 온라인 교무실에서만 내려받아요.</span></p></div>' +
+      (d.canManage ? '<label class="check"><input type="checkbox" id="hf-home"' + (i.home ? ' checked' : '') + '>홈 \'비상 시 이것부터\'에 보이기 <span class="faint">(3개까지 · 대피 경로처럼 급할 때 볼 글)</span></label>' : '') +
       '<p class="err" id="hf-err" role="alert"></p>' +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
       '<button type="submit" class="btn btn-primary">' + (edit ? '저장' : '넣기') + '</button></div></form>', { wide: true });
@@ -16335,6 +16910,7 @@ function seedTestTables_() {
         '분류ID': qs('#hf-kind').value, '순서': qs('#hf-order').value.trim(), '제목': qs('#hf-title').value,
         '내용': qs('#hf-body').value, '링크': qs('#hf-link').value.trim(), removeFile: !!(qs('#hf-nofile') && qs('#hf-nofile').checked)
       };
+      if (qs('#hf-home')) fields.home = qs('#hf-home').checked;
       var f = qs('#hf-file').files[0];
       if (!fields['분류ID']) { err.textContent = '분류를 골라 주세요.'; return; }
       if (!fields['제목'].trim()) { err.textContent = '제목을 적어 주세요.'; qs('#hf-title').focus(); return; }
@@ -16345,6 +16921,7 @@ function seedTestTables_() {
         return server('help.save', { id: edit ? edit.id : '', fields: fields, file: file }, [['help.list', {}]]);
       }).then(function () {
         closeModal();
+        S.home = null; // 홈 '비상 시 이것부터'가 바뀌었을 수 있다
         toast('도움말을 ' + (edit ? '고쳤어요' : '넣었어요'));
         loadMemo('help.list', {}, function (d2) { S.help.data = d2; drawHelpList(); }, function (e) { toast(e.message, 'error'); });
       }).catch(function (e) { busy(btn, false); err.textContent = e.message; });
@@ -16369,7 +16946,9 @@ function seedTestTables_() {
       sec(1, '들어오기', [
         '웹앱 주소를 열고 <b>공통 비밀번호</b>를 넣어요. 비밀번호는 연구부장·부담당이 알려 드려요.',
         st.pinMode ? '명단에서 내 이름을 고르고 <b>개인 번호 4자리</b>를 넣어요. 번호를 잊으면 연구부장·부담당이 새로 만들어 드려요.' : '명단에서 <b>내 이름</b>을 골라요. 일정·조사·자료에 고른 이름이 남아요.',
-        "'이 기기에서 기억하기'를 켜 두면 " + keep + ' 동안 다시 묻지 않아요. 여러 사람이 쓰는 컴퓨터에서는 끄고, 다 쓰면 메뉴 맨 아래 <b>나가기</b>를 눌러요.'
+        "'이 기기에서 기억하기'를 켜 두면 " + keep + ' 동안 다시 묻지 않아요. 여러 사람이 쓰는 컴퓨터에서는 끄고, 다 쓰면 메뉴 맨 아래 <b>나가기</b>를 눌러요.',
+        '내 PC에서는 <b>바탕화면 바로가기</b>를 만들어 두면 두 번 눌러 바로 열려요. <button type="button" class="btn btn-sm print-hide guide-sc" data-action="shortcut-file">' + icon('down', 16) + '바로가기 파일 받기</button>' +
+          '<span class="faint">크롬은 오른쪽 위 ⋮ 메뉴의 <b>바로가기 만들기</b>, 엣지는 … 메뉴 › 앱 › <b>이 사이트를 앱으로 설치</b>로도 만들 수 있어요(메뉴 이름은 브라우저 판마다 조금 달라요).</span>'
       ]) +
       sec(2, '홈·검색·공지', [
         '홈에서 오늘 일정, 내가 낼 조사(내가 할 일), 이번 주 일정, 지금 걸린 공지를 봐요.',
@@ -16423,6 +17002,32 @@ function seedTestTables_() {
         '시트에서 칸을 직접 고치면 웹앱에 바로 보여요. 줄을 지우거나 정렬한 것은 조금 늦게(10분쯤) 보여요. 바로 보려면 <b>관리자 › 점검 › 시트 새로 읽기</b>를 눌러요.'
       ]) + '</div>';
   };
+
+  /**
+   * 바탕화면 바로가기 파일(.url, 윈도우 인터넷 바로가기) 받기(판 2026-10-19a, 교사 결정). 웹앱 주소는 서버가 알려 주고(apiShortcutUrl_),
+   * 모르면 주소창의 주소를 붙여 넣게 한다. 받은 파일을 바탕화면에 두면 두 번 눌러 기본 브라우저로 열린다(보안 경고가 뜨는지는 확인 필요)
+   */
+  function shortcutFile(btn) {
+    busy(btn, true, '주소를 찾는 중');
+    server('shortcut.url').then(function (r) { busy(btn, false); shortcutDialog(r.url || ''); }, function () { busy(btn, false); shortcutDialog(''); });
+  }
+  function shortcutDialog(url) {
+    openModal('<h2 id="m-title">바탕화면 바로가기 파일 받기</h2>' +
+      '<p class="muted" style="margin:0">받은 파일(<b>온라인 교무실.url</b>)을 바탕화면으로 옮겨 두면, 두 번 눌러 이 웹앱을 바로 열 수 있어요. 내려받은 폴더에서 바탕화면으로 끌어다 놓으면 돼요.</p>' +
+      '<div class="field"><label class="label" for="sc-url">웹앱 주소</label><input class="input" id="sc-url" value="' + esc(url) + '" placeholder="https://script.google.com/…/exec" spellcheck="false" autocomplete="off"></div>' +
+      '<p class="hint">' + icon('info', 16) + '<span>' + (url ? '주소창에 보이는 주소와 같은지 한 번 봐 주세요.' : '주소를 찾지 못했어요. 브라우저 주소창의 주소를 복사해 붙여 넣어 주세요.') +
+      ' 파일을 열 때 윈도우가 한 번 물어보면 \'열기\'를 눌러요.</span></p>' +
+      '<p class="err" id="sc-err" role="alert"></p>' +
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="button" class="btn btn-primary" id="sc-go">' + icon('down', 18) + '파일 받기</button></div>');
+    qs('#sc-url').addEventListener('input', function () { qs('#sc-err').textContent = ''; });
+    qs('#sc-go').addEventListener('click', function () {
+      var u = qs('#sc-url').value.trim(), err = qs('#sc-err');
+      if (!/^https:\/\/[^\s"<>]+$/.test(u)) { err.textContent = 'https://로 시작하는 웹앱 주소를 넣어 주세요.'; qs('#sc-url').focus(); return; }
+      saveBlob(new Blob(['[InternetShortcut]\r\nURL=' + u + '\r\n'], { type: 'application/octet-stream' }), '온라인 교무실.url');
+      closeModal();
+      toast('바로가기 파일을 받았어요. 바탕화면으로 옮겨 두세요');
+    });
+  }
 
   // ------------------------------------------------------------ 운영 안내서 › 선생님용 1쪽 인쇄
   // 인쇄 직전에 '모든 선생님' 부분(#guide-teacher)의 인쇄 모양 사본을 화면 밖에서 재서, A4 한 장보다 길면 그만큼 줄인다(월별 계획 인쇄와 같은 방법)
@@ -16520,6 +17125,10 @@ function seedTestTables_() {
       { key: 'surveys', label: '조사·신청', icon: 'survey', row: function (c) {
         return srRow('sr-sv', c.id, 'survey', esc(c.title), (c.closed ? '끝남' : c.deadlineText + '까지') + (c.dept ? ' · ' + c.dept : ''),
           c.inTarget && !c.closed ? (c.answered ? '냈어요' : '아직 안 냄') : '');
+      } },
+      { key: 'tables', label: '취합 시트', icon: 'grid', row: function (x) {
+        return srRow('sr-table', x.id, 'grid', esc(x.title) + (x.sheetName ? ' <span class="faint">› ' + esc(x.sheetName) + '</span>' : ''),
+          [x.closed ? '마감됨' : x.deadline ? mdw(x.deadline) + ' 마감' : '', x.dept, x.sheets > 1 ? '시트 ' + x.sheets + '개' : ''].filter(Boolean).join(' · '), '', ' data-sheet="' + esc(x.sheet || '') + '"');
       } }
     ];
     groups = groups.filter(function (g) { return r[g.key]; });
@@ -16544,6 +17153,19 @@ function seedTestTables_() {
   }
 
   /** 홈 '자주 찾는 자료' */
+  /** 홈 '비상 시 이것부터': 도움말에서 '홈에 보이기'를 켠 글 3개까지(연구부장·부담당이 고름). 누르면 그 도움말을 연다 */
+  function sosCard(h) {
+    var list = h.emergency || [];
+    if (!list.length) return '';
+    return '<section class="card sos-card"><div class="card-head"><h2>' + icon('info', 20, ' class="sos-ico"') + '비상 시 이것부터</h2>' +
+      '<button type="button" class="linkish print-hide" data-go="help">도움말 가기</button></div>' +
+      '<div class="sos-list">' + list.map(function (x) {
+        var first = String(x.body || '').split('\n').filter(function (l) { return l.trim(); })[0] || '';
+        return '<button type="button" class="sos-item" data-action="sos-open" data-id="' + esc(x.id) + '"><b>' + esc(x.title) + '</b>' +
+          (first ? '<span class="faint">' + esc(first) + '</span>' : '') + '</button>';
+      }).join('') + '</div></section>';
+  }
+
   function quickLibCard(list, total) {
     var more = (total || 0) - list.length; // 홈에는 6개까지(서버가 고른 수를 함께 보냄)
     return '<section class="card quick-card"><div class="card-head"><h2>자주 찾는 자료</h2><button type="button" class="linkish" data-go="library">자료실 가기</button></div>' +
@@ -16557,8 +17179,9 @@ function seedTestTables_() {
   function adminYear(panel) {
     if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('자료를 불러오는 중이에요');
-    server('admin.year.preview').then(function (p) {
-      panel.innerHTML = '<div class="stack">' +
+    Promise.all([server('admin.year.preview'), server('admin.year.check').catch(function () { return null; })]).then(function (res) {
+      var p = res[0], chk = res[1];
+      panel.innerHTML = '<div class="stack">' + (chk ? yearCheckCard(chk) : '') +
         '<section class="card"><h2>새 학년도로 넘기기</h2>' +
         '<p class="muted" style="margin:0">지금 학년도는 <b>' + esc(p.year) + '학년도</b>예요. 학년이 바뀔 때 한 번 해요.</p>' +
         '<ul class="guide-list">' +
@@ -16601,6 +17224,19 @@ function seedTestTables_() {
         });
       });
     }).catch(function (e) { panel.innerHTML = failHtml(e); });
+  }
+
+  /** 새 학년도 준비 점검(2026-10-19a): 넘기기 전에 살펴볼 것. 아무것도 바꾸지 않는다 */
+  function yearCheckCard(c) {
+    var mark = { ok: ['chip-ok', '됨'], warn: ['chip-warn', '해 두기'], info: ['', '알아 두기'] };
+    return '<section class="card"><div class="card-head"><div><h2>새 학년도 준비 점검</h2>' +
+      '<p class="faint" style="margin-top:4px">' + esc(c.next) + '학년도로 넘기기 전에 살펴보세요. 이 목록은 아무것도 바꾸지 않아요.</p></div>' +
+      '<button type="button" class="btn btn-sm print-hide" data-admin-tab="year">' + icon('reload', 18) + '다시 점검</button></div>' +
+      '<div class="check-list">' + c.items.map(function (x) {
+        var m = mark[x.state] || mark.info;
+        return '<div class="check-row ' + (x.state === 'warn' ? 'warn' : 'ok') + '"><span class="chip ' + m[0] + '">' + m[1] + '</span>' +
+          '<div class="check-main"><b>' + esc(x.label) + '</b><span class="faint">' + esc(x.detail) + '</span></div></div>';
+      }).join('') + '</div></section>';
   }
 
   // ============================================================ 엑셀(.xlsx)·CSV 읽기와 양식 만들기 (바깥 도구 없이)
@@ -18085,6 +18721,7 @@ function seedTestTables_() {
         break;
       case 'sv-new': openSurveyForm(null); break;
       case 'sv-edit': openSurveyForm(S.survey.detail); break;
+      case 'sv-dup': openSurveyForm(null, S.survey.detail); break;
       case 'sv-csv': surveyCsv(); break;
       case 'sv-results': keepSurveyDraft(); S.survey.showResults = !S.survey.showResults; drawSurveyDetail(); break;
       case 'sv-as-owner': S.survey.tab = 'mine'; drawSurvey(); break;
@@ -18113,6 +18750,12 @@ function seedTestTables_() {
         });
         break;
       case 'todo-open': S.survey.tab = 'answer'; S.survey.sel = id; go('survey'); break;
+      case 'shortcut-file': shortcutFile(t); break;
+      case 'todo-table':
+      case 'sr-table': // 홈 '내가 할 일'·검색에서 취합 시트(그 시트)를 바로 연다
+        if (TB && TB.open) TB.open(id, t.getAttribute('data-sheet') || '');
+        go('table');
+        break;
       case 'trash-restore': trashRestore(id); break;
       case 'trash-restore-tb':
         var tbKind = t.getAttribute('data-kind') || 'doc';
@@ -18228,6 +18871,17 @@ function seedTestTables_() {
         break;
       case 'imp-go': staffImportGo(t); break;
       case 'help-new': openHelpForm(null); break;
+      case 'help-safety':
+        confirmBox('안전·생활교육 안내 만들기', "도움말에 '안전·생활교육' 분류와 빈 글 2개(대피 경로·집결지, 학교폭력 사안 처리 순서)를 만들어요. 글에는 '여기에 적어 주세요'만 들어 있어요. 학교에서 정한 내용을 적은 뒤, 급할 때 볼 글은 고치기에서 '홈에 보이기'를 켜 주세요.", '만들기', function () {
+          return server('help.seedSafety', {}, [['help.list', {}]]).then(function (r) {
+            closeModal();
+            toast(r.made ? '안내 글 ' + r.made + '개를 만들었어요. 내용을 적어 주세요' : '이미 만들어져 있어요');
+            S.help.kind = r.kindId; S.help.q = '';
+            loadMemo('help.list', {}, function (d2) { S.help.data = d2; if (S.screen === 'help') drawHelp(); }, function (e) { toast(e.message, 'error'); });
+          });
+        });
+        break;
+      case 'sos-open': S.help.q = ''; S.help.kind = ''; S.help.openId = id; go('help'); break;
       case 'help-edit': openHelpForm(helpById(id)); break;
       case 'help-kind': S.help.kind = id || ''; drawHelp(); break;
       case 'help-del':

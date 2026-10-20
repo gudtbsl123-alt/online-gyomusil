@@ -94,6 +94,7 @@ function dbReset_() {
   DB_SHEETS_ = {};
   MEMO_EP_ = null;
   MEMO_PRE_ = {};
+  MEMO_RAW_ = {};
 }
 
 /**
@@ -154,6 +155,7 @@ var MEMO_BYPASS_ = false;   // 속도 재기에서 '시트에서 읽을 때'를 
 var DB_WRITTEN_ = {};       // 이번 잠금 안에서 쓴 탭
 var MEMO_PRE_ = {};         // 이번 요청에서 미리 꺼내 둔 탭 기억 { 탭: { v, chunks: [첫 칸, …] } } (memoPreload_)
 var MEMO_PRE_CHUNKS_ = 4;   // 미리 꺼낼 때 탭마다 앞에서부터 이만큼 칸을 함께 꺼낸다(없는 칸은 그냥 비어 온다)
+var MEMO_RAW_ = {};         // 이번 요청에서 탭과 함께 꺼내 둔 그 밖의 기억 { 키: 값(없으면 null) } (목록의 '@키', 예: 취합 시트 할 일 목록)
 
 function memoCache_() {
   try { return CacheService.getScriptCache(); } catch (e) { return null; }
@@ -172,15 +174,17 @@ function memoTakeEp_(cache, got) {
 /**
  * 이 요청이 읽을 탭들의 판과 기억(앞쪽 칸)을 서버 기억에서 한 번에 꺼내 둔다(탭마다 따로 다녀오지 않게, 속도).
  * 판이 없는 탭은 여기서 한 번에 판을 정한다(시트를 읽기 전에 정해야 옛 값이 새 판으로 기억되지 않는다).
- * 이미 읽었거나 꺼내 둔 탭, '기록' 탭, 잠금 안(쓰기)에서는 꺼내지 않는다. 꺼내 둔 것은 memoLookup_이 한 번 쓰고 버린다
+ * 이미 읽었거나 꺼내 둔 탭, '기록' 탭, 잠금 안(쓰기)에서는 꺼내지 않는다. 꺼내 둔 것은 memoLookup_이 한 번 쓰고 버린다.
+ * '@'로 시작하는 것은 탭이 아니라 서버 기억의 키다(예: '@gy:tbtodo'). 함께 꺼내 MEMO_RAW_에 둔다(memoRaw_)
  */
 function memoPreload_(tabs) {
   if (DB_LOCK_DEPTH_ > 0 || MEMO_BYPASS_ || !tabs || !tabs.length) return;
-  var defs = tabs_(), want = [];
+  var defs = tabs_(), want = [], raws = [];
   tabs.forEach(function (t) {
+    if (String(t).charAt(0) === '@') { var k = String(t).slice(1); if (k && MEMO_RAW_[k] === undefined && raws.indexOf(k) < 0) raws.push(k); return; }
     if (defs[t] && !MEMO_SKIP_[t] && !DB_CACHE_[t] && !MEMO_PRE_[t] && want.indexOf(t) < 0) want.push(t);
   });
-  if (!want.length) return;
+  if (!want.length && !raws.length) return;
   var cache = memoCache_();
   if (!cache) return;
   var t0 = Date.now();
@@ -190,8 +194,10 @@ function memoPreload_(tabs) {
       keys.push('gy:v:' + t);
       for (var i = 0; i < MEMO_PRE_CHUNKS_; i++) keys.push('gy:d:' + t + ':' + i);
     });
+    raws.forEach(function (k) { keys.push(k); });
     PERF_.memoCalls++;
     var got = cache.getAll(keys);
+    raws.forEach(function (k) { MEMO_RAW_[k] = typeof got[k] === 'string' ? got[k] : null; });
     if (!MEMO_EP_) memoTakeEp_(cache, got);
     var fresh = {}, pre = {};
     want.forEach(function (t) {
@@ -205,6 +211,15 @@ function memoPreload_(tabs) {
     want.forEach(function (t) { MEMO_PRE_[t] = pre[t]; });
   } catch (e) { /* 꺼내지 못하면 탭마다 찾는다 */ }
   PERF_.memoMs += Date.now() - t0;
+}
+
+/** 탭과 함께 꺼내 둔 서버 기억 한 칸: 꺼냈으면 값(없으면 null), 꺼내지 않았으면 undefined(부른 쪽이 따로 꺼낸다) */
+function memoRaw_(key) {
+  return Object.prototype.hasOwnProperty.call(MEMO_RAW_, key) ? MEMO_RAW_[key] : undefined;
+}
+/** 그 키를 버렸으면(바뀌었으면) 이번 요청에서 꺼내 둔 값도 버린다 */
+function memoRawForget_(key) {
+  delete MEMO_RAW_[key];
 }
 
 /** 탭 기억 찾기 → { ep, v, vals(없으면 null) }. 서버 기억을 쓸 수 없으면 null */
@@ -303,6 +318,7 @@ function memoBump_(tabs) {
 function memoClearAll_() {
   MEMO_EP_ = null;
   MEMO_PRE_ = {};
+  MEMO_RAW_ = {};
   var cache = memoCache_();
   if (!cache) return false;
   try {

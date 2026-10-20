@@ -255,6 +255,7 @@ function apiHome_(args, actor, ctx) {
     canManage: canManage_(ctx),
     depts: deptOptions_(), // 홈에서 일정을 고칠 때 부서 목록
     todos: optional_('todoList_', [])(ctx),
+    tableTodos: optional_('tbTodosFor_', [])(ctx), // 취합 시트 할 일 열에 내 이름이 있는 끝나지 않은 줄(서버 기억 10분)
     library: homeLib.slice(0, 6), // 홈에는 6개까지
     libraryTotal: homeLib.length,
     notices: optional_('homeNotices_', { items: [], total: 0 })(ctx),

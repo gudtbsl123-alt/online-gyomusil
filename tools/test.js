@@ -3245,12 +3245,13 @@ function tplSheet(g, by) {
   return { doc, sheet: r.data.id };
 }
 
-test('시트 양식: 기본 양식 5개가 늘 있고, 학년·반별 제출 확인은 교직원 소속으로 학년·반·담임을 채운다(사용 안 함은 빼고, 소속이 없으면 빈 줄)', () => {
+test('시트 양식: 기본 양식 10개가 늘 있고, 학년·반별 제출 확인은 교직원 소속으로 학년·반·담임을 채운다(사용 안 함은 빼고, 소속이 없으면 빈 줄)', () => {
   const g = freshName();
   const { who, boss, L } = ids(g);
   let ls = call(g, 'table.tpl.list', {}, { login: L });
   assert.ok(ls.ok, ls.error);
-  assert.deepStrictEqual(ls.data.builtin.map((x) => x.name), ['학년·반별 제출 확인', '실별 점검', '교시×요일 시간표', '날짜·시간 신청', '업무 협의 안건']);
+  assert.deepStrictEqual(ls.data.builtin.map((x) => x.name), ['학년·반별 제출 확인', '실별 점검', '교시×요일 시간표', '날짜·시간 신청', '업무 협의 안건',
+    '방학 근무 신청', '연수 이수 확인', '대피 훈련 인원 확인', '학급별 안전교육 시수', '위험 요소 신고·조치']);
   assert.deepStrictEqual(plain(ls.data.saved), []);
   assert.strictEqual(ls.data.canSave, false, '이름을 고르기 전에는 쓰기만');
   assert.ok(!g._ss.getSheetByName('시트양식') || g.readRows_('시트양식').length === 0, '목록만 보면 양식이 생기지 않는다');
@@ -4116,6 +4117,215 @@ test('새 학년도 준비 점검: 학년도 숫자가 남은 자료 제목·학
   assert.strictEqual(by2('sem').state, 'ok');
   assert.strictEqual(by2('off').state, 'ok');
   assert.match(by2('pw').detail, /마지막으로 바꾼 때/);
+});
+
+// ---------------------------------------------------------------- 묶음 5-3: 취합 시트 찾기·숫자 열·기본 양식 10개·할 일 열(47·49·50·51)
+
+test('취합 시트 숫자 열: 열 종류 숫자가 남고 값은 그대로(숫자가 아닌 값도 지우지 않음) · 할 일 열은 글 열 하나만 · 양식으로 저장해도 남는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부');
+  const cols = [{ id: 'c1', name: '반', lock: true }, { id: 'c2', name: '담임', todo: true }, { id: 'c3', name: '인원', type: 'num', todo: true }, { id: 'c4', name: '메모', todo: true }];
+  const r = call(g, 'table.create', { fields: { title: '인원 조사' }, cols, rows: [{ cells: { c1: '1반', c2: '심청', c3: '25' } }, { cells: { c1: '2반', c2: '홍길동', c3: '스물' } }] }, owner);
+  assert.ok(r.ok, r.error);
+  const d = tbGet(g, r.data.id, owner);
+  assert.deepStrictEqual(d.table.cols.map((c) => c.type), ['text', 'text', 'num', 'text']);
+  assert.deepStrictEqual(d.table.cols.filter((c) => c.todo).map((c) => c.name), ['담임'], '할 일 열은 글 열 하나만(앞의 것), 숫자 열은 안 됨');
+  assert.strictEqual(d.rows[1].cells.c3, '스물', '숫자가 아닌 값도 지우지 않는다');
+  // 열 고치기로 할 일 열을 옮기고, 숫자 열을 글 열로
+  const c2 = call(g, 'table.cols', { id: d.table.id, cols: [{ id: 'c1', name: '반', lock: true }, { id: 'c2', name: '담임' }, { id: 'c3', name: '인원', type: 'text' }, { id: 'c4', name: '메모', todo: true }] }, owner);
+  assert.ok(c2.ok, c2.error);
+  const d2 = tbGet(g, r.data.id, owner);
+  assert.deepStrictEqual(d2.table.cols.filter((c) => c.todo).map((c) => c.name), ['메모']);
+  assert.strictEqual(d2.table.cols[2].type, 'text');
+  assert.ok(call(g, 'table.cols', { id: d.table.id, cols: plain(d.table.cols) }, owner).ok);
+  const tid = call(g, 'table.tpl.save', { sheet: d.table.id, name: '인원 양식', what: 'cols' }, owner);
+  assert.ok(tid.ok, tid.error);
+  const tp = call(g, 'table.tpl.get', { id: tid.data.id }, owner).data;
+  assert.deepStrictEqual(tp.cols.map((c) => c.type), ['text', 'text', 'num', 'text'], '양식에도 숫자 열');
+  assert.deepStrictEqual(tp.cols.filter((c) => c.todo).map((c) => c.name), ['담임'], '양식에도 할 일 열');
+});
+
+test('할 일 열 이름 나누기·끝난 줄: 쉼표·가운뎃점·빗금·줄 바꿈·선생님 · 고르기 열이 있으면 맨 앞 값, 없으면 숫자 열, 숫자 열도 없으면 글 열(덮인 칸은 찬 것)', () => {
+  const g = freshName();
+  assert.deepStrictEqual(plain(g.tbTodoNames_('홍길동, 성춘향 선생님/심청·흥부\n놀부 선생님, 홍길동')), ['홍길동', '성춘향', '심청', '흥부', '놀부']);
+  assert.deepStrictEqual(plain(g.tbTodoNames_('')), []);
+  const pick = [{ id: 'c1', name: '담임', type: 'text', todo: true }, { id: 'c2', name: '제출', type: 'pick', options: ['제출', '미제출'] }, { id: 'c3', name: '비고', type: 'text' }];
+  assert.strictEqual(g.tbRowDone_(pick, { c1: '심청', c3: '메모' }, {}), false);
+  assert.strictEqual(g.tbRowDone_(pick, { c1: '심청', c2: '미제출' }, {}), false);
+  assert.strictEqual(g.tbRowDone_(pick, { c1: '심청', c2: '제출' }, {}), true);
+  const num = [{ id: 'c1', name: '담임', type: 'text', todo: true, lock: true }, { id: 'c2', name: '재적', type: 'num' }, { id: 'c3', name: '대피', type: 'num' }, { id: 'c4', name: '비고', type: 'text' }];
+  assert.strictEqual(g.tbRowDone_(num, { c1: '심청', c2: '25' }, {}), false);
+  assert.strictEqual(g.tbRowDone_(num, { c1: '심청', c2: '25', c3: '24' }, {}), true, '비고는 비어도 끝');
+  const text = [{ id: 'c1', name: '이름', type: 'text', todo: true, lock: true }, { id: 'c2', name: '내용', type: 'text' }, { id: 'c3', name: '잠긴 칸', type: 'text', lock: true }];
+  assert.strictEqual(g.tbRowDone_(text, { c1: '심청' }, {}), false);
+  assert.strictEqual(g.tbRowDone_(text, { c1: '심청', c2: '썼어요' }, {}), true, '잠긴 칸은 안 봄');
+  assert.strictEqual(g.tbRowDone_(text, { c1: '심청' }, { c2: 1 }), true, '합친 칸에 덮인 칸은 찬 것으로');
+});
+
+test('할 일 열: 내 이름이 있고 끝나지 않은 줄이 홈 내가 할 일에 뜬다(서버 기억 10분, 표·열·마감을 바꾸면 바로) · 덮인 칸은 덮은 칸의 이름 · 두 번째 홈은 서버 기억 한 번', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const owner = who('흥부'), sim = who('심청'), hong = who('홍길동');
+  const cols = [{ id: 'c1', name: '반', lock: true }, { id: 'c2', name: '담임', lock: true, todo: true }, { id: 'c3', name: '제출', type: 'pick', options: ['제출', '미제출'] }];
+  const rows = [
+    { cells: { c1: '1반', c2: '심청' } },
+    { cells: { c1: '2반', c2: '심청 선생님, 홍길동' } },
+    { cells: { c1: '3반', c2: '홍길동', c3: '제출' } },
+    { cells: { c1: '4반', c2: '성춘향' }, ms: { c2: [2, 1] } }, // 담임 칸을 위아래로 합침
+    { cells: { c1: '5반' } }
+  ];
+  const id = call(g, 'table.create', { fields: { title: '동의서 제출', deadline: '' }, cols, rows }, owner).data.id;
+  let h = call(g, 'home', {}, sim).data;
+  assert.deepStrictEqual(plain(h.tableTodos).map((x) => [x.title, x.n, x.sheetName]), [['동의서 제출', 2, '']]);
+  assert.strictEqual(h.tableTodos[0].doc, id);
+  assert.ok(h.tableTodos[0].at > 0, '목록을 만든 때');
+  assert.strictEqual(call(g, 'home', {}, hong).data.tableTodos[0].n, 1, '홍길동은 2반만(3반은 제출)');
+  assert.strictEqual(call(g, 'home', {}, who('성춘향')).data.tableTodos[0].n, 2, '덮인 칸(5반)은 덮은 칸의 이름');
+  assert.deepStrictEqual(plain(call(g, 'home', {}, owner).data.tableTodos), [], '이름이 없는 분');
+  assert.deepStrictEqual(plain(call(g, 'home', {}, { login: sim.login }).data.tableTodos), [], '이름을 고르기 전');
+  // 두 번째부터는 서버 기억을 한 번만 다녀온다(할 일 목록도 함께 꺼냄)
+  call(g, 'home', {}, sim);
+  assert.strictEqual(g.PERF_.reads, 0);
+  assert.strictEqual(g.PERF_.memoCalls, 1, '할 일 목록도 한 번에 꺼낸다');
+  // 칸을 고쳐도 홈은 늦어도 10분 안에 바뀐다
+  const d = tbGet(g, id, sim);
+  assert.ok(call(g, 'table.cell', { id: d.table.id, row: d.rows[0].id, col: 'c3', value: '제출', base: 0 }, sim).ok);
+  assert.strictEqual(call(g, 'home', {}, sim).data.tableTodos[0].n, 2, '바로는 그대로(서버 기억)');
+  g.__clock.offset += 11 * 60 * 1000;
+  assert.strictEqual(call(g, 'home', {}, sim).data.tableTodos[0].n, 1, '10분이 지나면 새로');
+  // 관리자 '시트 새로 읽기'를 하면 바로 새로
+  assert.ok(call(g, 'table.cell', { id: d.table.id, row: d.rows[1].id, col: 'c3', value: '제출', base: 0 }, hong).ok);
+  assert.strictEqual(call(g, 'home', {}, sim).data.tableTodos[0].n, 1);
+  assert.ok(call(g, 'admin.cache.clear', {}, boss()).ok);
+  assert.deepStrictEqual(plain(call(g, 'home', {}, sim).data.tableTodos), [], '모두 끝남');
+  // 마감·지우기는 바로 빠지고, 다시 열면 바로 돌아온다
+  assert.strictEqual(call(g, 'home', {}, hong).data.tableTodos.length, 0, '홍길동도 끝');
+  assert.strictEqual(call(g, 'home', {}, who('성춘향')).data.tableTodos[0].n, 2);
+  assert.ok(call(g, 'table.setOpen', { id, open: false }, owner).ok);
+  assert.deepStrictEqual(plain(call(g, 'home', {}, who('성춘향')).data.tableTodos), [], '마감한 표는 빠진다');
+  assert.ok(call(g, 'table.setOpen', { id, open: true }, owner).ok);
+  assert.strictEqual(call(g, 'home', {}, who('성춘향')).data.tableTodos.length, 1);
+  // 열을 고쳐 할 일 열을 끄면 바로 빠진다
+  const d2 = tbGet(g, id, owner);
+  assert.ok(call(g, 'table.cols', { id: d2.table.id, cols: plain(d2.table.cols).map((c) => Object.assign(c, { todo: false })) }, owner).ok);
+  assert.deepStrictEqual(plain(call(g, 'home', {}, who('성춘향')).data.tableTodos), []);
+  assert.ok(call(g, 'table.cols', { id: d2.table.id, cols: plain(d2.table.cols) }, owner).ok);
+  assert.strictEqual(call(g, 'home', {}, who('성춘향')).data.tableTodos.length, 1);
+  // 시트가 둘이면 시트 이름도
+  const s2 = call(g, 'table.sheet.add', { id, name: '2차', cols, rows: [{ cells: { c1: '1반', c2: '성춘향' } }] }, owner);
+  assert.ok(s2.ok, s2.error);
+  const two = plain(call(g, 'home', {}, who('성춘향')).data.tableTodos).map((x) => [x.sheetName, x.n]).sort();
+  assert.deepStrictEqual(two, [['2차', 1], ['시트1', 2]]);
+  assert.ok(call(g, 'table.delete', { id }, owner).ok);
+  assert.deepStrictEqual(plain(call(g, 'home', {}, who('성춘향')).data.tableTodos), [], '지운 표는 빠진다');
+});
+
+test('기본 양식 B6~B10: 방학 근무 신청(학기 기간·공휴일로 방학 중 평일, 지난 날 빼고) · 연수 이수 확인(교직원) · 대피 훈련(재적은 학생 수 현황) · 안전교육 7대 영역 숫자 열 · 위험 요소', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const sy = g.curSchoolYear_();
+  g.__clock.offset += Date.parse(sy + '-07-01T03:00:00Z') - Date.parse(g.todayYmd_() + 'T03:00:00Z'); // 오늘을 1학기 끝 무렵으로
+  assert.strictEqual(g.todayYmd_(), sy + '-07-01');
+  let { t } = adminTokens(g);
+  let a = who('심청');
+  // 학기 기간이 없으면 빈 줄 10개(짐작해 채우지 않는다)
+  let b6 = call(g, 'table.tpl.get', { id: 'B6' }, a).data;
+  assert.strictEqual(b6.rows.length, 10);
+  assert.ok(b6.rows.every((r) => !r.cells));
+  assert.strictEqual(call(g, 'table.tpl.list', {}, a).data.builtin[5].blank, true);
+  const s = call(g, 'admin.settings.save', { values: {}, semesters: [{ year: sy, s1from: sy + '-03-02', s1to: sy + '-07-24', s2from: sy + '-08-17', s2to: (sy + 1) + '-01-08' }] }, t);
+  assert.ok(s.ok, s.error);
+  // 여름방학 평일 하나와 겨울방학 이틀을 공휴일로(시험용 날짜)
+  const weekdays = (from, to) => { const out = []; for (let d = from; d <= to; d = g.addDays_(d, 1)) { const w = g.weekday_(d); if (w !== 0 && w !== 6) out.push(d); } return out; };
+  const summer = weekdays(sy + '-07-25', sy + '-08-16'), winter = weekdays((sy + 1) + '-01-09', g.schoolYearRange_(sy).to);
+  const hol1 = summer[3], hol2 = winter[5];
+  assert.ok(call(g, 'sched.save', { fields: { start: hol1, title: '시험 공휴일', kind: '공휴일' } }, boss()).ok);
+  assert.ok(call(g, 'sched.save', { fields: { start: hol2, end: g.addDays_(hol2, 1), title: '시험 연휴', kind: '공휴일' } }, boss()).ok);
+  assert.ok(call(g, 'sched.save', { fields: { start: winter[0], title: '방학식 다음 날 행사', kind: '행사' } }, boss()).ok);
+  b6 = call(g, 'table.tpl.get', { id: 'B6' }, a).data;
+  const want = summer.filter((d) => d !== hol1).concat(winter.filter((d) => d !== hol2 && d !== g.addDays_(hol2, 1)));
+  const label = (d) => Number(d.slice(5, 7)) + '월 ' + Number(d.slice(8, 10)) + '일 (' + '일월화수목금토'.charAt(g.weekday_(d)) + ')';
+  assert.deepStrictEqual(b6.rows.map((r) => r.cells.c2), want.map(label), '토·일·공휴일 빼고(행사는 그대로)');
+  assert.strictEqual(b6.rows[0].cells.c1, '여름방학');
+  assert.deepStrictEqual(plain(b6.rows[0].ms), { c1: [summer.length - 1, 1] }, '방학 칸은 위아래로 합침');
+  const w0 = summer.length - 1;
+  assert.strictEqual(b6.rows[w0].cells.c1, '겨울방학');
+  assert.deepStrictEqual(b6.cols.map((c) => c.name), ['방학', '날짜', '근무자', '비고']);
+  assert.strictEqual(call(g, 'table.tpl.list', {}, a).data.builtin[5].rows, want.length);
+  // 여름방학이 지나면 겨울방학만, 지난 날은 넣지 않는다
+  g.__clock.offset += Date.parse((sy + 1) + '-01-12T03:00:00Z') - Date.parse(g.todayYmd_() + 'T03:00:00Z');
+  a = who('심청'); // 시계를 옮겨 본인 확인을 새로
+  b6 = call(g, 'table.tpl.get', { id: 'B6' }, a).data;
+  assert.strictEqual(b6.rows[0].cells.c1, '겨울방학');
+  assert.deepStrictEqual(b6.rows.map((r) => r.cells.c2), winter.filter((d) => d >= (sy + 1) + '-01-12' && d !== hol2 && d !== g.addDays_(hol2, 1)).map(label));
+  // 연수 이수 확인: 사용 중인 교직원 순서대로 이름·소속
+  const b7 = call(g, 'table.tpl.get', { id: 'B7' }, a).data;
+  assert.deepStrictEqual(b7.rows.map((r) => r.cells.c1 + '/' + (r.cells.c2 || '')), ['홍길동/3학년 1반', '성춘향/3학년 2반', '이몽룡/4학년 1반', '심청/5학년 1반', '흥부/6학년 2반', '놀부/과학 전담', '장화/2학년 1반', '홍련/1학년 1반']);
+  assert.deepStrictEqual(b7.cols.map((c) => [c.name, c.type, !!c.lock, !!c.todo]), [['이름', 'text', true, true], ['소속', 'text', true, false], ['이수', 'pick', false, false], ['이수일', 'text', false, false], ['비고', 'text', false, false]]);
+  // 대피 훈련: 재적은 학생 수 현황(반별), 그 반 숫자가 없으면 비움
+  let b8 = call(g, 'table.tpl.get', { id: 'B8' }, a).data;
+  assert.ok(b8.rows.every((r) => r.cells.c4 === undefined), '학생 수가 없으면 비움');
+  const today = g.todayYmd_();
+  const sv8 = call(g, 'students.save', { date: today, classes: { 1: [[12, 13]], 2: [], 3: [[10, 11], [9, 9]], 4: [[13, 14]], 5: [[15, 15]], 6: [[11, 12]] } }, a);
+  assert.ok(sv8.ok, sv8.error);
+  b8 = call(g, 'table.tpl.get', { id: 'B8' }, a).data;
+  const line = (r) => [r.cells.c1, r.cells.c2, r.cells.c3 || '', r.cells.c4 || ''].join(' ');
+  assert.deepStrictEqual(b8.rows.map(line), ['1학년 1반 홍련 25', '2학년 1반 장화 ', '3학년 1반 홍길동 21', '3학년 2반 성춘향 18', '4학년 1반 이몽룡 27', '5학년 1반 심청 30', '6학년 1반  23', '6학년 2반 흥부 ']);
+  assert.deepStrictEqual(b8.cols.map((c) => [c.name, c.type]), [['학년', 'text'], ['반', 'text'], ['담임', 'text'], ['재적', 'num'], ['대피 인원', 'num'], ['비고', 'text']]);
+  assert.strictEqual(b8.cols[2].todo, true, '담임 열이 할 일 열');
+  // 안전교육 시수: 7대 영역 숫자 열(기준 시수는 넣지 않음)
+  const b9 = call(g, 'table.tpl.get', { id: 'B9' }, a).data;
+  assert.deepStrictEqual(b9.cols.filter((c) => c.type === 'num').map((c) => c.name), ['생활안전', '교통안전', '폭력예방·신변보호', '약물·사이버중독 예방', '재난안전', '직업안전', '응급처치']);
+  assert.strictEqual(b9.rows.length, 8);
+  assert.ok(b9.rows.every((r) => Object.keys(r.cells).every((k) => ['c1', 'c2', 'c3'].includes(k))), '시수는 비워 둔다');
+  // 위험 요소: 빈 줄 10개, 조치 고르기(맨 앞 완료)
+  const b10 = call(g, 'table.tpl.get', { id: 'B10' }, a).data;
+  assert.strictEqual(b10.rows.length, 10);
+  assert.deepStrictEqual(plain(b10.cols.find((c) => c.type === 'pick').options), ['완료', '조치 중', '접수']);
+  // 기본 양식으로 만든 표에 할 일 열이 그대로 들어간다
+  const mk = call(g, 'table.create', { fields: { title: '대피 훈련' }, cols: plain(b8.cols), rows: plain(b8.rows) }, a);
+  assert.ok(mk.ok, mk.error);
+  const h = plain(call(g, 'home', {}, who('홍길동')).data.tableTodos);
+  assert.deepStrictEqual(h.map((x) => [x.title, x.n]), [['대피 훈련', 1]], '대피 인원을 적기 전에는 할 일');
+});
+
+test('홈 검색: 취합 시트 이름·시트 이름·설명·부서로 찾고(진행 중인 표 먼저), 지운 표는 빼고, 이름이 맞는 시트를 함께 알려 준다 · 목록 카드에 부서ID', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부');
+  const dept = cats(g, '부서').find((x) => x.name === '인성안전부');
+  const cols = [{ id: 'c1', name: '이름' }];
+  const a = call(g, 'table.create', { fields: { title: '안전 점검표', deptId: dept.id }, cols }, owner).data.id;
+  const b = call(g, 'table.create', { fields: { title: '방과후 신청' }, cols }, owner).data.id;
+  assert.ok(call(g, 'table.sheet.add', { id: b, name: '안전 교육 날짜', desc: '', cols }, owner).ok);
+  const c = call(g, 'table.create', { fields: { title: '지난 안전 조사' }, cols }, owner).data.id;
+  assert.ok(call(g, 'table.setOpen', { id: c, open: false }, owner).ok);
+  const del = call(g, 'table.create', { fields: { title: '지운 안전 표' }, cols }, owner).data.id;
+  assert.ok(call(g, 'table.delete', { id: del }, owner).ok);
+  const r = call(g, 'search', { q: '안전' }, who('심청')).data;
+  assert.deepStrictEqual(plain(r.tables.items).map((x) => [x.title, x.closed, x.sheetName]), [['방과후 신청', false, '안전 교육 날짜'], ['안전 점검표', false, ''], ['지난 안전 조사', true, '']]);
+  assert.strictEqual(r.tables.total, 3);
+  assert.ok(r.tables.items[0].sheet, '맞는 시트의 ID');
+  assert.strictEqual(call(g, 'search', { q: '인성안전부' }, who('심청')).data.tables.items[0].id, a, '부서 이름으로도');
+  assert.deepStrictEqual(plain(call(g, 'search', { q: '' }, who('심청')).data.tables), { total: 0, items: [] });
+  const ls = call(g, 'table.list', {}, who('심청')).data;
+  assert.strictEqual(ls.tables.find((x) => x.id === a).deptId, dept.id);
+});
+
+test('바탕화면 바로가기: 웹앱 주소는 /exec 주소만 보내고(모르면 빈 값, 화면이 주소창 주소를 받는다), 로그인한 분만', () => {
+  const g = freshName();
+  const { L } = ids(g);
+  assert.strictEqual(call(g, 'shortcut.url', {}, {}).code, 'LOGIN');
+  assert.deepStrictEqual(plain(call(g, 'shortcut.url', {}, { login: L }).data), { url: '' }, '주소를 모르면 빈 값');
+  g.ScriptApp.getService = () => ({ getUrl: () => 'https://script.google.com/macros/s/AKfy-x_1/exec' });
+  assert.strictEqual(call(g, 'shortcut.url', {}, { login: L }).data.url, 'https://script.google.com/macros/s/AKfy-x_1/exec');
+  g.ScriptApp.getService = () => ({ getUrl: () => 'https://script.google.com/a/macros/school.kr/s/AKfy-x_1/exec' });
+  assert.strictEqual(call(g, 'shortcut.url', {}, { login: L }).data.url, 'https://script.google.com/a/macros/school.kr/s/AKfy-x_1/exec', '학교 도메인 주소도');
+  g.ScriptApp.getService = () => ({ getUrl: () => 'https://script.google.com/macros/s/AKfy-x_1/dev' });
+  assert.strictEqual(call(g, 'shortcut.url', {}, { login: L }).data.url, '', '/dev(편집자만 열리는 주소)는 보내지 않는다');
+  g.ScriptApp.getService = () => { throw new Error('권한 없음'); };
+  assert.strictEqual(call(g, 'shortcut.url', {}, { login: L }).data.url, '');
 });
 
 console.log(results.join('\n'));

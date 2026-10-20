@@ -181,7 +181,7 @@ function apiSearch_(args, actor, ctx) {
   var q = String(args.q || '').trim().slice(0, 40);
   var terms = searchTerms_(q);
   var empty = { total: 0, items: [] };
-  if (!terms.length) return { q: q, library: empty, events: empty, staff: empty, help: empty, surveys: empty, notices: empty };
+  if (!terms.length) return { q: q, library: empty, events: empty, staff: empty, help: empty, surveys: empty, notices: empty, tables: empty };
   var depts = categoryNames_('부서');
   var names = staffNames_();
   function pack(list, n) { return { total: list.length, items: list.slice(0, n) }; }
@@ -229,7 +229,8 @@ function apiSearch_(args, actor, ctx) {
     staff: pack(staff, 6),
     help: pack(help, 6),
     surveys: pack(surveys, 4),
-    notices: pack(noticeViews_(ctx).filter(function (n) { return matchAll_(terms, [n.title, n.body, n.dept]); }), 4)
+    notices: pack(noticeViews_(ctx).filter(function (n) { return matchAll_(terms, [n.title, n.body, n.dept]); }), 4),
+    tables: pack(optional_('tbSearch_', [])(terms, ctx), 4) // 취합 시트: 표 이름·시트 이름·설명·부서
   };
 }
 
