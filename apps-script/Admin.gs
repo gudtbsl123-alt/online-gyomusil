@@ -72,15 +72,23 @@ function putSetting_(key, value, actor) {
 
 function adminSettingsGet_() {
   var m = settingsMap_();
-  return settingDefs_().map(function (d) {
+  var list = settingDefs_().map(function (d) {
     return { key: d.key, label: d.label, type: d.type, note: d.note || '', unit: d.unit || '', min: d.min, max: d.max, options: d.options, value: m[d.key] };
   });
+  // 학기 기간: 학년도마다 따로('학기' 탭, 2026-10-19 교사 결정). 지금 학년도와 다음 학년도를 함께 보여 준다
+  var sy = Number(m['학년도']) || schoolYearOf_(todayYmd_());
+  list.push({ key: '학기 기간', label: '학기 기간', type: 'semesters', value: [semesterView_(sy), semesterView_(sy + 1)] });
+  return list;
 }
 
 function adminSettingsSave_(args, actor) {
   var values = args.values || {};
   var defs = settingDefs_();
   var clean = {};
+  if ('학년도' in values && String(values['학년도']).trim() !== String(setting_('학년도'))) {
+    // 학년도만 바꾸면 자료실 자료가 모두 보관함으로 간다 → 자료를 옮겨 적는 '새 학년도'에서만 바꾼다
+    throw userError_("학년도는 관리자 › 새 학년도에서 바꿔요(지금 학년도 자료를 보관하고 고른 자료를 옮겨 적는 일과 함께 해요).");
+  }
   defs.forEach(function (d) {
     if (!(d.key in values) || d.type === 'readonly') return;
     var v = values[d.key] === null || values[d.key] === undefined ? '' : String(values[d.key]).trim();
@@ -103,6 +111,8 @@ function adminSettingsSave_(args, actor) {
   var s2 = clean['2학기 시작일'] || setting_('2학기 시작일'), e2 = clean['2학기 끝일'] || setting_('2학기 끝일');
   if (s1 && e1 && s1 > e1) throw userError_('1학기 끝일이 시작일보다 앞에 있어요.');
   if (s2 && e2 && s2 > e2) throw userError_('2학기 끝일이 시작일보다 앞에 있어요.');
+  if (e1 && s2 && e1 >= s2) throw userError_('1학기 끝일은 2학기 시작일보다 앞이어야 해요(겹치면 수업일수를 두 번 세요).');
+  if (args.semesters) saveSemesters_(args.semesters, actor); // 학년도마다 학기 기간(먼저 확인하고 저장한다)
   Object.keys(clean).forEach(function (k) { putSetting_(k, clean[k], actor); });
   return adminSettingsGet_();
 }
@@ -367,7 +377,7 @@ function adminCheck_(args) {
   // 2) 시트 탭·칸 (나중에 더한 탭·칸 중 처음 쓸 때 저절로 생기는 것은 없어도 괜찮다)
   var tabs = tabs_(), bad = 0;
   var autoTabs = { '학생수': '학생 수를 처음 넣을 때 저절로 생겨요', '함께표': '취합 시트를 처음 만들 때 저절로 생겨요', '함께표줄': '취합 시트를 처음 만들 때 저절로 생겨요',
-    '시트양식': '취합 시트의 양식을 처음 저장할 때 저절로 생겨요' }, notYet = 0;
+    '시트양식': '취합 시트의 양식을 처음 저장할 때 저절로 생겨요', '학기': '학기 기간을 처음 넣을 때 저절로 생겨요(그 전에는 예전 설정 값을 써요)' }, notYet = 0;
   var autoCols = { // 저장할 때 ensureCols_가 붙이는 칸
     '학생수': { cols: ['반별'], when: '학생 수를 저장할 때' },
     '일정': { cols: ['중요'], when: '일정을 저장할 때' },
@@ -433,8 +443,9 @@ function adminCheck_(args) {
     memoOk ? '' : '잠시 뒤 다시 점검해 주세요. 계속 이러면 알려 주세요');
 
   // 6) 설정
-  var semOk = semesters_().length === 2;
-  add('설정', '학기 기간', semOk ? 'ok' : 'warn', semOk ? '1·2학기 기간이 들어 있어요' : '비어 있는 학기가 있어 수업일수를 다 세지 못해요', '관리자 › 설정에서 1·2학기 시작일·끝일을 넣어 주세요');
+  var semYear = Number(setting_('학년도')) || schoolYearOf_(todayYmd_());
+  var semOk = semesters_(semYear).length === 2;
+  add('설정', '학기 기간', semOk ? 'ok' : 'warn', semOk ? semYear + '학년도 1·2학기 기간이 들어 있어요' : semYear + '학년도에 비어 있는 학기가 있어 수업일수를 다 세지 못해요', '관리자 › 설정 › 학기 기간에 1·2학기 시작일·끝일을 넣어 주세요');
   var days = rememberDays_();
   add('설정', '기기 기억 기간', days >= 365 ? 'ok' : 'warn', days + '일', days >= 365 ? '' : "정한 값은 365일이에요. 관리자 › 설정에서 바꿔 주세요");
   add('설정', '본인 확인 방식', 'ok', pinMode_() ? '이름+개인 번호' : "이름만 (관리 일은 관리자 화면을 연 기기에서만)");

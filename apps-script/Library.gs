@@ -248,7 +248,7 @@ function apiLibDelete_(args, actor, ctx) {
 
 /** 보관함 자료를 지금 학년도로 다시 꺼내기(관리) */
 function apiLibUnarchive_(args, actor, ctx) {
-  if (!canManage_(ctx)) throw userError_('보관 풀기는 연구부장·부담당이 해요.', 'FORBIDDEN');
+  if (!canManage_(ctx)) throw manageDenied_(ctx, '보관 풀기는 연구부장·부담당이 해요.');
   var row = findRow_('자료', String(args.id || ''));
   if (!row || row['삭제 여부']) throw userError_('자료를 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
   var cur = libYear_();

@@ -64,12 +64,13 @@ function eventEnd_(e) {
   return e['끝일'] && e['끝일'] >= e['시작일'] ? e['끝일'] : e['시작일'];
 }
 
-/** 시간 칸 정렬: 종일 → 시각(08:40) → 교시 → 그 밖 */
+/** 시간 칸 정렬: 종일 → 시각(08:40)·아침·교시(하루 차례대로) → 그 밖(방과후 등) */
 function timeKey_(t) {
   t = String(t || '').trim();
   if (!t || t === '종일') return -1;
   var m = /^(\d{1,2}):(\d{2})/.exec(t);
   if (m) return Number(m[1]) * 60 + Number(m[2]);
+  if (/^아침/.test(t)) return 8 * 60; // 정렬용 대략값(1교시 앞)
   var k = /^(\d)교시/.exec(t);
   if (k) return 9 * 60 + (Number(k[1]) - 1) * 50; // 정렬용 대략값(1교시 9:00부터 50분 간격)
   return 24 * 60;
@@ -107,6 +108,20 @@ function canEditEvent_(e, ctx) {
   return !!(ctx.identity && e['입력자ID'] && e['입력자ID'] === ctx.identity['교직원ID']);
 }
 
+/** 휴업일·공휴일은 수업일수에 걸려서 관리만 */
+function isOffKind_(kind) { return kind === '휴업일' || kind === '공휴일'; }
+
+/**
+ * 관리 권한이 없어 막을 때의 오류. 관리자 화면 표를 보냈는데 그 표가 끝났으면(연 지 2시간) 'ADMIN'으로 알린다
+ * (화면이 관리자 화면을 닫고, 연구부장·부담당에게 '연구부장·부담당만'이라는 엉뚱한 말이 나오지 않게)
+ */
+function manageDenied_(ctx, msg) {
+  if (ctx && !ctx.admin && ctx.tokens && ctx.tokens.admin && !checkAdmin_(ctx.tokens.admin)) {
+    return userError_('관리자 화면이 닫혔어요(연 지 ' + AUTH_ADMIN_HOURS_ + '시간이 지났어요). 관리자 화면에서 비밀번호를 다시 넣어 주세요.', 'ADMIN');
+  }
+  return userError_(msg, 'FORBIDDEN');
+}
+
 // ---------------------------------------------------------------- 읽기
 
 /** 화면에 보낼 일정 한 줄 */
@@ -128,7 +143,7 @@ function eventView_(e, ctx, depts, names) {
     by: names[e['입력자ID']] || '',
     at: e['입력 시각'],
     editedAt: e['수정 시각'],
-    canEdit: canEditEvent_(e, ctx)
+    canEdit: canEditEvent_(e, ctx) && (!isOffKind_(e['구분']) || canManage_(ctx)) // 휴업일·공휴일은 관리만(저장도 서버가 막는다)
   };
 }
 
@@ -165,7 +180,7 @@ function apiSchedMonth_(args, actor, ctx) {
     today: todayYmd_(),
     from: from,
     to: to,
-    events: eventsBetween_(from, to, ctx),
+    events: eventsBetween_(from, addDays_(to, 1), ctx), // 마지막 주 금요일의 '다음'(다음 주 월요일)도 보이게 하루 더
     focus: focusOf_(sy, m),
     monthDays: semesterIn_(sy) ? instructionalDays_(first, last) : null, // 이 달의 학년도에 학기 기간이 없으면 0일이 아니라 '없음'
     canManage: canManage_(ctx),
@@ -189,11 +204,14 @@ function apiSchedYear_(args, actor, ctx) {
   };
 }
 
-/** 홈: 오늘·이번 주·내일 */
+/**
+ * 홈: 오늘·이번 주·다음 날 미리 보기. 토·일에는 다음 주를 보여 주고(weekNext), 금·토요일의 미리 보기는 월요일(nextLabel)
+ */
 function apiHome_(args, actor, ctx) {
-  var today = todayYmd_();
-  var mon = mondayOf_(today);
-  var tomorrow = addDays_(today, 1);
+  var today = todayYmd_(), w = weekday_(today);
+  var weekNext = w === 0 || w === 6;
+  var mon = weekNext ? addDays_(mondayOf_(today), 7) : mondayOf_(today);
+  var tomorrow = addDays_(today, w === 5 ? 3 : w === 6 ? 2 : 1); // 금·토요일 → 다음 월요일
   var to = addDays_(mon, 6) > tomorrow ? addDays_(mon, 6) : tomorrow;
   var links = [];
   try { links = JSON.parse(setting_('기존 시트 바로가기') || '[]'); } catch (e) { links = []; }
@@ -206,6 +224,8 @@ function apiHome_(args, actor, ctx) {
     today: today,
     monday: mon,
     tomorrow: tomorrow,
+    weekNext: weekNext,
+    nextLabel: w === 5 || w === 6 ? '월요일' : '내일',
     events: eventsBetween_(mon < today ? mon : today, to, ctx),
     links: links,
     focus: focusOf_(m >= 3 ? y : y - 1, m),
@@ -263,34 +283,67 @@ function eventSummary_(r) {
   return d + ' ' + r['행사명'] + (r['구분'] && r['구분'] !== '행사' ? ' (' + r['구분'] + ')' : '') + (r['중요'] === '예' ? ' [중요]' : '');
 }
 
+/** 일정 줄의 마지막 저장 시각(화면이 창을 열 때 받아 둔 base와 견준다) */
+function eventStamp_(row) {
+  return String(row['수정 시각'] || row['입력 시각'] || '');
+}
+
+/** 창을 연 뒤(base) 다른 분이 이 일정을 고쳤으면 덮어쓰지 않는다 → CONFLICT(누가 언제 고쳤는지) */
+function checkEventBase_(row, base, names, tail) {
+  if (base === undefined || base === null || String(base) === eventStamp_(row)) return;
+  var who = names[row['수정자ID'] || row['입력자ID']] || '', at = eventStamp_(row);
+  throw userError_('그사이 ' + (who ? who + ' 선생님이' : '다른 분이') + ' 이 일정을 고쳤어요(' + Number(at.slice(5, 7)) + '월 ' + Number(at.slice(8, 10)) + '일 ' + at.slice(11, 16) + '). ' + tail, 'CONFLICT');
+}
+
 function apiSchedSave_(args, actor, ctx) {
   var rec = cleanEvent_(args.fields || {});
   ensureCols_('일정'); // '중요' 칸이 없는 예전 시트도 그대로 쓸 수 있게
-  if ((rec['구분'] === '휴업일' || rec['구분'] === '공휴일') && !canManage_(ctx)) {
-    throw userError_('휴업일·공휴일은 수업일수에 영향을 줘서 연구부장·부담당만 넣을 수 있어요.');
+  if (isOffKind_(rec['구분']) && !canManage_(ctx)) {
+    throw manageDenied_(ctx, '휴업일·공휴일은 수업일수에 영향을 줘서 연구부장·부담당만 넣을 수 있어요.');
   }
   var depts = categoryNames_('부서'), names = staffNames_();
   if (args.id) {
-    var row = findRow_('일정', String(args.id));
-    if (!row || row['삭제 여부']) throw userError_('이 일정을 찾지 못했어요. 이미 지워졌을 수 있어요.');
-    if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
-    if ((row['구분'] === '휴업일' || row['구분'] === '공휴일') && !canManage_(ctx)) {
-      throw userError_('휴업일·공휴일은 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
-    }
-    updateRow_('일정', row['일정ID'], rec, actor, '일정 고침: ' + eventSummary_(rec));
-    return eventView_(findRow_('일정', row['일정ID']), ctx, depts, names);
+    return withLock_(function () { // 견주고 쓰는 사이에 다른 분 저장이 끼지 않게
+      var row = findRow_('일정', String(args.id));
+      if (!row || row['삭제 여부']) throw userError_('이 일정을 찾지 못했어요. 이미 지워졌을 수 있어요.');
+      if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
+      if (isOffKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, '휴업일·공휴일은 연구부장·부담당만 고칠 수 있어요.');
+      if (!args.force) checkEventBase_(row, args.base, names, '쓰던 내용은 그대로 있어요. "그래도 저장"을 누르면 내 내용으로 바꿔요.');
+      updateRow_('일정', row['일정ID'], rec, actor, '일정 고침: ' + eventSummary_(rec));
+      return eventView_(findRow_('일정', row['일정ID']), ctx, depts, names);
+    });
   }
   var added = insertRow_('일정', rec, actor, '일정 추가: ' + eventSummary_(rec));
   return eventView_(findRow_('일정', added['일정ID']), ctx, depts, names);
+}
+
+/**
+ * 달력에서 끌어 옮기기: 날짜(시작일·끝일)만 바꾼다. 화면이 들고 있던 시간·장소·메모를 다시 보내지 않아
+ * 그사이 다른 분이 고친 내용이 되돌아가지 않는다. 그사이 고쳤으면(base) 옮기지 않고 알린다. args = { id, start, end, base }
+ */
+function apiSchedMove_(args, actor, ctx) {
+  var start = checkYmd_(args.start, '날짜');
+  var end = args.end ? checkYmd_(args.end, '끝나는 날') : '';
+  if (end && end < start) throw userError_('끝나는 날이 시작하는 날보다 앞에 있어요.');
+  if (end === start) end = '';
+  var depts = categoryNames_('부서'), names = staffNames_();
+  return withLock_(function () {
+    var row = findRow_('일정', String(args.id || ''));
+    if (!row || row['삭제 여부']) throw userError_('이 일정을 찾지 못했어요. 이미 지워졌을 수 있어요.');
+    if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 옮길 수 있어요.', 'FORBIDDEN');
+    if (isOffKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, '휴업일·공휴일은 연구부장·부담당만 옮길 수 있어요.');
+    checkEventBase_(row, args.base, names, '달력을 새로 불러왔어요. 다시 옮겨 주세요.');
+    var old = eventSummary_(row);
+    updateRow_('일정', row['일정ID'], { '시작일': start, '끝일': end }, actor, '일정 옮김: ' + old + ' → ' + start + (end ? '~' + end : ''));
+    return eventView_(findRow_('일정', row['일정ID']), ctx, depts, names);
+  });
 }
 
 function apiSchedDelete_(args, actor, ctx) {
   var row = findRow_('일정', String(args.id || ''));
   if (!row || row['삭제 여부']) throw userError_('이 일정을 찾지 못했어요. 이미 지워졌을 수 있어요.');
   if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
-  if ((row['구분'] === '휴업일' || row['구분'] === '공휴일') && !canManage_(ctx)) {
-    throw userError_('휴업일·공휴일은 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
-  }
+  if (isOffKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, '휴업일·공휴일은 연구부장·부담당만 지울 수 있어요.');
   softDelete_('일정', row['일정ID'], actor, '일정 지움: ' + eventSummary_(row));
   return { done: true };
 }
@@ -306,7 +359,7 @@ function focusOf_(schoolYear, month) {
 }
 
 function apiFocusSave_(args, actor, ctx) {
-  if (!canManage_(ctx)) throw userError_('중점지도는 연구부장·부담당이 넣어요.', 'FORBIDDEN');
+  if (!canManage_(ctx)) throw manageDenied_(ctx, '중점지도는 연구부장·부담당이 넣어요.');
   var y = Number(args.year), m = Number(args.month);
   if (!(y >= 2000 && y <= 2100 && m >= 1 && m <= 12)) throw userError_('달을 다시 골라 주세요.');
   var text = cleanText_(args.text, 500, '중점지도 내용');
@@ -449,10 +502,24 @@ function apiStudentsSave_(args, actor) {
   }
   ensureTab_('학생수');
   ensureCols_('학생수'); // 먼저 만든 탭에는 '반별' 칸이 없을 수 있다
+  var clash = null;
   withLock_(function () {
     var cur = studentsOf_(sy);
-    // 창을 연 뒤 다른 분이 먼저 저장했으면 덮어쓰지 않는다(화면은 학년 전체를 함께 보낸다). base가 없는 예전 화면은 그대로
-    if (args.base !== undefined && String(args.base || '') !== String(cur.at || '')) {
+    if (args.bases && patch['반별']) {
+      // 학년마다 견준다(교사 결정): 같은 학년을 그사이 다른 분도 고쳤을 때만 막고, 내가 고치지 않은 학년은 다른 분 숫자를 그대로 둔다
+      var norm = JSON.parse(patch['반별']), was = { classes: parseClasses_(JSON.stringify(args.bases.classes || null)), grades: args.bases.grades || null };
+      var hit = [];
+      for (var g = 1; g <= 6; g++) {
+        var mineK = JSON.stringify(norm[String(g)] || []), wasK = studentGradeKey_(was, g), nowK = studentGradeKey_(cur, g);
+        if (nowK === wasK || mineK === nowK) continue; // 그사이 아무도 고치지 않았거나 같은 숫자
+        if (mineK === wasK && cur.classes) norm[String(g)] = cur.classes[String(g)] || []; // 나는 고치지 않았다 → 다른 분 숫자 그대로
+        else hit.push(g);
+      }
+      if (hit.length) { clash = { grades: hit, by: cur.by, at: cur.at, current: cur }; return; }
+      for (var k = 1; k <= 6; k++) patch[STUDENT_GRADES_[k - 1]] = String(norm[String(k)].reduce(function (n, c) { return n + c[0] + c[1]; }, 0));
+      patch['반별'] = JSON.stringify(norm);
+    } else if (args.base !== undefined && String(args.base || '') !== String(cur.at || '')) {
+      // 예전 화면(학년마다 견주지 않음): 창을 연 뒤 다른 분이 먼저 저장했으면 덮어쓰지 않는다
       throw userError_('그사이 다른 선생님이 학생 수를 먼저 고쳤어요. 창을 닫았다가 다시 열어, 바뀐 숫자에서 고쳐 주세요.', 'CONFLICT');
     }
     if (cur.id) {
@@ -462,17 +529,26 @@ function apiStudentsSave_(args, actor) {
       insertRow_('학생수', patch, actor, sy + '학년도 학생 수 넣음');
     }
   });
+  if (clash) return { conflict: { grades: clash.grades, by: clash.by, at: clash.at }, current: clash.current }; // 저장하지 않고 알린다(쓰던 숫자는 창에 그대로)
   return studentsOf_(sy);
+}
+
+/** 견주기용: 그 학년 숫자(반별이 있으면 반마다 남·여, 학년 합계만 있으면 합계) */
+function studentGradeKey_(st, g) {
+  if (!st) return '';
+  if (st.classes) return JSON.stringify(st.classes[String(g)] || []);
+  var t = st.grades ? st.grades[g - 1] : null;
+  return t === null || t === undefined ? '' : 'T' + t;
 }
 
 // ---------------------------------------------------------------- 수업일수
 
 /**
  * from~to 사이 수업일수 = 평일(월~금) − 휴업일·공휴일이 걸린 평일(겹치면 한 번만)
- * 학기 기간 밖의 날은 세지 않는다. 학기 기간이 없으면 null.
+ * 학기 기간(그 날짜의 학년도) 밖의 날은 세지 않는다. 학기 기간이 없으면 null.
  */
 function instructionalDays_(from, to) {
-  var sems = semesters_();
+  var sems = semesters_(schoolYearOf_(from)).concat(schoolYearOf_(to) !== schoolYearOf_(from) ? semesters_(schoolYearOf_(to)) : []);
   if (!sems.length) return null;
   var off = offDays_(from, to);
   var weekdays = 0, removed = 0;
@@ -486,20 +562,89 @@ function instructionalDays_(from, to) {
   return { weekdays: weekdays, off: removed, days: weekdays - removed };
 }
 
-/** 그 학년도(3월~다음 해 2월)에 걸친 학기 기간이 설정에 있는지 */
-function semesterIn_(schoolYear) {
-  var r = schoolYearRange_(schoolYear);
-  return semesters_().some(function (s) { return s.to >= r.from && s.from <= r.to; });
+/** 'yyyy-MM-dd'가 속한 학년도(3월~다음 해 2월) */
+function schoolYearOf_(ymd) {
+  var y = Number(String(ymd).slice(0, 4)), m = Number(String(ymd).slice(5, 7));
+  return m >= 3 ? y : y - 1;
 }
 
-/** 설정의 학기 기간(들어 있는 것만) */
-function semesters_() {
-  var out = [];
-  [['1학기', '1학기 시작일', '1학기 끝일'], ['2학기', '2학기 시작일', '2학기 끝일']].forEach(function (s) {
-    var a = setting_(s[1]), b = setting_(s[2]);
+/** 그 학년도의 학기 기간이 있는지 */
+function semesterIn_(schoolYear) {
+  return semesters_(schoolYear).length > 0;
+}
+
+var SEM_KEYS_ = [['1학기', '1학기 시작일', '1학기 끝일'], ['2학기', '2학기 시작일', '2학기 끝일']];
+
+/**
+ * 그 학년도의 학기 기간(들어 있는 것만) → [{ name, from, to }]
+ * '학기' 탭(학년도마다 한 줄, 2026-10-19 교사 결정)에 그 학년도 줄이 있으면 그것을, 없으면 예전 설정(1학기 시작일…)에서
+ * 그 학년도에 걸친 것을 쓴다(예전 값은 지우지 않는다). 새 학년도 기간을 미리 넣어도 지금 학년도 수업일수는 그대로
+ */
+function semesters_(schoolYear) {
+  var row = semesterRow_(schoolYear), out = [];
+  SEM_KEYS_.forEach(function (s) {
+    var a = row ? row[s[1]] : setting_(s[1]), b = row ? row[s[2]] : setting_(s[2]);
     if (isDate_(a) && isDate_(b) && a <= b) out.push({ name: s[0], from: a, to: b });
   });
-  return out;
+  if (row) return out;
+  var r = schoolYearRange_(schoolYear);
+  return out.filter(function (s) { return s.to >= r.from && s.from <= r.to; });
+}
+
+/** '학기' 탭에서 그 학년도 줄(없으면 null, 탭이 아직 없어도 null) */
+function semesterRow_(schoolYear) {
+  var rows;
+  try { rows = liveRows_('학기'); } catch (e) { if (e && e.code === 'SETUP') return null; throw e; }
+  var list = rows.filter(function (r) { return String(r['학년도']) === String(schoolYear); });
+  return list.length ? list[list.length - 1] : null;
+}
+
+/** 관리자 › 설정에 보일 학기 기간(지금 학년도·다음 학년도): { year, s1from, s1to, s2from, s2to, src: 'tab'|'old'|'' } */
+function semesterView_(schoolYear) {
+  var row = semesterRow_(schoolYear), sems = semesters_(schoolYear), by = {};
+  sems.forEach(function (s) { by[s.name] = s; });
+  var v = function (name, k) { return row ? (row[name + (k === 'from' ? ' 시작일' : ' 끝일')] || '') : (by[name] ? by[name][k] : ''); };
+  return { year: schoolYear, s1from: v('1학기', 'from'), s1to: v('1학기', 'to'), s2from: v('2학기', 'from'), s2to: v('2학기', 'to'), src: row ? 'tab' : sems.length ? 'old' : '' };
+}
+
+/**
+ * 학기 기간 저장(관리자 › 설정). list = [{ year, s1from, s1to, s2from, s2to }]. 비운 학기는 넣지 않은 것으로.
+ * 학기마다 시작일 ≤ 끝일, 1학기 끝일 < 2학기 시작일(겹치면 수업일수를 두 번 센다), 그 학년도(3월 1일~다음 해 2월 말일) 안
+ */
+function saveSemesters_(list, actor) {
+  var clean = (Array.isArray(list) ? list : []).slice(0, 4).map(function (x) {
+    var y = Number(x && x.year);
+    if (!(y >= 2000 && y <= 2100)) throw userError_('학기 기간의 학년도를 다시 골라 주세요.');
+    var r = schoolYearRange_(y), o = { year: y };
+    ['s1from', 's1to', 's2from', 's2to'].forEach(function (k) {
+      var v = String((x && x[k]) || '').trim();
+      if (v && !isDate_(v)) throw userError_(y + '학년도 학기 날짜를 다시 골라 주세요(예: ' + y + '-03-02).');
+      if (v && (v < r.from || v > r.to)) throw userError_(y + '학년도 학기 날짜는 ' + r.from + '부터 ' + r.to + '까지 골라 주세요.');
+      o[k] = v;
+    });
+    if (!o.s1from !== !o.s1to) throw userError_(y + '학년도 1학기는 시작일과 끝일을 함께 넣어 주세요.');
+    if (!o.s2from !== !o.s2to) throw userError_(y + '학년도 2학기는 시작일과 끝일을 함께 넣어 주세요.');
+    if (o.s1from && o.s1from > o.s1to) throw userError_(y + '학년도 1학기 끝일이 시작일보다 앞에 있어요.');
+    if (o.s2from && o.s2from > o.s2to) throw userError_(y + '학년도 2학기 끝일이 시작일보다 앞에 있어요.');
+    if (o.s1to && o.s2from && o.s1to >= o.s2from) throw userError_(y + '학년도 1학기 끝일은 2학기 시작일보다 앞이어야 해요(겹치면 수업일수를 두 번 세요).');
+    return o;
+  });
+  if (!clean.length) return;
+  ensureTab_('학기');
+  withLock_(function () {
+    clean.forEach(function (o) {
+      var row = semesterRow_(o.year);
+      var rec = { '1학기 시작일': o.s1from, '1학기 끝일': o.s1to, '2학기 시작일': o.s2from, '2학기 끝일': o.s2to };
+      var empty = !o.s1from && !o.s2from;
+      if (row) {
+        var same = Object.keys(rec).every(function (k) { return String(row[k] || '') === rec[k]; });
+        if (!same) updateRow_('학기', row['학기ID'], rec, actor, o.year + '학년도 학기 기간 고침');
+      } else if (!empty) {
+        rec['학년도'] = String(o.year);
+        insertRow_('학기', rec, actor, o.year + '학년도 학기 기간 넣음');
+      }
+    });
+  });
 }
 
 /**
@@ -521,8 +666,7 @@ function offDays_(from, to, extra) {
 
 /** 학기별 수업일수와 계산 근거 (extra는 offDays_와 같음) */
 function semesterDays_(year, extra) {
-  var r = schoolYearRange_(year);
-  var sems = semesters_().filter(function (s) { return s.to >= r.from && s.from <= r.to; });
+  var sems = semesters_(year);
   var total = 0;
   var list = sems.map(function (s) {
     var weekdays = 0;
@@ -613,7 +757,7 @@ function seedTestSchedule_() {
 // - 전에 올린 같은 행사는 '건너뛰기' 또는 '바꾸기'(전 것은 숨김 삭제, 되돌리기로 다시 살아남)
 
 function requireManage_(ctx) {
-  if (!canManage_(ctx)) throw userError_('학사일정 올리기는 연구부장·부담당만 할 수 있어요.', 'FORBIDDEN');
+  if (!canManage_(ctx)) throw manageDenied_(ctx, '학사일정 올리기는 연구부장·부담당만 할 수 있어요.');
 }
 
 /** 이름을 고르지 않고 관리자 화면에서 한 일은 기록에 '관리자(본인 확인 전)'으로 남긴다 */
@@ -714,6 +858,30 @@ function parseDay_(v, schoolYear) {
   return { ymd: ymd, guessed: guessed };
 }
 
+/**
+ * 한 칸에 적은 기간('3.2.~3.6.', '7.24.(금)~8.16.(일)', '5.4.~5.5.')을 시작·끝으로 나눈다. 끝일 칸에 따로 적었으면 그대로.
+ * 2026-03-02처럼 '-'가 든 날짜를 자르지 않게 '~'(물결)로만 나눈다
+ */
+function splitDayRange_(start, end) {
+  var s = String(start || '').trim(), e = String(end || '').trim();
+  if (e || !/[~∼〜～]/.test(s)) return { start: s, end: e };
+  var parts = s.split(/\s*[~∼〜～]\s*/);
+  return { start: parts[0], end: parts.slice(1).join(' ').trim() };
+}
+
+/** 끝나는 날: '3.6.'처럼 날짜이거나, '6.'·'6일'처럼 날만 적었으면 시작일과 같은 달로(시작일보다 앞이면 다음 달) */
+function parseDayEnd_(text, a, schoolYear) {
+  var b = parseDay_(text, schoolYear);
+  if (b.ymd || !a || !a.ymd) return b;
+  var dm = /^(\d{1,2})\s*일?\.?\s*(\(\s*[월화수목금토일](?:요일)?\s*\))?$/.exec(String(text).trim());
+  if (!dm) return b;
+  var y = Number(a.ymd.slice(0, 4)), m = Number(a.ymd.slice(5, 7)), d = Number(dm[1]);
+  var ymd = y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
+  if (isDate_(ymd) && ymd < a.ymd) { m = m === 12 ? 1 : m + 1; y = m === 1 ? y + 1 : y; ymd = y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2); }
+  if (!isDate_(ymd)) return { err: '없는 날짜예요(' + m + '월 ' + d + '일)' };
+  return { ymd: ymd, guessed: a.guessed };
+}
+
 /** '3·4학년', '3~6', '전교', '교직원' → '3,4' 같은 저장 글자 */
 function parseTargetText_(v) {
   var s = String(v || '').trim();
@@ -780,19 +948,27 @@ function uploadCheck_(rows) {
   var deptNames = categoryNames_('부서');
   var existing = {};
   liveRows_('일정').forEach(function (e) { (existing[e['시작일'] + '|' + titleKey_(e['행사명'])] = existing[e['시작일'] + '|' + titleKey_(e['행사명'])] || []).push(e); });
-  var seen = {};
+  var seen = {}, prevStart = '';
   return rows.map(function (raw, i) {
     var msgs = [], status = 'ok', dup = '';
     var warn = function (t) { msgs.push(t); if (status === 'ok') status = 'warn'; };
     var fail = function (t) { msgs.push(t); status = 'error'; };
     var title = String(raw.title || '').trim();
-    var a = parseDay_(raw.start, sy);
-    var b = raw.end ? parseDay_(raw.end, sy) : { ymd: '' };
+    var startText = String(raw.start || '').trim(), endText = String(raw.end || '').trim();
+    if (!startText && title && prevStart) { // 날짜 칸을 합친 표: 아래 줄은 날짜가 비어 온다 → 위 줄 날짜(확인 필요)
+      startText = prevStart;
+      warn('날짜 칸이 비어 있어서 위 줄 날짜(' + prevStart + ')로 넣어요');
+    }
+    if (startText) prevStart = startText;
+    var range = splitDayRange_(startText, endText);
+    var a = parseDay_(range.start, sy);
+    var b = range.end ? parseDayEnd_(range.end, a, sy) : { ymd: '' };
     if (a.shifted && b.ymd && b.guessed && !b.shifted) b.ymd = (Number(b.ymd.slice(0, 4)) + 1) + b.ymd.slice(4); // 끝나는 날도 같은 해로
     if (!a.ymd) fail(a.err || '날짜가 비어 있어요');
-    if (raw.end && !b.ymd) fail('끝나는 날: ' + (b.err || '읽지 못했어요'));
+    if (range.end && !b.ymd) fail('끝나는 날: ' + (b.err || '읽지 못했어요'));
     if (a.warn) warn(a.warn);
     if (b.warn && !a.shifted) warn('끝나는 날: ' + b.warn);
+    if (a.ymd && b.ymd && b.ymd < a.ymd) fail('끝나는 날이 시작하는 날보다 앞에 있어요');
     if (!title) fail('행사명이 비어 있어요');
     var kind = parseKind_(raw.kind);
     if (kind === '') { kind = '행사'; warn("구분이 비어 있어서 '행사'로 넣어요"); }
@@ -867,7 +1043,7 @@ function apiUploadCheck_(args, actor, ctx) {
   if (rows.length > 1000) throw userError_('한 번에 1000줄까지 올릴 수 있어요. 나눠서 올려 주세요.');
   var checked = uploadCheck_(rows);
   var plan = uploadPlan_(checked, args.mode);
-  var sy = Number(setting_('학년도')) || Number(todayYmd_().slice(0, 4));
+  var sy = uploadYear_(checked) || Number(setting_('학년도')) || Number(todayYmd_().slice(0, 4)); // 올리는 줄들의 학년도(새 학년도 일정을 미리 올릴 때)
   var skip = {};
   plan.replace.forEach(function (id) { skip[id] = true; });
   var addOff = plan.add.filter(function (r) { return r.kind === '휴업일' || r.kind === '공휴일'; })
@@ -882,9 +1058,21 @@ function apiUploadCheck_(args, actor, ctx) {
       add: plan.add.length,
       replace: plan.replace.length
     },
-    days: { now: semesterDays_(sy), after: semesterDays_(sy, { add: addOff, skip: skip }) },
+    days: { now: semesterDays_(sy), after: semesterDays_(sy, { add: addOff, skip: skip }), year: sy },
     last: lastUpload_()
   };
+}
+
+/** 미리보기 줄들이 가장 많이 걸친 학년도(없으면 0) */
+function uploadYear_(checked) {
+  var n = {}, best = 0, top = 0;
+  checked.forEach(function (r) {
+    if (!r.start || r.status === 'error') return;
+    var y = schoolYearOf_(r.start);
+    n[y] = (n[y] || 0) + 1;
+    if (n[y] > top) { top = n[y]; best = y; }
+  });
+  return best;
 }
 
 function apiUploadSave_(args, actor, ctx) {

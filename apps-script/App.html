@@ -153,7 +153,7 @@
       stDel('gy.admin');
       S.admin = false;
       forgetScreens();
-      setTimeout(renderApp, 0);
+      setTimeout(function () { renderApp(); toast(err.message, 'error'); }, 0); // 열린 창은 닫히므로 알림으로 남긴다
     } else if (err.code === 'IDENTITY') {
       stDel('gy.identity');
       S.me = null;
@@ -946,16 +946,16 @@
       '<section class="card today-card"><span class="glow" aria-hidden="true"></span>' +
       '<div class="card-head"><div><p class="kicker">오늘 학교 일정</p>' +
       '<p class="big-num">' + (todays.length ? todays.length + '개 있어요' : '오늘은 일정이 없어요') + '</p></div>' +
-      '<button type="button" class="btn btn-sm print-hide" data-go="schedule">이번 주 전체 보기 ' + icon('chev', 18) + '</button></div>' +
+      '<button type="button" class="btn btn-sm print-hide" data-go="schedule">' + (h.weekNext ? '다음 주' : '이번 주') + ' 전체 보기 ' + icon('chev', 18) + '</button></div>' +
       (todays.length ? '<div class="ev-rows">' + todays.map(evRow).join('') + '</div>' : '') +
-      '<p class="tomorrow"><b>내일 미리 보기</b> ' + (tomorrow.length
+      '<p class="tomorrow"><b>' + esc(h.nextLabel || '내일') + ' 미리 보기</b> ' + (tomorrow.length
         ? tomorrow.map(function (e) { return esc(e.title) + (e.time ? ' ' + esc(e.time) : ''); }).join(' · ')
         : '일정이 없어요') + '</p></section>' +
       todoCard(h) + '</div>' +
 
       (isPhone() ? homeNoticeCard(h) : '') +
-      '<section class="card"><div class="card-head"><h2>이번 주 일정 <span class="faint" style="font-weight:600">' + md(h.monday) + ' – ' + md(addD(h.monday, 4)) + '</span></h2>' +
-      '<div class="seg print-hide" role="group" aria-label="이번 주 일정 보기">' +
+      '<section class="card"><div class="card-head"><h2>' + (h.weekNext ? '다음 주 일정' : '이번 주 일정') + ' <span class="faint" style="font-weight:600">' + md(h.monday) + ' – ' + md(addD(h.monday, 4)) + '</span></h2>' +
+      '<div class="seg print-hide" role="group" aria-label="' + (h.weekNext ? '다음 주' : '이번 주') + ' 일정 보기">' +
       '<button type="button" data-home-f="all" aria-pressed="' + (hf === 'all') + '">전체</button>' +
       '<button type="button" data-home-f="grade" aria-pressed="' + (hf === 'grade') + '"' + (myGrade() ? '' : ' disabled title="소속에 학년이 있으면 쓸 수 있어요"') + '>우리 학년</button>' +
       '<button type="button" data-home-f="mine" aria-pressed="' + (hf === 'mine') + '"' + (S.me ? '' : ' disabled title="본인 확인 뒤에 쓸 수 있어요"') + '>내 담당</button></div></div>' +
@@ -1058,7 +1058,8 @@
   function editStudents(focusGrade) {
     var h = S.home || {}, st = h.students || {};
     var today = h.today || '';
-    var stuBase = st.at || ''; // 창을 열 때의 저장 시각: 그사이 다른 분이 저장했으면 서버가 알려 준다
+    var stuBase = st.at || ''; // 창을 열 때의 저장 시각(예전 서버용)
+    var bases = { classes: st.classes || null, grades: st.grades || null }; // 창을 열 때의 숫자: 서버가 학년마다 견줘 같은 학년을 그사이 다른 분도 고쳤을 때만 묻는다
     var model = {}; // { '1': [['12', '13'], …] } 입력 칸 글자 그대로
     var oldTotals = st.id && !st.classes ? (st.grades || null) : null; // 학년 합계만 넣었던 때: 맞춰 넣게 보여 준다
     for (var g = 1; g <= 6; g++) {
@@ -1137,6 +1138,15 @@
       sums();
     });
     form.addEventListener('click', function (e) {
+      var take = e.target.closest('[data-stu-take]');
+      if (take) { // 다른 분이 넣은 숫자로 바꾸기
+        var gt = take.getAttribute('data-stu-take'), cur = (S.home && S.home.students && S.home.students.classes) || {};
+        model[gt] = (cur[gt] || []).map(function (c) { return [String(c[0]), String(c[1])]; });
+        var nb = qs('#stu-clash-' + gt);
+        if (nb) nb.parentNode.removeChild(nb);
+        redrawRows(gt, false);
+        return;
+      }
       var add = e.target.closest('[data-stu-add]'), del = e.target.closest('[data-stu-del]');
       if (add) { var ga = add.getAttribute('data-stu-add'); if (model[ga].length < STU_MAX_CLASSES) { model[ga].push(['', '']); redrawRows(ga, true); } }
       if (del) { var gd = del.getAttribute('data-stu-del'); if (model[gd].length) { model[gd].pop(); redrawRows(gd, false); } }
@@ -1170,7 +1180,8 @@
         classes[g] = model[g].map(function (c) { return [Number(c[0]), Number(c[1])]; });
       }
       busy(btn, true, '저장하는 중');
-      server('students.save', { date: qs('#stu-date').value, classes: classes, base: stuBase }).then(function (r) {
+      server('students.save', { date: qs('#stu-date').value, classes: classes, base: stuBase, bases: bases }).then(function (r) {
+        if (r && r.conflict) { stuClash(r); return; }
         if (S.home) { S.home.students = r; memoPut('home', {}, S.home); }
         closeModal();
         drawHome();
@@ -1183,6 +1194,42 @@
         }
       });
     });
+    /**
+     * 같은 학년을 그사이 다른 분도 고쳤다(서버는 저장하지 않았다): 쓰던 숫자는 그대로 두고 그 학년에 바뀐 숫자를 보여 준다.
+     * 내가 손대지 않은 학년은 새 숫자로 바꿔 두고, 다음 저장은 새 숫자를 기준으로 견준다(다시 저장하면 지금 창의 숫자로)
+     */
+    function stuClash(r) {
+      var cur = r.current || {}, cc = cur.classes || {};
+      busy(qs('#stu-save'), false);
+      for (var g = 1; g <= 6; g++) {
+        var was = bases.classes ? JSON.stringify(bases.classes[String(g)] || []) : null;
+        var mine = JSON.stringify(model[g].map(function (c) { return [Number(c[0]), Number(c[1])]; }));
+        if (r.conflict.grades.indexOf(g) < 0 && was !== null && was === mine && cur.classes) {
+          model[g] = (cc[String(g)] || []).map(function (c) { return [String(c[0]), String(c[1])]; });
+          redrawRows(g, false);
+        }
+      }
+      r.conflict.grades.forEach(function (g) {
+        var sec = qs('#stu-sec-' + g), old = qs('#stu-clash-' + g);
+        if (old) old.parentNode.removeChild(old);
+        if (!sec) return;
+        var list = cc[String(g)] || [];
+        var box = document.createElement('div');
+        box.className = 'stu-clash';
+        box.id = 'stu-clash-' + g;
+        box.innerHTML = '<p><b>' + esc(r.conflict.by ? r.conflict.by + ' 선생님' : '다른 분') + '이 그사이 넣은 ' + g + '학년</b> ' +
+          (list.length ? list.map(function (c, i) { return (i + 1) + '반 남 ' + c[0] + '·여 ' + c[1]; }).join(', ') : (cur.grades && cur.grades[g - 1] !== null ? '전체 ' + cur.grades[g - 1] + '명' : '없음')) + '</p>' +
+          (list.length ? '<button type="button" class="btn btn-sm" data-stu-take="' + g + '">이 숫자로 바꾸기</button>' : '');
+        sec.insertBefore(box, qs('.stu-rows', sec));
+      });
+      bases = { classes: cur.classes || null, grades: cur.grades || null };
+      stuBase = cur.at || '';
+      qs('#stu-err').textContent = '그사이 ' + (r.conflict.by ? r.conflict.by + ' 선생님이 ' : '다른 분이 ') + r.conflict.grades.join('·') + '학년 학생 수를 먼저 고쳤어요. ' +
+        '쓰던 숫자는 그대로 두고 바뀐 숫자를 그 학년 위에 보여 드렸어요. 확인하고 다시 저장하면 지금 창의 숫자로 저장돼요.';
+      var first = qs('#stu-sec-' + r.conflict.grades[0]);
+      if (first) first.scrollIntoView({ block: 'nearest' });
+      if (S.home) { S.home.students = cur; memoPut('home', {}, S.home); drawHome(); }
+    }
   }
 
   /** 홈 '내가 할 일': 아직 안 낸 조사(다시 알림 받은 것이 맨 위) */
@@ -1250,7 +1297,7 @@
       if (!sc.week || sc.week < d.from || sc.week > d.to) {
         var t = d.today >= d.from && d.today <= d.to && Number(d.today.slice(5, 7)) === sc.m ? d.today : sc.y + '-' + ('0' + sc.m).slice(-2) + '-01';
         sc.week = mondayOf(t);
-        sc.day = wd(t) === 0 || wd(t) === 6 ? sc.week : t;
+        sc.day = wd(t) === 0 || wd(t) === 6 ? addD(sc.week, 5) : t; // 토·일이면 '토·일' 칸
       }
       sc.view === 'plan' ? drawPlan() : drawCal();
       setTimeout(prefetchScreens, 300); // 지난달·다음 달을 뒤에서 받아 둔다
@@ -1378,10 +1425,13 @@
         var list = shown.filter(function (e) { return onDay(e, day); });
         if (i === 4) {
           // 주말 일정은 금요일 칸 아래에 '토·일' 표시로 붙인다
+          var seenW = {};
           [5, 6].forEach(function (k) {
             var wk = addD(w, k);
             shown.filter(function (e) { return onDay(e, wk) && !onDay(e, day); }).forEach(function (e) {
-              if (list.indexOf(e) < 0) list.push({ __w: DOW.charAt(k === 5 ? 6 : 0), e: e, d: wk });
+              if (seenW[e.id]) return; // 토~일 이틀 행사는 한 번만
+              seenW[e.id] = 1;
+              list.push({ __w: DOW.charAt(k === 5 ? 6 : 0), e: e, d: wk });
             });
           });
         }
@@ -1503,47 +1553,58 @@
     var multi = e.end && e.end !== e.start, start = addD(e.start, n), end = multi ? addD(e.end, n) : '';
     var span = function (a, b) { return esc(mdw(a)) + (b ? ' ~ ' + esc(mdw(b)) : ''); };
     confirmBox('일정 옮기기', '"' + esc(e.title) + '"' + josa(e.title, '을', '를') + ' 옮길까요?<br>' + span(e.start, multi ? e.end : '') + ' → <b>' + span(start, end) + '</b>', '옮기기', function () {
-      var fields = {
-        start: start, end: end, time: e.time || '', title: e.title, kind: e.kind || '행사',
-        target: String(e.target || '').split(',').filter(Boolean), deptId: e.deptId || '', place: e.place || '', memo: e.memo || '', important: !!e.important
-      };
-      return server('sched.save', { id: e.id, fields: fields }, schedThen('')).then(function (saved) { // 보던 달 그대로 다시 받는다
+      // 날짜만 보낸다(시간·장소·메모를 다시 보내지 않아 그사이 다른 분이 고친 것이 되돌아가지 않게). base: 그사이 고쳤으면 옮기지 않는다
+      return server('sched.move', { id: e.id, start: start, end: end, base: e.editedAt || e.at || '' }, schedThen('')).then(function (saved) { // 보던 달 그대로 다시 받는다
         patchEvent(saved);
         closeModal();
         reloadSched();
         toast(saved.title + josa(saved.title, '을', '를') + ' ' + md(saved.start) + '로 옮겼어요');
+      }, function (err) {
+        if (err.code !== 'CONFLICT') throw err;
+        closeModal();
+        memoForget('sched.');
+        reloadSched();
+        toast(err.message, 'error');
       });
     });
   }
 
+  /** 휴대폰 '이번 주': 월~금 + 토·일(한 칸). 고른 날의 일정과 다음 날(금·토·일이면 월요일) */
   function phoneWeek(shown) {
     var sc = S.sched, d = sc.data;
     var days = [];
     for (var i = 0; i < 5; i++) days.push(addD(sc.week, i));
-    var sel = days.indexOf(sc.day) >= 0 ? sc.day : days[0];
-    var list = shown.filter(function (e) { return onDay(e, sel); });
-    var next = addD(sel, wd(sel) === 5 ? 3 : 1);
-    var nextList = shown.filter(function (e) { return onDay(e, next); });
+    var sat = addD(sc.week, 5), sun = addD(sc.week, 6);
+    var onW = function (e) { return onDay(e, sat) || onDay(e, sun); };
+    var tabs = days.concat([sat]); // 마지막 칸은 토·일
+    var sel = tabs.indexOf(sc.day) >= 0 ? sc.day : sc.day === sun ? sat : days[0];
+    var isW = sel === sat;
+    var list = shown.filter(function (e) { return isW ? onW(e) : onDay(e, sel); });
+    var next = isW ? addD(sat, 2) : addD(sel, wd(sel) === 5 ? 3 : 1);
+    var nextList = shown.filter(function (e) { return onDay(e, next); }); // 달의 마지막 주 금요일도: 서버가 다음 주 월요일 일정까지 보낸다
     return '<div class="pweek">' +
       '<div class="pweek-nav"><button type="button" class="icon-btn" data-action="w-prev" aria-label="지난주">' + icon('chevl') + '</button>' +
       '<b>' + md(days[0]) + ' – ' + dayNum(days[4]) + '일</b>' +
       '<button type="button" class="icon-btn" data-action="w-next" aria-label="다음 주">' + icon('chev') + '</button>' +
       '<button type="button" class="btn btn-sm" data-action="phone-month" style="margin-left:auto">한 달 보기</button></div>' +
-      '<div class="pdays" role="tablist">' + days.map(function (day) {
-        var n = shown.filter(function (e) { return onDay(e, day); }).length;
-        var off = shown.some(function (e) { return onDay(e, day) && isOff(e); });
-        var imp = shown.some(function (e) { return onDay(e, day) && e.important; });
-        return '<button type="button" role="tab" class="pday' + (imp ? ' has-imp' : '') + '' + (day === sel ? ' on' : '') + (off ? ' off' : '') + '" data-action="pick-day" data-day="' + day + '" aria-selected="' + (day === sel) + '">' +
-          '<span>' + DOW.charAt(wd(day)) + '</span><b>' + dayNum(day) + '</b><span class="dots">' + (day === d.today ? '오늘' : (imp ? '★' : '') + new Array(Math.min(n, 3) + 1 - (imp ? 1 : 0)).join('•')) + '</span></button>';
+      '<div class="pdays six" role="tablist">' + tabs.map(function (day) {
+        var w = day === sat;
+        var hit = function (e) { return w ? onW(e) : onDay(e, day); };
+        var n = shown.filter(hit).length;
+        var off = shown.some(function (e) { return hit(e) && isOff(e); });
+        var imp = shown.some(function (e) { return hit(e) && e.important; });
+        var isToday = w ? d.today === sat || d.today === sun : day === d.today;
+        return '<button type="button" role="tab" class="pday' + (w ? ' wk' : '') + (imp ? ' has-imp' : '') + (day === sel ? ' on' : '') + (off ? ' off' : '') + '" data-action="pick-day" data-day="' + day + '" aria-selected="' + (day === sel) + '"' +
+          (w ? ' aria-label="토·일 ' + md(sat) + ' – ' + md(sun) + '"' : '') + '>' +
+          '<span>' + (w ? '토·일' : DOW.charAt(wd(day))) + '</span><b>' + dayNum(day) + '</b><span class="dots">' + (isToday ? '오늘' : (imp ? '★' : '') + new Array(Math.min(n, 3) + 1 - (imp ? 1 : 0)).join('•')) + '</span></button>';
       }).join('') + '</div>' +
-      '<div class="card-head"><h2 style="margin:0;font-size:18px">' + md(sel) + ' ' + DOW.charAt(wd(sel)) + '요일</h2><span class="faint">일정 ' + list.length + '개</span></div>' +
+      '<div class="card-head"><h2 style="margin:0;font-size:18px">' + (isW ? md(sat) + ' – ' + md(sun) + ' 토·일' : md(sel) + ' ' + DOW.charAt(wd(sel)) + '요일') + '</h2><span class="faint">일정 ' + list.length + '개</span></div>' +
       (list.length ? '<div class="ev-rows">' + list.map(evRow).join('') + '</div>' : '<div class="card"><p class="empty" style="padding:12px">일정이 없어요</p></div>') +
       '<p class="kicker" style="margin-top:8px">다음 · ' + md(next) + ' ' + DOW.charAt(wd(next)) + '요일</p>' +
       (nextList.length ? '<div class="ev-rows small">' + nextList.map(evRow).join('') + '</div>' : '<p class="faint">일정이 없어요</p>') +
       '</div>';
   }
 
-  // ------------------------------------------------------------ 월별 계획 (표·인쇄)
   function drawPlan() {
     var sc = S.sched, d = sc.data, body = qs('#sched-body');
     if (!body || !d) return;
@@ -1639,7 +1700,7 @@
         var list = d.events.filter(function (e) { return e.start.slice(0, 7) === ym || (e.start.slice(0, 7) < ym && e.end.slice(0, 7) >= ym); });
         return '<section class="card ymonth"><h3>' + m + '월</h3>' + (list.length ? '<ul class="ylist">' + list.map(function (e) {
           var s = e.start.slice(0, 7) < ym ? ym + '-01' : e.start;
-          return '<li class="' + (isOff(e) ? 'off' : '') + '"><span class="yd">' + dayNum(s) + ' ' + DOW.charAt(wd(s)) + '</span>' +
+          return '<li class="' + (isOff(e) ? 'off' : '') + '"><span class="yd">' + dayNum(s) + '일(' + DOW.charAt(wd(s)) + ')</span>' +
             '<button type="button" class="plan-ev' + (isOff(e) ? ' off' : '') + (e.important ? ' imp' : '') + '" data-action="ev-open" data-ev="' + esc(e.id) + '">' + (e.important ? starHtml() : '') + esc(e.title) +
             (e.end !== e.start ? ' <span class="faint">~' + esc(md(e.end)) + '</span>' : '') + '</button></li>';
         }).join('') + '</ul>' : '<p class="faint">일정이 없어요</p>') + '</section>';
@@ -1671,8 +1732,12 @@
   function openDay(day) {
     var d = S.sched.data;
     var list = d.events.filter(function (e) { return onDay(e, day) && passFilter(e, S.sched.filter); });
+    var wkend = wd(day) === 5 ? d.events.filter(function (e) { // 금요일 칸에 붙여 보인 토·일 일정도 함께
+      return !onDay(e, day) && (onDay(e, addD(day, 1)) || onDay(e, addD(day, 2))) && passFilter(e, S.sched.filter);
+    }) : [];
     openModal('<h2 id="m-title">' + mdw(day) + '</h2>' +
       (list.length ? '<div class="ev-rows">' + list.map(evRow).join('') + '</div>' : '<p class="muted">일정이 없어요</p>') +
+      (wkend.length ? '<p class="kicker" style="margin-top:8px">토·일 · ' + md(addD(day, 1)) + ' – ' + md(addD(day, 2)) + '</p><div class="ev-rows small">' + wkend.map(evRow).join('') + '</div>' : '') +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
       '<button type="button" class="btn btn-primary" data-action="ev-add" data-day="' + day + '">' + icon('plus', 18) + '이날 행사 추가</button></div>');
   }
@@ -1701,6 +1766,7 @@
 
   function drawEventForm(box, init) {
     var e = init.id ? eventById(init.id) || {} : {};
+    if (init.id && init.base === undefined) init.base = e.editedAt || e.at || ''; // 창을 연 때의 저장 시각(다시 그려도 그대로)
     var dr = init.draft || null; // 다시 그릴 때는 쓰던 값 그대로
     var start = dr ? dr.start : e.start || init.start || localToday();
     var multi = dr ? dr.multi : !!(e.end && e.end !== e.start);
@@ -1806,7 +1872,9 @@
       if (!fields.title.trim()) { err.textContent = '행사 이름을 적어 주세요.'; qs('#ef-title', form).focus(); return; }
       var btn = form.querySelector('[type=submit]');
       busy(btn, true, '저장하는 중');
-      server('sched.save', { id: init.id || '', fields: fields }, schedThen(fields.start)).then(function (saved) {
+      var req = { id: init.id || '', fields: fields };
+      if (init.id) { req.base = init.base || ''; if (init.force) req.force = true; }
+      server('sched.save', req, schedThen(fields.start)).then(function (saved) {
         S.sched.form = null;
         patchEvent(saved);
         closeModal();
@@ -1814,7 +1882,19 @@
         if (S.screen === 'schedule' && S.sched.view !== 'year') { S.sched.y = +t.slice(0, 4); S.sched.m = +t.slice(5, 7); S.sched.week = mondayOf(t); S.sched.day = t; }
         reloadSched();
         toast(saved.title + josa(saved.title, '을', '를') + ' ' + (init.id ? '고쳤어요' : '넣었어요'));
-      }).catch(function (e2) { busy(btn, false); err.textContent = e2.message; });
+      }).catch(function (e2) {
+        busy(btn, false);
+        err.textContent = e2.message;
+        if (e2.code === 'CONFLICT' && !qs('#ef-force', form)) { // 그사이 다른 분이 고쳤다: 쓰던 내용은 그대로 두고 고르게
+          var f = document.createElement('button');
+          f.type = 'button';
+          f.className = 'btn btn-sm';
+          f.id = 'ef-force';
+          f.textContent = '그래도 저장';
+          f.addEventListener('click', function () { init.force = true; f.parentNode.removeChild(f); form.requestSubmit ? form.requestSubmit() : btn.click(); });
+          err.parentNode.insertBefore(f, err.nextSibling);
+        }
+      });
     });
   }
 
@@ -3284,12 +3364,21 @@
     var doc = new DOMParser().parseFromString(html, 'text/html');
     var table = doc.querySelector('table');
     if (!table) return null;
-    return Array.prototype.map.call(table.querySelectorAll('tr'), function (tr) {
-      var line = [];
+    var taken = {}; // 위 줄에서 아래로 합친 칸(rowspan)이 차지한 자리 → 그 칸의 값(아래 줄에도 같은 값을 채워 칸이 왼쪽으로 밀리지 않게)
+    return Array.prototype.map.call(table.querySelectorAll('tr'), function (tr, i) {
+      var line = [], j = 0;
+      var skip = function () { while (taken[i + ':' + j] !== undefined) { line.push(taken[i + ':' + j]); j++; } };
       Array.prototype.forEach.call(tr.children, function (td) {
-        line.push((td.innerText || td.textContent || '').replace(/\s+/g, ' ').trim());
-        for (var k = 1; k < (Number(td.getAttribute('colspan')) || 1); k++) line.push('');
+        skip();
+        var v = (td.innerText || td.textContent || '').replace(/\s+/g, ' ').trim();
+        var cs = Math.max(1, Number(td.getAttribute('colspan')) || 1), rs = Math.max(1, Math.min(200, Number(td.getAttribute('rowspan')) || 1));
+        for (var b = 0; b < cs; b++) {
+          line.push(b ? '' : v);
+          for (var a = 1; a < rs; a++) taken[(i + a) + ':' + (j + b)] = b ? '' : v;
+        }
+        j += cs;
       });
+      skip();
       return line;
     });
   }
@@ -3423,8 +3512,9 @@
       '<div class="box"><span class="faint">올릴 행사</span><b class="stat-num" id="up-count">' + c.add + '개</b><span class="faint">읽은 줄 ' + c.total + '개</span></div>' +
       '<div class="box"><span class="faint">확인이 필요한 줄</span><b class="stat-num warn-num">' + c.warn + '개</b><span class="faint">고치거나 빼고 올릴 수 있어요</span></div>' +
       '<div class="box"><span class="faint">올릴 수 없는 줄</span><b class="stat-num' + (c.error ? ' err-num' : '') + '">' + c.error + '개</b><span class="faint">날짜·행사명을 고쳐 주세요</span></div>' +
-      '<div class="box"><span class="faint">올린 뒤 수업일수</span><b class="stat-num">' + (daysOk ? aft.total + '일' : '—') + '</b><span class="faint">' +
-      (daysOk ? '지금 ' + nowD.total + '일' + (aft.total !== nowD.total ? ' → ' + (aft.total - nowD.total > 0 ? '+' : '') + (aft.total - nowD.total) + '일' : ' · 같아요') : '학기 기간이 없어 계산하지 않아요') + '</span></div></div>' +
+      '<div class="box"><span class="faint">올린 뒤 ' + (r.days.year ? esc(r.days.year) + '학년도 ' : '') + '수업일수</span><b class="stat-num">' + (daysOk ? aft.total + '일' : '—') + '</b><span class="faint">' +
+      (daysOk ? '지금 ' + nowD.total + '일' + (aft.total !== nowD.total ? ' → ' + (aft.total - nowD.total > 0 ? '+' : '') + (aft.total - nowD.total) + '일' : ' · 같아요')
+        : (r.days.year ? esc(r.days.year) + '학년도 ' : '') + '학기 기간이 없어 계산하지 않아요(관리자 › 설정 › 학기 기간)') + '</span></div></div>' +
       (c.dupUpload ? '<div class="box up-mode"><span><b>전에 올린 같은 행사 ' + c.dupUpload + '개</b> <span class="faint">(같은 날짜·같은 이름)</span></span>' +
         '<div class="seg" role="group" aria-label="전에 올린 같은 행사"><button type="button" data-action="up-mode" data-v="skip" aria-pressed="' + (U.mode === 'skip') + '">건너뛰기</button>' +
         '<button type="button" data-action="up-mode" data-v="replace" aria-pressed="' + (U.mode === 'replace') + '">새것으로 바꾸기</button></div></div>' : '') +
@@ -4026,11 +4116,26 @@
     try { links = JSON.parse(byKey('기존 시트 바로가기').value || '[]'); } catch (e) { links = []; }
     S.cache.links = links;
     var backup = byKey('백업 폴더ID').value;
+    var yr = byKey('학년도'), sems = (byKey('학기 기간') || {}).value || null;
+    /** 학년도마다 학기 기간(이번·다음 학년도). 예전 판 서버면(학기 기간이 오지 않음) 예전 설정 칸 그대로 */
+    var semHtml = sems ? sems.map(function (v, k) {
+      var f = function (key, label) {
+        var id = 'sem-' + v.year + '-' + key;
+        return '<div class="field"><label class="label" for="' + id + '">' + label + '</label><input id="' + id + '" class="input" type="date" data-sem="' + v.year + '" data-k="' + key + '" value="' + esc(v[key] || '') + '"' +
+          ' min="' + v.year + '-03-01" max="' + (v.year + 1) + '-02-' + (new Date(Date.UTC(v.year + 1, 2, 0)).getUTCDate()) + '"></div>';
+      };
+      return '<fieldset class="sem-year"><legend>' + v.year + '학년도 <span class="faint">' + (k ? '다음 학년도' : '지금 학년도') + '</span></legend>' +
+        (v.src === 'old' ? '<p class="hint">' + icon('info', 16) + '<span>예전 설정에 넣은 기간이에요. 저장하면 이 학년도 기간으로 따로 남아요.</span></p>' : '') +
+        '<div class="form-grid">' + f('s1from', '1학기 시작일') + f('s1to', '1학기 끝일') + '</div>' +
+        '<div class="form-grid">' + f('s2from', '2학기 시작일') + f('s2to', '2학기 끝일') + '</div></fieldset>';
+    }).join('') : '<div class="form-grid">' + input(byKey('1학기 시작일')) + input(byKey('1학기 끝일')) + '</div>' +
+      '<div class="form-grid">' + input(byKey('2학기 시작일')) + input(byKey('2학기 끝일')) + '</div>';
     panel.innerHTML = '<form class="wrap" id="set-form" style="gap:24px" novalidate>' +
-      '<section class="card"><h2>학교·학년도</h2><div class="form-grid">' + input(byKey('학교명')) + input(byKey('학년도')) + '</div></section>' +
-      '<section class="card"><h2>학기 기간</h2><p class="faint">수업일수 계산에 써요. 학교 학사일정을 보고 넣어 주세요(확인 필요).</p>' +
-      '<div class="form-grid">' + input(byKey('1학기 시작일')) + input(byKey('1학기 끝일')) + '</div>' +
-      '<div class="form-grid">' + input(byKey('2학기 시작일')) + input(byKey('2학기 끝일')) + '</div></section>' +
+      '<section class="card"><h2>학교·학년도</h2><div class="form-grid">' + input(byKey('학교명')) +
+      '<div class="field"><span class="label">지금 학년도</span><p class="set-year"><b>' + esc(yr ? yr.value : '') + '학년도</b>' +
+      '<button type="button" class="btn btn-sm" data-admin-tab="year">새 학년도로 넘기기' + icon('chev', 16) + '</button></p>' +
+      '<p class="hint">학년도는 관리자 › 새 학년도에서 바꿔요(지금 학년도 자료를 보관하고, 고른 자료를 옮겨 적는 일과 함께 해요).</p></div></div></section>' +
+      '<section class="card"><h2>학기 기간</h2><p class="faint">수업일수 계산에 써요. 학년도마다 따로 넣어요. 학교 학사일정을 보고 넣어 주세요(확인 필요).</p>' + semHtml + '</section>' +
       '<section class="card"><h2>본인 확인·백업</h2><div class="form-grid">' + input(byKey('본인 확인 방식')) + input(byKey('기기 기억 일수')) + '</div>' +
       '<div class="form-grid">' + input(byKey('잠금 횟수')) + input(byKey('잠금 분')) + '</div>' +
       '<div class="form-grid">' + input(byKey('백업 남길 개수')) + '</div>' +
@@ -4048,9 +4153,17 @@
       var values = {};
       qsa('[data-set]').forEach(function (i) { values[i.getAttribute('data-set')] = i.value; });
       values['기존 시트 바로가기'] = JSON.stringify(S.cache.links.filter(function (l) { return l.name || l.url; }));
+      var req = { values: values };
+      if (sems) {
+        req.semesters = sems.map(function (v) {
+          var o = { year: v.year };
+          qsa('[data-sem="' + v.year + '"]').forEach(function (i) { o[i.getAttribute('data-k')] = i.value; });
+          return o;
+        });
+      }
       var btn = ev.target.querySelector('[type=submit]');
       busy(btn, true, '저장하는 중');
-      server('admin.settings.save', { values: values }).then(function (l2) {
+      server('admin.settings.save', req).then(function (l2) {
         if (S.start) S.start.school = values['학교명'];
         var newPin = values['본인 확인 방식'] === '이름+개인 번호';
         if (S.start && S.start.pinMode !== newPin) {

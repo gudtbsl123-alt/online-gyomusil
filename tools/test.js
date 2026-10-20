@@ -77,10 +77,10 @@ test('SHA-256·HMAC 가짜 구현이 Node crypto와 같다', () => {
   }
 });
 
-test('처음 설정: 탭 16개와 머리글, 설정 기본값을 만든다', () => {
+test('처음 설정: 탭 17개와 머리글, 설정 기본값을 만든다', () => {
   const g = loadGas();
   const r = g.setupAll_();
-  assert.strictEqual(r.created.length, 16);
+  assert.strictEqual(r.created.length, 17);
   const names = g._ss.sheets.map((s) => s.name);
   for (const t of Object.keys(g.tabs_())) assert.ok(names.includes(t), t);
   assert.deepStrictEqual(plain(g.headOf_('교직원')), plain(g.tabs_()['교직원']));
@@ -3442,6 +3442,171 @@ test('서버 파일: 웹앱에서는 모든 .gs 파일이 이름을 함께 쓰�
     });
   });
   assert.deepStrictEqual(dup, []);
+});
+
+// ---------------------------------------------------------------- 전체 보완(판 2026-10-19a): 일정·홈·학생 수·학기
+
+test('일정 보완: 끌어 옮기기는 날짜만 바꾸고, 그사이 다른 분이 고쳤으면 옮기지 않는다 · 고치기도 덮어쓰지 않고 묻는다(그래도 저장은 내 내용으로)', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const a = who('성춘향'), b = boss('홍길동');
+  const tick = () => { g.__clock.offset += 2000; }; // 저장 시각은 초 단위라 2초씩 띄운다
+  const add = call(g, 'sched.save', { fields: ev({ start: '2026-10-20', title: '공개수업', time: '5교시', place: '3-2 교실' }) }, a).data;
+  const base0 = add.editedAt || add.at;
+  tick();
+  const fixed = call(g, 'sched.save', { id: add.id, fields: ev({ start: '2026-10-20', title: '공개수업', time: '6교시', place: '시청각실' }), base: base0 }, b);
+  assert.ok(fixed.ok, fixed.error);
+  tick();
+  const mv1 = call(g, 'sched.move', { id: add.id, start: '2026-10-22', end: '', base: base0 }, a); // 옛 달력에서 끌어 옮기기
+  assert.strictEqual(mv1.code, 'CONFLICT');
+  assert.match(mv1.error, /홍길동 선생님이 이 일정을 고쳤어요/);
+  const mv2 = call(g, 'sched.move', { id: add.id, start: '2026-10-22', end: '', base: fixed.data.editedAt }, a);
+  assert.ok(mv2.ok, mv2.error);
+  assert.deepStrictEqual([mv2.data.start, mv2.data.time, mv2.data.place], ['2026-10-22', '6교시', '시청각실'], '날짜만 바뀌고 부장이 고친 시간·장소는 그대로');
+  tick();
+  const old = mv2.data.editedAt;
+  assert.ok(call(g, 'sched.save', { id: add.id, fields: ev({ start: '2026-10-22', title: '공개수업', time: '7교시' }), base: old }, b).ok);
+  tick();
+  const c = call(g, 'sched.save', { id: add.id, fields: ev({ start: '2026-10-22', title: '공개수업(변경)' }), base: old }, a);
+  assert.strictEqual(c.code, 'CONFLICT');
+  assert.match(c.error, /그래도 저장/);
+  const f = call(g, 'sched.save', { id: add.id, fields: ev({ start: '2026-10-22', title: '공개수업(변경)' }), base: old, force: true }, a);
+  assert.ok(f.ok, f.error);
+  assert.strictEqual(f.data.title, '공개수업(변경)');
+  assert.ok(call(g, 'sched.save', { id: add.id, fields: ev({ start: '2026-10-23', title: '공개수업(변경)' }) }, a).ok, 'base 없이 보내는 예전 화면은 그대로');
+  assert.ok(g.readRows_('기록').some((r) => /일정 옮김/.test(r['요약'])));
+  assert.strictEqual(call(g, 'sched.move', { id: add.id, start: '2026-10-25', end: '2026-10-24' }, a).ok, false, '끝나는 날이 앞이면 막는다');
+  assert.strictEqual(call(g, 'sched.move', { id: add.id, start: '2026-10-25' }, who('심청')).code, 'FORBIDDEN', '다른 분 일정은 못 옮긴다');
+});
+
+test('일정 보완: 내가 넣은 휴업일·공휴일도 관리자 화면이 없으면 고치기·끌기가 보이지 않고, 옮기면 막는다', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const h = call(g, 'sched.save', { fields: ev({ start: '2026-10-21', title: '재량휴업일', kind: '휴업일', target: ['전체'] }) }, boss('홍길동')).data;
+  assert.strictEqual(h.canEdit, true, '관리자 화면을 연 기기');
+  const me = who('홍길동');
+  const m = call(g, 'sched.month', { year: 2026, month: 10 }, me).data;
+  assert.strictEqual(m.events.find((e) => e.id === h.id).canEdit, false, '같은 분이라도 관리자 화면 없이는');
+  assert.strictEqual(call(g, 'sched.move', { id: h.id, start: '2026-10-22' }, me).code, 'FORBIDDEN');
+});
+
+test('일정 보완: 관리자 화면이 닫힌(2시간 지난) 기기에서 관리 일을 하면 ADMIN으로 알린다(연구부장에게 "연구부장만"이라고 하지 않게)', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const b = boss('홍길동');
+  assert.ok(call(g, 'focus.save', { year: 2026, month: 10, text: '안전' }, b).ok);
+  g.__clock.offset += 2 * 3600 * 1000 + 5000;
+  const r = call(g, 'sched.upload.check', { grid: [['시작일', '행사명'], ['2026-10-21', '행사']] }, b);
+  assert.strictEqual(r.code, 'ADMIN');
+  assert.match(r.error, /관리자 화면이 닫혔어요/);
+  assert.strictEqual(call(g, 'focus.save', { year: 2026, month: 10, text: 'x' }, b).code, 'ADMIN');
+  assert.strictEqual(call(g, 'focus.save', { year: 2026, month: 10, text: 'x' }, who('심청')).code, 'FORBIDDEN', '관리자 화면을 연 적이 없으면 그대로');
+});
+
+test('일정 보완: 시간 "아침"은 08:40·1교시 앞에 온다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('심청');
+  ['15:00', '아침', '1교시', '08:40', '방과후', '종일'].forEach((t, i) => call(g, 'sched.save', { fields: ev({ start: '2026-10-21', title: '행사' + i, time: t }) }, me));
+  const m = call(g, 'sched.month', { year: 2026, month: 10 }, me).data.events.filter((e) => e.start === '2026-10-21');
+  assert.deepStrictEqual(m.map((e) => e.time), ['종일', '아침', '08:40', '1교시', '15:00', '방과후']);
+});
+
+test('홈 보완: 금요일의 미리 보기는 월요일, 토·일에는 다음 주 일정을 보여 준다', () => {
+  const g = freshName();
+  for (let k = 0; k < 7 && g.weekday_(g.todayYmd_()) !== 5; k++) g.__clock.offset += 86400000; // 오늘을 금요일로
+  const fri = g.todayYmd_(), mon = g.addDays_(fri, 3);
+  let h = call(g, 'home', {}, ids(g).who('심청')).data;
+  assert.deepStrictEqual([h.tomorrow, h.nextLabel, h.weekNext, h.monday], [mon, '월요일', false, g.mondayOf_(fri)]);
+  g.__clock.offset += 86400000; // 토요일
+  h = call(g, 'home', {}, ids(g).who('심청')).data;
+  assert.deepStrictEqual([h.tomorrow, h.nextLabel, h.weekNext, h.monday], [mon, '월요일', true, mon], '토요일은 다음 주');
+  g.__clock.offset += 86400000; // 일요일
+  h = call(g, 'home', {}, ids(g).who('심청')).data;
+  assert.deepStrictEqual([h.tomorrow, h.nextLabel, h.weekNext, h.monday], [mon, '내일', true, mon]);
+  assert.ok(h.events.some((e) => e.start >= mon) || h.events.length === 0);
+  g.__clock.offset += 86400000; // 월요일
+  h = call(g, 'home', {}, ids(g).who('심청')).data;
+  assert.deepStrictEqual([h.nextLabel, h.weekNext, h.monday], ['내일', false, mon]);
+});
+
+test('학사일정 올리기 보완: 한 칸에 적은 기간을 나누고, 날짜 칸을 합친 표의 빈 날짜는 위 줄 날짜로(확인 필요), 미리보기 수업일수는 올리는 줄들의 학년도로', () => {
+  const g = freshName();
+  const { boss } = ids(g);
+  const b = boss();
+  const dn = (ymd) => '일월화수목금토'.charAt(g.weekday_(ymd));
+  const grid = [['날짜', '행사명', '구분'],
+    ['3.2.~3.6.', '입학 주간', '행사'],
+    ['7.24.(' + dn('2026-07-24') + ')~8.16.(' + dn('2026-08-16') + ')', '여름방학', '휴업일'],
+    ['5.4.~5.', '연휴', '휴업일'],
+    ['10.12.(' + dn('2026-10-12') + ')', '안전점검의 날', '행사'],
+    ['', '교직원 연수', '행사']];
+  const r = call(g, 'sched.upload.check', { grid }, b).data;
+  const row = (t) => r.rows.find((x) => x.title === t);
+  assert.deepStrictEqual([row('입학 주간').start, row('입학 주간').end], ['2026-03-02', '2026-03-06']);
+  assert.deepStrictEqual([row('여름방학').start, row('여름방학').end, row('여름방학').status], ['2026-07-24', '2026-08-16', 'ok']);
+  assert.deepStrictEqual([row('연휴').start, row('연휴').end], ['2026-05-04', '2026-05-05'], '끝에 날만 적으면 같은 달');
+  assert.strictEqual(row('교직원 연수').start, '2026-10-12');
+  assert.strictEqual(row('교직원 연수').status, 'warn');
+  assert.ok(row('교직원 연수').msgs.some((m) => /위 줄 날짜/.test(m)));
+  assert.strictEqual(r.days.year, 2026);
+  const next = call(g, 'sched.upload.check', { grid: [['시작일', '행사명', '구분'], ['2027-03-02', '입학식', '행사'], ['2027-05-05', '어린이날', '공휴일']] }, b).data;
+  assert.strictEqual(next.days.year, 2027, '새 학년도 일정을 미리 올리면 그 학년도로 센다');
+  assert.strictEqual(call(g, 'sched.upload.check', { grid: [['시작일', '행사명'], ['', '첫 줄인데 날짜 없음']] }, b).data.rows[0].status, 'error', '위 줄이 없으면 그대로 올릴 수 없음');
+});
+
+test('학생 수 보완: 다른 학년을 함께 고치면 둘 다 저장되고, 같은 학년을 둘이 고쳤을 때만 묻는다(저장하지 않고 지금 숫자를 알려 줌)', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const today = g.todayYmd_();
+  const cls = (n) => { const o = {}; for (let k = 1; k <= 6; k++) o[k] = [[n, n]]; return o; };
+  assert.ok(call(g, 'students.save', { date: today, classes: cls(10) }, who('심청')).ok);
+  const st = call(g, 'home', {}, who('심청')).data.students;
+  const bases = { classes: st.classes, grades: st.grades };
+  const copy = () => JSON.parse(JSON.stringify(st.classes));
+  const c4 = copy(); c4['4'] = [[11, 12]];
+  const c5 = copy(); c5['5'] = [[13, 14]];
+  const r4 = call(g, 'students.save', { date: today, classes: c4, base: st.at, bases }, who('흥부'));
+  assert.ok(r4.ok && !r4.data.conflict, r4.error);
+  g.__clock.offset += 2000;
+  const r5 = call(g, 'students.save', { date: today, classes: c5, base: st.at, bases }, who('성춘향'));
+  assert.ok(r5.ok && !r5.data.conflict, '다른 학년이면 막지 않는다');
+  let now = call(g, 'home', {}, who('심청')).data.students;
+  assert.deepStrictEqual(plain([now.classes['4'], now.classes['5'], now.grades[3], now.grades[4], now.total]), [[[11, 12]], [[13, 14]], 23, 27, 4 * 20 + 23 + 27]);
+  const c4b = copy(); c4b['4'] = [[9, 9]];
+  const r = call(g, 'students.save', { date: today, classes: c4b, base: st.at, bases }, who('장화'));
+  assert.ok(r.ok, r.error);
+  assert.deepStrictEqual(plain(r.data.conflict.grades), [4]);
+  assert.strictEqual(r.data.conflict.by, '성춘향');
+  assert.deepStrictEqual(plain(r.data.current.classes['4']), [[11, 12]]);
+  now = call(g, 'home', {}, who('심청')).data.students;
+  assert.deepStrictEqual(plain(now.classes['4']), [[11, 12]], '같은 학년이면 저장하지 않는다');
+  const again = call(g, 'students.save', { date: today, classes: c4b, base: r.data.current.at, bases: { classes: r.data.current.classes, grades: r.data.current.grades } }, who('장화'));
+  assert.ok(again.ok && !again.data.conflict, '바뀐 숫자를 보고 다시 저장하면 내 숫자로');
+  assert.deepStrictEqual(plain(again.data.classes['4']), [[9, 9]]);
+  assert.strictEqual(call(g, 'students.save', { date: today, classes: c4, base: st.at }, who('장화')).code, 'CONFLICT', '예전 화면(학년마다 견주지 않음)은 그대로');
+});
+
+test('학기 기간 보완: 학년도마다 따로 두어 다음 학년도 기간을 넣어도 지금 학년도 수업일수는 그대로 · 겹치거나 학년도 밖이면 막고, 학년도는 설정에서 바꾸지 않는다', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  assert.ok(call(g, 'admin.settings.save', { values: { '1학기 시작일': '2026-03-02', '1학기 끝일': '2026-07-24', '2학기 시작일': '2026-08-17', '2학기 끝일': '2027-02-12' } }, t).ok);
+  const y0 = call(g, 'sched.year', { year: 2026 }, t).data.days;
+  assert.strictEqual(y0.semesters.length, 2, '학기 탭이 없으면 예전 설정 값');
+  const s = call(g, 'admin.settings.save', { values: {}, semesters: [{ year: 2027, s1from: '2027-03-02', s1to: '2027-07-23', s2from: '2027-08-16', s2to: '2028-02-11' }] }, t);
+  assert.ok(s.ok, s.error);
+  assert.deepStrictEqual(plain(call(g, 'sched.year', { year: 2026 }, t).data.days), plain(y0), '지금 학년도 수업일수는 그대로');
+  assert.deepStrictEqual(call(g, 'sched.year', { year: 2027 }, t).data.days.semesters.map((x) => x.from), ['2027-03-02', '2027-08-16']);
+  assert.deepStrictEqual(s.data.find((x) => x.key === '학기 기간').value.map((v) => [v.year, v.src]), [[2026, 'old'], [2027, 'tab']]);
+  assert.match(call(g, 'admin.settings.save', { values: {}, semesters: [{ year: 2027, s1from: '2027-03-02', s1to: '2027-08-31', s2from: '2027-08-16', s2to: '2028-02-11' }] }, t).error, /1학기 끝일은 2학기 시작일보다 앞이어야/);
+  assert.match(call(g, 'admin.settings.save', { values: {}, semesters: [{ year: 2027, s1from: '2026-03-02', s1to: '2027-07-23' }] }, t).error, /2027-03-01부터/);
+  assert.match(call(g, 'admin.settings.save', { values: {}, semesters: [{ year: 2027, s1from: '2027-03-02' }] }, t).error, /함께 넣어/);
+  assert.match(call(g, 'admin.settings.save', { values: { '1학기 끝일': '2026-08-31' } }, t).error, /2학기 시작일보다 앞이어야/, '예전 설정 칸도 겹치면 막는다');
+  assert.match(call(g, 'admin.settings.save', { values: { '학년도': '2027' } }, t).error, /새 학년도에서 바꿔요/);
+  assert.ok(call(g, 'admin.settings.save', { values: { '학년도': '2026' } }, t).ok, '같은 값은 괜찮다');
+  const m = call(g, 'sched.month', { year: 2027, month: 4 }, t).data;
+  assert.ok(m.monthDays && m.monthDays.days > 0, '다음 학년도 달도 수업일수를 센다');
+  assert.ok(g.readRows_('기록').some((r) => r['탭'] === '학기' && /2027학년도 학기 기간 넣음/.test(r['요약'])));
 });
 
 // ---------------------------------------------------------------- 전체 보완(판 2026-10-19a): 취합 시트

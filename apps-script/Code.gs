@@ -72,6 +72,7 @@ function routes_() {
     'sched.year': { need: 'login', fn: 'apiSchedYear_' },
     'sched.save': { need: 'identity', fn: 'apiSchedSave_' },
     'sched.delete': { need: 'identity', fn: 'apiSchedDelete_' },
+    'sched.move': { need: 'identity', fn: 'apiSchedMove_' }, // 달력에서 끌어 옮기기(날짜만)
     'focus.save': { need: 'identity', fn: 'apiFocusSave_' },
     'students.save': { need: 'identity', fn: 'apiStudentsSave_' },
     'sched.upload.info': { need: 'login', fn: 'apiUploadInfo_' },
@@ -176,8 +177,8 @@ var ROUTE_TABS_ = {
   'start': [], 'staffPicker': [], 'staff.list': [],
   'session': ['응답', '알림', '조사', '공지'],
   'home': ['일정', '월별중점', '학생수', '응답', '알림', '조사', '자료', '공지'],
-  'sched.month': ['일정', '월별중점'],
-  'sched.year': ['일정'],
+  'sched.month': ['일정', '월별중점', '학기'],
+  'sched.year': ['일정', '학기'],
   'survey.list': ['조사', '응답', '알림'],
   'survey.get': ['조사', '응답', '알림'],
   'lib.list': ['자료'],

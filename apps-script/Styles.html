@@ -348,6 +348,14 @@ select.input{appearance:auto}
 .pweek-nav{display:flex;align-items:center;gap:4px}
 .pweek-nav b{font-size:18px}
 .pdays{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.pdays.six{grid-template-columns:repeat(6,minmax(0,1fr))}
+.sem-year{display:flex;flex-direction:column;gap:12px;margin:0;padding:14px 16px;border:1px solid var(--c-line);border-radius:14px}
+.sem-year legend{padding:0 6px;font-weight:800}
+.set-year{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0;min-height:44px}
+.set-year b{font-size:17px}
+.stu-clash{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:4px 0 8px;padding:10px 12px;border-radius:12px;background:var(--c-warnBg);color:var(--c-warnFg);font-size:14px;line-height:1.5}
+.stu-clash p{margin:0;flex:1 1 220px}
+.pday.wk>span:first-child{font-size:12px;white-space:nowrap}
 .pday{display:flex;flex-direction:column;align-items:center;gap:0;min-height:72px;padding:6px 0;border:1px solid var(--c-line);border-radius:14px;background:var(--c-card);color:var(--c-t2);font:inherit;font-size:13px;cursor:pointer}
 .pday b{font-size:20px;color:var(--c-t1)}
 .pday.off b{color:var(--c-red)}
@@ -379,7 +387,7 @@ select.input{appearance:auto}
 .ymonth h3{font-size:18px}
 .ylist{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
 .ylist li{display:flex;gap:10px;align-items:baseline}
-.yd{flex:none;width:44px;font-size:14px;font-weight:700;color:var(--c-t3);font-variant-numeric:tabular-nums}
+.yd{flex:none;width:58px;font-size:14px;font-weight:700;color:var(--c-t3);font-variant-numeric:tabular-nums;white-space:nowrap}
 .ylist li.off .yd{color:var(--c-red)}
 
 /* 중요 일정 */

@@ -411,7 +411,7 @@ async function studentsFlow(page, kind) {
   if (!(await page.locator('.stu-g.mine', { hasText: '3학년' }).count())) problems.push(kind + ': 우리 학년(3학년) 표시가 없음');
   const shown = Number((await page.textContent('.stu-total-num')).replace(/,/g, ''));
   if (shown !== sum) problems.push(kind + ': 전체 학생 수가 ' + shown + ' (기대 ' + sum + ')');
-  await page.waitForTimeout(2400); // 알림 글이 사라진 뒤 찍기
+  await page.waitForFunction(() => !document.querySelector('#toast.show'), null, { timeout: 9000 }).catch(() => {}); // 알림 글이 사라진 뒤 찍기(알림은 글 길이만큼 보인다)
   await shot(page, kind + '_홈_학생수');
   // 학년을 누르면 반별 남·여
   await page.click('[data-action=students-grade][data-id="3"]');
@@ -2420,6 +2420,178 @@ async function tableFixCheck(browser) {
   await ctx.close();
 }
 
+/** 전체 보완(판 2026-10-19a): 일정(끌기·고치기 충돌, 휴대폰 토·일, 연간 날짜)·홈(토요일)·학사일정 붙여 넣기(합친 칸)·학생 수(학년마다)·설정(학기 기간) */
+async function schedFixCheck(browser) {
+  const { as, open, toastHas } = tbKit(browser);
+  const raw = (page, action, args) => page.evaluate(([a, b]) => { // 화면 기억을 건드리지 않고(다른 창에서 한 것처럼) 서버를 부른다
+    const login = localStorage.getItem('gy.login') || sessionStorage.getItem('gy.login');
+    const identity = localStorage.getItem('gy.identity') || sessionStorage.getItem('gy.identity');
+    return window.__previewServer(JSON.stringify({ action: a, args: b, tokens: { login, identity } })).then((t) => JSON.parse(t));
+  }, [action, args]);
+  const plus = (d, k) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + k); return t.toISOString().slice(0, 10); };
+  const mid = async (page, sel) => { const b = await page.locator(sel).first().boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+  const mouseDrag = async (page, from, to) => {
+    const a = await mid(page, from), b = await mid(page, to);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) await page.mouse.move(a.x + (b.x - a.x) * i / 8, a.y + (b.y - a.y) * i / 8);
+    await page.mouse.up();
+  };
+  const asked = (page) => page.locator('#cf-ok').waitFor({ timeout: 3000 }).then(() => true, () => false);
+  const chip = (day, id) => `.cal-d[data-day="${day}"] [data-ev="${id}"]`;
+  const toSat = () => { // 시계를 다음 토요일(오늘이 토요일이면 오늘)로
+    const RD = Date, d = new RD(RD.now() + 9 * 3600e3).getUTCDay(), off = ((6 - d + 7) % 7) * 86400e3;
+    class FD extends RD { constructor(...a) { if (a.length) super(...a); else super(RD.now() + off); } static now() { return RD.now() + off; } }
+    window.Date = FD;
+  };
+
+  // 1) 끌어 옮기기: 다른 창에서 고친 일정은 옮기지 않고 알린 뒤 달력을 새로 받는다 → 다시 끌면 날짜만 옮겨진다
+  let { ctx, page } = await open({ width: 1440, height: 900 }, '성춘향');
+  await page.evaluate(() => { window.__gy.S.sched.view = 'cal'; window.__gy.go('schedule'); });
+  await page.locator('.cal').waitFor();
+  const days = await page.evaluate(() => { const S = window.__gy.S, ym = S.sched.y + '-' + String(S.sched.m).padStart(2, '0'); return Array.from(document.querySelectorAll('.cal-d[data-day]')).map((c) => c.getAttribute('data-day')).filter((d) => d.slice(0, 7) === ym); });
+  const wed = days.find((d) => new Date(d + 'T00:00:00Z').getUTCDay() === 3 && Number(d.slice(8)) >= 8 && Number(d.slice(8)) <= 22), fri = plus(wed, 2);
+  const ev1 = await page.evaluate((d) => window.__gy.server('sched.save', { id: '', fields: { start: d, end: '', time: '5교시', title: '보완 끌기 행사', kind: '행사', target: ['3'], deptId: '', place: '3-2 교실', memo: '', important: false } }), wed);
+  await page.evaluate(() => window.__gy.go('schedule'));
+  await page.locator(chip(wed, ev1.id)).waitFor();
+  await page.waitForTimeout(1100); // 저장 시각은 초 단위
+  const ed = await raw(page, 'sched.save', { id: ev1.id, fields: { start: wed, title: '보완 끌기 행사', time: '6교시', place: '시청각실', kind: '행사', target: ['3'] } });
+  if (!ed.ok) problems.push('보완 일정: 다른 창에서 고치지 못함 ' + ed.error);
+  await mouseDrag(page, chip(wed, ev1.id), `.cal-d[data-day="${fri}"]`);
+  if (await asked(page)) {
+    await page.click('#cf-ok');
+    if (!(await toastHas(page, /고쳤어요/))) problems.push('보완 일정: 그사이 고친 일정을 끌어 옮겼는데 알리지 않음');
+    await page.waitForTimeout(500);
+    await page.locator(chip(wed, ev1.id)).waitFor({ timeout: 5000 }).catch(() => problems.push('보완 일정: 옮기지 않은 일정이 제자리에 없음'));
+    await mouseDrag(page, chip(wed, ev1.id), `.cal-d[data-day="${fri}"]`);
+    if (await asked(page)) {
+      await page.click('#cf-ok');
+      await waitText(page, '옮겼어요');
+      const m = (await raw(page, 'sched.month', { year: +fri.slice(0, 4), month: +fri.slice(5, 7) })).data.events.find((e) => e.id === ev1.id);
+      if (!m || m.start !== fri || m.time !== '6교시' || m.place !== '시청각실') problems.push('보완 일정: 끌어 옮긴 뒤 다른 분이 고친 시간·장소가 되돌아감 ' + JSON.stringify(m && [m.start, m.time, m.place]));
+    } else problems.push('보완 일정: 다시 끌었는데 묻지 않음');
+  } else problems.push('보완 일정: 끌어 놓았는데 묻지 않음');
+  // 2) 고치기 창: 연 뒤 다른 분이 고쳤으면 쓰던 글은 그대로 두고 '그래도 저장'
+  await page.locator(chip(fri, ev1.id)).waitFor({ timeout: 5000 }).catch(() => {});
+  await page.click(chip(fri, ev1.id));
+  await page.locator('.ev-dl').waitFor();
+  await page.click('[data-action=ev-edit]');
+  await page.locator('#ef-title').waitFor();
+  await page.waitForTimeout(1100);
+  await raw(page, 'sched.save', { id: ev1.id, fields: { start: fri, title: '보완 끌기 행사', time: '7교시', place: '시청각실', kind: '행사', target: ['3'] } });
+  await page.fill('#ef-title', '보완 끌기 행사(고침)');
+  await page.click('#ev-form [type=submit]');
+  if (!(await page.locator('#ef-force').waitFor({ timeout: 4000 }).then(() => true, () => false))) problems.push('보완 일정: 그사이 고친 일정을 저장했는데 묻지 않음');
+  else {
+    if (!/그사이/.test(await page.textContent('#ef-err'))) problems.push('보완 일정: 먼저 고친 분 안내가 없음');
+    if ((await page.inputValue('#ef-title')) !== '보완 끌기 행사(고침)') problems.push('보완 일정: 묻는 동안 쓰던 글이 사라짐');
+    await shot(page, '보완_일정_고치기_먼저고침');
+    await page.click('#ef-force');
+    await waitText(page, '고쳤어요');
+    const m2 = (await raw(page, 'sched.month', { year: +fri.slice(0, 4), month: +fri.slice(5, 7) })).data.events.find((e) => e.id === ev1.id);
+    if (!m2 || m2.title !== '보완 끌기 행사(고침)') problems.push('보완 일정: 그래도 저장이 안 됨');
+  }
+  // 3) 연간 학사일정 날짜는 '12일(월)'
+  await page.click('[data-sched-view=year]');
+  await page.locator('.ylist .yd').first().waitFor();
+  const yd = await page.locator('.ylist .yd').first().innerText();
+  if (!/^\d{1,2}일\([월화수목금토일]\)$/.test(yd.trim())) problems.push('보완 일정: 연간 학사일정 날짜가 ' + yd);
+  // 4) 학사일정 붙여 넣기: 날짜 칸을 합친 표(rowspan)도 칸이 밀리지 않고, 한 칸에 적은 기간을 나눈다
+  await page.evaluate(() => window.__gy.go('admin'));
+  await page.fill('#admin-pw', 'admin1');
+  await page.click('#admin-form [type=submit]');
+  await page.locator('.srow').nth(3).waitFor();
+  await page.evaluate(() => window.__gy.go('upload'));
+  await page.locator('.up-steps').waitFor();
+  await page.click('[data-action=up-input][data-v=paste]');
+  await page.locator('#up-paste').focus();
+  await page.evaluate(() => {
+    const html = '<table><tr><td>날짜</td><td>행사명</td><td>구분</td></tr><tr><td rowspan="2">2026. 11. 18.</td><td>교직원 연수</td><td>행사</td></tr><tr><td>학부모 상담</td><td>행사</td></tr><tr><td>2026. 11. 19.~11. 20.</td><td>현장체험학습</td><td>교육활동</td></tr></table>';
+    const dt = new DataTransfer();
+    dt.setData('text/html', html);
+    dt.setData('text/plain', '날짜\t행사명\t구분\n2026. 11. 18.\t교직원 연수\t행사\n\t학부모 상담\t행사\n2026. 11. 19.~11. 20.\t현장체험학습\t교육활동');
+    const ta = document.querySelector('#up-paste');
+    ta.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }));
+    ta.value = dt.getData('text/plain');
+  });
+  await page.click('[data-action=up-read-paste]');
+  await page.locator('.up-table').waitFor();
+  const up = await page.evaluate(() => (window.__gy.S.up.res.rows || []).map((r) => [r.title, r.start, r.end, r.status]));
+  const upRow = (t) => up.find((x) => x[0] === t) || [];
+  if (upRow('학부모 상담')[1] !== '2026-11-18' || upRow('현장체험학습')[1] !== '2026-11-19' || upRow('현장체험학습')[2] !== '2026-11-20') problems.push('보완 올리기: 합친 날짜 칸·한 칸 기간을 못 읽음 ' + JSON.stringify(up));
+  await shot(page, '보완_학사일정_합친칸_붙여넣기', true);
+  // 5) 설정 › 학기 기간: 지금·다음 학년도를 따로, 학년도는 새 학년도에서
+  await page.evaluate(() => { window.__gy.S.adminTab = 'settings'; window.__gy.go('admin'); });
+  await page.locator('.sem-year').first().waitFor();
+  if ((await page.locator('.sem-year').count()) !== 2) problems.push('보완 설정: 학기 기간이 학년도 두 개로 나뉘지 않음');
+  if (await page.locator('[data-set="학년도"]').count()) problems.push('보완 설정: 학년도를 설정에서 바꿀 수 있음');
+  const ny = await page.evaluate(() => document.querySelectorAll('.sem-year')[1].querySelector('[data-sem]').getAttribute('data-sem'));
+  await page.fill('#sem-' + ny + '-s1from', ny + '-03-02');
+  await page.fill('#sem-' + ny + '-s1to', ny + '-07-23');
+  await page.fill('#sem-' + ny + '-s2from', ny + '-08-16');
+  await page.fill('#sem-' + ny + '-s2to', (Number(ny) + 1) + '-02-11');
+  await page.click('#set-form [type=submit]');
+  if (!(await toastHas(page, /설정을 저장했어요/))) problems.push('보완 설정: 다음 학년도 학기 기간을 저장하지 못함 ' + (await page.textContent('#set-err')));
+  await page.locator('.sem-year').nth(1).scrollIntoViewIfNeeded();
+  await shot(page, '보완_설정_학기기간');
+  const yr = (await raw(page, 'sched.year', { year: Number(ny) })).data.days.semesters.map((x) => x.from).join(',');
+  if (yr !== ny + '-03-02,' + ny + '-08-16') problems.push('보완 설정: 다음 학년도 학기 기간이 연간 학사일정에 쓰이지 않음 ' + yr);
+  await ctx.close();
+
+  // 6) 토요일: 홈은 다음 주 일정·월요일 미리 보기, 휴대폰 일정은 토·일 칸
+  ({ ctx, page } = await open({ width: 1440, height: 900 }, '심청', false, toSat));
+  const head = await page.locator('#home-body h2', { hasText: '주 일정' }).first().innerText();
+  const tom = await page.locator('.tomorrow b').innerText();
+  if (!/다음 주 일정/.test(head) || tom.trim() !== '월요일 미리 보기') problems.push('보완 홈: 토요일인데 ' + head + ' / ' + tom);
+  await shot(page, '보완_홈_토요일_다음주');
+  await ctx.close();
+  ({ ctx, page } = await open({ width: 390, height: 844 }, '심청', true, toSat));
+  await page.evaluate(() => { window.__gy.S.sched.view = 'cal'; window.__gy.go('schedule'); });
+  await page.locator('.pdays').waitFor();
+  if (!(await page.locator('.pdays.six .pday.wk.on').count())) problems.push('보완 휴대폰: 토요일인데 토·일 칸이 골라지지 않음');
+  if (!/토·일/.test(await page.locator('.pweek .card-head h2').innerText())) problems.push('보완 휴대폰: 토·일 제목이 없음');
+  await check(page, '보완 휴대폰 토·일');
+  await shot(page, '보완_휴대폰_일정_토일');
+  await ctx.close();
+
+  // 7) 학생 수: 다른 학년은 함께 저장, 같은 학년을 그사이 고쳤으면 쓰던 숫자는 두고 바뀐 숫자를 보여 준다
+  ({ ctx, page } = await open({ width: 1440, height: 900 }, '심청'));
+  const today = await page.evaluate(() => window.__gy.S.home && window.__gy.S.home.today);
+  const all = {};
+  for (let g = 1; g <= 6; g++) all[g] = [[10, 10]];
+  await as(page, '심청', 'students.save', { date: today, classes: all });
+  await page.evaluate(() => { window.__gy.memoClear(); window.__gy.go('home'); });
+  await page.locator('.stu-card [data-action=students-edit]').waitFor();
+  await page.click('.stu-card [data-action=students-edit]');
+  await page.locator('#stu-form').waitFor();
+  const five = JSON.parse(JSON.stringify(all)); five[5] = [[12, 13]];
+  await as(page, '흥부', 'students.save', { date: today, classes: five }); // 흥부가 5학년을 먼저 고친다(심청 창은 모름)
+  await page.fill('#stu-4-1-0', '11');
+  await page.click('#stu-save');
+  await page.locator('#stu-form').waitFor({ state: 'detached', timeout: 5000 }).catch(() => problems.push('보완 학생 수: 다른 학년을 고쳤는데 저장되지 않음 ' + ''));
+  let st = (await as(page, '심청', 'home', {})).data.students;
+  if (JSON.stringify(st.classes['4']) !== '[[11,10]]' || JSON.stringify(st.classes['5']) !== '[[12,13]]') problems.push('보완 학생 수: 두 분이 고친 학년이 함께 남지 않음 ' + JSON.stringify(st.classes));
+  await page.click('.stu-card [data-action=students-edit]');
+  await page.locator('#stu-form').waitFor();
+  const four = JSON.parse(JSON.stringify(st.classes)); four['4'] = [[15, 15]];
+  await page.waitForTimeout(1100);
+  await as(page, '장화', 'students.save', { date: today, classes: four }); // 장화가 같은 4학년을 먼저
+  await page.fill('#stu-4-1-1', '9');
+  await page.click('#stu-save');
+  if (!(await page.locator('#stu-clash-4').waitFor({ timeout: 5000 }).then(() => true, () => false))) problems.push('보완 학생 수: 같은 학년을 그사이 고쳤는데 묻지 않음 ' + (await page.textContent('#stu-err')));
+  else {
+    if ((await page.inputValue('#stu-4-1-1')) !== '9') problems.push('보완 학생 수: 묻는 동안 쓰던 숫자가 사라짐');
+    if (!/장화 선생님/.test(await page.textContent('#stu-err'))) problems.push('보완 학생 수: 먼저 고친 분 안내가 없음');
+    await page.locator('#stu-sec-4').scrollIntoViewIfNeeded();
+    await shot(page, '보완_학생수_같은학년_먼저고침');
+    await page.click('[data-stu-take="4"]');
+    if ((await page.inputValue('#stu-4-1-1')) !== '15') problems.push('보완 학생 수: 이 숫자로 바꾸기가 안 됨');
+    await page.click('#stu-save');
+    await page.locator('#stu-form').waitFor({ state: 'detached', timeout: 5000 }).catch(() => problems.push('보완 학생 수: 바뀐 숫자를 보고 다시 저장하지 못함'));
+  }
+  await ctx.close();
+}
+
 async function tableMissingCheck(browser) {
   const src = fs.readFileSync(path.join(__dirname, '..', '미리보기', '미리보기.html'), 'utf8');
   const a = src.indexOf('<style>\n/* ---------- 취합 시트(TableUi.html'), b = src.indexOf('window.__gyTableUi = function'), end = '\n};\n</script>', c = b < 0 ? -1 : src.indexOf(end, b);
@@ -2642,6 +2814,14 @@ async function introReducedMotionCheck(browser) {
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
   }
+  // ONLY=schedfix: 일정·홈·학생 수·학기 보완 점검만(판 2026-10-19a)
+  if (process.env.ONLY === 'schedfix') {
+    await schedFixCheck(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
   // ONLY=tablefix: 취합 시트 보완 점검만(판 2026-10-19a)
   if (process.env.ONLY === 'tablefix') {
     await tableFixCheck(browser);
@@ -2760,6 +2940,7 @@ async function introReducedMotionCheck(browser) {
   await table2Check(browser);
   await tplCheck(browser);
   await tableFixCheck(browser);
+  await schedFixCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
   await browser.close();
