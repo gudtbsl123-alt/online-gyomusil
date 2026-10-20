@@ -640,7 +640,7 @@ test('홈: 기존 시트 바로가기와 이번 주 월요일을 준다', () => 
 
 test('테스트용 가짜 일정: 빈 시트에만, 홈·달력에 보인다', () => {
   const g = fresh();
-  assert.strictEqual(g.seedTestSchedule_(), 16);
+  assert.strictEqual(g.seedTestSchedule_(), 18); // 회의·근무 예시 2개(2026-10-19a)
   assert.throws(() => g.seedTestSchedule_(), /이미 일정이/);
   const { L } = loginAll(g);
   const h = call(g, 'home', {}, { login: L }).data;
@@ -1921,7 +1921,7 @@ test('속도 재기(관리자): 화면마다 서버 처리·시트 열기·탭 �
     assert.strictEqual(x.memo.reads, 0, x.label + ' 기억에서 잴 때는 시트를 읽지 않음');
     assert.strictEqual(x.memo.hits, x.sheet.reads, x.label + ' 같은 탭을 기억에서');
   }
-  assert.strictEqual(r.data.items[0].sheet.reads, 11, '홈은 탭 11개');
+  assert.strictEqual(r.data.items[0].sheet.reads, 12, '홈은 탭 12개(비상 시 이것부터의 도움말 탭 포함, 2026-10-19a)');
   assert.strictEqual(r.data.memoOn, true);
 });
 
@@ -3958,6 +3958,164 @@ test('서버 보완: 스크립트 속성은 요청마다 읽지 않는다(서버
   // 서버 기억에도 원래 비밀번호 글자는 없다
   const dump = JSON.stringify(g._cache._store);
   assert.ok(!dump.includes('new-common-9') && !dump.includes(ADMIN));
+});
+
+// ================================================================ 전체 보완 묶음 5: 새 기능(판 2026-10-19a)
+
+test('일정 새 구분: 회의는 누구나, 근무(관리자 근무)는 관리만 넣고·고치고·옮기고·지운다', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const me = who('심청'), b = boss('홍길동');
+  const t = g.todayYmd_();
+  assert.deepStrictEqual(plain(g.schedKinds_()), ['행사', '교육활동', '회의', '휴업일', '공휴일', '근무']);
+  const meet = call(g, 'sched.save', { fields: { start: t, title: '학년 협의회', kind: '회의' } }, me);
+  assert.ok(meet.ok, meet.error);
+  assert.strictEqual(meet.data.kind, '회의');
+  assert.strictEqual(meet.data.canEdit, true);
+  const no = call(g, 'sched.save', { fields: { start: t, title: '교장 출장', kind: '근무' } }, me);
+  assert.strictEqual(no.code, 'FORBIDDEN');
+  assert.match(no.error, /근무는 연구부장·부담당만/);
+  const duty = call(g, 'sched.save', { fields: { start: t, title: '교장 출장', kind: '근무', time: '오후' } }, b);
+  assert.ok(duty.ok, duty.error);
+  // 관리자 화면이 없는 기기에서는 내가 넣은 근무도 고칠 수 없다(처음 넣은 분이어도)
+  const view = call(g, 'sched.month', { year: +t.slice(0, 4), month: +t.slice(5, 7) }, who('홍길동')).data.events.find((e) => e.id === duty.data.id);
+  assert.strictEqual(view.canEdit, false);
+  assert.strictEqual(call(g, 'sched.delete', { id: duty.data.id }, who('홍길동')).code, 'FORBIDDEN');
+  assert.strictEqual(call(g, 'sched.move', { id: duty.data.id, start: g.addDays_(t, 1), base: duty.data.at }, who('홍길동')).code, 'FORBIDDEN');
+  assert.ok(call(g, 'sched.delete', { id: duty.data.id }, b).ok);
+  // 학사일정 올리기도 '회의'·'근무' 구분을 알아본다
+  assert.strictEqual(g.parseKind_('회의'), '회의');
+  assert.strictEqual(g.parseKind_('관리자 근무'), '근무');
+});
+
+test('반복 일정: 고른 날짜마다 한 줄씩 같은 묶음으로 넣고(60개까지·1년 안), 여러 날 행사는 기간 그대로, 묶음 수가 보이고, 모두 지우기는 처음 넣은 분·관리만', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const me = who('심청');
+  const t = g.todayYmd_();
+  const dates = [0, 7, 14, 21].map((n) => g.addDays_(t, n));
+  const r = call(g, 'sched.saveRepeat', { fields: { start: t, end: g.addDays_(t, 1), title: '방과후 협의', kind: '회의', time: '15:00' }, dates: dates.concat([dates[1], 'bad']) }, me);
+  assert.ok(r.ok, r.error);
+  assert.strictEqual(r.data.count, 4, '겹친 날짜·틀린 날짜는 뺀다');
+  const rows = g.liveRows_('일정').filter((e) => e['반복 묶음ID'] === r.data.group);
+  assert.deepStrictEqual(plain(rows.map((e) => e['시작일']).sort()), dates);
+  assert.ok(rows.every((e) => e['끝일'] === g.addDays_(e['시작일'], 1) && e['구분'] === '회의' && e['시간'] === '15:00'));
+  const ev = call(g, 'sched.range', { from: t, to: g.addDays_(t, 30) }, me).data.events.filter((e) => e.repeat === r.data.group);
+  assert.strictEqual(ev.length, 4);
+  assert.ok(ev.every((e) => e.repeatN === 4));
+  // 다른 분은 모두 지우기 못 함, 처음 넣은 분은 한 번에(기록 한 줄)
+  assert.strictEqual(call(g, 'sched.deleteRepeat', { id: rows[0]['일정ID'] }, who('흥부')).code, 'FORBIDDEN');
+  const before = g.readRows_('기록').length;
+  const d = call(g, 'sched.deleteRepeat', { id: rows[2]['일정ID'] }, me);
+  assert.ok(d.ok, d.error);
+  assert.strictEqual(d.data.count, 4);
+  assert.strictEqual(g.liveRows_('일정').filter((e) => e['반복 묶음ID'] === r.data.group).length, 0);
+  assert.strictEqual(g.readRows_('기록').length - before, 1);
+  // 한도
+  const many = Array.from({ length: 61 }, (_, i) => g.addDays_(t, i));
+  assert.match(call(g, 'sched.saveRepeat', { fields: { start: t, title: '많이' }, dates: many }, me).error, /60개까지/);
+  assert.match(call(g, 'sched.saveRepeat', { fields: { start: t, title: '하나' }, dates: [t] }, me).error, /두 개 이상/);
+  assert.match(call(g, 'sched.saveRepeat', { fields: { start: t, title: '길게' }, dates: [t, g.addDays_(t, 400)] }, me).error, /1년 안/);
+  assert.strictEqual(call(g, 'sched.saveRepeat', { fields: { start: t, title: '근무', kind: '근무' }, dates: dates }, me).code, 'FORBIDDEN');
+  assert.ok(call(g, 'sched.saveRepeat', { fields: { start: t, title: '방학 근무', kind: '근무' }, dates: dates }, boss('홍길동')).ok);
+  // 반복이 아닌 일정은 모두 지우기가 없다
+  const one = call(g, 'sched.save', { fields: { start: t, title: '하루 행사' } }, me).data;
+  assert.match(call(g, 'sched.deleteRepeat', { id: one.id }, me).error, /반복 일정이 아니에요/);
+});
+
+test('주간 안내·반복 미리보기용 기간 일정(sched.range): 그 기간과 겹치는 일정, 400일까지', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  g.seedTestSchedule_();
+  const me = who('심청');
+  const mon = g.mondayOf_(g.todayYmd_());
+  const r = call(g, 'sched.range', { from: mon, to: g.addDays_(mon, 6) }, me);
+  assert.ok(r.ok, r.error);
+  assert.ok(r.data.events.some((e) => e.kind === '회의' && e.title === '부장 회의'));
+  assert.ok(r.data.events.some((e) => e.kind === '근무'));
+  assert.ok(r.data.events.every((e) => e.start <= g.addDays_(mon, 6) && e.end >= mon));
+  assert.match(call(g, 'sched.range', { from: mon, to: g.addDays_(mon, 401) }, me).error, /400일/);
+  assert.strictEqual(call(g, 'sched.range', { from: mon, to: mon }, {}).code, 'LOGIN');
+});
+
+test('지난 조사 가져오기: 조사 보기에 직접 쓴 안내 문구인지(messengerCustom)를 함께 보낸다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('이몽룡');
+  const a = call(g, 'survey.save', { fields: sv(g) }, me).data.id;
+  const b = call(g, 'survey.save', { fields: sv(g, { title: '문구 있는 조사', messenger: '직접 쓴 안내예요' }) }, me).data.id;
+  assert.strictEqual(call(g, 'survey.get', { id: a }, me).data.messengerCustom, false);
+  const d = call(g, 'survey.get', { id: b }, me).data;
+  assert.strictEqual(d.messengerCustom, true);
+  assert.strictEqual(d.messenger, '직접 쓴 안내예요');
+});
+
+test('안전·생활교육 안내 만들기: 관리만, 분류와 빈 글 2개(여기에 적어 주세요), 두 번 눌러도 하나씩 · 홈 비상 시 이것부터는 관리가 켠 글 3개까지', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const me = who('심청'), b = boss('홍길동');
+  assert.strictEqual(call(g, 'help.seedSafety', {}, me).code, 'ADMIN');
+  const r = call(g, 'help.seedSafety', {}, b);
+  assert.ok(r.ok, r.error);
+  assert.strictEqual(r.data.made, 2);
+  assert.strictEqual(call(g, 'help.seedSafety', {}, b).data.made, 0, '두 번 눌러도 그대로');
+  const list = call(g, 'help.list', {}, me).data;
+  const kind = list.kinds.find((k) => k.name === '안전·생활교육');
+  assert.ok(kind && kind.active);
+  const posts = list.items.filter((i) => i.kindId === kind.id);
+  assert.deepStrictEqual(plain(posts.map((i) => i.title)), ['대피 경로·집결지', '학교폭력 사안 처리 순서']);
+  assert.ok(posts.every((i) => i.body === '여기에 적어 주세요'), '내용은 지어내지 않는다');
+  // 홈에 보이기: 관리만 켤 수 있고(다른 분 값은 무시) 3개까지
+  const save = (tok, i, home, extra) => call(g, 'help.save', { id: i.id, fields: Object.assign({ '분류ID': i.kindId, '제목': i.title, '내용': i.body, '순서': i.order, home }, extra || {}) }, tok);
+  assert.strictEqual(save(me, posts[0], true).code, 'FORBIDDEN', '다른 분 글은 못 고침');
+  const mine = call(g, 'help.save', { fields: { '분류ID': kind.id, '제목': '내 안내', '내용': '학교에서 정한 대로', home: true } }, me).data;
+  assert.strictEqual(mine.home, false, '관리가 아니면 홈에 보이기를 켤 수 없다');
+  assert.ok(save(b, posts[0], true).ok);
+  assert.ok(save(b, posts[1], true).ok);
+  const extra = call(g, 'help.save', { fields: { '분류ID': kind.id, '제목': '집결지 지도', '내용': '여기에 적어 주세요', home: true } }, b);
+  assert.ok(extra.ok, extra.error);
+  const four = call(g, 'help.save', { fields: { '분류ID': kind.id, '제목': '넷째 글', '내용': 'x', home: true } }, b);
+  assert.match(four.error, /3개까지/);
+  const h = call(g, 'home', {}, me).data;
+  assert.deepStrictEqual(plain(h.emergency.map((x) => x.title)), ['대피 경로·집결지', '학교폭력 사안 처리 순서', '집결지 지도']);
+  assert.ok(call(g, 'help.save', { id: posts[0].id, fields: { '분류ID': kind.id, '제목': posts[0].title, '내용': '1층은 운동장으로', '순서': '1', home: false } }, b).ok);
+  assert.strictEqual(call(g, 'home', {}, me).data.emergency.length, 2);
+});
+
+test('새 학년도 준비 점검: 학년도 숫자가 남은 자료 제목·학년·반 꼴이 아닌 소속·다음 학년도 학기·공휴일·학생 수·공통 비밀번호를 살핀다(관리만, 아무것도 바꾸지 않음)', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const { who } = ids(g);
+  const cur = Number(g.setting_('학년도'));
+  call(g, 'lib.save', { fields: { '제목': cur + ' 학교폭력 예방 계획', mode: 'link', link: 'https://example.com/a' } }, who('심청'));
+  call(g, 'lib.save', { fields: { '제목': '상담 기록 양식', mode: 'link', link: 'https://example.com/b' } }, who('심청'));
+  assert.strictEqual(call(g, 'admin.year.check', {}, who('심청')).code, 'ADMIN');
+  const before = g.readRows_('기록').length;
+  const r = call(g, 'admin.year.check', {}, t);
+  assert.ok(r.ok, r.error);
+  const by = (k) => r.data.items.find((x) => x.key === k);
+  assert.deepStrictEqual(plain(r.data.items.map((x) => x.key)), ['lib', 'group', 'sem', 'off', 'stu', 'pw']);
+  assert.strictEqual(by('lib').state, 'warn');
+  assert.match(by('lib').detail, new RegExp(cur + ' 학교폭력 예방 계획'));
+  assert.ok(!/상담 기록 양식/.test(by('lib').detail));
+  assert.strictEqual(by('group').state, 'info');
+  assert.match(by('group').detail, /놀부\(과학 전담\)/);
+  assert.strictEqual(by('sem').state, 'warn');
+  assert.strictEqual(by('off').state, 'warn');
+  assert.strictEqual(by('pw').state, 'info');
+  assert.match(by('pw').detail, /바꾼 기록이 없어요/);
+  assert.strictEqual(g.readRows_('기록').length, before, '점검은 아무것도 바꾸지 않는다');
+  // 다음 학년도 학기 기간·공휴일을 넣으면 됨으로
+  const n = cur + 1;
+  assert.ok(call(g, 'admin.settings.save', { values: {}, semesters: [{ year: n, s1from: n + '-03-02', s1to: n + '-07-20', s2from: n + '-08-17', s2to: (n + 1) + '-02-12' }] }, t).ok);
+  assert.ok(call(g, 'sched.save', { fields: { start: n + '-05-05', title: '어린이날', kind: '공휴일' } }, Object.assign({}, t)).ok);
+  assert.ok(call(g, 'admin.pw.common', { newPw: 'new-common-7', newPw2: 'new-common-7' }, t).ok);
+  const { t: t2 } = (() => { const L = call(g, 'login', { password: 'new-common-7' }).data.login; const A = call(g, 'adminLogin', { password: ADMIN }, { login: L }).data.admin; return { t: { login: L, admin: A } }; })();
+  const r2 = call(g, 'admin.year.check', {}, t2).data;
+  const by2 = (k) => r2.items.find((x) => x.key === k);
+  assert.strictEqual(by2('sem').state, 'ok');
+  assert.strictEqual(by2('off').state, 'ok');
+  assert.match(by2('pw').detail, /마지막으로 바꾼 때/);
 });
 
 console.log(results.join('\n'));

@@ -2889,6 +2889,99 @@ async function b4FixCheck(browser) {
   await tctx.close();
 }
 
+/** 전체 보완 묶음 5(판 2026-10-19a) 일정: 구분 6개(회의·근무), 반복 일정(공휴일 건너뛰기·모두 지우기), 월별 계획 '관리자 근무' 칸, 주간 안내 문구·A4 인쇄 */
+async function b5SchedCheck(browser) {
+  const { open, toastHas } = tbKit(browser);
+  const { ctx, page } = await open({ width: 1440, height: 900 }, '심청');
+  const mon = await page.evaluate(() => { const t = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); const d = new Date(t + 'T00:00:00Z'); const w = d.getUTCDay(); d.setUTCDate(d.getUTCDate() + (w === 0 ? -6 : 1 - w)); return d.toISOString().slice(0, 10); });
+  const plus = (d, k) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + k); return t.toISOString().slice(0, 10); };
+  // 1) 행사 추가: 구분 6개(휴업일·공휴일·근무는 관리만), 반복 넣기(공휴일 건너뛰기)
+  await page.evaluate((m) => { const S = window.__gy.S; S.sched.view = 'cal'; S.sched.y = +m.slice(0, 4); S.sched.m = +m.slice(5, 7); window.__gy.go('schedule'); }, mon);
+  await page.locator('.cal').waitFor();
+  await page.locator('[data-action=ev-add]').first().click();
+  await page.locator('#ev-form').waitFor();
+  const kinds = await page.evaluate(() => Array.from(document.querySelectorAll('#ev-form [data-kind]')).map((b) => b.textContent + (b.disabled ? '(잠김)' : '')));
+  if (kinds.join(',') !== '행사,교육활동,회의,휴업일(잠김),공휴일(잠김),근무(잠김)') problems.push('보완5 일정: 구분 단추 ' + kinds.join(','));
+  await page.fill('#ef-start', mon);
+  await page.dispatchEvent('#ef-start', 'change');
+  await page.fill('#ef-title', '보완 반복 협의');
+  await page.click('#ev-form [data-kind="회의"]');
+  await page.check('#ef-rep');
+  await page.fill('#ef-rep-until', plus(mon, 28));
+  await page.dispatchEvent('#ef-rep-until', 'change');
+  await page.locator('#ef-rep-list .rep-days').waitFor({ timeout: 6000 }).catch(() => problems.push('보완5 일정: 반복 날짜 목록이 안 보임'));
+  const rep = await page.evaluate(() => ({ all: document.querySelectorAll('#ef-rep-list .rep-days .chip').length, off: document.querySelectorAll('#ef-rep-list .rep-off').length, sum: (document.querySelector('#ef-rep-list .rep-sum') || {}).textContent || '', label: (document.querySelector('[data-rep=week]') || {}).textContent }));
+  if (rep.all !== 5 || rep.off !== 1 || !/4개/.test(rep.sum)) problems.push('보완5 일정: 반복 미리보기(5개 중 공휴일 1개 건너뜀이어야 함) ' + JSON.stringify(rep));
+  if (rep.label !== '매주 월요일') problems.push('보완5 일정: 반복 규칙 이름 ' + rep.label);
+  await page.locator('#ef-rep-box').scrollIntoViewIfNeeded();
+  await shot(page, '보완5_일정_반복넣기_미리보기');
+  await page.click('[data-rep=nth]');
+  const nth = await page.evaluate(() => (document.querySelector('[data-rep=nth]') || {}).textContent);
+  if (!/^매월 (첫째|둘째|셋째|넷째|다섯째) 월요일$/.test(nth)) problems.push('보완5 일정: 몇째 요일 이름 ' + nth);
+  await page.click('[data-rep=week]');
+  await page.waitForTimeout(200);
+  await page.click('#ev-form [type=submit]');
+  if (!(await toastHas(page, /4번 넣었어요/))) problems.push('보완5 일정: 반복 일정을 넣었다는 알림이 없음 ' + (await page.textContent('#ef-err').catch(() => '')));
+  await page.waitForTimeout(500);
+  // 2) 반복 일정 하나 열기 → '반복 · 모두 4개', '이 날짜만 고치기' 창의 안내, '이 반복 모두 지우기'
+  const chipSel = '.cal-d[data-day="' + mon + '"] .ev'; // 이번 주 월요일(첫 반복 날짜)은 늘 이 달력에 보인다
+  await page.locator(chipSel, { hasText: '보완 반복 협의' }).first().click().catch(() => problems.push('보완5 일정: 달력에 반복 일정이 없음'));
+  await page.locator('.ev-dl').waitFor({ timeout: 4000 }).catch(() => {});
+  const head = await page.evaluate(() => (document.querySelector('.modal .row-btns') || {}).textContent || '');
+  if (!/회의/.test(head) || !/반복 · 모두 4개/.test(head)) problems.push('보완5 일정: 반복 일정 창의 표시 ' + head);
+  await shot(page, '보완5_일정_반복일정_보기');
+  if (!(await page.locator('[data-action=ev-edit]').count())) { problems.push('보완5 일정: 반복 일정 창이 열리지 않음'); await ctx.close(); return; }
+  await page.click('[data-action=ev-edit]');
+  await page.locator('#ev-form').waitFor();
+  if (!/반복 일정 중 하나예요\(모두 4개\)/.test(await page.locator('#ev-form').innerText())) problems.push('보완5 일정: 반복 일정 고치기에 안내가 없음');
+  await page.click('#ev-form [data-action=ev-cancel]');
+  await page.waitForTimeout(300);
+  await page.locator(chipSel, { hasText: '보완 반복 협의' }).first().click();
+  await page.locator('[data-action=ev-del-rep]').waitFor();
+  await page.click('[data-action=ev-del-rep]');
+  await page.click('#cf-ok');
+  if (!(await toastHas(page, /반복 일정 4개를 지웠어요/))) problems.push('보완5 일정: 반복 모두 지우기 알림이 없음');
+  await page.waitForTimeout(600);
+  if (await page.locator('.cal .ev', { hasText: '보완 반복 협의' }).count()) problems.push('보완5 일정: 모두 지웠는데 달력에 남음');
+  // 3) 월별 계획: '관리자 근무' 칸과 행사 칸의 [회의]
+  await page.click('[data-sched-view=plan]');
+  await page.locator('table.plan').waitFor();
+  const plan = await page.evaluate(() => ({
+    head: Array.from(document.querySelectorAll('table.plan thead th')).map((t) => t.textContent),
+    duty: Array.from(document.querySelectorAll('table.plan td.c-duty')).map((t) => t.textContent).filter(Boolean),
+    meet: Array.from(document.querySelectorAll('table.plan .kind-tag')).length
+  }));
+  if (plan.head.join(',') !== '날짜,요일,행사,교육활동,관리자 근무,담당 부서') problems.push('보완5 월별 계획: 머리 ' + plan.head.join(','));
+  if (!plan.duty.some((x) => /교감 출장/.test(x))) problems.push('보완5 월별 계획: 관리자 근무 칸에 근무가 없음 ' + JSON.stringify(plan.duty));
+  if (!plan.meet) problems.push('보완5 월별 계획: 행사 칸에 [회의] 표시가 없음');
+  await shot(page, '보완5_월별계획_관리자근무');
+  // 4) 주간 안내: 문구(이번 주·다음 주)와 복사·A4 인쇄
+  await page.evaluate(() => { window.__gy.S.home = null; window.__gy.go('home'); });
+  await page.locator('[data-action=week-notice]').first().click();
+  await page.locator('#wn-text').waitFor({ timeout: 6000 }).catch(() => problems.push('보완5 주간 안내: 문구 칸이 안 보임'));
+  const txt = await page.inputValue('#wn-text').catch(() => '');
+  if (!/^\[(이번|다음) 주 학교 일정\]/.test(txt) || !/\[회의\] 16:00|16:00 \[회의\] 부장 회의/.test(txt)) problems.push('보완5 주간 안내: 문구 ' + JSON.stringify(txt.slice(0, 200)));
+  if (/교감 출장/.test(txt)) problems.push('보완5 주간 안내: 관리자 근무가 처음부터 들어감');
+  await page.check('#wn-duty');
+  if (!/\[근무\]/.test(await page.inputValue('#wn-text'))) problems.push('보완5 주간 안내: 관리자 근무도 넣기가 안 됨');
+  await shot(page, '보완5_주간안내_문구');
+  await page.evaluate(() => { window.__copied = null; Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: (t) => { window.__copied = t; return Promise.resolve(); } }); });
+  await page.click('#wn-copy');
+  await toastHas(page, /주간 안내 문구를 복사했어요/);
+  if ((await page.evaluate(() => window.__copied)) !== (await page.inputValue('#wn-text'))) problems.push('보완5 주간 안내: 복사한 글이 문구 칸과 다름');
+  await page.click('[data-wn="7"]');
+  await page.waitForFunction(() => /^\[다음 주 학교 일정\]/.test((document.querySelector('#wn-text') || {}).value || ''), null, { timeout: 6000 }).catch(() => problems.push('보완5 주간 안내: 다음 주로 바뀌지 않음'));
+  await page.evaluate(() => { window.__printed = null; window.print = () => { window.__printed = { html: document.querySelector('#print-area').innerHTML, cls: document.body.className, zoom: getComputedStyle(document.documentElement).getPropertyValue('--week-zoom').trim() }; }; });
+  await page.click('#wn-print');
+  await page.waitForFunction(() => !!window.__printed, null, { timeout: 4000 }).catch(() => problems.push('보완5 주간 안내: 인쇄를 부르지 않음'));
+  const pr = await page.evaluate(() => window.__printed || {});
+  if (!/week-print/.test(pr.html || '') || !/printing-week/.test(pr.cls || '')) problems.push('보완5 주간 안내: 인쇄 모양 ' + JSON.stringify({ cls: pr.cls }));
+  if (!(Number(pr.zoom) > 0 && Number(pr.zoom) <= 1)) problems.push('보완5 주간 안내: 인쇄 배율 ' + pr.zoom);
+  await page.waitForTimeout(700);
+  if (await page.evaluate(() => document.body.classList.contains('printing-week') || !!document.querySelector('#print-area').innerHTML)) problems.push('보완5 주간 안내: 인쇄 뒤 인쇄 모양이 남음');
+  await ctx.close();
+}
+
 async function tableMissingCheck(browser) {
   const src = fs.readFileSync(PREVIEW, 'utf8');
   const a = src.indexOf('<style>\n/* ---------- 취합 시트(TableUi.html'), b = src.indexOf('window.__gyTableUi = function'), end = '\n};\n</script>', c = b < 0 ? -1 : src.indexOf(end, b);
@@ -3119,6 +3212,14 @@ async function introReducedMotionCheck(browser) {
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
   }
+  // ONLY=b5fix: 묶음 5 새 기능 점검만(판 2026-10-19a)
+  if (process.env.ONLY === 'b5fix') {
+    await b5SchedCheck(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
   // ONLY=b4fix: 메뉴·이름 고르기·알림·수정 기록·안내서·점검·태블릿 보완 점검만(판 2026-10-19a)
   if (process.env.ONLY === 'b4fix') {
     await b4FixCheck(browser);
@@ -3257,6 +3358,7 @@ async function introReducedMotionCheck(browser) {
   await schedFixCheck(browser);
   await svFixCheck(browser);
   await b4FixCheck(browser);
+  await b5SchedCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
   await browser.close();

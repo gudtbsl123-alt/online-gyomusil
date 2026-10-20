@@ -223,6 +223,17 @@ select.input{appearance:auto}
 .slips{display:grid;grid-template-columns:repeat(2,1fr);gap:0}
 .slip{border:1px dashed #9AA3AD;padding:16px 18px;break-inside:avoid;font-size:14px;line-height:1.5;color:#191F28}
 .slip-pin{margin:6px 0;font:800 30px/1.1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.3em}
+/* 주간 안내 A4 인쇄(App.html printWeek): #print-area에 그린 표만 찍는다 */
+.wn-text{font:inherit;font-size:14px;line-height:1.6;min-height:280px;resize:vertical}
+.week-print{color:#191F28}
+.week-print h1{margin:0 0 4px;font-size:22px;font-weight:800}
+.week-print .wp-sub{margin:0 0 10px;font-size:13px;color:#4E5968}
+.week-print table{width:100%;border-collapse:collapse;font-size:12.5px;line-height:1.45}
+.week-print th,.week-print td{border:1px solid #C9CED4;padding:5px 7px;text-align:left;vertical-align:top}
+.week-print th{background:#F2F4F6;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.week-print .wp-day{width:92px;font-weight:700;white-space:nowrap}
+.week-print .wp-time{width:64px;white-space:nowrap}
+.week-print .wp-meta{width:34%;color:#4E5968}
 
 @media (hover:hover){
   .nav-item:hover{background:var(--c-card2);color:var(--c-t1)}
@@ -277,6 +288,7 @@ select.input{appearance:auto}
   .main{padding:0!important}
   body.printing-slips #app,body.printing-slips #modal-root,body.printing-slips #toast{display:none!important}
   body.printing-slips .print-only{display:block!important}
+  body.printing-week .week-print{zoom:var(--week-zoom,1)}
   .main,.gate,.modal{zoom:1!important}
 }
 /* ---------- 2단계: 홈·일정 ---------- */
@@ -331,6 +343,17 @@ select.input{appearance:auto}
 .today-label{font-size:13px;color:var(--accent)}
 .ev{display:block;width:100%;padding:4px 8px;border:0;border-radius:8px;background:var(--c-card2);color:var(--c-t1);font:inherit;font-size:13px;font-weight:600;line-height:1.35;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:keep-all;overflow-wrap:anywhere}
 .ev-act{background:var(--c-okBg);color:var(--c-okFg)}
+.ev-meet{background:var(--accent-soft);color:var(--accent)} /* 회의(2026-10-19a) */
+.ev-duty{background:transparent;color:var(--c-t2);box-shadow:inset 0 0 0 1px var(--c-line2)} /* 관리자 근무 */
+.kind-tag{display:inline-block;margin-right:4px;padding:0 5px;border-radius:4px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700;line-height:1.5;vertical-align:1px}
+.seg.seg-kinds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))} /* 구분 6개: 행사·교육활동·회의 / 휴업일·공휴일·근무(관리) */
+.seg.seg-rep{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.seg.seg-rep button{padding:0 6px;white-space:normal;line-height:1.25;font-size:14px}
+.rep-box{display:flex;flex-direction:column;gap:12px;padding:14px;border:1px solid var(--c-line);border-radius:12px;background:var(--c-card2)}
+.rep-skip{align-self:end;min-height:48px}
+.rep-sum{margin:0 0 6px}
+.rep-days{display:flex;flex-wrap:wrap;gap:6px;max-height:156px;overflow-y:auto}
+.rep-days .chip.rep-off{text-decoration:line-through;opacity:.55}
 .ev-off{background:transparent;color:var(--c-red);font-weight:700;padding-left:4px}
 .ev-pre{margin-right:4px;padding:0 4px;border-radius:4px;background:var(--c-pill);color:var(--c-t3);font-size:11px}
 .cal-more{align-self:flex-start;padding:2px 4px;border:0;background:none;color:var(--c-t3);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
@@ -377,6 +400,7 @@ select.input{appearance:auto}
 .plan td{padding:8px 12px;border-top:1px solid var(--c-line);vertical-align:top}
 .plan .c-date,.plan .c-dow{width:44px;text-align:center;font-variant-numeric:tabular-nums;font-weight:700}
 .plan .c-dept{width:150px;color:var(--c-t2)}
+.plan .c-duty{width:130px} /* 관리자 근무 칸(2026-10-19a) */
 .plan tr.we td{background:var(--c-card2)}
 .plan tr.we .c-dow,.plan tr.off .c-date,.plan tr.off .c-dow{color:var(--c-red)}
 .plan-ev{display:block;padding:2px 0;border:0;background:none;color:var(--c-t1);font:inherit;text-align:left;cursor:pointer}
@@ -442,6 +466,7 @@ select.input{appearance:auto}
   .main:has(.fab){padding-bottom:calc(160px + env(safe-area-inset-bottom))}
   .form-grid2{grid-template-columns:minmax(0,1fr)}
   .plan .c-dept{width:96px}
+  .plan .c-duty{width:90px}
 }
 @media print{
   .fab,.filters,.cal-more{display:none!important}
@@ -471,6 +496,7 @@ select.input{appearance:auto}
 .plan-fit .plan td{padding:2px 5px}
 .plan-fit .plan .c-date,.plan-fit .plan .c-dow{width:28px}
 .plan-fit .plan .c-dept{width:120px}
+.plan-fit .plan .c-duty{width:100px}
 .plan-fit .plan-ev{padding:0}
 .plan-fit .print-hide,.plan-fit .hint{display:none!important}
 @media print{
@@ -699,6 +725,14 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .check-fix{display:flex;align-items:flex-start;gap:4px;font-size:14px;font-weight:600;color:var(--c-t2)}
 .check-fix svg{margin-top:2px;color:var(--accent)}
 .check-todo{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px} /* 점검 맨 위: 고칠 것·확인할 것 */
+/* 홈 '비상 시 이것부터'(2026-10-19a): 도움말에서 고른 글 3개까지 */
+.sos-card{border-color:var(--c-red);box-shadow:inset 3px 0 0 var(--c-red)}
+.sos-card h2{display:flex;align-items:center;gap:8px}
+.sos-ico{color:var(--c-red)}
+.sos-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.sos-item{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:56px;padding:12px 14px;border:1px solid var(--c-line);border-radius:12px;background:var(--c-card2);color:var(--c-t1);font:inherit;text-align:left;cursor:pointer}
+.sos-item b{font-size:16px}
+.sos-item .faint{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .check-todo li{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:12px;background:var(--c-card2)}
 .check-todo .chip{flex:none;min-width:72px;justify-content:center}
 .check-todo .check-main{flex:1 1 auto}
@@ -716,6 +750,8 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .lg-ev{background:var(--c-pill);border:1px solid var(--c-line2)}
 .lg-act{background:var(--c-okBg);border:1px solid var(--c-okFg)}
 .lg-off{background:var(--c-red)}
+.lg-meet{background:var(--accent-soft);border:1px solid var(--accent)}
+.lg-duty{background:transparent;border:1px solid var(--c-line2)}
 .nav-item{position:relative}
 .nav-dot{margin-left:auto;width:9px;height:9px;border-radius:50%;background:var(--accent)}
 .bn-dot{position:absolute;top:6px;left:50%;margin-left:8px;width:9px;height:9px;border-radius:50%;background:var(--accent)}

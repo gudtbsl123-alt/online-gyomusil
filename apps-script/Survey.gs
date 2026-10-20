@@ -207,6 +207,7 @@ function apiSurveyGet_(args, actor, ctx) {
     target: target,
     deptId: s['부서ID'],
     messenger: s['메신저 문구'] || defaultMessenger_(s['제목'], card.dept, s['마감 일시']),
+    messengerCustom: !!s['메신저 문구'], // 직접 쓴 문구만 '지난 조사에서 가져오기'로 옮긴다(자동 문구는 새 마감으로 다시 만든다)
     myAnswer: mine ? { answers: safeParse_(mine['답'], {}), note: mine['하고 싶은 말'], at: mine['고친 시각'] || mine['낸 시각'] } : null,
     owner: owner,
     canSeeResults: owner || (card.showResults && (card.inTarget || card.byId === me)),

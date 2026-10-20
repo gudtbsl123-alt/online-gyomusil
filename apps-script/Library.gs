@@ -322,6 +322,47 @@ function adminYearPreview_() {
 }
 
 /**
+ * 새 학년도 준비 점검(관리자 › 새 학년도 맨 위, 2026-10-19a). 넘기기 전에 살펴볼 것만 알려 주고 아무것도 바꾸지 않는다.
+ * state: ok(됨) · warn(해 두면 좋음) · info(알아 두기)
+ */
+function adminYearCheck_() {
+  var cur = Number(libYear_()) || schoolYearOf_(todayYmd_()), next = cur + 1, items = [];
+  var c = libCache_(), ctx = { identity: null, tokens: {} };
+  // 1) 자료 제목에 지금·지난 학년도 숫자: 옮겨 적으면 제목이 그대로 간다
+  var stale = liveRows_('자료').map(function (r) { return libView_(r, ctx, c); }).filter(function (v) {
+    return !v.archived && (v.title.indexOf(String(cur)) >= 0 || v.title.indexOf(String(cur - 1)) >= 0);
+  });
+  items.push({ key: 'lib', state: stale.length ? 'warn' : 'ok', label: '자료 제목의 학년도 숫자',
+    detail: stale.length ? '새 학년도로 옮겨 적으면 제목이 그대로 가요. 넘긴 뒤 고쳐 주세요: ' + stale.slice(0, 8).map(function (v) { return v.title; }).join(', ') + (stale.length > 8 ? ' 외 ' + (stale.length - 8) + '개' : '')
+      : '지금 학년도 자료 제목에 ' + cur + '·' + (cur - 1) + ' 숫자가 없어요.' });
+  // 2) 소속 꼴: 학년 대상 조사·학년·반별 양식·학생 수 칸은 '3학년 2반' 꼴로 알아본다
+  var odd = sortStaff_(activeStaff_()).filter(function (r) { return !/^[1-6]학년 \d{1,2}반$/.test(String(r['소속'] || '').trim()); });
+  items.push({ key: 'group', state: odd.length ? 'info' : 'ok', label: "교직원 소속 꼴('3학년 2반')",
+    detail: odd.length ? "학년·반 꼴이 아닌 분 " + odd.length + '명: ' + odd.slice(0, 10).map(function (r) { return r['이름'] + '(' + (r['소속'] || '비어 있음') + ')'; }).join(', ') + (odd.length > 10 ? ' 외 ' + (odd.length - 10) + '명' : '') +
+      ". 전담·부장 등은 그대로 두어도 돼요. 담임이면 '3학년 2반'처럼 적어야 학년 대상 조사·학년·반별 양식에 들어가요."
+      : "모두 '○학년 ○반' 꼴이에요." });
+  // 3) 새 학년도 학기 기간
+  var sems = semesters_(next);
+  items.push({ key: 'sem', state: sems.length >= 2 ? 'ok' : 'warn', label: next + '학년도 학기 기간',
+    detail: sems.length >= 2 ? '1·2학기 기간이 들어 있어요.' : "관리자 › 설정 › 학기 기간에 " + next + "학년도 기간을 넣어 주세요(수업일수 계산에 써요)." });
+  // 4) 새 학년도 공휴일·휴업일
+  var r = schoolYearRange_(next);
+  var offs = liveRows_('일정').filter(function (e) { return isOffKind_(e['구분']) && e['시작일'] >= r.from && e['시작일'] <= r.to; }).length;
+  items.push({ key: 'off', state: offs ? 'ok' : 'warn', label: next + '학년도 공휴일·휴업일',
+    detail: offs ? offs + '개 들어 있어요.' : '아직 없어요. 학사일정 올리기나 일정 › 행사 추가로 넣어 주세요(날짜는 학교 학사일정을 보고 넣어요).' });
+  // 5) 새 학년도 학생 수(3월 1일 뒤에 넣는다)
+  var st = studentsOf_(next);
+  items.push({ key: 'stu', state: st.id ? 'ok' : 'info', label: next + '학년도 학생 수',
+    detail: st.id ? '들어 있어요.' : '3월 1일 뒤에 홈의 학생 수 현황에서 반마다 넣어 주세요.' });
+  // 6) 공통 비밀번호: 새 학년도에 바꾸고 메신저로 알리기(마지막으로 바꾼 날은 기록에서)
+  var last = '';
+  tailRows_('기록', 5000).forEach(function (x) { if (x['동작'] === '비밀번호 바꿈' && /공통 비밀번호/.test(x['요약'] || '') && x['시각'] > last) last = x['시각']; });
+  items.push({ key: 'pw', state: 'info', label: '공통 비밀번호 바꾸기',
+    detail: (last ? '마지막으로 바꾼 때: ' + last.slice(0, 10) + '. ' : '웹앱에서 바꾼 기록이 없어요. ') + '새 학년도에는 관리자 › 비밀번호에서 바꾸고, 새 비밀번호를 메신저로 알려 주세요(모든 기기가 다시 로그인해요).' });
+  return { year: String(cur), next: String(next), items: items };
+}
+
+/**
  * args = { year: '2027', keep: [자료ID…] }
  * 1) 지금 학년도 자료를 모두 '보관'으로 표시 → 보관함
  * 2) keep에 든 자료만 새 학년도로 옮겨 적기(처음 넣은 분·수정일 그대로)

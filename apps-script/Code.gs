@@ -72,7 +72,10 @@ function routes_() {
     'sched.year': { need: 'login', fn: 'apiSchedYear_' },
     'sched.save': { need: 'identity', fn: 'apiSchedSave_' },
     'sched.delete': { need: 'identity', fn: 'apiSchedDelete_' },
-    'sched.move': { need: 'identity', fn: 'apiSchedMove_' }, // 달력에서 끌어 옮기기(날짜만)
+    'sched.move': { need: 'identity', fn: 'apiSchedMove_' },
+    'sched.range': { need: 'login', fn: 'apiSchedRange_' },
+    'sched.saveRepeat': { need: 'identity', fn: 'apiSchedSaveRepeat_' },
+    'sched.deleteRepeat': { need: 'identity', fn: 'apiSchedDeleteRepeat_' }, // 달력에서 끌어 옮기기(날짜만)
     'focus.save': { need: 'identity', fn: 'apiFocusSave_' },
     'students.save': { need: 'identity', fn: 'apiStudentsSave_' },
     'sched.upload.info': { need: 'login', fn: 'apiUploadInfo_' },
@@ -96,6 +99,7 @@ function routes_() {
     'file.get': { need: 'login', fn: 'apiFileGet_' },
     'help.list': { need: 'login', fn: 'apiHelpList_' },
     'help.save': { need: 'identity', fn: 'apiHelpSave_' },
+    'help.seedSafety': { need: 'admin', fn: 'apiHelpSeedSafety_' },
     'help.delete': { need: 'identity', fn: 'apiHelpDelete_' },
     'staff.list': { need: 'login', fn: function () { return apiStaffDir_(); } },
     'search': { need: 'login', fn: 'apiSearch_' },
@@ -151,6 +155,7 @@ function routes_() {
     'admin.trash.tables': { need: 'admin', fn: 'adminTableTrash_' },
     'admin.trash.restoreTable': { need: 'admin', fn: 'adminTableRestore_' },
     'admin.year.preview': { need: 'admin', fn: function () { return adminYearPreview_(); } },
+    'admin.year.check': { need: 'admin', fn: 'adminYearCheck_' },
     'admin.year.start': { need: 'admin', fn: 'adminYearStart_' },
     'admin.pw.common': { need: 'admin', fn: 'adminChangeCommonPw_' },
     'admin.pw.admin': { need: 'admin', fn: 'adminChangeAdminPw_' },
@@ -166,7 +171,7 @@ function routes_() {
  * 쓰기 뒤 같은 요청 안에서 이어 읽을 수 있는 화면(로그인만 있으면 되는 읽기만).
  * 저장한 다음 목록을 다시 부르느라 서버를 한 번 더 다녀오지 않게 한다(속도).
  */
-var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1, 'table.list': 1, 'table.get': 1, 'table.tpl.list': 1 };
+var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'sched.range': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1, 'table.list': 1, 'table.get': 1, 'table.tpl.list': 1 };
 
 /**
  * 요청마다 읽는 탭(서버 기억에서 한 번에 꺼내 두기, 속도). 로그인·본인 확인에서 늘 설정·교직원·분류를 읽는다.
@@ -176,9 +181,10 @@ var BASE_TABS_ = ['설정', '교직원', '분류'];
 var ROUTE_TABS_ = {
   'start': [], 'staffPicker': [], 'staff.list': [],
   'session': ['응답', '알림', '조사', '공지'],
-  'home': ['일정', '월별중점', '학생수', '응답', '알림', '조사', '자료', '공지'],
+  'home': ['일정', '월별중점', '학생수', '응답', '알림', '조사', '자료', '공지', '도움말'],
   'sched.month': ['일정', '월별중점', '학기'],
   'sched.year': ['일정', '학기'],
+  'sched.range': ['일정'],
   'survey.list': ['조사', '응답', '알림'],
   'survey.get': ['조사', '응답', '알림'],
   'lib.list': ['자료'],

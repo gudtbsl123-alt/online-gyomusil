@@ -26,6 +26,7 @@ function helpView_(r, ctx, kinds, names) {
     order: r['순서'],
     by: names[r['입력자ID']] || '',
     updated: (r['수정 시각'] || r['입력 시각'] || '').slice(0, 10),
+    home: r['홈에 보이기'] === '예',
     canEdit: canEditOwned_(r, ctx)
   };
 }
@@ -66,6 +67,14 @@ function apiHelpSave_(args, actor, ctx) {
     if (!row || row['삭제 여부']) throw userError_('도움말을 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
     if (!canEditOwned_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
   }
+  // 홈 '비상 시 이것부터'에 보이기: 관리만, 3개까지(2026-10-19a)
+  if (canManage_(ctx) && f.home !== undefined) {
+    rec['홈에 보이기'] = f.home ? '예' : '';
+    if (f.home && (!row || row['홈에 보이기'] !== '예')) {
+      var on = liveRows_('도움말').filter(function (r) { return r['홈에 보이기'] === '예'; }).length;
+      if (on >= HOME_HELP_MAX_) throw userError_("홈 '비상 시 이것부터'에는 " + HOME_HELP_MAX_ + '개까지 보여요. 다른 글의 \'홈에 보이기\'를 끄고 다시 해 주세요.');
+    }
+  }
   if (f.removeFile) {
     rec['파일ID'] = '';
     rec['파일 이름'] = '';
@@ -84,6 +93,40 @@ function apiHelpSave_(args, actor, ctx) {
     ? updateRow_('도움말', row['항목ID'], rec, actor, '도움말 고침: ' + rec['제목'])
     : insertRow_('도움말', rec, actor, '도움말 추가: ' + rec['제목']);
   return helpView_(findRow_('도움말', saved['항목ID']), ctx, categoryNames_('도움말 분류'), staffNames_());
+}
+
+// ---------------------------------------------------------------- 안전·생활교육 안내 + 홈 '비상 시 이것부터' (2026-10-19a)
+// 관리가 '안전·생활교육 안내 만들기'를 누르면 도움말 분류와 빈 글 2개가 생긴다. 내용은 학교에서 적는다(지어내지 않음, '여기에 적어 주세요')
+var SAFETY_KIND_ = '안전·생활교육';
+var SAFETY_POSTS_ = ['대피 경로·집결지', '학교폭력 사안 처리 순서'];
+var HOME_HELP_MAX_ = 3;
+
+function apiHelpSeedSafety_(args, actor, ctx) {
+  return withLock_(function () {
+    var cat = liveRows_('분류').filter(function (r) { return r['종류'] === '도움말 분류' && r['이름'] === SAFETY_KIND_; })[0];
+    if (!cat) cat = insertRow_('분류', { '종류': '도움말 분류', '이름': SAFETY_KIND_, '순서': '', '사용 여부': '사용' }, actor, '도움말 분류 "' + SAFETY_KIND_ + '" 추가(안전·생활교육 안내 만들기)');
+    else if (cat['사용 여부'] === '사용 안 함') updateRow_('분류', cat['분류ID'], { '사용 여부': '사용' }, actor, '도움말 분류 "' + SAFETY_KIND_ + '" 다시 사용');
+    var kindId = cat['분류ID'], have = {}, made = 0;
+    liveRows_('도움말').forEach(function (r) { if (r['분류ID'] === kindId) have[r['제목']] = true; });
+    ensureCols_('도움말');
+    SAFETY_POSTS_.forEach(function (title, i) {
+      if (have[title]) return;
+      insertRow_('도움말', { '분류ID': kindId, '제목': title, '내용': '여기에 적어 주세요', '순서': String(i + 1) }, actor, '도움말 추가: ' + title + '(안전·생활교육 안내 만들기)');
+      made++;
+    });
+    return { kindId: kindId, kind: SAFETY_KIND_, made: made };
+  });
+}
+
+/** 홈 '비상 시 이것부터': '홈에 보이기'를 켠 도움말 3개까지(분류 순서 → 순서 → 제목) */
+function homeHelp_(ctx) {
+  var rows = liveRows_('도움말').filter(function (r) { return r['홈에 보이기'] === '예'; });
+  if (!rows.length) return [];
+  var order = {}, kindNames = categoryNames_('도움말 분류'), names = staffNames_();
+  catOptions_('도움말 분류').forEach(function (k, i) { order[k.id] = i; });
+  return sortHelp_(rows.map(function (r) { return helpView_(r, ctx, kindNames, names); }), order).slice(0, HOME_HELP_MAX_).map(function (h) {
+    return { id: h.id, title: h.title, kind: h.kind, body: String(h.body || '').slice(0, 160), hasFile: h.hasFile, link: h.link };
+  });
 }
 
 function apiHelpDelete_(args, actor, ctx) {

@@ -2,7 +2,8 @@
  * Schedule.gs — 일정(학사일정·월별 계획·홈)과 수업일수 계산
  *
  * 한 번 넣은 행사는 '일정' 탭 한 곳에만 저장되고, 달력·연간 학사일정·월별 계획·홈이 모두 같은 줄을 읽는다.
- * 구분: 행사 / 교육활동 / 휴업일 / 공휴일  (휴업일·공휴일은 수업일수에서 빠진다)
+ * 구분: 행사 / 교육활동 / 회의 / 휴업일 / 공휴일 / 근무  (휴업일·공휴일은 수업일수에서 빠진다. 휴업일·공휴일·근무는 관리만 넣는다)
+ * 반복 일정(2026-10-19a): 같은 내용을 날짜마다 한 줄씩 넣고 '반복 묶음ID'로 묶는다(하나씩 고치고, 묶음을 한 번에 지운다)
  * 대상 학년: '전체' 또는 '1,2,교직원' 처럼 쉼표로 이어 쓴다.
  * 고치기·지우기: 처음 넣은 사람, 역할이 '관리'인 분, 관리자 화면을 연 분만.
  */
@@ -10,7 +11,7 @@
 function fileMark_Schedule_() { return '2026-10-16e'; } // 판 표시(관리자 › 점검)
 
 function schedKinds_() {
-  return ['행사', '교육활동', '휴업일', '공휴일'];
+  return ['행사', '교육활동', '회의', '휴업일', '공휴일', '근무']; // 회의·근무는 2026-10-19a(교사 요청·검토 55번)
 }
 
 function schedTargets_() {
@@ -111,6 +112,14 @@ function canEditEvent_(e, ctx) {
 /** 휴업일·공휴일은 수업일수에 걸려서 관리만 */
 function isOffKind_(kind) { return kind === '휴업일' || kind === '공휴일'; }
 
+/** 관리만 넣고 고치는 구분: 휴업일·공휴일(수업일수) + 근무(관리자 근무, 사유는 적지 않음) */
+function isManageKind_(kind) { return isOffKind_(kind) || kind === '근무'; }
+
+/** 관리만 하는 구분을 막을 때의 말 */
+function manageKindMsg_(kind, verb) {
+  return kind === '근무' ? '근무는 연구부장·부담당만 ' + verb + ' 수 있어요.' : '휴업일·공휴일은 연구부장·부담당만 ' + verb + ' 수 있어요.';
+}
+
 /**
  * 관리 권한이 없어 막을 때의 오류. 관리자 화면 표를 보냈는데 그 표가 끝났으면(연 지 2시간) 'ADMIN'으로 알린다
  * (화면이 관리자 화면을 닫고, 연구부장·부담당에게 '연구부장·부담당만'이라는 엉뚱한 말이 나오지 않게)
@@ -124,8 +133,8 @@ function manageDenied_(ctx, msg) {
 
 // ---------------------------------------------------------------- 읽기
 
-/** 화면에 보낼 일정 한 줄 */
-function eventView_(e, ctx, depts, names) {
+/** 화면에 보낼 일정 한 줄. repeats: 반복 묶음ID → 묶음의 일정 수(eventsBetween_가 한 번 센다) */
+function eventView_(e, ctx, depts, names, repeats) {
   return {
     id: e['일정ID'],
     start: e['시작일'],
@@ -143,7 +152,9 @@ function eventView_(e, ctx, depts, names) {
     by: names[e['입력자ID']] || '',
     at: e['입력 시각'],
     editedAt: e['수정 시각'],
-    canEdit: canEditEvent_(e, ctx) && (!isOffKind_(e['구분']) || canManage_(ctx)) // 휴업일·공휴일은 관리만(저장도 서버가 막는다)
+    canEdit: canEditEvent_(e, ctx) && (!isManageKind_(e['구분']) || canManage_(ctx)), // 휴업일·공휴일·근무는 관리만(저장도 서버가 막는다)
+    repeat: e['반복 묶음ID'] || '',
+    repeatN: e['반복 묶음ID'] && repeats ? repeats[e['반복 묶음ID']] || 0 : 0
   };
 }
 
@@ -157,10 +168,20 @@ function staffNames_() {
 function eventsBetween_(from, to, ctx) {
   var depts = categoryNames_('부서');
   var names = staffNames_();
-  var list = liveRows_('일정').filter(function (e) {
+  var all = liveRows_('일정'), repeats = {};
+  all.forEach(function (e) { if (e['반복 묶음ID']) repeats[e['반복 묶음ID']] = (repeats[e['반복 묶음ID']] || 0) + 1; });
+  var list = all.filter(function (e) {
     return e['시작일'] && e['시작일'] <= to && eventEnd_(e) >= from;
   });
-  return sortEvents_(list).map(function (e) { return eventView_(e, ctx, depts, names); });
+  return sortEvents_(list).map(function (e) { return eventView_(e, ctx, depts, names, repeats); });
+}
+
+/** 기간의 일정(주간 안내 문구·인쇄, 반복 일정 미리보기의 공휴일·휴업일). args = { from, to } (400일까지) */
+function apiSchedRange_(args, actor, ctx) {
+  var from = checkYmd_(args.from, '시작 날짜'), to = checkYmd_(args.to, '끝 날짜');
+  if (to < from) throw userError_('끝 날짜가 시작 날짜보다 앞에 있어요.');
+  if (ymdToUtc_(to) - ymdToUtc_(from) > 400 * 86400000) throw userError_('한 번에 400일까지 볼 수 있어요.');
+  return { from: from, to: to, today: todayYmd_(), events: eventsBetween_(from, to, ctx) };
 }
 
 function checkYmd_(s, label) {
@@ -237,6 +258,7 @@ function apiHome_(args, actor, ctx) {
     library: homeLib.slice(0, 6), // 홈에는 6개까지
     libraryTotal: homeLib.length,
     notices: optional_('homeNotices_', { items: [], total: 0 })(ctx),
+    emergency: optional_('homeHelp_', [])(ctx), // 비상 시 이것부터(도움말 '홈에 보이기', 3개까지)
     noticeLatest: optional_('latestNoticeAt_', '')()
   };
 }
@@ -300,8 +322,8 @@ function checkEventBase_(row, base, names, tail) {
 function apiSchedSave_(args, actor, ctx) {
   var rec = cleanEvent_(args.fields || {});
   ensureCols_('일정'); // '중요' 칸이 없는 예전 시트도 그대로 쓸 수 있게
-  if (isOffKind_(rec['구분']) && !canManage_(ctx)) {
-    throw manageDenied_(ctx, '휴업일·공휴일은 수업일수에 영향을 줘서 연구부장·부담당만 넣을 수 있어요.');
+  if (isManageKind_(rec['구분']) && !canManage_(ctx)) {
+    throw manageDenied_(ctx, rec['구분'] === '근무' ? manageKindMsg_('근무', '넣을') : '휴업일·공휴일은 수업일수에 영향을 줘서 연구부장·부담당만 넣을 수 있어요.');
   }
   var depts = categoryNames_('부서'), names = staffNames_();
   if (args.id) {
@@ -309,7 +331,7 @@ function apiSchedSave_(args, actor, ctx) {
       var row = findRow_('일정', String(args.id));
       if (!row || row['삭제 여부']) throw userError_('이 일정을 찾지 못했어요. 이미 지워졌을 수 있어요.');
       if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
-      if (isOffKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, '휴업일·공휴일은 연구부장·부담당만 고칠 수 있어요.');
+      if (isManageKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, manageKindMsg_(row['구분'], '고칠'));
       if (!args.force) checkEventBase_(row, args.base, names, '쓰던 내용은 그대로 있어요. "그래도 저장"을 누르면 내 내용으로 바꿔요.');
       updateRow_('일정', row['일정ID'], rec, actor, '일정 고침: ' + eventSummary_(rec));
       return eventView_(findRow_('일정', row['일정ID']), ctx, depts, names);
@@ -333,7 +355,7 @@ function apiSchedMove_(args, actor, ctx) {
     var row = findRow_('일정', String(args.id || ''));
     if (!row || row['삭제 여부']) throw userError_('이 일정을 찾지 못했어요. 이미 지워졌을 수 있어요.');
     if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 옮길 수 있어요.', 'FORBIDDEN');
-    if (isOffKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, '휴업일·공휴일은 연구부장·부담당만 옮길 수 있어요.');
+    if (isManageKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, manageKindMsg_(row['구분'], '옮길'));
     checkEventBase_(row, args.base, names, '달력을 새로 불러왔어요. 다시 옮겨 주세요.');
     var old = eventSummary_(row);
     updateRow_('일정', row['일정ID'], { '시작일': start, '끝일': end }, actor, '일정 옮김: ' + old + ' → ' + start + (end ? '~' + end : ''));
@@ -345,9 +367,52 @@ function apiSchedDelete_(args, actor, ctx) {
   var row = findRow_('일정', String(args.id || ''));
   if (!row || row['삭제 여부']) throw userError_('이 일정을 찾지 못했어요. 이미 지워졌을 수 있어요.');
   if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
-  if (isOffKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, '휴업일·공휴일은 연구부장·부담당만 지울 수 있어요.');
+  if (isManageKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, manageKindMsg_(row['구분'], '지울'));
   softDelete_('일정', row['일정ID'], actor, '일정 지움: ' + eventSummary_(row));
   return { done: true };
+}
+
+// ---------------------------------------------------------------- 반복 일정 (2026-10-19a)
+// 화면이 규칙(매주 ○요일·매월 ○일·매월 ○째 ○요일)과 끝나는 날로 날짜를 만들고(공휴일·휴업일 건너뛰기), 고른 날짜를 보낸다.
+// 서버는 날짜를 확인해 같은 내용을 날짜마다 한 줄씩 넣고 '반복 묶음ID'로 묶는다. 하나씩 고치기는 보통 일정과 같다
+var REPEAT_MAX_ = 60;
+
+/** args = { fields(행사 칸과 같음), dates: ['yyyy-MM-dd', …] } */
+function apiSchedSaveRepeat_(args, actor, ctx) {
+  var rec = cleanEvent_(args.fields || {});
+  if (isManageKind_(rec['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, manageKindMsg_(rec['구분'], '넣을'));
+  var dates = (Array.isArray(args.dates) ? args.dates : []).map(String).filter(function (d, i, a) { return isDate_(d) && a.indexOf(d) === i; }).sort();
+  if (dates.length < 2) throw userError_('반복할 날짜가 두 개 이상이어야 해요. 끝나는 날을 늦춰 주세요.');
+  if (dates.length > REPEAT_MAX_) throw userError_('반복 일정은 한 번에 ' + REPEAT_MAX_ + '개까지 넣을 수 있어요. 끝나는 날을 앞당겨 주세요.');
+  if (ymdToUtc_(dates[dates.length - 1]) - ymdToUtc_(dates[0]) > 366 * 86400000) throw userError_('반복 일정은 1년 안으로 넣어 주세요.');
+  var span = rec['끝일'] ? Math.round((ymdToUtc_(rec['끝일']) - ymdToUtc_(rec['시작일'])) / 86400000) : 0; // 여러 날 행사는 기간 그대로
+  ensureCols_('일정'); // '반복 묶음ID' 칸이 없는 예전 시트도 그대로
+  var gid = 'R' + Utilities.getUuid().replace(/-/g, '').slice(0, 10).toUpperCase();
+  var recs = dates.map(function (d) {
+    var r = {};
+    Object.keys(rec).forEach(function (k) { r[k] = rec[k]; });
+    r['시작일'] = d;
+    r['끝일'] = span ? addDays_(d, span) : '';
+    r['반복 묶음ID'] = gid;
+    return r;
+  });
+  insertRows_('일정', recs, actor, '반복 일정 넣음: ' + rec['행사명'] + ' ' + recs.length + '개(' + dates[0] + '~' + dates[dates.length - 1] + ')');
+  return { count: recs.length, group: gid, first: dates[0], last: dates[dates.length - 1] };
+}
+
+/** 이 반복 모두 지우기: args = { id(그 묶음의 일정 하나) }. 처음 넣은 분·관리만, 한 번에 숨긴다(휴지통에서 하나씩 되살릴 수 있음) */
+function apiSchedDeleteRepeat_(args, actor, ctx) {
+  return withLock_(function () {
+    var row = findRow_('일정', String(args.id || ''));
+    if (!row || row['삭제 여부']) throw userError_('이 일정을 찾지 못했어요. 이미 지워졌을 수 있어요.');
+    var gid = row['반복 묶음ID'];
+    if (!gid) throw userError_('반복 일정이 아니에요.');
+    if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
+    if (isManageKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, manageKindMsg_(row['구분'], '지울'));
+    var ids = liveRows_('일정').filter(function (e) { return e['반복 묶음ID'] === gid && canEditEvent_(e, ctx); }).map(function (e) { return e['일정ID']; });
+    var n = updateRowsSame_('일정', ids, { '삭제 여부': '삭제' }, actor, '반복 일정 모두 지움: ' + row['행사명'] + ' ' + ids.length + '개', '삭제');
+    return { count: n };
+  });
 }
 
 // ---------------------------------------------------------------- 월별 중점지도
@@ -733,6 +798,8 @@ function seedTestSchedule_() {
     [2, '', '5교시', '동료장학 수업 공개', '교직원', '연구부', '', '행사'],
     [3, '', '16:00', '학교운영위원회', '교직원', '교무부', '회의실', '행사'],
     [4, '', '15:00', '교직원 체육대회', '교직원', '교무부', '체육관', '행사'],
+    [1, '', '16:00', '부장 회의', '교직원', '교무부', '교무실', '회의'],
+    [3, '', '오후', '교감 출장(예시)', '교직원', '', '', '근무'],
     [7, '', '', '테스트 공휴일', '전체', '', '', '공휴일'],
     [8, '', '', '독서 골든벨', '3,4,5,6', '교무부', '도서실', '교육활동'],
     [9, '', '', '정보화기기 점검', '전체', '정보부', '', '행사'],
@@ -909,6 +976,8 @@ function parseKind_(v) {
   if (/공휴/.test(s)) return '공휴일';
   if (/휴업|휴교|재량/.test(s)) return '휴업일';
   if (/교육활동|활동|교육/.test(s)) return '교육활동';
+  if (/회의/.test(s)) return '회의';
+  if (/근무/.test(s)) return '근무';
   if (/행사/.test(s)) return '행사';
   return null;
 }
