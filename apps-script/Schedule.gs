@@ -220,6 +220,7 @@ function apiHome_(args, actor, ctx) {
     return l && typeof l.url === 'string' && /^https:\/\//.test(l.url) && typeof l.name === 'string';
   }).slice(0, 12).map(function (l) { return { name: l.name.slice(0, 20), url: l.url.slice(0, 500) }; });
   var m = Number(today.slice(5, 7)), y = Number(today.slice(0, 4));
+  var homeLib = optional_('homeLibrary_', [])(ctx);
   return {
     today: today,
     monday: mon,
@@ -233,7 +234,8 @@ function apiHome_(args, actor, ctx) {
     canManage: canManage_(ctx),
     depts: deptOptions_(), // 홈에서 일정을 고칠 때 부서 목록
     todos: optional_('todoList_', [])(ctx),
-    library: optional_('homeLibrary_', [])(ctx),
+    library: homeLib.slice(0, 6), // 홈에는 6개까지
+    libraryTotal: homeLib.length,
     notices: optional_('homeNotices_', { items: [], total: 0 })(ctx),
     noticeLatest: optional_('latestNoticeAt_', '')()
   };
@@ -566,6 +568,11 @@ function instructionalDays_(from, to) {
 function schoolYearOf_(ymd) {
   var y = Number(String(ymd).slice(0, 4)), m = Number(String(ymd).slice(5, 7));
   return m >= 3 ? y : y - 1;
+}
+
+/** 지금 학년도(숫자): 설정 '학년도', 비었으면 오늘 날짜로 */
+function curSchoolYear_() {
+  return Number(setting_('학년도')) || schoolYearOf_(todayYmd_());
 }
 
 /** 그 학년도의 학기 기간이 있는지 */

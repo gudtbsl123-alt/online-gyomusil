@@ -2592,6 +2592,183 @@ async function schedFixCheck(browser) {
   await ctx.close();
 }
 
+/** 전체 보완 묶음 3(판 2026-10-19a): 조사·공지·자료실·교직원 */
+async function svFixCheck(browser) {
+  const { as, open, toastHas } = tbKit(browser);
+  const asAdmin = (page, name, action, args) => page.evaluate(async ([nm, a, ar]) => { // 관리자 화면을 연 기기처럼
+    const login = localStorage.getItem('gy.login') || sessionStorage.getItem('gy.login');
+    const call = (x, y, tok) => window.__previewServer(JSON.stringify({ action: x, args: y || {}, tokens: tok })).then((t) => JSON.parse(t));
+    const staff = (await call('staffPicker', {}, { login })).data;
+    const p = staff.find((s) => s.name === nm);
+    const identity = (await call('verify', { staffId: p.id, pin: '1111', remember: false }, { login })).data.identity;
+    const admin = (await call('adminLogin', { password: 'admin1' }, { login })).data.admin;
+    return call(a, ar, { login, identity, admin });
+  }, [name, action, args]);
+  const plus = (d, k) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + k); return t.toISOString().slice(0, 10); };
+  const visible = (page, sel) => page.locator(sel).first().isVisible().catch(() => false);
+  const { ctx, page } = await open({ width: 1440, height: 900 }, '성춘향');
+  const today = (await as(page, '성춘향', 'home', {})).data.today;
+  const qs4 = [{ type: 'one', title: '참석', required: true, options: ['참석', '불참'] }, { type: 'many', title: '도울 일', options: ['사진', '정리'] }, { type: 'long', title: '하고 싶은 말' }];
+  const mk = async (title) => {
+    const r = await as(page, '성춘향', 'survey.save', { fields: { title, deadline: plus(today, 3) + ' 17:00', target: { type: 'all' }, questions: qs4 } });
+    if (!r.ok) problems.push('보완 조사: 만들지 못함 ' + r.error);
+    return r.data && r.data.id;
+  };
+  const A = await mk('보완 다시 열 조사'), B = await mk('보완 끝낸 다른 조사');
+  const qa = (await as(page, '심청', 'survey.get', { id: A })).data.questions;
+  await as(page, '심청', 'survey.respond', { id: A, answers: { [qa[0].id]: '참석', [qa[1].id]: ['사진', '정리'], [qa[2].id]: '첫 줄\n둘째 줄 "따옴표"' } });
+  await as(page, '흥부', 'survey.respond', { id: A, answers: { [qa[0].id]: '불참' } });
+  for (const id of [A, B]) await as(page, '성춘향', 'survey.setOpen', { id, open: false });
+
+  // 1) 지난 조사에서 '다시 열기'를 누르면 같은 조사가 그대로 보인다(그 조사가 있는 탭으로)
+  await page.evaluate(() => { const S = window.__gy.S; window.__gy.memoClear(); S.survey.list = null; S.survey.tab = 'past'; S.survey.sel = ''; window.__gy.go('survey'); });
+  await page.locator('.sv-card', { hasText: '보완 다시 열 조사' }).first().click();
+  await page.locator('#sv-detail .sv-owner').waitFor();
+  await page.click('[data-action=sv-close][data-open="1"]');
+  await page.click('#cf-ok');
+  await toastHas(page, /다시 열었어요/);
+  await page.waitForTimeout(400);
+  const st = await page.evaluate(() => ({ sel: window.__gy.S.survey.sel, tab: window.__gy.S.survey.tab, h: (document.querySelector('#sv-detail .sv-h') || {}).textContent || '' }));
+  if (st.sel !== A || st.h !== '보완 다시 열 조사') problems.push('보완 조사: 다시 연 뒤 다른 조사가 열림 ' + JSON.stringify(st));
+  if (st.tab !== 'mine') problems.push('보완 조사: 다시 연 조사가 있는 탭으로 옮기지 않음 ' + st.tab);
+  await shot(page, '보완_조사_다시열기_그대로');
+
+  // 2) 표 복사: 여러 줄로 쓴 답은 따옴표로 감싸 한 칸으로(앞 점검과 따로 보려고 A를 다시 고른다)
+  await page.evaluate((id) => { const S = window.__gy.S; S.survey.tab = 'mine'; S.survey.sel = id; window.__gy.go('survey'); }, A);
+  await page.locator('#sv-detail .sv-owner').waitFor();
+  await page.evaluate(() => { window.__copied = null; Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: (t) => { window.__copied = t; return Promise.resolve(); } }); });
+  await page.click('[data-action=sv-csv]');
+  await page.locator('#csv-copy').waitFor();
+  await page.click('#csv-copy');
+  await toastHas(page, /복사했어요/);
+  const tsv = await page.evaluate(() => window.__copied || '');
+  if (!tsv.includes('"첫 줄\n둘째 줄 ""따옴표"""')) problems.push('보완 조사: 표 복사에서 여러 줄 답을 한 칸으로 감싸지 않음 ' + JSON.stringify(tsv.slice(0, 200)));
+  if (tsv.split('\n').filter((l) => /^(심청|흥부|이름)\t/.test(l)).length !== 3) problems.push('보완 조사: 표 복사 줄 수가 맞지 않음 ' + JSON.stringify(tsv.slice(0, 300)));
+  await page.click('.modal [data-action=close-modal]');
+
+  // 3) 답이 있는 조사에서 '결과 공개'를 켤 때 한 번 묻는다
+  await page.click('[data-action=sv-edit]');
+  await page.locator('#svf').waitFor();
+  await page.click('#svf-public');
+  if (!(await visible(page, '#svf-pub-ask'))) problems.push('보완 조사: 답이 있는데 결과 공개를 켤 때 묻지 않음');
+  if (await page.isChecked('#svf-public')) problems.push('보완 조사: 묻기 전에 결과 공개가 켜짐');
+  if (await visible(page, '#svf-pub-ask')) {
+    await page.locator('#svf-pub-ask').scrollIntoViewIfNeeded();
+    await shot(page, '보완_조사_결과공개_묻기');
+    await page.click('[data-pub-ask="1"]');
+    if (!(await page.isChecked('#svf-public'))) problems.push("보완 조사: '그래도 보여 주기'를 눌렀는데 켜지지 않음");
+  }
+  await page.click('#svf [data-action=close-modal]');
+
+  // 4) 여러 개 고르기는 네모, 하나 고르기는 동그라미
+  await page.evaluate(() => { const S = window.__gy.S; S.survey.tab = 'answer'; S.survey.sel = ''; window.__gy.go('survey'); });
+  await page.locator('.sv-card', { hasText: '보완 다시 열 조사' }).first().click();
+  await page.locator('.sv-respond .opt').first().waitFor();
+  const marks = await page.evaluate(() => ({
+    many: getComputedStyle(document.querySelector('.sv-respond .opt.many .opt-mark')).borderTopLeftRadius,
+    one: getComputedStyle(document.querySelector('.sv-respond .opt:not(.many) .opt-mark')).borderTopLeftRadius
+  }));
+  if (marks.many !== '6px' || marks.one !== '50%') problems.push('보완 조사: 고르기 표시 모양 ' + JSON.stringify(marks));
+  await page.locator('.sv-respond .opt.many').first().click();
+  await page.locator('.sv-respond .opt.many').first().scrollIntoViewIfNeeded();
+  await shot(page, '보완_조사_여러개고르기_네모');
+
+  // 5) 공지: 게시 끝일을 지난 날로 고르면 한 번 묻는다
+  await page.evaluate(() => { window.__gy.S.notice.view = 'now'; window.__gy.go('notice'); });
+  await page.locator('.notice-item').first().waitFor();
+  await page.locator('.main [data-action=notice-new]').first().click();
+  await page.locator('#notice-form').waitFor();
+  await page.fill('#nf-title', '보완 지난 날 공지');
+  await page.fill('#nf-until', plus(today, -2));
+  await page.click('#notice-form [type=submit]');
+  if (!(await page.locator('#nf-past-ok').waitFor({ timeout: 3000 }).then(() => true, () => false))) problems.push('보완 공지: 지난 날을 골랐는데 묻지 않음');
+  else {
+    if (!/오늘보다 앞이라/.test(await page.textContent('#nf-err'))) problems.push('보완 공지: 묻는 글이 없음');
+    await shot(page, '보완_공지_지난날_묻기');
+    await page.click('#nf-past-ok');
+    await toastHas(page, /공지를 올렸어요/);
+    await page.click('[data-action=notice-view][data-v=past]');
+    if (!(await page.locator('.notice-item', { hasText: '보완 지난 날 공지' }).first().waitFor({ timeout: 4000 }).then(() => true, () => false))) problems.push('보완 공지: 그대로 올린 공지가 지난 공지에 없음');
+  }
+
+  // 6) 설정의 '자료실' 칸(파일 크기 한도 20MB까지)과 자료 넣기 창의 '홈에는 6개까지' 안내
+  await page.evaluate(() => window.__gy.go('admin'));
+  await page.fill('#admin-pw', 'admin1');
+  await page.click('#admin-form [type=submit]');
+  await page.click('[data-admin-tab=settings]');
+  await page.locator('#set-form').waitFor();
+  const fileField = page.locator('#set-form [data-set="파일 크기 한도"]');
+  if (!(await fileField.count())) problems.push('보완 설정: 파일 크기 한도 칸이 없음');
+  else {
+    await fileField.scrollIntoViewIfNeeded();
+    if (!/1~20MB/.test(await page.locator('#set-form section', { has: page.locator('[data-set="파일 크기 한도"]') }).innerText())) problems.push('보완 설정: 파일 크기 한도 범위 안내가 20MB가 아님');
+    await shot(page, '보완_설정_파일크기한도');
+    await fileField.fill('25');
+    await page.click('#set-form [type=submit]');
+    await page.waitForFunction(() => /20MB/.test((document.querySelector('#set-err') || {}).textContent || ''), null, { timeout: 4000 }).catch(() => problems.push('보완 설정: 25MB를 막지 않음'));
+  }
+  for (let i = 1; i <= 7; i++) await asAdmin(page, '홍길동', 'lib.save', { fields: { '제목': '보완 홈 자료 ' + i, mode: 'link', link: 'https://example.com/b' + i, home: true } });
+  await page.evaluate(() => { window.__gy.memoClear(); window.__gy.S.lib.data = null; window.__gy.S.lib.view = 'now'; window.__gy.go('library'); });
+  await page.locator('.lib-card').first().waitFor();
+  await page.click('[data-action=lib-new]');
+  await page.locator('#lib-form').waitFor();
+  if (!/홈에는 6개까지/.test(await page.locator('#lib-form').innerText())) problems.push('보완 자료실: 자료 넣기 창에 홈 6개 안내가 없음');
+  await page.click('#lib-form [data-action=close-modal]');
+  await page.evaluate(() => { window.__gy.S.home = null; window.__gy.go('home'); });
+  await page.locator('.quick-card').waitFor();
+  const total = (await as(page, '성춘향', 'home', {})).data.libraryTotal;
+  const more = await page.locator('.quick-card .quick-more').innerText().catch(() => '');
+  if (!more.includes('나머지 ' + (total - 6) + '개')) problems.push('보완 홈: 자주 찾는 자료 나머지 안내 ' + JSON.stringify([total, more]));
+  await page.locator('.quick-card').scrollIntoViewIfNeeded();
+  await shot(page, '보완_홈_자주찾는자료_나머지');
+
+  // 7) '3·4학년 전담' 소속은 두 학년 모두 우리 학년. 내선에 휴대폰 번호는 막는다
+  const add = await asAdmin(page, '홍길동', 'admin.staff.save', { fields: { '이름': '임꺽정', '직위': '교사', '소속': '3·4학년 전담' } });
+  if (!add.ok) problems.push('보완 교직원: 임꺽정을 넣지 못함 ' + add.error);
+  const phone = await asAdmin(page, '홍길동', 'admin.staff.save', { fields: { '이름': '전우치', '내선': '010-1234-5678' } });
+  if (phone.ok || !/휴대폰/.test(phone.error || '')) problems.push('보완 교직원: 내선에 휴대폰 번호가 들어감');
+  const all = {};
+  for (let gr = 1; gr <= 6; gr++) all[gr] = [[10, 10]];
+  await as(page, '심청', 'students.save', { date: today, classes: all });
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.side [data-action=switch]').first().click();
+  await waitText(page, '누구신가요?');
+  await verify(page, '임꺽정');
+  await page.locator('.stu-card').waitFor();
+  const mine = await page.evaluate(() => Array.from(document.querySelectorAll('.stu-g.mine')).map((b) => b.getAttribute('data-id')));
+  if (mine.join(',') !== '3,4') problems.push('보완 우리 학년: 3·4학년 전담인데 학생 수 칸 ' + mine.join(','));
+  if (await page.locator('[data-home-f=grade][disabled]').count()) problems.push("보완 우리 학년: 3·4학년 전담인데 '우리 학년' 거르기를 못 씀");
+  await page.locator('.stu-card').scrollIntoViewIfNeeded();
+  await shot(page, '보완_우리학년_두학년');
+
+  // 8) 새 학년도가 되면 지난 조사·지난 공지·보관함은 '이전 학년도 보기'를 눌러(보관함은 열 때) 받는다
+  const sy = Number((await asAdmin(page, '홍길동', 'admin.year.preview', {})).data.year);
+  const ys = await asAdmin(page, '홍길동', 'admin.year.start', { year: String(sy + 1), keep: [] });
+  if (!ys.ok) problems.push('보완 새 학년도: 넘기지 못함 ' + ys.error);
+  await page.evaluate(() => { const S = window.__gy.S; window.__gy.memoClear(); S.survey.list = null; S.survey.pastAll = false; S.survey.tab = 'past'; S.survey.sel = ''; window.__gy.go('survey'); });
+  if (!(await page.locator('[data-action=sv-older]').waitFor({ timeout: 5000 }).then(() => true, () => false))) problems.push('보완 조사: 지난 학년도 조사가 있는데 이전 학년도 보기가 없음');
+  else {
+    if (await page.locator('.sv-card', { hasText: '보완 끝낸 다른 조사' }).count()) problems.push('보완 조사: 지난 학년도 조사를 처음부터 받음');
+    await shot(page, '보완_조사_이전학년도_보기');
+    await page.click('[data-action=sv-older]');
+    if (!(await page.locator('.sv-card', { hasText: '보완 끝낸 다른 조사' }).first().waitFor({ timeout: 5000 }).then(() => true, () => false))) problems.push('보완 조사: 이전 학년도 보기를 눌러도 지난 조사가 안 보임');
+  }
+  await page.evaluate(() => { const S = window.__gy.S; S.notice.older = false; S.notice.view = 'past'; window.__gy.go('notice'); });
+  if (!(await page.locator('[data-action=notice-older]').waitFor({ timeout: 5000 }).then(() => true, () => false))) problems.push('보완 공지: 지난 학년도 공지가 있는데 이전 학년도 보기가 없음');
+  else {
+    await page.click('[data-action=notice-older]');
+    if (!(await page.locator('.notice-item', { hasText: '보완 지난 날 공지' }).first().waitFor({ timeout: 5000 }).then(() => true, () => false))) problems.push('보완 공지: 이전 학년도 보기를 눌러도 지난 공지가 안 보임');
+  }
+  await page.evaluate(() => { const S = window.__gy.S; S.lib.data = null; S.lib.view = 'now'; window.__gy.go('library'); });
+  await page.locator('#lib-list .card, #lib-list .lib-group').first().waitFor();
+  const before = await page.evaluate(() => window.__gy.S.lib.data.items.filter((i) => i.archived).length);
+  if (before) problems.push('보완 자료실: 보관함을 열기 전에 지난 자료를 ' + before + '개 받음');
+  await page.click('[data-action=lib-view][data-v=archive]');
+  if (!(await page.locator('#lib-list .lib-card').first().waitFor({ timeout: 5000 }).then(() => true, () => false))) problems.push('보완 자료실: 보관함을 열어도 지난 자료가 안 보임');
+  else await shot(page, '보완_자료실_보관함_열때받기');
+  await ctx.close();
+}
+
 async function tableMissingCheck(browser) {
   const src = fs.readFileSync(path.join(__dirname, '..', '미리보기', '미리보기.html'), 'utf8');
   const a = src.indexOf('<style>\n/* ---------- 취합 시트(TableUi.html'), b = src.indexOf('window.__gyTableUi = function'), end = '\n};\n</script>', c = b < 0 ? -1 : src.indexOf(end, b);
@@ -2822,6 +2999,14 @@ async function introReducedMotionCheck(browser) {
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
   }
+  // ONLY=svfix: 조사·공지·자료실·교직원 보완 점검만(판 2026-10-19a)
+  if (process.env.ONLY === 'svfix') {
+    await svFixCheck(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
   // ONLY=tablefix: 취합 시트 보완 점검만(판 2026-10-19a)
   if (process.env.ONLY === 'tablefix') {
     await tableFixCheck(browser);
@@ -2941,6 +3126,7 @@ async function introReducedMotionCheck(browser) {
   await tplCheck(browser);
   await tableFixCheck(browser);
   await schedFixCheck(browser);
+  await svFixCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
   await browser.close();

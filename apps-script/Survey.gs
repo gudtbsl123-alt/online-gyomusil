@@ -33,9 +33,24 @@ function surveyClosed_(s) {
   return s['상태'] === '끝남' || (s['마감 일시'] && s['마감 일시'] <= nowMin_());
 }
 
-function gradeOf_(staff) {
-  var m = /(\d)\s*학년/.exec(staff['소속'] || '');
-  return m ? m[1] : '';
+/**
+ * 소속에 적힌 학년들(글자, 작은 순). '3학년 2반' → ['3'], '3·4학년 전담'·'5, 6학년' → 두 학년 모두, '3~6학년' → 3~6.
+ * '2026학년도'처럼 숫자가 이어지거나 '학년도'인 것은 학년으로 보지 않는다. 화면(App.html gradesIn)과 같은 규칙
+ */
+function gradesOf_(staff) {
+  var s = String((staff && staff['소속']) || ''), out = [], re = /(^|[^0-9])([1-6](?:\s*(?:학년)?\s*[·・,，、/~～-]\s*[1-6])*)\s*학년(?!도)/g, m;
+  var add = function (g) { g = String(g); if (out.indexOf(g) < 0) out.push(g); };
+  while ((m = re.exec(s))) {
+    var prev = 0, range = false;
+    m[2].replace(/[1-6]|[~～-]/g, function (t) {
+      if (!/[1-6]/.test(t)) { range = true; return t; }
+      var g = Number(t);
+      if (range && prev && g > prev) for (var k = prev + 1; k < g; k++) add(k);
+      add(g); prev = g; range = false;
+      return t;
+    });
+  }
+  return out.sort();
 }
 
 function activeStaff_() {
@@ -47,7 +62,7 @@ function targetStaff_(target, staff) {
   var t = target || { type: 'all' };
   return (staff || activeStaff_()).filter(function (r) {
     if (t.type === 'dept') return (t.ids || []).indexOf(r['부서ID']) >= 0;
-    if (t.type === 'grade') return (t.grades || []).indexOf(gradeOf_(r)) >= 0;
+    if (t.type === 'grade') return gradesOf_(r).some(function (g) { return (t.grades || []).indexOf(g) >= 0; });
     if (t.type === 'people') return (t.ids || []).indexOf(r['교직원ID']) >= 0;
     return true;
   });
@@ -141,6 +156,7 @@ function todoList_(ctx, cache) {
 }
 
 function apiSurveyList_(args, actor, ctx) {
+  args = args || {};
   var cache = surveyCache_();
   var cards = liveRows_('조사').map(function (s) { return surveyCard_(s, ctx, cache); });
   var me = ctx.identity ? ctx.identity['교직원ID'] : '';
@@ -152,14 +168,19 @@ function apiSurveyList_(args, actor, ctx) {
     return byDeadline(a, b);
   });
   var mine = cards.filter(function (c) { return !c.closed && (c.byId === me || manage); }).sort(byDeadline);
-  var past = cards.filter(function (c) { return c.closed && (c.inTarget || c.byId === me || manage); })
+  var pastAll = cards.filter(function (c) { return c.closed && (c.inTarget || c.byId === me || manage); })
     .sort(function (a, b) { return byDeadline(b, a); });
+  // 지난 조사는 이번 학년도(마감 날짜로) 것만 먼저 보낸다. '이전 학년도 보기'(args.pastAll)를 누르면 모두
+  var sy = curSchoolYear_();
+  var past = args.pastAll ? pastAll : pastAll.filter(function (c) { return !c.deadline || schoolYearOf_(c.deadline.slice(0, 10)) >= sy; });
   return {
     needIdentity: !ctx.identity,
     canManage: manage,
     toAnswer: toAnswer,
     mine: mine,
     past: past,
+    pastOlder: pastAll.length - past.length,
+    pastAll: !!args.pastAll,
     todoCount: toAnswer.filter(function (c) { return !c.answered; }).length,
     now: nowMin_(),
     today: todayYmd_()

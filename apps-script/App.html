@@ -263,7 +263,7 @@
         list.push(['sched.month', { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 }]);
       });
     }
-    list = list.concat([['survey.list', {}], ['lib.list', {}], ['notice.list', {}], ['help.list', {}], ['staff.list', {}]]);
+    list = list.concat([['survey.list', svArgs()], ['lib.list', libArgs()], ['notice.list', noticeArgs()], ['help.list', {}], ['staff.list', {}]]);
     var seen = {};
     return list.filter(function (x) {
       var k = memoKey(x[0], x[1]);
@@ -826,10 +826,23 @@
       .replace(/(\d)학년·(?=\d)/g, '$1·');
   }
   function metaText(e) { return [e.place, e.dept].filter(Boolean).join(' · '); }
-  function myGrade() {
-    var m = S.me && /(\d)\s*학년/.exec(S.me.group || '');
-    return m ? m[1] : '';
+  /** 소속에 적힌 학년들: '3학년 2반' → ['3'], '3·4학년 전담'·'5, 6학년' → 두 학년 모두, '3~6학년' → 3~6 (서버 Survey.gs gradesOf_와 같은 규칙) */
+  function gradesIn(text) {
+    var out = [], re = /(^|[^0-9])([1-6](?:\s*(?:학년)?\s*[·・,，、/~～-]\s*[1-6])*)\s*학년(?!도)/g, m;
+    var add = function (g) { g = String(g); if (out.indexOf(g) < 0) out.push(g); };
+    while ((m = re.exec(String(text || '')))) {
+      var prev = 0, range = false;
+      m[2].replace(/[1-6]|[~～-]/g, function (t) {
+        if (!/[1-6]/.test(t)) { range = true; return t; }
+        var g = Number(t);
+        if (range && prev && g > prev) for (var k = prev + 1; k < g; k++) add(k);
+        add(g); prev = g; range = false;
+        return t;
+      });
+    }
+    return out.sort();
   }
+  function myGrades() { return S.me ? gradesIn(S.me.group) : []; }
   function isPhone() { return window.matchMedia('(max-width: 899px)').matches; }
   function isWide() { return window.innerWidth / zoomFactor() >= 1200; } // 화면 크기를 키우면 그만큼 좁은 화면처럼
   function zoomFactor() {
@@ -837,13 +850,14 @@
     return z > 0 ? z : 1;
   }
 
-  /** 필터: grade('', '1'~'6', '교직원'), dept(부서ID), mine */
+  /** 필터: grade('', '1'~'6', '교직원'), grades(우리 학년들, 하나라도 맞으면), dept(부서ID), mine */
   function passFilter(e, f) {
-    if (f.grade) {
+    var want = f.grade ? [f.grade] : f.grades || [];
+    if (want.length) {
       var list = (e.target || '').split(',');
       if (e.target) {
-        if (f.grade === '교직원') { if (list.indexOf('교직원') < 0) return false; }
-        else if (list.indexOf('전체') < 0 && list.indexOf(f.grade) < 0) return false;
+        if (want[0] === '교직원') { if (list.indexOf('교직원') < 0) return false; }
+        else if (list.indexOf('전체') < 0 && !want.some(function (g) { return list.indexOf(g) >= 0; })) return false;
       }
     }
     if (f.dept && e.deptId !== f.dept) return false;
@@ -934,7 +948,7 @@
     var todays = h.events.filter(function (e) { return onDay(e, h.today); });
     var tomorrow = h.events.filter(function (e) { return onDay(e, h.tomorrow); });
     var hf = S.homeFilter || 'all';
-    var f = { grade: hf === 'grade' ? myGrade() : '', mine: hf === 'mine' };
+    var f = { grades: hf === 'grade' ? myGrades() : [], mine: hf === 'mine' };
     var days = [];
     for (var i = 0; i < 5; i++) days.push(addD(h.monday, i));
     var weekend = h.events.filter(function (e) { return e.start > addD(h.monday, 4) && e.end <= addD(h.monday, 6) && passFilter(e, f); });
@@ -957,7 +971,7 @@
       '<section class="card"><div class="card-head"><h2>' + (h.weekNext ? '다음 주 일정' : '이번 주 일정') + ' <span class="faint" style="font-weight:600">' + md(h.monday) + ' – ' + md(addD(h.monday, 4)) + '</span></h2>' +
       '<div class="seg print-hide" role="group" aria-label="' + (h.weekNext ? '다음 주' : '이번 주') + ' 일정 보기">' +
       '<button type="button" data-home-f="all" aria-pressed="' + (hf === 'all') + '">전체</button>' +
-      '<button type="button" data-home-f="grade" aria-pressed="' + (hf === 'grade') + '"' + (myGrade() ? '' : ' disabled title="소속에 학년이 있으면 쓸 수 있어요"') + '>우리 학년</button>' +
+      '<button type="button" data-home-f="grade" aria-pressed="' + (hf === 'grade') + '"' + (myGrades().length ? '' : ' disabled title="소속에 학년이 있으면 쓸 수 있어요"') + '>우리 학년</button>' +
       '<button type="button" data-home-f="mine" aria-pressed="' + (hf === 'mine') + '"' + (S.me ? '' : ' disabled title="본인 확인 뒤에 쓸 수 있어요"') + '>내 담당</button></div></div>' +
       '<div class="week">' + days.map(function (d) {
         var list = h.events.filter(function (e) { return onDay(e, d) && passFilter(e, f); });
@@ -972,7 +986,7 @@
       (weekend.length ? '<p class="faint">주말: ' + weekend.map(function (e) { return esc(mdw(e.start) + ' ' + e.title); }).join(' · ') + '</p>' : '') +
       '</section>' +
 
-      '<div class="home-row">' + (isPhone() ? '' : homeNoticeCard(h)) + quickLibCard(h.library || []) + '</div>' +
+      '<div class="home-row">' + (isPhone() ? '' : homeNoticeCard(h)) + quickLibCard(h.library || [], h.libraryTotal) + '</div>' +
       (bottom ? '<div class="home-row home-bottom">' + bottom + '</div>' : '') +
       (links.length ? '<section class="card dashed"><div class="card-head"><div><h2>아직 기존 시트에서 하는 일</h2>' +
         '<p class="faint" style="margin-top:4px">2차에 온라인 교무실로 옮겨 와요. 그 전까지는 바로가기로 들어가세요.</p></div>' +
@@ -1001,7 +1015,7 @@
   function studentsCard(h) {
     var st = h.students;
     if (!st) return ''; // 예전 서버 파일(Schedule.gs)이면 카드 없이
-    var mine = myGrade();
+    var mine = myGrades();
     var btn = S.me ? '<button type="button" class="btn btn-sm print-hide" data-action="students-edit">' + (st.id ? '고치기' : icon('plus', 18) + '넣기') + '</button>' : '';
     var head = '<div class="card-head"><div class="stu-head"><h2>학생 수 현황</h2>' +
       (st.date ? '<span class="faint">' + esc(dayText(st.date, h.today)) + ' 기준</span>' : '') + '</div>' + btn + '</div>';
@@ -1015,7 +1029,7 @@
       '<p class="stu-total"><span class="stu-total-label">전체</span><b class="stu-total-num">' + numText(st.total) + '</b><span class="stu-unit">명</span>' +
       (hasMf ? '<span class="stu-mf">남 ' + numText(st.boys) + ' · 여 ' + numText(st.girls) + '</span>' : '') + '</p>' +
       '<div class="stu-grid">' + STUDENT_GRADES.map(function (name, i) {
-        var mineOne = String(i + 1) === mine;
+        var mineOne = mine.indexOf(String(i + 1)) >= 0;
         return '<button type="button" class="stu-g' + (mineOne ? ' mine' : '') + '" data-action="students-grade" data-id="' + (i + 1) + '">' +
           '<span class="stu-g-name">' + name + (mineOne ? '<span class="sr-only"> (우리 학년)</span>' : '') + '</span>' +
           '<b class="stu-g-num">' + numText(g[i]) + '<span class="stu-unit">명</span></b></button>';
@@ -2048,7 +2062,7 @@
     var sv = S.survey;
     $s.innerHTML = pageHead('', '조사·신청', '', S.me ? '<button type="button" class="btn print-hide" data-action="sv-new">' + icon('plus', 18) + '새 조사 만들기</button>' : '') +
       '<div id="sv-body">' + loadingHtml('조사를 불러오는 중이에요') + '</div>';
-    loadMemo('survey.list', {}, function (l) {
+    loadMemo('survey.list', svArgs(), function (l) {
       if (S.screen !== 'survey') return;
       sv.list = l;
       setTodoCount(l.todoCount);
@@ -2072,9 +2086,15 @@
       return;
     }
     var tabs = [['answer', '응답할 것', l.todoCount], ['mine', l.canManage ? '진행 중인 조사' : '내가 만든 조사', l.mine.length], ['past', '지난 조사', 0]];
-    var list = { answer: l.toAnswer, mine: l.mine, past: l.past }[sv.tab] || [];
+    var lists = { answer: l.toAnswer, mine: l.mine, past: l.past };
+    var has = function (k) { return (lists[k] || []).some(function (c) { return c.id === sv.sel; }); };
+    if (sv.sel && !has(sv.tab)) {
+      // 보던 조사가 이 탭에 없으면(다시 열기·끝내기·마감 등) 그 조사가 있는 탭으로 옮긴다. 다른 조사를 대신 열지 않는다
+      var other = ({ answer: ['past', 'mine'], mine: ['past', 'answer'], past: ['mine', 'answer'] }[sv.tab] || []).filter(has)[0];
+      if (other) sv.tab = other;
+    }
+    var list = lists[sv.tab] || [];
     var phone = isPhone();
-    if (sv.sel && !list.some(function (c) { return c.id === sv.sel; })) sv.sel = '';
     if (!sv.sel && list.length && !phone) sv.sel = list[0].id;
     var showList = !phone || !sv.sel;
     body.innerHTML = '<div class="tabs print-hide" role="tablist">' + tabs.map(function (t) {
@@ -2083,8 +2103,9 @@
     }).join('') + '</div>' +
       '<div class="sv-layout">' +
       (showList ? '<div class="sv-list">' + (list.length ? list.map(function (c) { return svCard(c, sv.tab, l.today); }).join('') :
-        '<div class="card"><p class="empty">' + { answer: '지금 낼 조사가 없어요.', mine: '진행 중인 조사가 없어요. "새 조사 만들기"로 만들어 보세요.', past: '지난 조사가 없어요.' }[sv.tab] + '</p></div>') +
-        (sv.tab === 'answer' && l.past.length ? '<p class="faint">끝난 조사는 \'지난 조사\'에서 다시 볼 수 있어요.</p>' : '') + '</div>' : '') +
+        '<div class="card"><p class="empty">' + { answer: '지금 낼 조사가 없어요.', mine: '진행 중인 조사가 없어요. "새 조사 만들기"로 만들어 보세요.', past: l.pastOlder ? '이번 학년도에 끝난 조사가 없어요.' : '지난 조사가 없어요.' }[sv.tab] + '</p></div>') +
+        (sv.tab === 'past' && l.pastOlder ? '<button type="button" class="btn btn-sm btn-ghost sv-older print-hide" data-action="sv-older">' + icon('archive', 18) + '이전 학년도 조사도 보기 <span class="faint">' + l.pastOlder + '개</span></button>' : '') +
+        (sv.tab === 'answer' && (l.past.length || l.pastOlder) ? '<p class="faint">끝난 조사는 \'지난 조사\'에서 다시 볼 수 있어요.</p>' : '') + '</div>' : '') +
       (sv.sel ? '<div class="sv-detail" id="sv-detail">' + loadingHtml() + '</div>' : '') +
       '</div>';
     if (sv.sel) loadSurveyDetail();
@@ -2119,7 +2140,7 @@
       var vals = [].concat(value || []);
       body = '<div class="opts">' + q.options.map(function (o) {
         var on = vals.indexOf(o) >= 0;
-        return '<label class="opt' + (on ? ' on' : '') + '"><input type="' + (q.type === 'one' ? 'radio' : 'checkbox') + '" name="' + name + '" value="' + esc(o) + '"' + (on ? ' checked' : '') + dis + '>' +
+        return '<label class="opt' + (q.type === 'many' ? ' many' : '') + (on ? ' on' : '') + '"><input type="' + (q.type === 'one' ? 'radio' : 'checkbox') + '" name="' + name + '" value="' + esc(o) + '"' + (on ? ' checked' : '') + dis + '>' +
           '<span>' + esc(o) + '</span><span class="opt-mark" aria-hidden="true">' + icon('check', 16, ' stroke-width="2.6"') + '</span></label>';
       }).join('') + '</div>';
     } else if (q.type === 'long') {
@@ -2195,7 +2216,7 @@
       var btn = form.querySelector('[type=submit]');
       busy(btn, true, '내는 중');
       err.textContent = '';
-      server('survey.respond', { id: d.card.id, answers: answers }, [['survey.list', {}], ['survey.get', { id: d.card.id }]]).then(function (r) {
+      server('survey.respond', { id: d.card.id, answers: answers }, [['survey.list', svArgs()], ['survey.get', { id: d.card.id }]]).then(function (r) {
         S.survey.draft = null;
         toast(r.edited ? '고친 답을 냈어요' : '냈어요. 고맙습니다');
         S.survey.list = null;
@@ -2204,8 +2225,11 @@
     });
   }
 
+  /** 조사 목록 요청: 지난 조사는 이번 학년도 것만 받다가 '이전 학년도 조사도 보기'를 누르면 모두(이 창에서 기억) */
+  function svArgs() { return S.survey.pastAll ? { pastAll: 1 } : {}; }
+
   function refreshSurveyList() {
-    loadMemo('survey.list', {}, function (l) {
+    loadMemo('survey.list', svArgs(), function (l) {
       S.survey.list = l;
       setTodoCount(l.todoCount);
       if (S.screen === 'survey') drawSurvey();
@@ -2295,8 +2319,9 @@
   function surveyCsv() {
     var d = S.survey.detail;
     server('survey.csv', { id: d.card.id }).then(function (r) {
-      var tsv = r.csv.split('\r\n').map(function (line) {
-        return line.replace(/^"|"$/g, '').split('","').map(function (c) { return c.replace(/""/g, '"').replace(/\t/g, ' '); }).join('\t');
+      // 표 복사: 여러 줄로 쓴 답이 다른 줄로 쪼개지지 않게 줄바꿈·탭·따옴표가 든 칸은 따옴표로 감싼다(엑셀·구글 시트가 한 칸으로 읽음)
+      var tsv = parseDelimited(r.csv, ',').map(function (row) {
+        return row.map(function (c) { return /[\t\r\n"]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join('\t');
       }).join('\n');
       openModal('<h2 id="m-title">엑셀로 받기</h2>' +
         '<p class="muted" style="margin:0">' + esc(r.filename) + ' · ' + (d.responses || []).length + '명의 답</p>' +
@@ -2369,6 +2394,8 @@
       '<div id="svf-qs" class="qs-edit"></div>' +
       (locked ? '' : '<button type="button" class="btn btn-sm" id="svf-addq" style="align-self:flex-start">' + icon('plus', 18) + '질문 더하기</button>') + '</div>' +
       '<label class="check"><input type="checkbox" id="svf-public"' + (c.showResults ? ' checked' : '') + '>답을 대상 교직원 모두에게 보여 주기 <span class="faint">(참석 여부처럼 함께 봐야 할 때)</span></label>' +
+      (edit && d.hasResponses && !c.showResults ? '<div class="note warn pub-ask" id="svf-pub-ask" hidden>' + icon('info', 18) + '<div><p>벌써 낸 답이 ' + ((d.responses || []).length ? d.responses.length + '개 ' : '') + '있어요. 켜면 지금까지 낸 답도 대상 선생님 모두에게 보여요. 낸 분들은 공개될 줄 모르고 냈을 수 있어요.</p>' +
+        '<div class="row-btns"><button type="button" class="btn btn-sm" data-pub-ask="0">그만두기</button><button type="button" class="btn btn-sm btn-primary" data-pub-ask="1">그래도 보여 주기</button></div></div></div>' : '') +
       '<div class="field"><label class="label" for="svf-msg">메신저 안내 문구 (선택)</label><textarea id="svf-msg" class="input" rows="2" maxlength="500" placeholder="비워 두면 제목과 마감으로 알아서 만들어요">' + esc(edit ? d.messenger : '') + '</textarea></div>' +
       '<p class="err" id="svf-err" role="alert"></p>' +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">취소</button><button type="submit" class="btn btn-primary">' + (edit ? '저장' : '만들기') + '</button></div>' +
@@ -2377,6 +2404,21 @@
     var form = qs('#svf');
     var qbox = qs('#svf-qs');
     var state = { tt: tg.type, ids: (tg.ids || []).slice(), grades: (tg.grades || []).slice() };
+    // 답이 있는 조사에서 '결과 공개'를 켤 때 한 번 묻는다(창 위에 창을 띄우지 않고 이 자리에서)
+    var pub = qs('#svf-public'), pubAsk = qs('#svf-pub-ask'), pubOk = false;
+    if (pubAsk) {
+      pub.addEventListener('change', function () {
+        if (pub.checked && !pubOk) { pub.checked = false; pubAsk.hidden = false; }
+        else if (!pub.checked) pubAsk.hidden = true;
+      });
+      pubAsk.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-pub-ask]');
+        if (!b) return;
+        pubAsk.hidden = true;
+        if (b.getAttribute('data-pub-ask') === '1') { pubOk = true; pub.checked = true; }
+        pub.focus();
+      });
+    }
 
     function drawTarget() {
       var tbox = qs('#svf-tbox');
@@ -2387,14 +2429,14 @@
       } else if (state.tt === 'grade') {
         tbox.innerHTML = '<div class="tgs" style="margin-top:8px">' + ['1', '2', '3', '4', '5', '6'].map(function (g) {
           return '<button type="button" class="tg" data-tg2="' + g + '" aria-pressed="' + (state.grades.indexOf(g) >= 0) + '">' + g + '학년</button>';
-        }).join('') + '</div><p class="hint">교직원 명단의 \'소속\'에 있는 학년으로 골라요(예: 3학년 1반).</p>';
+        }).join('') + '</div><p class="hint">교직원 명단의 \'소속\'에 있는 학년으로 골라요(예: 3학년 1반). \'3·4학년 전담\'처럼 적힌 분은 두 학년 모두에 들어가요.</p>';
       } else if (state.tt === 'people') {
         tbox.innerHTML = loadingHtml('명단을 불러오는 중이에요');
         server('staffPicker').then(function (list) {
           if (state.tt !== 'people') return; // 그사이 다른 대상을 골랐으면 그대로
           tbox.innerHTML = '<div class="people pick" style="margin-top:8px">' + list.map(function (p) {
             var on = state.ids.indexOf(p.id) >= 0;
-            return '<label class="opt' + (on ? ' on' : '') + '"><input type="checkbox" data-pid="' + esc(p.id) + '"' + (on ? ' checked' : '') + '><span>' + esc(p.name) +
+            return '<label class="opt many' + (on ? ' on' : '') + '"><input type="checkbox" data-pid="' + esc(p.id) + '"' + (on ? ' checked' : '') + '><span>' + esc(p.name) +
               ' <span class="faint">' + esc([p.group, p.dept].filter(Boolean).join(' · ')) + '</span></span><span class="opt-mark" aria-hidden="true">' + icon('check', 16, ' stroke-width="2.6"') + '</span></label>';
           }).join('') + '</div>';
         }).catch(function (e) { tbox.innerHTML = '<p class="err">' + esc(e.message) + '</p>'; });
@@ -2500,7 +2542,7 @@
       if (!fields.title.trim()) { err.textContent = '제목을 적어 주세요.'; qs('#svf-title').focus(); return; }
       var btn = form.querySelector('[type=submit]');
       busy(btn, true, '저장하는 중');
-      server('survey.save', { id: edit ? c.id : '', fields: fields }, [['survey.list', {}]].concat(edit ? [['survey.get', { id: c.id }]] : [])).then(function (r) {
+      server('survey.save', { id: edit ? c.id : '', fields: fields }, [['survey.list', svArgs()]].concat(edit ? [['survey.get', { id: c.id }]] : [])).then(function (r) {
         closeModal();
         toast(edit ? '조사를 고쳤어요' : '조사를 만들었어요. 메신저 문구를 복사해 알려 주세요');
         S.survey.tab = 'mine';
@@ -2607,10 +2649,13 @@
   // ============================================================ 자료실
   S.lib = { data: null, view: 'now', q: '', dept: '', kind: '', year: '', openId: '' };
 
+  /** 자료실 요청: 보관함(지난 학년도 자료)은 보관함을 열 때만 받는다 */
+  function libArgs() { return S.lib.view === 'archive' ? { archive: 1 } : {}; }
+
   SCREENS.library = function ($s) {
     $s.innerHTML = pageHead('', '자료실', '', '<button type="button" class="btn btn-primary print-hide" data-action="lib-new">' + icon('plus', 18) + '자료 넣기</button>') +
       '<div id="lib-body" class="stack">' + loadingHtml('자료를 불러오는 중이에요') + '</div>';
-    loadMemo('lib.list', {}, function (d) {
+    loadMemo('lib.list', libArgs(), function (d) {
       if (S.screen !== 'library') return;
       S.lib.data = d;
       drawLib();
@@ -2619,7 +2664,9 @@
   };
 
   function libYears() {
-    return uniq(S.lib.data.items.filter(function (i) { return i.archived; }).map(function (i) { return i.year; })).sort().reverse();
+    var d = S.lib.data;
+    if (d.archiveYears) return d.archiveYears.map(function (y) { return y.year; }); // 서버가 학년도별 개수를 늘 보낸다(보관함 자료는 열 때 받음)
+    return uniq(d.items.filter(function (i) { return i.archived; }).map(function (i) { return i.year; })).sort().reverse();
   }
 
   function drawLib() {
@@ -2651,6 +2698,16 @@
   function drawLibList() {
     var L = S.lib, d = L.data, box = qs('#lib-list');
     if (!box || !d) return;
+    if (L.view === 'archive' && d.archiveYears && !d.archive && libYears().length) {
+      // 보관함은 열 때 받는다(저장할 때마다 지난 자료를 모두 다시 받지 않게)
+      box.innerHTML = loadingHtml('보관함을 불러오는 중이에요');
+      loadMemo('lib.list', { archive: 1 }, function (d2) {
+        if (S.screen !== 'library' || L.view !== 'archive') return;
+        L.data = d2;
+        drawLib();
+      }, function (e) { var b = qs('#lib-list'); if (b) b.innerHTML = failHtml(e); });
+      return;
+    }
     var scope = d.items.filter(function (i) { return L.view === 'now' ? !i.archived : i.archived && i.year === L.year; });
     var list = scope.filter(function (i) {
       if (L.dept && i.deptId !== L.dept && !i.common) return false; // 공통 자료는 부서로 걸러도 맨 위에 그대로
@@ -2772,7 +2829,8 @@
       '<p class="hint">' + icon('info', 16) + '<span>비상연락망·출결 양식·가정통신문 양식·표준 기안문처럼 모든 선생님이 함께 보는 자료에 체크해요.</span></p>' +
       '<div class="field" id="lf-corder-box"' + (i.common ? '' : ' hidden') + ' style="max-width:240px"><label class="label" for="lf-corder">공통 자료 순서</label>' +
       '<input id="lf-corder" class="input" inputmode="numeric" maxlength="3" value="' + esc(i.commonOrder || '') + '" placeholder="숫자가 작을수록 앞"></div></div>' +
-      (d.canManage ? '<label class="check"><input type="checkbox" id="lf-home"' + (i.home ? ' checked' : '') + '>홈 \'자주 찾는 자료\'에 보이기</label>' : '') +
+      (d.canManage ? '<label class="check"><input type="checkbox" id="lf-home"' + (i.home ? ' checked' : '') + '>홈 \'자주 찾는 자료\'에 보이기 <span class="faint">(홈에는 6개까지 보여요 · 지금 ' +
+        d.items.filter(function (x) { return x.home && !x.archived; }).length + '개)</span></label>' : '') +
       '<p class="err" id="lf-err" role="alert"></p>' +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
       '<button type="submit" class="btn btn-primary">' + (edit ? '저장' : '넣기') + '</button></div></form>');
@@ -3127,11 +3185,13 @@
   }
 
   /** 홈 '자주 찾는 자료' */
-  function quickLibCard(list) {
+  function quickLibCard(list, total) {
+    var more = (total || 0) - list.length; // 홈에는 6개까지(서버가 고른 수를 함께 보냄)
     return '<section class="card quick-card"><div class="card-head"><h2>자주 찾는 자료</h2><button type="button" class="linkish" data-go="library">자료실 가기</button></div>' +
       (list.length ? '<div class="sr-list">' + list.map(function (i) {
         return srRow('sr-lib', i.id, i.hasFile ? 'doc' : 'link', esc(i.title), i.dept);
-      }).join('') + '</div>' : '<p class="faint">연구부장·부담당이 자료를 고르면 여기에 보여요.</p>') + '</section>';
+      }).join('') + '</div>' : '<p class="faint">연구부장·부담당이 자료를 고르면 여기에 보여요.</p>') +
+      (more > 0 ? '<p class="faint quick-more">홈에는 ' + list.length + '개까지 보여요. <button type="button" class="linkish" data-go="library">나머지 ' + more + '개는 자료실에서</button></p>' : '') + '</section>';
   }
 
   // ------------------------------------------------------------ 관리자 · 새 학년도
@@ -3339,9 +3399,8 @@
     try { return new TextDecoder('utf-8', { fatal: true }).decode(buf).replace(/^\uFEFF/, ''); }
     catch (e) { return new TextDecoder('euc-kr').decode(buf); }
   }
-  function parseDelimited(text) {
-    var tab = text.indexOf('\t') >= 0;
-    var sep = tab ? '\t' : ',';
+  function parseDelimited(text, sepArg) {
+    var sep = sepArg || (text.indexOf('\t') >= 0 ? '\t' : ',');
     var rows = [], row = [], cell = '', q = false;
     for (var i = 0; i < text.length; i++) {
       var ch = text[i];
@@ -3627,15 +3686,18 @@
     });
   };
 
+  /** 공지 목록 요청: 지난 공지는 이번 학년도 것만 받다가 '이전 학년도 공지도 보기'를 누르면 모두(이 창에서 기억) */
+  function noticeArgs() { return S.notice.older ? { older: 1 } : {}; }
+
   /** 공지를 저장·지울 때 같은 요청으로 받아 올 화면 */
   function noticeThen() {
-    return S.screen === 'home' ? [['home', {}]] : S.screen === 'notice' ? [['notice.list', {}]] : null;
+    return S.screen === 'home' ? [['home', {}]] : S.screen === 'notice' ? [['notice.list', noticeArgs()]] : null;
   }
 
   /** 공지 목록(처음 그린 뒤에 끝나는 약속을 돌려준다) */
   function loadNotices() {
     return new Promise(function (resolve) {
-      loadMemo('notice.list', {}, function (d) {
+      loadMemo('notice.list', noticeArgs(), function (d) {
         if (S.screen !== 'notice') return resolve();
         S.notice.data = d;
         drawNotices();
@@ -3666,7 +3728,8 @@
           '<div class="help-foot"><span class="faint">' + esc(noticeMeta(n)) + '</span>' +
           (n.canEdit ? '<span class="row-btns print-hide"><button type="button" class="btn btn-sm btn-ghost-danger" data-action="notice-del" data-id="' + esc(n.id) + '">지우기</button>' +
             '<button type="button" class="btn btn-sm" data-action="notice-edit" data-id="' + esc(n.id) + '">고치기</button></span>' : '') + '</div></article>';
-      }).join('') : '<div class="card"><p class="empty">' + (N.view === 'now' ? '지금 걸린 공지가 없어요. "공지 쓰기"로 알릴 것을 올려 보세요.' : '지난 공지가 없어요.') + '</p></div>') +
+      }).join('') : '<div class="card"><p class="empty">' + (N.view === 'now' ? '지금 걸린 공지가 없어요. "공지 쓰기"로 알릴 것을 올려 보세요.' : d.olderCount ? '이번 학년도에 끝난 공지가 없어요.' : '지난 공지가 없어요.') + '</p></div>') +
+      (N.view === 'past' && d.olderCount ? '<button type="button" class="btn btn-sm btn-ghost print-hide" data-action="notice-older" style="align-self:flex-start">' + icon('archive', 18) + '이전 학년도 공지도 보기 <span class="faint">' + d.olderCount + '개</span></button>' : '') +
       '<p class="hint">' + icon('info', 16) + '<span>공지는 이름을 고른 선생님 누구나 쓸 수 있어요. 게시 끝일이 지나면 홈에서 내려가고 \'지난 공지\'에 남아요.</span></p>';
   }
 
@@ -3706,6 +3769,11 @@
       (d.canManage ? '<label class="check"><input type="checkbox" id="nf-pin"' + (n.pinned ? ' checked' : '') + '>맨 위에 고정</label>' : '') +
       '<p class="err" id="nf-err" role="alert"></p>' +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="submit" class="btn btn-primary">' + (edit ? '저장' : '올리기') + '</button></div></form>');
+    var pastOk = ''; // 지난 날로 '그대로 올리기'를 누른 게시 끝일
+    qs('#nf-until').addEventListener('change', function () {
+      var ok = qs('#nf-past-ok');
+      if (ok) { ok.parentNode.removeChild(ok); qs('#nf-err').textContent = ''; }
+    });
     qs('#notice-form').addEventListener('submit', function (ev) {
       ev.preventDefault();
       var err = qs('#nf-err');
@@ -3713,6 +3781,19 @@
       if (qs('#nf-pin')) fields.pinned = qs('#nf-pin').checked;
       if (!fields['제목'].trim()) { err.textContent = '제목을 적어 주세요.'; qs('#nf-title').focus(); return; }
       if (fields['링크'] && !/^https:\/\//.test(fields['링크'])) { err.textContent = '링크는 https:// 로 시작하는 주소를 넣어 주세요.'; return; }
+      var endDay = fields['게시 끝일'];
+      if (endDay && endDay < localToday() && pastOk !== endDay && !(edit && endDay === n.until)) {
+        // 지난 날을 고르면 올리자마자 홈에서 내려간다 → 한 번 묻는다(창 위에 창을 띄우지 않고 이 자리에서). 이미 끝난 공지를 그대로 고칠 때는 묻지 않는다
+        err.textContent = '게시 끝일(' + md(endDay) + ')이 오늘보다 앞이라, ' + (edit ? '저장하자마자' : '올리자마자') + ' 홈에서 내려가고 \'지난 공지\'로 가요.';
+        if (!qs('#nf-past-ok')) {
+          var ok = document.createElement('button');
+          ok.type = 'button'; ok.className = 'btn btn-sm'; ok.id = 'nf-past-ok'; ok.style.alignSelf = 'flex-start'; ok.textContent = '그대로 ' + (edit ? '저장' : '올리기');
+          ok.addEventListener('click', function () { pastOk = qs('#nf-until').value; ok.parentNode.removeChild(ok); var f2 = qs('#notice-form'); if (f2.requestSubmit) f2.requestSubmit(); else f2.querySelector('[type=submit]').click(); });
+          err.parentNode.insertBefore(ok, err.nextSibling);
+        }
+        qs('#nf-until').focus();
+        return;
+      }
       var btn = ev.target.querySelector('[type=submit]');
       busy(btn, true, '저장하는 중');
       server('notice.save', { id: edit ? edit.id : '', fields: fields }, noticeThen()).then(function () {
@@ -4140,6 +4221,7 @@
       '<div class="form-grid">' + input(byKey('잠금 횟수')) + input(byKey('잠금 분')) + '</div>' +
       '<div class="form-grid">' + input(byKey('백업 남길 개수')) + '</div>' +
       '<p class="faint">자동 백업: ' + (backup ? '켜져 있어요(백업 폴더가 만들어져 있어요).' : '아직 꺼져 있어요. 전용 시트 메뉴 "4. 매일 자동 백업 켜기"로 켜 주세요.') + '</p></section>' +
+      (byKey('파일 크기 한도') ? '<section class="card"><h2>자료실</h2><div class="form-grid">' + input(byKey('파일 크기 한도')) + '</div></section>' : '') +
       '<section class="card"><div class="card-head"><h2>기존 시트 바로가기</h2><span class="chip">홈 아래에 보여요</span></div>' +
       '<p class="faint">특별실 시간표·방학 근무·연수 이수 확인처럼 2차에 옮길 일의 바로가기예요. 주소는 https:// 로 시작해야 해요.</p>' +
       '<div class="form" id="links" style="gap:8px"></div>' +
@@ -4614,6 +4696,14 @@
       case 'focus-edit': editFocus(); break;
       case 'sv-open': S.survey.sel = id; S.survey.showResults = false; drawSurvey(); if (isPhone()) window.scrollTo(0, 0); break;
       case 'sv-back': S.survey.sel = ''; drawSurvey(); break;
+      case 'sv-older':
+        S.survey.pastAll = true;
+        busy(t, true, '불러오는 중');
+        loadMemo('survey.list', svArgs(), function (l) {
+          S.survey.list = l;
+          if (S.screen === 'survey') drawSurvey();
+        }, function (e) { S.survey.pastAll = false; busy(t, false); toast(e.message, 'error'); });
+        break;
       case 'sv-new': openSurveyForm(null); break;
       case 'sv-edit': openSurveyForm(S.survey.detail); break;
       case 'sv-csv': surveyCsv(); break;
@@ -4625,7 +4715,7 @@
       case 'sv-close':
         var reopen = t.getAttribute('data-open') === '1';
         confirmBox(reopen ? '조사 다시 열기' : '조사 지금 끝내기', reopen ? '다시 열면 마감 전까지 다시 낼 수 있어요.' : '끝내면 더 이상 내거나 고칠 수 없어요. 나중에 다시 열 수 있어요.', reopen ? '다시 열기' : '끝내기', function () {
-          return server('survey.setOpen', { id: S.survey.sel, open: reopen }, [['survey.list', {}], ['survey.get', { id: S.survey.sel }]]).then(function () {
+          return server('survey.setOpen', { id: S.survey.sel, open: reopen }, [['survey.list', svArgs()], ['survey.get', { id: S.survey.sel }]]).then(function () {
             closeModal(); toast(reopen ? '조사를 다시 열었어요' : '조사를 끝냈어요');
             if (!reopen) S.survey.tab = 'past';
             refreshSurveyList();
@@ -4634,7 +4724,7 @@
         break;
       case 'sv-del':
         confirmBox('조사 지우기', '"' + esc(S.survey.detail.card.title) + '" 조사를 지울까요? 낸 답도 함께 숨겨져요. 연구부장·부담당이 휴지통에서 되살릴 수 있어요.', '지우기', function () {
-          return server('survey.delete', { id: S.survey.sel }, [['survey.list', {}]]).then(function () { closeModal(); toast('조사를 지웠어요'); S.survey.sel = ''; refreshSurveyList(); });
+          return server('survey.delete', { id: S.survey.sel }, [['survey.list', svArgs()]]).then(function () { closeModal(); toast('조사를 지웠어요'); S.survey.sel = ''; refreshSurveyList(); });
         }, true);
         break;
       case 'sv-remind':
@@ -4666,7 +4756,7 @@
       case 'search-clear': var hq = qs('#home-q'); if (hq) hq.value = ''; runSearch(''); if (hq) hq.focus(); break;
       case 'sr-more': searchGo(t.getAttribute('data-k')); break;
       case 'sr-lib':
-        if (S.screen === 'library' && S.lib.data) { openLib(id); break; }
+        if (S.screen === 'library' && S.lib.data && libById(id)) { openLib(id); break; }
         var li = libById(id);
         S.lib.openId = id; S.lib.q = ''; S.lib.dept = ''; S.lib.kind = '';
         S.lib.view = li && li.archived ? 'archive' : 'now'; S.lib.year = li ? li.year : '';
@@ -4726,6 +4816,7 @@
         break;
       case 'notice-open': openNotice(id); break;
       case 'notice-view': S.notice.view = t.getAttribute('data-v'); drawNotices(); break;
+      case 'notice-older': S.notice.older = true; busy(t, true, '불러오는 중'); loadNotices(); break;
       case 'notice-edit': openNoticeForm(noticeById(id)); break;
       case 'notice-del':
         var nd2 = noticeById(id);

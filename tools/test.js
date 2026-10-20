@@ -1119,7 +1119,7 @@ test('새 학년도 넘기기: 지난 자료는 보관함으로, 고른 자료�
   assert.strictEqual(r.ok, true, r.error);
   assert.deepStrictEqual(plain(r.data), { year: '2027', archived: 3, copied: 2 });
   assert.strictEqual(g.setting_('학년도'), '2027');
-  const list = call(g, 'lib.list', {}, me).data;
+  const list = call(g, 'lib.list', { archive: 1 }, me).data; // 보관함까지(보관함은 열 때만 받는다, 판 2026-10-19a)
   assert.strictEqual(list.year, '2027');
   const now = list.items.filter((x) => !x.archived), old = list.items.filter((x) => x.archived);
   assert.deepStrictEqual(plain(now.map((x) => x.title).sort()), ['가져갈 자료', '가져갈 파일']);
@@ -1148,7 +1148,8 @@ test('보관함에서 꺼내기: 관리만, 지금 학년도로 옮겨 적는다
   assert.strictEqual(r.ok, true, r.error);
   assert.strictEqual(r.data.year, '2027');
   assert.strictEqual(r.data.archived, false);
-  assert.strictEqual(call(g, 'lib.list', {}, who('심청')).data.items.length, 2);
+  assert.strictEqual(call(g, 'lib.list', { archive: 1 }, who('심청')).data.items.length, 2);
+  assert.strictEqual(call(g, 'lib.list', {}, who('심청')).data.items.length, 1, '보관함 자료는 보관함을 열 때만');
 });
 
 test('자료·도움말 휴지통: 지운 것을 되살린다', () => {
@@ -1213,7 +1214,8 @@ test('홈 검색: 자료·일정·교직원·도움말·조사를 한 번에 찾
   assert.ok(s('학적').library.items.some((x) => x.title.includes('학적')), '자료 제목');
   assert.ok(s('협의록').library.items.some((x) => x.hasFile), '파일 자료');
   assert.ok(s('체육대회').events.items.some((x) => x.title === '교직원 체육대회'), '일정');
-  assert.ok(s('체육대회').surveys.items.length >= 1, '조사');
+  assert.ok(call(g, 'search', { q: '체육대회' }, who('심청')).data.surveys.items.length >= 1, '조사');
+  assert.strictEqual(s('체육대회').surveys.total, 0, '이름을 고르기 전에는 조사를 찾지 않음(대상인지 알 수 없어서)');
   assert.deepStrictEqual(plain(s('홍길동').staff.items.map((x) => x.name)), ['홍길동'], '교직원 이름');
   assert.ok(s('정보부').staff.total === 2, '부서로 교직원');
   assert.ok(s('101').staff.items[0].name === '홍길동', '내선');
@@ -1233,7 +1235,7 @@ test('가짜 자료·도움말: 빈 시트에만, 파일 3개·공통 3개·보�
   const g = freshName();
   const n = g.seedTestLibrary_();
   assert.strictEqual(n, 10);
-  const items = plain(g.apiLibList_({}, {}, { identity: null, tokens: {} }).items);
+  const items = plain(g.apiLibList_({ archive: 1 }, {}, { identity: null, tokens: {} }).items);
   assert.strictEqual(items.filter((x) => x.hasFile).length, 3);
   assert.deepStrictEqual(items.filter((x) => x.common).map((x) => x.commonOrder).sort(), ['1', '2', '3']);
   assert.strictEqual(items.filter((x) => x.archived).length, 1);
@@ -3764,6 +3766,156 @@ test('취합 시트 보완: 여러 가지로 고치는 동안 10초마다 새로
     assert.deepStrictEqual(mine.map((r) => r.id), fresh.map((r) => r.id), step + '번째: 줄 차례');
     assert.deepStrictEqual(plain(mine.map((r) => [r.cells, r.fmt, r.h])), plain(fresh.map((r) => [r.cells, r.fmt, r.h])), step + '번째: 내용');
   }
+});
+
+
+// ================================================================ 전체 보완 묶음 3: 조사·공지·자료·교직원(판 2026-10-19a)
+
+test('조사 보완: 소속의 학년 읽기 — "3·4학년 전담"·"5, 6학년"·"3~6학년"은 모두 세고, "2026학년도"·"학년도"는 학년이 아니다', () => {
+  const g = freshName();
+  const cases = {
+    '3학년 2반': ['3'], '3·4학년 전담': ['3', '4'], '5,6학년': ['5', '6'], '5, 6학년 영어': ['5', '6'], '3~6학년': ['3', '4', '5', '6'],
+    '3학년·4학년 전담': ['3', '4'], '2026학년도 3학년 2반': ['3'], '교무부': [], '과학 전담': [], '4학년도': [], '12학년': [], '3 학년 1 반': ['3'], '1-2학년': ['1', '2']
+  };
+  Object.keys(cases).forEach((k) => assert.deepStrictEqual(plain(g.gradesOf_({ '소속': k })), cases[k], k));
+});
+
+test('조사 보완: 학년 대상 조사는 "3·4학년 전담"처럼 두 학년이 적힌 분을 두 학년 모두에 센다', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const add = call(g, 'admin.staff.save', { fields: { '이름': '임꺽정', '직위': '교사', '소속': '3·4학년 전담' } }, boss());
+  assert.ok(add.ok, add.error);
+  const owner = who('이몽룡');
+  const who2 = ids(g).who; // 새로 넣은 분까지 명단을 다시 받는다
+  const four = call(g, 'survey.save', { fields: sv(g, { target: { type: 'grade', grades: ['4'] } }) }, owner).data.id;
+  const three = call(g, 'survey.save', { fields: sv(g, { title: '3학년 협의', target: { type: 'grade', grades: ['3'] } }) }, owner).data.id;
+  const names = (id) => call(g, 'survey.get', { id }, owner).data.notDone.map((p) => p.name).sort();
+  assert.deepStrictEqual(names(four), ['이몽룡', '임꺽정'].sort());
+  assert.deepStrictEqual(names(three), ['성춘향', '임꺽정', '홍길동'].sort());
+  // 대상에 들었으니 낼 수 있다
+  const lim = who2('임꺽정');
+  const q = call(g, 'survey.get', { id: four }, lim).data;
+  assert.strictEqual(q.card.inTarget, true);
+  assert.ok(call(g, 'survey.respond', { id: four, answers: { [q.questions[0].id]: '피구' } }, lim).ok);
+});
+
+test('조사 보완: 홈 검색에는 그분이 대상이 아닌 조사가 보이지 않는다(만든 분·관리에게는 보임, 이름을 고르기 전에는 조사 없음)', () => {
+  const g = freshName();
+  const { who, boss, staff, L } = ids(g);
+  const others = staff.filter((p) => p.name !== '심청').map((p) => p.id);
+  const owner = who('이몽룡');
+  const made = call(g, 'survey.save', { fields: sv(g, { title: '심청 선생님 축하 모금', target: { type: 'people', ids: others } }) }, owner);
+  assert.ok(made.ok, made.error);
+  const titles = (tok) => call(g, 'search', { q: '축하 모금' }, tok).data.surveys.items.map((c) => c.title);
+  assert.deepStrictEqual(titles(who('심청')), []);
+  assert.strictEqual(call(g, 'search', { q: '축하 모금' }, who('심청')).data.surveys.total, 0);
+  assert.deepStrictEqual(titles(who('흥부')), ['심청 선생님 축하 모금']);
+  assert.deepStrictEqual(titles(owner), ['심청 선생님 축하 모금']);
+  // 만든 분이 대상에서 빠져 있어도 만든 분에게는 보인다
+  const mine = call(g, 'survey.save', { fields: sv(g, { title: '모금 확인(만든 분 빼고)', target: { type: 'people', ids: [staff.find((p) => p.name === '흥부').id] } }) }, who('장화'));
+  assert.ok(mine.ok, mine.error);
+  assert.deepStrictEqual(call(g, 'search', { q: '모금 확인' }, who('장화')).data.surveys.items.map((c) => c.title), ['모금 확인(만든 분 빼고)']);
+  const sim = boss('심청'); // 관리자 화면을 연 기기는 모두
+  assert.deepStrictEqual(titles(sim), ['심청 선생님 축하 모금']);
+  assert.deepStrictEqual(call(g, 'search', { q: '축하 모금' }, { login: L }).data.surveys.items, []);
+});
+
+test('교직원 보완: 한 명씩 넣을 때도 내선에 휴대폰 번호는 넣을 수 없다(학교 전화·내선은 그대로)', () => {
+  const g = fresh();
+  const { t } = adminTokens(g);
+  ['010-1234-5678', '01012345678', '010 1234 5678', '011-123-4567'].forEach((v, i) => {
+    const r = call(g, 'admin.staff.save', { fields: { '이름': '임꺽정' + i, '내선': v } }, t);
+    assert.strictEqual(r.ok, false, v);
+    assert.ok(/휴대폰 번호/.test(r.error), r.error);
+  });
+  ['1234', '0108', '032-123-4567'].forEach((v, i) => assert.ok(call(g, 'admin.staff.save', { fields: { '이름': '전우치' + i, '내선': v } }, t).ok, v));
+});
+
+test('자료실 보완: 파일 크기 한도는 설정에서 20MB까지(시트를 손으로 고쳐도 20MB), 자료실 화면에 그 값이 간다', () => {
+  const g = fresh();
+  const { t } = adminTokens(g);
+  const list = call(g, 'admin.settings.get', {}, t).data;
+  const def = list.find((x) => x.key === '파일 크기 한도');
+  assert.strictEqual(def.max, 20);
+  assert.ok(/확인 필요/.test(def.note));
+  const save = (v) => call(g, 'admin.settings.save', { values: { '파일 크기 한도': v } }, t);
+  assert.strictEqual(save('25').ok, false);
+  assert.ok(save('15').ok);
+  assert.strictEqual(call(g, 'lib.list', {}, t).data.maxMb, 15);
+  g.putSetting_('파일 크기 한도', '30', { id: '', name: '시험' });
+  assert.strictEqual(g.fileLimitMb_(), 20);
+});
+
+test('조사 보완: 지난 조사는 이번 학년도 것만 먼저 보내고, "이전 학년도 보기"(pastAll)를 누르면 모두', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('이몽룡');
+  const sy = Number(g.setting_('학년도'));
+  const a = call(g, 'survey.save', { fields: sv(g, { title: '올해 끝낸 조사' }) }, owner).data.id;
+  const b = call(g, 'survey.save', { fields: sv(g, { title: '작년 조사' }) }, owner).data.id;
+  assert.ok(call(g, 'survey.setOpen', { id: a, open: false }, owner).ok);
+  g.withLock_(() => g.updateRow_('조사', b, { '마감 일시': (sy - 1) + '-12-01 17:00' }, { id: '', name: '시험' }, '시험'));
+  const l = call(g, 'survey.list', {}, owner).data;
+  assert.deepStrictEqual(l.past.map((c) => c.title), ['올해 끝낸 조사']);
+  assert.strictEqual(l.pastOlder, 1);
+  assert.strictEqual(l.pastAll, false);
+  const all = call(g, 'survey.list', { pastAll: 1 }, owner).data;
+  assert.deepStrictEqual(all.past.map((c) => c.title).sort(), ['올해 끝낸 조사', '작년 조사'].sort());
+  assert.strictEqual(all.pastOlder, 0);
+  assert.strictEqual(all.pastAll, true);
+  // 검색은 지난 학년도 조사도 찾는다
+  assert.strictEqual(call(g, 'search', { q: '작년 조사' }, owner).data.surveys.total, 1);
+});
+
+test('공지 보완: 지난 공지는 이번 학년도 것만 먼저 보내고, older를 주면 모두(지금 공지는 늘 모두)', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('성춘향');
+  const sy = Number(g.setting_('학년도'));
+  const put = (title, until) => assert.ok(call(g, 'notice.save', { fields: { '제목': title, '게시 끝일': until } }, me).ok);
+  put('지금 공지', g.addDays_(g.todayYmd_(), 3));
+  put('끝일 없는 공지', '');
+  put('올해 지난 공지', sy + '-03-05');
+  put('작년 공지', (sy - 1) + '-12-20');
+  const l = call(g, 'notice.list', {}, me).data;
+  const tl = (x) => x.items.map((n) => n.title).sort();
+  assert.deepStrictEqual(tl(l), ['끝일 없는 공지', '올해 지난 공지', '지금 공지'].sort());
+  assert.strictEqual(l.olderCount, 1);
+  const all = call(g, 'notice.list', { older: 1 }, me).data;
+  assert.deepStrictEqual(tl(all), ['끝일 없는 공지', '올해 지난 공지', '작년 공지', '지금 공지'].sort());
+  assert.strictEqual(all.olderCount, 0);
+});
+
+test('자료실 보완: 보관함 자료는 보관함을 열 때(archive)만 보내고, 학년도별 개수는 늘 보낸다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('성춘향');
+  g.seedTestLibrary_();
+  const l = call(g, 'lib.list', {}, me).data;
+  assert.ok(l.items.length > 0);
+  assert.ok(l.items.every((i) => !i.archived), '지금 학년도 자료만');
+  assert.strictEqual(l.archive, false);
+  const archived = g.liveRows_('자료').filter((r) => r['보관 여부'] === '보관' || (r['학년도'] && r['학년도'] !== String(g.setting_('학년도'))));
+  assert.ok(archived.length > 0, '가짜 자료에 보관함 자료가 있어야 함');
+  assert.strictEqual(l.archiveYears.reduce((n, y) => n + y.count, 0), archived.length);
+  const all = call(g, 'lib.list', { archive: 1 }, me).data;
+  assert.strictEqual(all.archive, true);
+  assert.strictEqual(all.items.filter((i) => i.archived).length, archived.length);
+  assert.strictEqual(all.items.length, l.items.length + archived.length);
+  assert.deepStrictEqual(plain(all.archiveYears), plain(l.archiveYears));
+});
+
+test('자료실 보완: 홈 "자주 찾는 자료"는 6개까지 보내고 고른 수(libraryTotal)를 함께 보낸다', () => {
+  const g = freshName();
+  const { who, boss } = ids(g);
+  const b = boss('홍길동');
+  for (let i = 1; i <= 8; i++) {
+    const r = call(g, 'lib.save', { fields: { '제목': '홈 자료 ' + i, mode: 'link', link: 'https://example.com/' + i, home: true } }, b);
+    assert.ok(r.ok, r.error);
+  }
+  const h = call(g, 'home', {}, who('심청')).data;
+  assert.strictEqual(h.library.length, 6);
+  assert.strictEqual(h.libraryTotal, 8);
 });
 
 console.log(results.join('\n'));

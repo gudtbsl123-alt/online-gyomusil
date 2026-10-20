@@ -32,9 +32,9 @@ function libYear_() {
   return String(setting_('학년도') || '');
 }
 
-/** 파일 크기 한도(MB) */
+/** 파일 크기 한도(MB). 시트를 손으로 고쳐도 20MB까지(실제로 올려 보기 전까지, 확인 필요. Admin.gs 설정 최대와 같게) */
 function fileLimitMb_() {
-  return Math.max(1, Number(setting_('파일 크기 한도')) || 10);
+  return Math.min(20, Math.max(1, Number(setting_('파일 크기 한도')) || 10));
 }
 
 /** 링크: https:// 로 시작하는 주소만 */
@@ -157,12 +157,18 @@ function libView_(r, ctx, c) {
 }
 
 function apiLibList_(args, actor, ctx) {
-  var c = libCache_();
-  var items = liveRows_('자료').map(function (r) { return libView_(r, ctx, c); })
+  var c = libCache_(), archive = !!(args && args.archive);
+  var all = liveRows_('자료').map(function (r) { return libView_(r, ctx, c); });
+  // 보관함(지난 학년도 자료)은 열 때만 보낸다(args.archive). 학년도별 개수는 늘 보낸다
+  var years = {};
+  all.forEach(function (v) { if (v.archived) years[v.year] = (years[v.year] || 0) + 1; });
+  var items = (archive ? all : all.filter(function (v) { return !v.archived; }))
     .sort(function (a, b) { return a.title.localeCompare(b.title, 'ko'); });
   return {
     year: c.year,
     items: items,
+    archive: archive,
+    archiveYears: Object.keys(years).sort().reverse().map(function (y) { return { year: y, count: years[y] }; }),
     depts: deptOptions_(),
     kinds: catOptions_('자료 분류'),
     canManage: canManage_(ctx),
@@ -170,14 +176,13 @@ function apiLibList_(args, actor, ctx) {
   };
 }
 
-/** 홈 '자주 찾는 자료': 지금 학년도 자료 중 '홈에 보이기'(관리가 고름) */
+/** 홈 '자주 찾는 자료': 지금 학년도 자료 중 '홈에 보이기'(관리가 고름) 모두. 홈(apiHome_)이 6개까지 보여 주고 나머지 수를 알린다 */
 function homeLibrary_(ctx) {
   var c = libCache_();
   return liveRows_('자료').filter(function (r) { return r['홈에 보이기'] === '예'; })
     .map(function (r) { return libView_(r, ctx, c); })
     .filter(function (v) { return !v.archived; })
-    .sort(function (a, b) { return a.title.localeCompare(b.title, 'ko'); })
-    .slice(0, 6);
+    .sort(function (a, b) { return a.title.localeCompare(b.title, 'ko'); });
 }
 
 // ---------------------------------------------------------------- 자료 넣기·고치기·지우기

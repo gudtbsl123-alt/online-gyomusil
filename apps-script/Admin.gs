@@ -21,7 +21,7 @@ function settingDefs_() {
     { key: '잠금 분', def: '10', type: 'int', min: 1, max: 120, label: '잠그는 시간', unit: '분', note: '관리자 비밀번호와(이름+개인 번호 방식이면) 개인 번호에 써요' },
     { key: '백업 남길 개수', def: '30', type: 'int', min: 3, max: 365, label: '매일 백업을 몇 개까지 남길까요', unit: '개' },
     { key: '기존 시트 바로가기', def: '[]', type: 'links', label: "홈의 '아직 기존 시트에서 하는 일' 바로가기", note: '홈 화면 아래에 보여요' },
-    { key: '파일 크기 한도', def: '10', type: 'int', min: 1, max: 50, label: '자료실에 올릴 수 있는 파일 크기', unit: 'MB', note: '확인 필요: 학교 PC·휴대폰에서 실제로 올려 보고 정해요. 더 큰 파일은 드라이브 링크로 넣어요' },
+    { key: '파일 크기 한도', def: '10', type: 'int', min: 1, max: 20, label: '자료실에 올릴 수 있는 파일 크기', unit: 'MB', note: '확인 필요: 학교 PC·휴대폰에서 실제로 올려 보기 전까지는 20MB까지만 골라요. 더 큰 파일은 드라이브 링크로 넣어요' }, // 최대는 Library.gs fileLimitMb_와 같게
     { key: '백업 폴더ID', def: '', type: 'readonly', label: '백업 폴더(자동)' },
     { key: '자료 폴더ID', def: '', type: 'readonly', label: '자료실 파일 폴더(자동, 공유하지 않음)' }
   ];
@@ -217,6 +217,12 @@ function adminStaffList_() {
   return sortStaff_(liveRows_('교직원')).map(function (r) { return staffAdminView_(r, depts); });
 }
 
+/** 휴대폰 번호 같은지(010-1234-5678·01012345678 등). 내선은 모두에게 보이니 개인 연락처가 들어가지 않게 */
+function looksPhone_(s) {
+  var d = String(s || '').replace(/\D/g, '');
+  return d.length >= 10 && /^0?1[016789]/.test(d);
+}
+
 function adminStaffSave_(args, actor) {
   var f = args.fields || {};
   var rec = {
@@ -229,6 +235,7 @@ function adminStaffSave_(args, actor) {
     '역할': f['역할'] === '관리' ? '관리' : '일반',
     '순서': cleanText_(f['순서'], 4, '순서')
   };
+  if (looksPhone_(rec['내선'])) throw userError_('휴대폰 번호 같아요. 내선 칸은 모든 선생님께 보여서 학교 내선만 적어 주세요.');
   if (rec['내선'] && !/^[0-9\-]+$/.test(rec['내선'])) throw userError_('내선은 숫자와 - 만 적어 주세요. (개인 연락처는 넣지 않아요)');
   if (rec['순서'] && !/^\d+$/.test(rec['순서'])) throw userError_('순서는 숫자로 적어 주세요.');
   if (rec['부서ID'] && !categoryNames_('부서')[rec['부서ID']]) throw userError_('부서를 다시 골라 주세요.');
@@ -567,7 +574,7 @@ function staffImportCheck_(rows) {
     if (!name) fail('이름이 비어 있어요');
     else if (name.length > 20) fail('이름이 너무 길어요(20자까지)');
     var ext = String(raw.ext || '').replace(/\s/g, '');
-    if (ext && (/^0?1[016789]/.test(ext.replace(/-/g, '')) && ext.replace(/\D/g, '').length >= 10)) { warn('휴대폰 번호 같아서 넣지 않아요(내선만 넣어요)'); ext = ''; }
+    if (looksPhone_(ext)) { warn('휴대폰 번호 같아서 넣지 않아요(내선만 넣어요)'); ext = ''; }
     else if (ext && (!/^[0-9\-]+$/.test(ext) || ext.length > 15)) { warn("내선 '" + raw.ext + "'" + josa_(String(raw.ext), '은', '는') + ' 숫자가 아니라 비워 두고 넣어요'); ext = ''; }
     var deptId = '';
     if (String(raw.dept || '').trim()) {

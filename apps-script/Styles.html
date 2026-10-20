@@ -498,6 +498,7 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .sv-desc{margin:0;white-space:pre-line;color:var(--c-t2)}
 .note.warn{background:var(--c-warnBg);color:var(--c-warnFg)}
 .note.warn svg{color:var(--c-warnFg)}
+.pub-ask p{margin:0 0 8px} /* 조사 '결과 공개'를 켤 때 묻는 칸 */
 .who-card{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--c-line2);border-radius:14px}
 .who-card .me-lines{line-height:1.35}
 .q-block{margin:0;padding:0;border:0;display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -511,6 +512,7 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .opt:has(input:disabled){cursor:default;opacity:.7}
 .opt-mark{margin-left:auto;width:24px;height:24px;flex:none;border-radius:50%;border:2px solid var(--c-radio);display:grid;place-items:center;color:transparent}
 .opt.on .opt-mark{background:var(--accent);border-color:var(--accent);color:var(--c-onAccent)}
+.opt.many .opt-mark{border-radius:6px} /* 여러 개 고르기는 네모, 하나 고르기는 동그라미 */
 .sv-submit{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
 .sv-top{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px}
 .sv-actions{justify-content:flex-end}

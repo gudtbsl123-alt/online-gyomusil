@@ -168,10 +168,13 @@ function apiSearch_(args, actor, ctx) {
     return matchAll_(terms, [h.title, h.body, h.kind, h.fileName]);
   });
 
-  var cache = surveyCache_();
-  var surveys = liveRows_('조사').filter(function (s) {
+  // 조사: 조사 화면에 보이는 것만(대상이거나, 만든 분이거나, 관리). 대상이 아닌 분께 제목이 보이지 않게
+  var cache = surveyCache_(), meId = ctx.identity ? ctx.identity['교직원ID'] : '', manage = canManage_(ctx);
+  var surveys = (meId || manage ? liveRows_('조사') : []).filter(function (s) {
     return matchAll_(terms, [s['제목'], s['설명'], depts[s['부서ID']] || '']);
-  }).map(function (s) { return surveyCard_(s, ctx, cache); }).sort(function (a, b) {
+  }).map(function (s) { return surveyCard_(s, ctx, cache); }).filter(function (c) {
+    return c.inTarget || (meId && c.byId === meId) || manage;
+  }).sort(function (a, b) {
     return (a.closed - b.closed) || (a.deadline < b.deadline ? 1 : a.deadline > b.deadline ? -1 : 0);
   });
 
@@ -217,7 +220,10 @@ function noticeViews_(ctx) {
 }
 
 function apiNoticeList_(args, actor, ctx) {
-  return { items: noticeViews_(ctx), canManage: canManage_(ctx), depts: deptOptions_(), today: todayYmd_() };
+  var all = noticeViews_(ctx), sy = curSchoolYear_(), older = !!(args && args.older);
+  // 지난 공지는 이번 학년도(게시 끝일로) 것만 먼저 보낸다. '이전 학년도 보기'(args.older)를 누르면 모두
+  var items = older ? all : all.filter(function (n) { return n.active || schoolYearOf_(n.until) >= sy; });
+  return { items: items, olderCount: all.length - items.length, older: older, canManage: canManage_(ctx), depts: deptOptions_(), today: todayYmd_() };
 }
 
 /** 지금 걸린 공지 중 가장 최근에 올라온 시각(화면의 '새 공지' 점 표시용, 기기마다 본 시각과 비교) */
