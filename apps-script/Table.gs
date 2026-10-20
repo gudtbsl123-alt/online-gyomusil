@@ -38,6 +38,9 @@ var TB_MAX_CELLS_ = 5000;     // 한 번에 붙여 넣는 칸 수
 var TB_MAX_ROW_JSON_ = 45000; // 한 줄의 칸(JSON) 글자 수(시트 한 칸은 5만 자까지)
 var TB_MAX_FMT_JSON_ = 45000; // 한 줄의 서식(JSON) 글자 수
 var TB_MAX_SHEETS_ = 100;     // 한 표의 시트
+var TB_BULK_ = 8;             // 이보다 많은 줄을 한 번에 고치면 붙은 행끼리 한 번에 읽고 쓴다(큰 서식 작업이 잠금을 오래 쥐지 않게)
+var TB_LOG_KEEP_ = 300;       // 시트마다 서버 기억에 적어 두는 '바뀐 줄' 수(10초 새로 받기가 큰 탭을 다 읽지 않게)
+var TB_POLL_ROWS_ = 40;       // 새로 받기가 행 번호로 바로 읽는 줄 수(넘으면 탭에서 찾는다)
 var TB_FONTS_ = { malgun: 1, gulim: 1, dotum: 1, batang: 1, gungsuh: 1 }; // 맑은 고딕·굴림·돋움·바탕·궁서(없으면 기본 글꼴)
 var TB_FMT_KEYS_ = ['ff', 'fs', 'fc', 'b', 'i', 'u', 's', 'ha', 'va', 'wr', 'bd', 'm'];
 
@@ -478,8 +481,7 @@ function apiTablePoll_(args, actor, ctx) {
   }
   if (gone) { out.sheetGone = true; return out; }
   out.table = tbView_(main, t, ctx, names, categoryNames_('부서'));
-  out.rows = ver > since ? tbSortRows_(tbRows_('함께표줄').filter(function (r) { return r['표ID'] === id && (Number(r['판']) || 0) > since; }))
-    .map(function (r) { return tbRowView_(r, names, main['입력자ID']); }) : [];
+  out.rows = ver > since ? tbSortRows_(tbChangedRows_(id, since, ver)).map(function (r) { return tbRowView_(r, names, main['입력자ID']); }) : [];
   return out;
 }
 
@@ -535,10 +537,159 @@ function tbReadRow_(tab, id, hint, head) {
 
 /** 잠금 안: 한 줄을 그 자리에 쓴다(머리글 없는 칸은 손대지 않는다) */
 function tbWriteRow_(tab, row, head) {
-  sheet_(tab).getRange(row._row, 1, 1, head.length).setValues([head.map(function (h, j) {
-    return h ? cellWrite_(row[h] === undefined ? '' : row[h]) : (row._raw ? row._raw[j] : '');
-  })]);
+  sheet_(tab).getRange(row._row, 1, 1, head.length).setValues([tbLine_(row, head)]);
+  if (tab === '함께표줄') tbLogRow_(row);
   dirty_(tab);
+}
+function tbLine_(row, head) {
+  return head.map(function (h, j) { return h ? cellWrite_(row[h] === undefined ? '' : row[h]) : (row._raw ? row._raw[j] : ''); });
+}
+
+/** 잠금 안: 여러 줄을 쓴다. 바로 붙은 행끼리는 한 번에(300줄 테두리 같은 큰 서식 작업이 잠금을 오래 쥐지 않게) */
+function tbWriteRows_(tab, rows, head) {
+  if (!rows.length) return;
+  if (rows.length === 1) { tbWriteRow_(tab, rows[0], head); return; }
+  var sh = sheet_(tab), list = rows.slice().sort(function (a, b) { return a._row - b._row; }), i = 0;
+  while (i < list.length) {
+    var j = i;
+    while (j + 1 < list.length && list[j + 1]._row === list[j]._row + 1) j++;
+    sh.getRange(list[i]._row, 1, j - i + 1, head.length).setValues(list.slice(i, j + 1).map(function (r) { return tbLine_(r, head); }));
+    i = j + 1;
+  }
+  if (tab === '함께표줄') rows.forEach(tbLogRow_);
+  dirty_(tab);
+}
+
+/** 잠금 안: 줄들의 칸 몇 개만 쓴다(keys: 머리글 이름). 다른 칸(머리글 없는 칸 포함)은 손대지 않는다 */
+function tbWriteCols_(tab, rows, head, keys) {
+  if (!rows.length) return;
+  var sh = sheet_(tab), list = rows.slice().sort(function (a, b) { return a._row - b._row; });
+  keys.forEach(function (key) {
+    var c = head.indexOf(key), i = 0;
+    if (c < 0) return;
+    while (i < list.length) {
+      var j = i;
+      while (j + 1 < list.length && list[j + 1]._row === list[j]._row + 1) j++;
+      sh.getRange(list[i]._row, c + 1, j - i + 1, 1).setValues(list.slice(i, j + 1).map(function (r) { return [cellWrite_(r[key] === undefined ? '' : r[key])]; }));
+      i = j + 1;
+    }
+  });
+  if (tab === '함께표줄') rows.forEach(tbLogRow_);
+  dirty_(tab);
+}
+
+/** 행 번호들을 가까운 것끼리 묶어 한 번에 읽는다 → {행 번호: 줄 값}(사이가 3줄 안이면 한 번에 읽고 가운데 줄은 버린다) */
+function tbReadLines_(sh, nums, width) {
+  var sorted = nums.slice().sort(function (a, b) { return a - b; }), out = {}, i = 0;
+  while (i < sorted.length) {
+    var start = sorted[i], end = start;
+    while (i + 1 < sorted.length && sorted[i + 1] - end <= 3) { i++; end = sorted[i]; }
+    var vals = sh.getRange(start, 1, end - start + 1, width).getValues();
+    for (var n = start; n <= end; n++) out[n] = vals[n - start];
+    i++;
+  }
+  return out;
+}
+
+/** 잠금 안: 여러 줄을 행 번호(잠금 밖에서 본 짐작값)로 한 번에 읽는다 → {줄ID: 줄}. 행 번호가 맞지 않는 줄은 빠진다(따로 찾는다) */
+function tbReadRowsBulk_(tab, ids, hints, head) {
+  var sh = sheet_(tab), k = head.indexOf(tabs_()[tab][0]), last = sh.getLastRow(), want = [], out = {};
+  if (k < 0) return out;
+  ids.forEach(function (id) { var n = hints[id]; if (n >= 2 && n <= last) want.push(n); });
+  if (!want.length) return out;
+  var lines = tbReadLines_(sh, want, head.length);
+  ids.forEach(function (id) {
+    var n = hints[id], line = lines[n];
+    if (!line || cellText_(line[k]) !== id) return;
+    var o = { _row: n, _raw: line };
+    head.forEach(function (h, j) { if (h) o[h] = cellText_(line[j]); });
+    out[id] = o;
+  });
+  return out;
+}
+
+/** 잠금 밖(새로 받기): 행 번호로 줄 몇 개만 읽는다({줄ID: 행 번호}). 행 번호가 맞지 않는 줄이 있으면(시트를 손으로 정렬 등) null */
+function tbRowsAt_(tab, want) {
+  var sh = sheet_(tab), head = tbHead_(tab), k = head.indexOf(tabs_()[tab][0]), last = sh.getLastRow();
+  var ids = Object.keys(want);
+  if (k < 0 || ids.some(function (id) { return !(want[id] >= 2 && want[id] <= last); })) return null;
+  var lines = tbReadLines_(sh, ids.map(function (id) { return want[id]; }), head.length), out = [];
+  for (var i = 0; i < ids.length; i++) {
+    var line = lines[want[ids[i]]];
+    if (!line || cellText_(line[k]) !== ids[i]) return null;
+    var o = { _row: want[ids[i]] };
+    head.forEach(function (h, j) { if (h) o[h] = cellText_(line[j]); });
+    out.push(o);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- 바뀐 줄 적어 두기(새로 받기 속도)
+// 칸·줄을 고칠 때(잠금 안) 시트마다 [판, 줄ID, 행 번호]를 서버 기억(gy:tbc:시트ID)에 적어 둔다.
+// 10초 새로 받기는 이것으로 바뀐 줄만 행 번호로 읽는다(모든 표의 줄이 든 큰 '함께표줄' 탭을 다시 읽지 않게).
+// 적은 것이 없거나 판이 이어지지 않으면(서버 기억이 지워짐 등) 예전처럼 탭에서 찾는다.
+// 서버 기억에는 잠금을 풀기 직전, 시트에 확정한 뒤에 쓴다(새로 받기가 확정되기 전의 줄을 읽지 않게)
+var TB_LOG_PEND_ = null; // 이번 잠금에서 적을 것 { 시트ID: { lo, v, rows: [[판, 줄ID, 행 번호]] } }
+
+/** 잠금 안: 쓴 줄을 적어 둔다 */
+function tbLogRow_(row) {
+  var v = Number(row['판']) || 0;
+  tbLogNote_(row['표ID'], v, [v, row['줄ID'], row._row || 0]);
+}
+/** 잠금 안: 줄은 그대로이고 시트의 판만 오른 것(열·열 너비·보기·시트 이름) */
+function tbLogMeta_(sheetId, ver) { tbLogNote_(sheetId, Number(ver) || 0, null); }
+function tbLogNote_(sheetId, ver, entry) {
+  if (!sheetId || !ver || DB_LOCK_DEPTH_ <= 0) return;
+  if (!TB_LOG_PEND_) TB_LOG_PEND_ = {};
+  afterLock_(tbLogFlush_);
+  var p = TB_LOG_PEND_[sheetId] || (TB_LOG_PEND_[sheetId] = { lo: ver, v: ver, rows: [] });
+  p.lo = Math.min(p.lo, ver);
+  p.v = Math.max(p.v, ver);
+  if (entry) p.rows.push(entry);
+}
+/** 잠금을 풀기 직전(시트에 확정한 뒤): 서버 기억에 적는다. 앞 기록과 판이 이어지지 않으면 새로 시작한다 */
+function tbLogFlush_() {
+  var pend = TB_LOG_PEND_, cache = memoCache_();
+  TB_LOG_PEND_ = null;
+  if (!pend || !cache) return;
+  try {
+    var keys = ['gy:ep'];
+    Object.keys(pend).forEach(function (id) { keys.push('gy:tbc:' + id); });
+    var got = cache.getAll(keys), ep = got['gy:ep'], put = {};
+    if (!ep) return; // 서버 기억을 막 비웠다 → 새로 받기는 탭에서 찾는다
+    Object.keys(pend).forEach(function (id) {
+      var p = pend[id], old = tbParse_(got['gy:tbc:' + id] || '', null);
+      var log = old && old.e === ep && old.t === p.lo - 1 && Array.isArray(old.r) ? old : { e: ep, b: p.lo - 1, t: p.lo - 1, r: [] };
+      log.r = log.r.concat(p.rows);
+      log.t = p.v;
+      if (log.r.length > TB_LOG_KEEP_) {
+        var cut = log.r.length - TB_LOG_KEEP_;
+        log.r.slice(0, cut).forEach(function (x) { log.b = Math.max(log.b, x[0]); });
+        log.r = log.r.slice(cut);
+      }
+      put['gy:tbc:' + id] = JSON.stringify(log);
+    });
+    cache.putAll(put, MEMO_KEEP_);
+  } catch (e) { /* 적지 못하면 새로 받기가 탭에서 찾는다 */ }
+}
+/** 새로 받기: since 뒤에 바뀐 시트의 줄. 적어 둔 것이 판 ver까지 빠짐없으면 그 줄만 행 번호로 읽고, 아니면 탭에서 찾는다 */
+function tbChangedRows_(id, since, ver) {
+  var cache = memoCache_();
+  if (cache) {
+    try {
+      var got = cache.getAll(['gy:ep', 'gy:tbc:' + id]), log = tbParse_(got['gy:tbc:' + id] || '', null);
+      if (log && got['gy:ep'] && log.e === got['gy:ep'] && log.b <= since && log.t >= ver && Array.isArray(log.r)) {
+        var want = {}, n = 0;
+        log.r.forEach(function (x) { if (x[0] > since && !want[x[1]]) { want[x[1]] = x[2]; n++; } });
+        if (!n) return [];
+        if (n <= TB_POLL_ROWS_) {
+          var rows = tbRowsAt_('함께표줄', want);
+          if (rows) return rows.filter(function (r) { return r['표ID'] === id && (Number(r['판']) || 0) > since; });
+        }
+      }
+    } catch (e) { /* 아래에서 탭으로 */ }
+  }
+  return tbRows_('함께표줄').filter(function (r) { return r['표ID'] === id && (Number(r['판']) || 0) > since; });
 }
 
 /** 잠금 안: 줄의 칸 하나만 쓴다(기록 없이: 판·순서 같은 숫자) */
@@ -699,10 +850,26 @@ function tbAppendRows_(t, cols, adds, actor, hint, bump, names, order, main, ids
   sh.getRange(start, 1, recs.length, head.length).setValues(recs.map(function (rec) {
     return head.map(function (h) { return cellWrite_(h && rec[h] !== undefined ? rec[h] : ''); });
   }));
+  recs.forEach(tbLogRow_);
   dirty_('함께표줄');
   hint.count += recs.length;
   hint.maxOrder += recs.length;
   return { rows: recs.map(function (rec) { return tbRowView_(rec, names, (main || t)['입력자ID']); }), cells: filled };
+}
+
+/**
+ * 잠금 안: 시트의 줄 순서를 1, 2, 3…으로 다시 매긴다(같은 자리에 줄을 잇달아 더해 순서 사이가 너무 좁아졌을 때).
+ * 바뀐 줄은 판을 올려 다른 분 화면도 새 순서를 받는다 → { map: {줄ID: 새 순서}, count: 줄 수, changed: [바뀐 줄] }
+ */
+function tbRenumberRows_(id, ver, rh) {
+  var rows = tbSortRows_(readRows_('함께표줄').filter(function (r) { return r['표ID'] === id && !r['삭제 여부']; }));
+  var map = {}, changed = [];
+  rows.forEach(function (r, i) {
+    map[r['줄ID']] = i + 1;
+    if (Number(r['순서']) !== i + 1) { r['순서'] = String(i + 1); r['판'] = String(ver); changed.push(r); }
+  });
+  tbWriteCols_('함께표줄', changed, rh, ['순서', '판']);
+  return { map: map, count: rows.length, changed: changed };
 }
 
 /** 잠금 안: 새 시트의 줄을 한 번에 넣는다(만들기·시트 더하기·사본). rows = [{ cells, colors, fmt, h, ms }] */
@@ -837,6 +1004,7 @@ function apiTableSheetSave_(args, actor, ctx) {
     var name = tbCleanSheetName_(args.name, D.sheets, t['표ID']);
     var nameKey = tbIsMain_(t) && name === '시트1' && !t['시트 이름'] ? '' : name; // 예전 표의 '시트1'은 그대로 비워 둔다
     updateRow_('함께표', t['표ID'], { '시트 이름': nameKey, '설명': desc, '판': String((Number(t['판']) || 0) + 1) }, actor, tbLabel_(D.main, t) + ' 시트 고침');
+    tbLogMeta_(t['표ID'], (Number(t['판']) || 0) + 1);
     var dver = tbBumpDoc_(D.main, tbHead_('함께표'));
     return { dver: dver };
   });
@@ -951,7 +1119,7 @@ function apiTableCell_(args, actor, ctx) {
 function apiTableCells_(args, actor, ctx) {
   var id = String(args.id || '');
   var list = Array.isArray(args.cells) ? args.cells : [], adds = Array.isArray(args.add) ? args.add : [];
-  if (list.length + adds.length * TB_MAX_COLS_ > TB_MAX_CELLS_) throw userError_('한 번에 ' + TB_MAX_CELLS_ + '칸까지 붙여 넣을 수 있어요. 나눠서 붙여 넣어 주세요.');
+  if (list.length + adds.length * TB_MAX_COLS_ > TB_MAX_CELLS_) throw userError_('한 번에 ' + TB_MAX_CELLS_ + '칸까지 바꿀 수 있어요. 나눠서 해 주세요.');
   var hasFmt = list.some(function (x) { return x && (x.f || x.clear || x.fill !== undefined); }) || adds.some(function (a) { return a && (a.fmt || a.h || a.ms); });
   if (hasFmt) tbEnsureCols_();
   var rowIds = [], given = {};
@@ -982,10 +1150,11 @@ function apiTableCells_(args, actor, ctx) {
       if (!byRow[r]) { byRow[r] = []; order.push(r); }
       byRow[r].push(x);
     });
-    var ver = 0, changed = 0, formatted = 0, skipLocked = 0, conflicts = [], before = {}, after = {}, out = [];
+    var ver = 0, changed = 0, formatted = 0, skipLocked = 0, conflicts = [], before = {}, after = {}, out = [], toWrite = [];
     var bump = function () { if (!ver) ver = tbBump_(t, L.th); return ver; };
+    var pre = order.length > TB_BULK_ ? tbReadRowsBulk_('함께표줄', order, hint.rows, rh) : {}; // 많은 줄: 붙은 행끼리 한 번에 읽는다
     order.forEach(function (rowId) {
-      var r = tbReadRow_('함께표줄', rowId, hint.rows[rowId], rh);
+      var r = pre[rowId] || tbReadRow_('함께표줄', rowId, hint.rows[rowId], rh);
       if (!r || r['삭제 여부'] || r['표ID'] !== id) return;
       var mineRow = !!(ctx.identity && r['입력자ID'] === ctx.identity['교직원ID']);
       var cells = tbParse_(r['칸'], {}), stamps = tbParse_(r['칸 고친 때'], {}), fmt = tbParse_(r['서식'], {}), colors = tbParse_(r['색'], {});
@@ -1037,9 +1206,10 @@ function apiTableCells_(args, actor, ctx) {
       var v2 = bump();
       if (touched) tbPutRow_(r, cells, stamps, v2, actor); else r['판'] = String(v2); // 서식만 바꾸면 '마지막 고친 분'은 그대로
       if (styled) tbPutFmt_(r, fmt, colors);
-      tbWriteRow_('함께표줄', r, rh);
+      toWrite.push(r);
       out.push(tbRowView_(r, names, main['입력자ID']));
     });
+    tbWriteRows_('함께표줄', toWrite, rh);
     if (adds.length) {
       var added = tbAppendRows_(t, cols, adds, actor, hint, bump, names, undefined, main, newIds, place);
       out = out.concat(added.rows);
@@ -1065,29 +1235,38 @@ function apiTableRowAdd_(args, actor, ctx) {
   if (!hint.found) throw userError_('이 시트를 찾지 못했어요. 지워졌을 수 있어요.', 'NOTFOUND');
   var names = staffNames_(), afterId = String(args.after || '');
   // 아래에 더하기: 그 줄과 다음 줄 순서의 가운데(순서는 숫자라 1.5처럼 사이에 넣을 수 있다)
-  var order;
+  var order, tight = false;
   var below = hint.orders.filter(function (x) { return x.id === afterId; })[0];
   if (below) {
     var next = null;
     hint.orders.forEach(function (x) { if (x.o > below.o && (next === null || x.o < next)) next = x.o; });
     order = next === null ? below.o + 1 : Math.round((below.o + next) / 2 * 1e6) / 1e6;
-    if (next !== null && !(order > below.o && order < next)) order = undefined; // 사이가 너무 좁으면 끝에
+    if (next !== null && !(order > below.o && order < next)) { order = undefined; tight = true; } // 사이가 너무 좁다 → 잠금 안에서 순서를 다시 매긴다
   }
-  var grow = below && order !== undefined ? hint.merges.filter(function (m) { return m.bottom === afterId; }) : [];
+  // 세로로 합친 칸의 맨 아래 줄 아래에 더하면 그 합친 칸에 넣는다(가로로만 합친 칸은 그대로: 새 줄을 덮지 않게)
+  var grow = below ? hint.merges.filter(function (m) { return m.bottom === afterId && m.row !== afterId; }) : [];
   return withLock_(function () {
     var L = tbLockPair_(id, hint), t = L.t, main = L.main;
     if (!tbOwner_(main, ctx) && tbClosed_(main)) throw userError_('마감한 표예요. 만든 분과 연구부장·부담당만 고칠 수 있어요.', 'CLOSED');
-    var cols = tbCols_(t), fmt = {};
+    var cols = tbCols_(t), fmt = {}, ver = 0, rh = tbHead_('함께표줄'), extra = [];
+    var bump = function () { if (!ver) ver = tbBump_(t, L.th); return ver; };
     Object.keys(args.fmt || {}).forEach(function (cid) {
       var f = tbCleanFmt_(args.fmt[cid]);
       if (f) delete f.m;
       if (f && Object.keys(f).length) fmt[cid] = f;
     });
+    if (tight) { // 같은 자리에 잇달아 더해 순서 사이가 좁아졌다: 이 시트 줄을 1, 2, 3…으로 다시 매기고 그 사이에
+      var re = tbRenumberRows_(id, bump(), rh);
+      if (re.map[afterId]) order = re.map[afterId] + 0.5;
+      hint.maxOrder = re.count;
+      re.changed.forEach(function (r) { extra.push(tbRowView_(r, names, main['입력자ID'])); });
+    }
+    if (order === undefined) grow = []; // 그 줄이 그사이 빠졌으면 표 끝에
     var res = tbAppendRows_(t, cols, [{ cells: args.cells || {}, colors: args.colors || {}, fmt: fmt, h: args.h }], actor, hint,
-      function () { return tbBump_(t, L.th); }, names, order, main);
-    var nr = res.rows[0], extra = [];
+      bump, names, order, main);
+    var nr = res.rows[0];
     if (grow.length) { // 합친 칸 바로 아래에 더한 줄은 그 합친 칸에 넣는다(구글 시트에서 합친 칸 안에 줄을 넣은 것처럼)
-      var rh = tbHead_('함께표줄'), seen = {};
+      var seen = {};
       grow.forEach(function (m) {
         if (seen[m.row]) return;
         seen[m.row] = 1;
@@ -1201,6 +1380,7 @@ function apiTableCols_(args, actor, ctx) {
     if (json.length > 40000) throw userError_('열 설정이 너무 길어요. 고를 값이나 열 이름을 줄여 주세요.');
     var ver = (Number(t['판']) || 0) + 1;
     updateRow_('함께표', t['표ID'], { '열': json, '판': String(ver) }, actor, tbLabel_(m0, t) + ' 열 고침');
+    tbLogMeta_(t['표ID'], ver);
     return { ver: ver };
   });
 }
@@ -1226,6 +1406,7 @@ function apiTableColw_(args, actor, ctx) {
     t['열'] = JSON.stringify(allCols);
     t['판'] = String(ver);
     tbWriteRow_('함께표', t, L.th);
+    tbLogMeta_(t['표ID'], ver);
     writeLog_(actor, '함께표', t['표ID'], '수정', tbLabel_(main, t) + ' 열 너비 바꿈', null, { '열 너비': said.join(', ').slice(0, 2000) });
     return { ver: ver, cols: tbCols_(t) };
   });
@@ -1243,18 +1424,20 @@ function apiTableRowh_(args, actor, ctx) {
   return withLock_(function () {
     var L = tbLockPair_(id, hint), t = L.t, main = L.main;
     tbCheckWrite_(main, ctx);
-    var rh = tbHead_('함께표줄'), ver = 0, out = [];
+    var rh = tbHead_('함께표줄'), ver = 0, out = [], toWrite = [];
+    var pre = rowIds.length > TB_BULK_ ? tbReadRowsBulk_('함께표줄', rowIds, hint.rows, rh) : {}; // 많은 줄: 붙은 행끼리 한 번에 읽고 쓴다
     list.forEach(function (x) {
-      var r = tbReadRow_('함께표줄', String(x.row || ''), hint.rows[String(x.row || '')], rh);
+      var rid = String(x.row || ''), r = pre[rid] || tbReadRow_('함께표줄', rid, hint.rows[rid], rh);
       if (!r || r['삭제 여부'] || r['표ID'] !== id) return;
       var nh = tbCleanHeight_(x.h);
       if ((Number(r['높이']) || 0) === nh) return;
       if (!ver) ver = tbBump_(t, L.th);
       r['높이'] = nh ? String(nh) : '';
       r['판'] = String(ver);
-      tbWriteRow_('함께표줄', r, rh);
+      toWrite.push(r);
       out.push(tbRowView_(r, names, main['입력자ID']));
     });
+    tbWriteRows_('함께표줄', toWrite, rh);
     if (out.length) writeLog_(actor, '함께표줄', '', '수정', tbLabel_(main, t) + ' 줄 높이 바꿈 ' + out.length + '줄', null, { '줄 높이': String(tbCleanHeight_((list[0] || {}).h) || '글에 맞춤') });
     return { ver: Number(t['판']) || 0, rows: out };
   });
@@ -1275,6 +1458,7 @@ function apiTableView_(args, actor, ctx) {
     t['보기'] = tbViewJson_(view);
     t['판'] = String(ver);
     tbWriteRow_('함께표', t, L.th);
+    tbLogMeta_(t['표ID'], ver);
     writeLog_(actor, '함께표', t['표ID'], '수정', tbLabel_(main, t) + ' 보기 바꿈', null,
       { '왼쪽 열 고정': view.fr ? view.fr + '열' : '안 함', '줄 간격': { s: '좁게', n: '보통', w: '넓게' }[view.gap] });
     return { ver: ver, view: view };

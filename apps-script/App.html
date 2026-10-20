@@ -28,12 +28,25 @@
   }
 
   var toastTimer;
-  function toast(msg) {
-    $toast.textContent = msg;
+  /**
+   * 알림. 보이는 시간은 글 길이에 맞춘다(2.5초 + 글자마다 0.06초, 8초까지).
+   * kind 'error': 닫기 단추를 누를 때까지 남는다(저장 실패 같은 오류를 다 읽기 전에 사라지지 않게)
+   */
+  function toast(msg, kind) {
+    var err = kind === 'error';
+    $toast.innerHTML = '<span class="toast-msg">' + esc(msg) + '</span>' +
+      (err ? '<button type="button" class="toast-x" aria-label="알림 닫기">' + icon('x', 16) + '</button>' : '');
+    $toast.classList.toggle('toast-err', err);
+    $toast.setAttribute('role', err ? 'alert' : 'status');
     $toast.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { $toast.classList.remove('show'); }, 2200);
+    if (!err) toastTimer = setTimeout(toastHide, Math.min(8000, 2500 + String(msg).length * 60));
   }
+  function toastHide() {
+    clearTimeout(toastTimer);
+    $toast.classList.remove('show', 'toast-err');
+  }
+  $toast.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.toast-x')) toastHide(); });
 
   // ------------------------------------------------------------ 브라우저 저장(안 되면 기억만 안 됨)
   var mem = {};
@@ -4377,9 +4390,14 @@
     var t = e.target.closest('[data-go],[data-action],[data-theme-btn],[data-design-btn],[data-admin-tab],[data-sched-view],[data-home-f],[data-sv-tab]');
     if (!t) return;
     if (t.hasAttribute('data-go')) {
-      if (t.getAttribute('data-go') === 'schedule' && S.screen === 'home') S.sched.view = 'cal';
-      if (t.getAttribute('data-go') === 'table' && TB) TB.reset(); // 메뉴를 누르면 표 목록부터
-      go(t.getAttribute('data-go'));
+      var to = t.getAttribute('data-go');
+      var nav = function () {
+        if (to === 'schedule' && S.screen === 'home') S.sched.view = 'cal';
+        if (to === 'table' && TB) TB.reset(); // 메뉴를 누르면 표 목록부터
+        go(to);
+      };
+      if (TB && TB.leaving && !TB.leaving(nav)) return; // 취합 시트에 저장하지 못한 칸이 있으면 먼저 묻는다
+      nav();
       return;
     }
     if (t.hasAttribute('data-sched-view')) { S.sched.view = t.getAttribute('data-sched-view'); S.sched.form = null; renderApp(); return; }
@@ -4416,6 +4434,7 @@
         break;
       case 'identity': closeSheet(); showIdentity(); break;
       case 'switch':
+        if (TB && TB.leaving && !TB.leaving(function () { t.click(); })) break; // 취합 시트에 저장하지 못한 칸이 있으면 먼저 묻는다
         closeSheet();
         stDel('gy.identity');
         S.me = null;
@@ -4428,6 +4447,7 @@
         renderApp();
         break;
       case 'logout':
+        if (TB && TB.leaving && !TB.leaving(function () { t.click(); })) break;
         closeSheet();
         stDel('gy.login'); stDel('gy.identity'); stDel('gy.admin'); stDel('gy.skipIdentity');
         S.me = null; S.admin = false;
@@ -4718,7 +4738,9 @@
 
   window.addEventListener('hashchange', function () {
     var h = (location.hash || '').replace('#', '');
-    if (menuItem(h) && h !== S.screen && qs('.app')) go(h);
+    if (!menuItem(h) || h === S.screen || !qs('.app')) return;
+    if (TB && TB.leaving && !TB.leaving(function () { go(h); })) { try { history.replaceState(null, '', '#' + S.screen); } catch (x) {} return; }
+    go(h);
   });
 
   // 옆으로 밀리는 탭(관리자 탭 등): 더 있으면 끝을 흐리게

@@ -101,6 +101,9 @@
 .tb-grid td.hit{box-shadow:inset 0 0 0 9999px rgba(255,196,0,.30)}
 .tb-grid td.hit.now{box-shadow:inset 0 0 0 2px #E39B00,inset 0 0 0 9999px rgba(255,196,0,.46)}
 .tb-grid td.saving{opacity:.6}
+.tb-grid td.unsaved{box-shadow:inset 0 0 0 2px var(--c-red)}
+.tb-unsaved{display:inline-flex;align-items:center;gap:8px;padding:4px 6px 4px 12px;border-radius:9999px;background:var(--c-warnBg);color:var(--c-red);font-size:14px;font-weight:800}
+.tb-unsaved .btn{min-height:32px}
 .tb-grid td.flash{position:relative;box-shadow:inset 0 0 0 9999px var(--accent-soft)}
 .tb-tip{position:absolute;right:4px;top:3px;padding:1px 8px;border-radius:9999px;background:var(--accent);color:var(--c-onAccent);font-size:12px;font-weight:700;line-height:1.5;white-space:nowrap;pointer-events:none;font-style:normal;text-decoration:none}
 .tb-grid .tb-who{position:relative;padding-right:40px;font-size:13px;color:var(--c-t3);white-space:nowrap;text-overflow:ellipsis;cursor:default}
@@ -195,6 +198,7 @@ body.tb-resizing.rows,body.tb-resizing.rows *{cursor:row-resize!important}
 .tb-group{margin:8px 2px 0;font-size:15px;font-weight:800;color:var(--c-t2)}
 .tb-rowcard{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;padding:14px 16px;border:1px solid var(--c-line);border-radius:14px;background:var(--c-card);color:var(--c-t1);font:inherit;text-align:left;cursor:pointer}
 .tb-rowcard.flash{box-shadow:0 0 0 2px var(--accent)}
+.tb-rowcard.unsaved{box-shadow:0 0 0 2px var(--c-red)}
 .tb-rc-main{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
 .tb-rc-main b{font-size:17px;line-height:1.35;overflow-wrap:anywhere}
 .tb-rc-sub{font-size:14px;color:var(--c-t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -451,6 +455,10 @@ window.__gyTableUi = function (core) {
   ];
   var tbTimer = null, tbFlashTimer = null, tbFindTimer = null, tbQ = Promise.resolve(), tbBusy = 0, tbTok = 0, tbLockToastAt = 0, tbIdx = {}, tbLay = null;
   var tbUndo = [], tbRedo = []; // 이 창에서 내가 고친 것(되돌리기 Ctrl+Z, 다시 하기 Ctrl+Y): [{ id: 시트ID, cells: [{ r, c, old, ver }], fmts: [{ r, c, f, fill }] }]
+  var TB_RETRY_MS = window.__gyTbRetryMs || [2000, 5000, 10000]; // 저장이 막히면(차례 기다림·연결 끊김) 저절로 다시 보내는 간격(자동 점검은 짧게)
+  var TB_CHUNK = 4000;  // 큰 서식 작업은 줄째로 이만큼씩 나눠 보낸다(서버는 한 번에 5000칸까지)
+  var tbFailed = [];    // 끝내 저장하지 못한 저장: [{ id: 시트ID, tok, list }](쓴 글은 칸에 그대로, 표 위 '다시 보내기')
+  var tbFailTok = {};   // 그 저장의 번호(tok) → 1(칸의 pending·fpending이 이 번호면 빨간 테두리)
   var tbRs = null;   // 열 너비·줄 높이를 끄는 중
   var tbPlain = 0;   // Ctrl+Shift+V(값만 붙여 넣기)를 누른 시각
 
@@ -684,8 +692,11 @@ window.__gyTableUi = function (core) {
     T.flash = {}; T.edit = null; T.cur = null; T.anchor = null; T.live = 'ok';
     tbVisible();
   }
-  function tbBackToList() {
+  /** force: 묻지 않고(표가 지워졌을 때) */
+  function tbBackToList(force) {
     var T = S.table;
+    if (!force && !tbLeaveOk(function () { tbBackToList(true); })) return;
+    tbDropFailed();
     clearTimeout(tbTimer);
     tbCloseMenu();
     T.sel = ''; T.sheet = ''; T.d = null; T.edit = null; T.find = null;
@@ -706,7 +717,7 @@ window.__gyTableUi = function (core) {
       }
       if (S.screen === 'table') { tbDrawDetail(); tbPollStart(); }
     }, function (e) {
-      toast(e.message);
+      toast(e.message, 'error');
       if (e.code === 'NOTFOUND' && S.table.sel === id && T.sheet) { T.sheet = ''; delete T.last[id]; tbReload(); } // 보던 시트가 지워졌으면 첫 시트로
     });
   }
@@ -717,7 +728,8 @@ window.__gyTableUi = function (core) {
     var t = d.table, phone = isPhone(), many = d.doc.sheets.length > 1;
     var state = t.closed ? (t.canEdit ? '마감한 표예요(만든 분과 연구부장·부담당은 고칠 수 있어요)' : '마감한 표예요 · 보기만 할 수 있어요')
       : t.canWrite ? (phone ? '줄을 누르면 고칠 수 있어요' : '칸을 누르고 쓰면 바로 저장돼요') : '이름을 고르면 칸을 고칠 수 있어요';
-    var lead = [t.by ? t.by + ' 선생님이 만듦' : '', many ? '시트 ' + d.doc.sheets.length + '개' : '', t.deadline ? '마감 ' + mdw(t.deadline) : '', state].filter(Boolean).join(' · ');
+    var lead = [t.by ? t.by + ' 선생님이 만듦' : '', many ? '시트 ' + d.doc.sheets.length + '개' : '', t.deadline ? '마감 ' + mdw(t.deadline) : ''].filter(Boolean).join(' · ');
+    var leadHtml = esc(lead) + '<span class="print-hide">' + (lead ? ' · ' : '') + esc(state) + '</span>'; // 화면용 안내는 종이에 찍지 않는다
     var acts = '<div class="tb-actions print-hide">' +
       (phone ? '' : '<button type="button" class="btn btn-sm" data-action="tb-copy">' + icon('copy', 18) + '표 복사</button>') +
       '<button type="button" class="btn btn-sm" data-action="tb-csv">' + icon('down', 18) + '엑셀(CSV)</button>' +
@@ -727,7 +739,7 @@ window.__gyTableUi = function (core) {
     var keep = tbKeepEdit();
     var desc = (many || t.desc) ? '<p class="tb-desc">' + (many ? '<b>' + esc(t.name) + '</b>' + (t.desc ? ' · ' : '') : '') + esc(t.desc || '') + '</p>' : '';
     box.innerHTML = tbBackBtn() +
-      pageHead(esc('취합 시트' + (t.dept ? ' · ' + t.dept : '')), esc(t.title), esc(lead), acts) +
+      pageHead(esc('취합 시트' + (t.dept ? ' · ' + t.dept : '')), esc(t.title), leadHtml, acts) +
       (phone ? tbPhoneSheetsHtml() : '') + desc +
       '<div class="tb-bar" id="tb-bar"></div>' +
       '<div id="tb-main"></div>' +
@@ -744,7 +756,10 @@ window.__gyTableUi = function (core) {
     var bar = qs('#tb-bar'), d = S.table.d;
     if (!bar || !d) return;
     var s = tbCounts(d.table.cols, d.rows);
-    bar.innerHTML = (s ? s.options.map(function (o, k) { return '<span class="chip' + (k === 0 ? ' chip-ok' : '') + '">' + esc(o) + ' ' + (s.counts[o] || 0) + '</span>'; }).join('') +
+    var fails = tbFailedCount();
+    bar.innerHTML = (fails ? '<span class="tb-unsaved" role="alert">' + icon('info', 16) + '저장 못 한 칸 ' + fails + '개' +
+      '<button type="button" class="btn btn-sm" data-action="tb-resend">' + icon('reload', 16) + '다시 보내기</button></span>' : '') +
+      (s ? s.options.map(function (o, k) { return '<span class="chip' + (k === 0 ? ' chip-ok' : '') + '">' + esc(o) + ' ' + (s.counts[o] || 0) + '</span>'; }).join('') +
       (s.other ? '<span class="chip">기타 ' + s.other + '</span>' : '') + (s.empty ? '<span class="chip">비어 있음 ' + s.empty + '</span>' : '') : '') +
       '<span class="chip">전체 ' + d.rows.length + '줄</span>' +
       '<span class="tb-live print-hide' + (S.table.live === 'off' ? ' off' : '') + '" id="tb-live" role="status"><i class="dot" aria-hidden="true"></i>' + tbLiveText() + '</span>';
@@ -985,12 +1000,18 @@ window.__gyTableUi = function (core) {
     var v = ghost ? o.ghost : tbVal(r, c.id), f = ghost && o.gf ? o.gf : tbFmt(r, c.id), p = tbPaint((r.colors || {})[c.id]), fl = T.flash[r.id + '|' + c.id];
     var lit = fl && fl.until > now, can = !ghost && tbCanCell(r, c), rs = (o && o.rs) || 1, cs = (o && o.cs) || 1;
     var cls = 'tb-c' + (can ? '' : ' ro') + (o && o.run ? ' merged' : '') + (ghost ? ' ghost' : '') + (p ? ' paint' + (p.dark ? ' paint-dark' : '') : '') +
-      (lit ? ' flash' : '') + ((r.pending && r.pending[c.id]) || (r.fpending && r.fpending[c.id]) ? ' saving' : '') + z.cls;
+      (lit ? ' flash' : '') + tbSaveCls(r, c.id) + z.cls;
     var st = z.st + (p ? '--bg:' + p.rgb + ';' : '') + tbFmtStyle(f, dark) + tbEdgeStyle(lay, i, j, rs, cs);
     var inner = c.type === 'pick' && !ghost ? tbPickChip(c, v, can) : esc(v).replace(/\n/g, '<br>');
     return '<td class="' + cls + '" data-i="' + i + '" data-j="' + j + '"' + (rs > 1 ? ' rowspan="' + rs + '"' : '') + (cs > 1 ? ' colspan="' + cs + '"' : '') +
       (o && o.run ? ' data-run="1"' : '') + (st ? ' style="' + st + '"' : '') + '>' + inner +
       (lit ? '<span class="tb-tip">' + esc(fl.by) + ' 선생님 · 방금</span>' : '') + '</td>';
+  }
+  /** 저장 중(흐리게)·저장 못 함(빨간 테두리, 쓴 글은 그대로) */
+  function tbSaveCls(r, cid) {
+    var p = r.pending && r.pending[cid], f = r.fpending && r.fpending[cid];
+    if ((p && tbFailTok[p]) || (f && tbFailTok[f])) return ' unsaved';
+    return p || f ? ' saving' : '';
   }
   function tbPickChip(c, v, can) {
     if (!v) return can ? '<span class="tb-pick none">고르기' + icon('chevd', 14) + '</span>' : '';
@@ -1340,11 +1361,11 @@ window.__gyTableUi = function (core) {
     return tbQueue(function () {
       return server('table.colw', { id: id, w: map }).then(function (res) {
         if (!S.table.d || S.table.d.table.id !== id) return;
-        if (res.cols) S.table.d.table.cols = res.cols;
+        if (res.cols) { S.table.d.table.cols = res.cols; S.table.d.mver = Number(res.ver) || 0; }
         tbRedraw();
       }, function (e) {
         if (S.table.d && S.table.d.table.id === id) { Object.keys(old).forEach(function (cid) { var c = tbCol(cid); if (c) c.w = old[cid]; }); tbRedraw(); }
-        toast(e.message);
+        toast(e.message, 'error');
       });
     }).then(function () { tbBusy--; }, function () { tbBusy--; });
   }
@@ -1361,7 +1382,7 @@ window.__gyTableUi = function (core) {
         tbRedraw();
       }, function (e) {
         if (S.table.d && S.table.d.table.id === id) { Object.keys(old).forEach(function (rid) { var r = tbRow(rid); if (r) r.h = old[rid]; }); tbRedraw(); }
-        toast(e.message);
+        toast(e.message, 'error');
       });
     }).then(function () { tbBusy--; }, function () { tbBusy--; });
   }
@@ -1610,6 +1631,7 @@ window.__gyTableUi = function (core) {
     var plain = Date.now() - tbPlain < 2000;
     tbPlain = 0;
     var g = tbParseClip(plain ? '' : e.clipboardData.getData('text/html'), e.clipboardData.getData('text/plain'));
+    if (g && !g.rich) plain = true; // 표가 아닌 글(메신저·메모장·웹 글)은 값만: 칸의 색·서식·합친 칸은 그대로(구글 시트처럼)
     var many = g && (g.rows.length > 1 || (g.rows[0] && g.rows[0].length > 1));
     if (T.edit) {
       if (!many || !ed || ed.value !== T.edit.orig) return; // 고치는 중이면 글자 붙여 넣기 그대로
@@ -1633,9 +1655,10 @@ window.__gyTableUi = function (core) {
     var h = fill ? rg.i2 - rg.i1 + 1 : grid.length;
     var w = fill ? rg.j2 - rg.j1 + 1 : Math.max.apply(null, grid.map(function (x) { return x.length; }));
     if (!fill && rg.i1 + h > rows.length && tbLocalOn()) { toast('걸러 보거나 정렬하는 중에는 표 아래로 넘치게 붙여 넣을 수 없어요. "모두 풀기"를 누른 뒤 붙여 넣어 주세요'); return; }
-    var srcM = {};
-    if (!plain && !fill) (g.merges || []).forEach(function (m) { srcM[m.r + ':' + m.c] = [m.rs, m.cs]; });
-    var map = {}, order = [], adds = [], locked = 0, cut = 0;
+    var srcM = {}, local = tbLocalOn(), noMerge = !plain && !fill && local && (g.merges || []).length > 0;
+    // 걸러 보거나 정렬하는 중에는 붙여 넣는 합친 칸을 뺀다(보이는 줄로 합치면 그 사이 숨은 줄까지 덮는다)
+    if (!plain && !fill && !local) (g.merges || []).forEach(function (m) { srcM[m.r + ':' + m.c] = [m.rs, m.cs]; });
+    var map = {}, order = [], adds = [], locked = 0, cut = 0, covered = 0;
     var entry = function (r, c) { var k = r.id + '|' + c.id; if (!map[k]) { map[k] = { r: r.id, c: c.id }; order.push(k); } return map[k]; };
     for (var a = 0; a < h; a++) {
       for (var b = 0; b < w; b++) {
@@ -1647,6 +1670,8 @@ window.__gyTableUi = function (core) {
         var c = cols[j], sf = plain ? null : ((g.fmts || [])[sa] || [])[sb] || null, sbg = plain ? '' : ((g.colors || [])[sa] || [])[sb] || '', sm = srcM[sa + ':' + sb];
         if (i < rows.length) {
           var r = rows[i], o = lay.occ[i + ':' + j];
+          // 값만 붙여 넣을 때 합친 칸에 덮인 칸은 건너뛴다(합친 칸은 그대로, 글은 첫 칸에만). 예전 '위아래 합침' 열은 줄마다
+          if (plain && o && o.a && !(lay.occ[o.a] && lay.occ[o.a].run)) { if (v.trim()) covered++; continue; }
           if (!tbCanCell(r, c) || (o && o.ghost !== undefined && o.ghost !== null)) { locked++; continue; }
           var x = entry(r, c);
           if (v.trim() !== tbVal(r, c.id)) { x.value = v; x.base = tbBase(r, c.id); }
@@ -1657,7 +1682,7 @@ window.__gyTableUi = function (core) {
             if (sm) {
               var bi = i + sm[0] - 1;
               x.f.m = [bi < rows.length ? rows[bi].id : '+' + (bi - rows.length), cols[Math.min(j + sm[1] - 1, cols.length - 1)].id];
-            } else if (tbFmt(r, c.id).m) x.f.m = null;
+            } else if (tbFmt(r, c.id).m && !local) x.f.m = null; // 걸러 보는 중에는 있던 합친 칸도 그대로
           }
         } else {
           var k = i - rows.length;
@@ -1687,8 +1712,8 @@ window.__gyTableUi = function (core) {
     var addList = [];
     for (var q = 0; q < adds.length; q++) addList.push(adds[q] || { cells: {} });
     var go = function () {
-      if (!list.length && !addList.length) { toast(locked ? '잠긴 칸이라 붙여 넣지 않았어요' : '바뀐 칸이 없어요'); return; }
-      tbSave(list, addList, { paste: true, locked: locked, cut: cut });
+      if (!list.length && !addList.length) { toast(locked ? '잠긴 칸이라 붙여 넣지 않았어요' : covered ? '합친 칸에 덮인 칸이라 붙여 넣지 않았어요' : '바뀐 칸이 없어요'); return; }
+      tbSave(list, addList, { paste: true, locked: locked, cut: cut, covered: covered, noMerge: noMerge });
     };
     if (!addList.length) return go();
     confirmBox('줄 더해서 붙여 넣기', '붙여 넣을 칸이 표 아래로 ' + addList.length + '줄 넘쳐요. 표 끝에 줄 ' + addList.length + '개를 더해서 붙여 넣을까요?', '더해서 붙여 넣기', function () {
@@ -1705,8 +1730,11 @@ window.__gyTableUi = function (core) {
    */
   function tbParseClip(html, text) {
     var g = html && /<t[dh][\s>]/i.test(html) ? tbHtmlGrid(html) : null;
-    if (!g || !g.rows.length) g = { rows: tbTsv(String(text || '').replace(/\r?\n$/, '')), colors: [], fmts: [], merges: [], vmerge: [], widths: [], bold: [] };
-    return tbTrimGrid(g);
+    if (g && g.rows.length) g.rich = true; // 표(구글 시트·엑셀·이 표에서 복사): 서식·합친 칸도 함께
+    else g = { rows: tbTsv(String(text || '').replace(/\r?\n$/, '')), colors: [], fmts: [], merges: [], vmerge: [], widths: [], bold: [] };
+    var out = tbTrimGrid(g);
+    if (out) out.rich = !!g.rich;
+    return out;
   }
   /** 탭으로 나눈 글(구글 시트 글자 복사). 쉼표는 나누지 않는다(칸 안의 쉼표를 지키게) */
   function tbTsv(s) {
@@ -1953,56 +1981,164 @@ window.__gyTableUi = function (core) {
       if (stack.length > 50) stack.shift();
       if (!opts.stack) tbRedo = tbRedo.filter(function (u) { return u.id !== id; }); // 새로 고치면 다시 하기는 없어진다
     }
-    tbBusy++;
-    return tbQueue(function () {
-      var cells = list.filter(function (x) { return tbRow(x.r); }).map(function (x) {
-        var r = tbRow(x.r), o = { row: x.r, n: r.n, col: x.c };
-        if (x.value !== undefined) { o.value = x.value; o.base = x.base === 'mine' ? tbStamp(r, x.c) : x.base; }
+    return tbPush(id, tok, list, adds, undo, opts);
+  }
+  /** 아직 이 저장(tok) 몫인 칸만 보낼 모양으로(그사이 다시 고친 칸은 뒤의 저장이 보낸다) */
+  function tbCellsOf(list, tok) {
+    var out = [];
+    list.forEach(function (x) {
+      var r = tbRow(x.r);
+      if (!r) return;
+      var val = x.value !== undefined && !!r.pending && r.pending[x.c] === tok;
+      var fmt = (x.f || x.clear || x.fill !== undefined) && !!r.fpending && r.fpending[x.c] === tok;
+      if (!val && !fmt) return;
+      var o = { row: x.r, n: r.n, col: x.c };
+      if (val) { o.value = x.value; o.base = x.base === 'mine' ? tbStamp(r, x.c) : x.base; }
+      if (fmt) {
         if (x.f) o.f = x.f;
         if (x.clear) o.clear = 1;
         if (x.fill !== undefined) o.fill = x.fill;
-        return o;
-      });
-      var c0 = cells[0];
-      var single = cells.length === 1 && !adds.length && c0.value !== undefined && !c0.f && !c0.clear && c0.fill === undefined;
-      var req = single ? server('table.cell', { id: id, row: c0.row, n: c0.n, col: c0.col, value: c0.value, base: c0.base })
-        : server('table.cells', { id: id, cells: cells, add: adds });
-      return req.then(function (res) {
-        if (!S.table.d || S.table.d.table.id !== id) return;
-        var conf = single
-          ? (res.conflict ? [{ row: c0.row, col: c0.col, mine: c0.value, value: res.conflict.value, by: res.conflict.by, at: res.conflict.at, base: res.conflict.base }] : [])
-          : res.conflicts || [];
-        tbMerge(single ? [res.row] : res.rows, { own: tok });
+      }
+      out.push(o);
+    });
+    return out;
+  }
+  /** 큰 서식 작업은 줄째로 TB_CHUNK칸씩 나눈다(한 줄의 칸이 두 요청에 갈라지지 않게) */
+  function tbChunks(cells) {
+    var out = [], cur = [], byRow = {}, order = [];
+    cells.forEach(function (o) { if (!byRow[o.row]) { byRow[o.row] = []; order.push(o.row); } byRow[o.row].push(o); });
+    order.forEach(function (rid) {
+      if (cur.length && cur.length + byRow[rid].length > TB_CHUNK) { out.push(cur); cur = []; }
+      cur = cur.concat(byRow[rid]);
+    });
+    if (cur.length) out.push(cur);
+    return out;
+  }
+  /** 차례를 못 받았거나(BUSY) 연결이 잠깐 끊긴 것: 서버가 거절한 것이 아니라 다시 보내도 된다(줄을 더하는 저장은 끊김이면 두 번 더해질 수 있어 빼고) */
+  function tbRetryable(err, hasAdds) {
+    var c = err && err.code;
+    return c === 'BUSY' || (!hasAdds && (c === 'NET' || c === 'ERROR'));
+  }
+  function tbWait(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
+  /** 끝내 저장하지 못한 칸 수(이 시트) */
+  function tbFailedCount() {
+    var d = S.table.d, n = 0;
+    if (!d || !tbFailed.length) return 0;
+    d.rows.forEach(function (r) {
+      var seen = {};
+      Object.keys(r.pending || {}).forEach(function (c) { if (tbFailTok[r.pending[c]]) { seen[c] = 1; } });
+      Object.keys(r.fpending || {}).forEach(function (c) { if (tbFailTok[r.fpending[c]]) { seen[c] = 1; } });
+      n += Object.keys(seen).length;
+    });
+    return n;
+  }
+  /**
+   * 서버에 차례로 보낸다. 차례를 못 받거나(BUSY) 연결이 끊기면 2·5·10초 뒤에 저절로 다시 보내고,
+   * 그래도 안 되면 쓴 글은 칸에 그대로 두고 빨간 테두리 + 표 위 '다시 보내기'(서버가 분명히 거절한 것만 옛 값으로 되돌린다)
+   */
+  function tbPush(id, tok, list, adds, undo, opts) {
+    var live = function () { return !!S.table.d && S.table.d.table.id === id; };
+    tbBusy++;
+    return tbQueue(function () {
+      var cells = tbCellsOf(list, tok);
+      if (!live() || (!cells.length && !adds.length)) return;
+      var tries = 0, acc = { rows: [], conflicts: [], changed: 0, skipLocked: 0 };
+      var one = function (part, withAdds) {
+        var c0 = part[0];
+        var single = part.length === 1 && !withAdds.length && c0.value !== undefined && !c0.f && !c0.clear && c0.fill === undefined;
+        var req = single ? server('table.cell', { id: id, row: c0.row, n: c0.n, col: c0.col, value: c0.value, base: c0.base })
+          : server('table.cells', { id: id, cells: part, add: withAdds });
+        return req.then(function (res) {
+          if (single) {
+            return { rows: [res.row], changed: res.conflict ? 0 : 1, skipLocked: 0,
+              conflicts: res.conflict ? [{ row: c0.row, col: c0.col, mine: c0.value, value: res.conflict.value, by: res.conflict.by, at: res.conflict.at, base: res.conflict.base }] : [] };
+          }
+          return { rows: res.rows || [], conflicts: res.conflicts || [], changed: res.changed || 0, skipLocked: res.skipLocked || 0 };
+        }, function (err) {
+          if (tbRetryable(err, withAdds.length > 0) && tries < TB_RETRY_MS.length && live()) {
+            var ms = TB_RETRY_MS[tries++];
+            toast('저장이 늦어지고 있어요. ' + Math.round(ms / 1000) + '초 뒤에 저절로 다시 보낼게요');
+            return tbWait(ms).then(function () { if (!live()) throw err; return one(part, withAdds); });
+          }
+          throw err;
+        });
+      };
+      var parts = adds.length || cells.length <= TB_CHUNK ? [cells] : tbChunks(cells), k = 0;
+      var next = function () {
+        if (k >= parts.length) return Promise.resolve();
+        var part = parts[k++];
+        return one(part, k === parts.length ? adds : []).then(function (r) {
+          acc.rows = acc.rows.concat(r.rows); acc.conflicts = acc.conflicts.concat(r.conflicts); acc.changed += r.changed; acc.skipLocked += r.skipLocked;
+          if (live()) tbMerge(r.rows, { own: tok }); // 나눠 보낸 것은 받는 대로 넣는다
+          return next();
+        });
+      };
+      return next().then(function () {
+        if (!live()) return;
         tbSettle(list, tok);
         if (undo) { // 되돌릴 때 이 판으로 보낸다(그사이 다른 분이 또 고쳤으면 묻는다)
           undo.cells.forEach(function (u) { var r = tbRow(u.r); u.ver = r ? tbStamp(r, u.c) : 0; });
           var hit = {};
-          conf.forEach(function (x) { hit[x.row + '|' + x.col] = 1; });
+          acc.conflicts.forEach(function (x) { hit[x.row + '|' + x.col] = 1; });
           undo.cells = undo.cells.filter(function (u) { return !hit[u.r + '|' + u.c] && u.old !== tbVal(tbRow(u.r), u.c); });
           if (!undo.cells.length && !undo.fmts.length) {
-            [tbUndo, tbRedo].forEach(function (s) { var k = s.indexOf(undo); if (k >= 0) s.splice(k, 1); });
+            [tbUndo, tbRedo].forEach(function (s) { var j = s.indexOf(undo); if (j >= 0) s.splice(j, 1); });
           }
         }
         tbRedraw();
         tbDrawBar();
-        if (conf.length) { tbConflicts(conf); return; }
+        if (acc.conflicts.length) { tbConflicts(acc.conflicts); return; }
         if (opts.paste) {
-          var skipped = (opts.locked || 0) + (res.skipLocked || 0);
-          toast((res.changed || 0) + '칸을 붙여 넣었어요' + (adds.length ? '(줄 ' + adds.length + '개 더함)' : '') +
-            (skipped ? ' · 잠긴 칸 ' + skipped + '개는 건너뛰었어요' : '') + (opts.cut ? ' · 표 오른쪽으로 넘친 ' + opts.cut + '칸은 뺐어요' : ''));
-        } else if (opts.done) toast(opts.done);
-        else if (res.skipLocked) toast('잠긴 칸 ' + res.skipLocked + '개는 그대로예요');
+          var skipped = (opts.locked || 0) + acc.skipLocked;
+          toast(acc.changed + '칸을 붙여 넣었어요' + (adds.length ? '(줄 ' + adds.length + '개 더함)' : '') +
+            (skipped ? ' · 잠긴 칸 ' + skipped + '개는 건너뛰었어요' : '') + (opts.covered ? ' · 합친 칸에 덮인 ' + opts.covered + '칸은 건너뛰었어요' : '') +
+            (opts.cut ? ' · 표 오른쪽으로 넘친 ' + opts.cut + '칸은 뺐어요' : '') + (opts.noMerge ? ' · 걸러 보는 중이라 합친 칸은 빼고 붙여 넣었어요' : ''));
+        } else if (opts.resend) toast('다시 보내서 저장했어요');
+        else if (opts.done) toast(opts.done);
+        else if (acc.skipLocked) toast('잠긴 칸 ' + acc.skipLocked + '개는 그대로예요');
       }, function (err) {
-        [tbUndo, tbRedo].forEach(function (s) { var k = undo ? s.indexOf(undo) : -1; if (k >= 0) s.splice(k, 1); });
-        if (S.table.d && S.table.d.table.id === id) {
+        [tbUndo, tbRedo].forEach(function (s) { var j = undo ? s.indexOf(undo) : -1; if (j >= 0) s.splice(j, 1); });
+        if (!live()) { toast(err.message, 'error'); return; }
+        if (tbRetryable(err, adds.length > 0)) { // 서버가 거절한 것이 아니다: 쓴 글은 칸에 그대로 두고 '다시 보내기'
+          tbFailTok[tok] = 1;
+          tbFailed.push({ id: id, tok: tok, list: list });
+          toast('저장하지 못한 칸이 있어요. 쓴 글은 칸에 그대로 두었어요. 표 위의 "다시 보내기"를 눌러 주세요', 'error');
+        } else {
           tbSettle(list, tok);
-          tbRedraw();
-          tbDrawBar();
+          toast(err.message, 'error');
+          if (/^(STALE|NOTFOUND|CLOSED|LOCKED)$/.test(err.code || '')) tbReload();
         }
-        toast(err.message);
-        if (/^(STALE|NOTFOUND|CLOSED|LOCKED)$/.test(err.code || '')) tbReload();
+        tbRedraw();
+        tbDrawBar();
       });
     }).then(function () { tbBusy--; }, function () { tbBusy--; });
+  }
+  /** 저장하지 못한 칸 다시 보내기(이 시트) */
+  function tbResend() {
+    var d = S.table.d;
+    if (!d) return;
+    var mine = tbFailed.filter(function (f) { return f.id === d.table.id; });
+    tbFailed = tbFailed.filter(function (f) { return f.id !== d.table.id; });
+    mine.forEach(function (f) { delete tbFailTok[f.tok]; });
+    tbRedraw();
+    tbDrawBar();
+    mine.forEach(function (f) { tbPush(f.id, f.tok, f.list, [], null, { resend: true }); });
+  }
+  /** 저장하지 못한 칸을 두고 떠날 때: 괜찮으면 true, 아니면 묻고 false(나가기를 고르면 proceed) */
+  function tbLeaveOk(proceed) {
+    var n = tbFailedCount();
+    if (!n) return true;
+    confirmBox('저장하지 못한 칸이 있어요', '저장하지 못한 칸 ' + n + '개의 글은 나가면 사라져요. 먼저 표 위의 "다시 보내기"를 눌러 보세요.', '그래도 나가기', function () {
+      closeModal();
+      tbDropFailed();
+      proceed();
+      return Promise.resolve();
+    }, true);
+    return false;
+  }
+  function tbDropFailed() {
+    tbFailed.forEach(function (f) { delete tbFailTok[f.tok]; });
+    tbFailed = [];
   }
   /** 이 저장이 끝났는데도 흐린 칸(실패했거나 서버가 건너뜀)은 옛 값·옛 서식으로 */
   function tbSettle(list, tok) {
@@ -2070,6 +2206,7 @@ window.__gyTableUi = function (core) {
       var i = -1;
       for (var k = 0; k < d.rows.length; k++) if (d.rows[k].id === nr.id) { i = k; break; }
       var old = i >= 0 ? d.rows[i] : null;
+      if (old && opts.flash && (Number(nr.ver) || 0) < (Number(old.ver) || 0)) return; // 늦게 온 새로 받기: 방금 저장한 내 값보다 옛것이면 그대로
       if (nr.del) { if (old) { d.rows.splice(i, 1); changed = true; } return; }
       if (old && old.pending) {
         Object.keys(old.pending).forEach(function (cid) {
@@ -2118,7 +2255,7 @@ window.__gyTableUi = function (core) {
       T.polling = false;
       if (!S.table.d || S.table.d.table.id !== id) return 'stop';
       T.live = 'ok';
-      if (p.gone) { memoForget('table.'); toast('이 표가 지워졌어요'); tbBackToList(); return 'stop'; }
+      if (p.gone) { memoForget('table.'); toast('이 표가 지워졌어요', 'error'); tbBackToList(true); return 'stop'; }
       if (p.sheetGone) {
         memoForget('table.');
         toast('보던 시트가 지워져서 다른 시트를 열었어요');
@@ -2148,6 +2285,7 @@ window.__gyTableUi = function (core) {
     if (p.table) {
       var t1 = p.table;
       t1.view = t1.view || { fr: 0, gap: 'n' };
+      if (d.mver && (Number(p.ver) || 0) < d.mver) { t1.cols = t0.cols; t1.view = t0.view; } // 내가 방금 바꾼 열 너비·보기보다 옛것이면 그대로
       gridChanged = JSON.stringify(t0.cols) !== JSON.stringify(t1.cols) || JSON.stringify(t0.view) !== JSON.stringify(t1.view);
       headChanged = ['title', 'dept', 'desc', 'name', 'deadline', 'closed', 'canWrite', 'canEdit'].some(function (k) { return t0[k] !== t1[k]; });
       d.table = t1;
@@ -2188,9 +2326,39 @@ window.__gyTableUi = function (core) {
     if (left) tbFlashTimer = setTimeout(tbFadeFlash, 1000);
   }
 
-  /** 같은 칸을 그사이 다른 분이 고쳤을 때: list = [{ row, col, mine(내가 쓴 값), value(먼저 고친 값), by, at, base }] */
+  /**
+   * 같은 칸을 그사이 다른 분이 고쳤을 때: list = [{ row, col, mine(내가 쓴 값), value(먼저 고친 값), by, at, base }]
+   * 묻는 창이 이미 떠 있으면 그 창에 더하고, 다른 창(열 고치기 등)이 떠 있으면 그 창을 닫은 뒤에 띄운다(앞의 것이 묻지도 않고 사라지지 않게)
+   */
+  var tbConfShown = null, tbConfQ = [], tbConfTimer = null;
+  function tbConfAdd(into, list) { // 같은 칸은 나중 것으로
+    var at = {};
+    into.forEach(function (x, k) { at[x.row + '|' + x.col] = k; });
+    list.forEach(function (x) { var k = at[x.row + '|' + x.col]; if (k === undefined) { at[x.row + '|' + x.col] = into.length; into.push(x); } else into[k] = x; });
+    return into;
+  }
   function tbConflicts(list) {
-    var d = S.table.d;
+    if (!list || !list.length) return;
+    if (tbConfShown && qs('#tb-conf-box')) { tbConfShown = tbConfAdd(tbConfShown, list); tbConfDraw(); return; }
+    tbConfShown = null;
+    tbConfQ = tbConfAdd(tbConfQ, list);
+    tbConfNext();
+  }
+  /** 기다리는 묻는 창: 다른 창이 없으면 띄우고, 있으면 조금 뒤에 다시 본다 */
+  function tbConfNext() {
+    clearTimeout(tbConfTimer);
+    if (tbConfShown && !qs('#tb-conf-box')) tbConfShown = null; // 닫혔다
+    if (tbConfShown || !tbConfQ.length) { if (tbConfShown || tbConfQ.length) tbConfTimer = setTimeout(tbConfNext, 400); return; }
+    if ($modal.innerHTML || qs('#sheet')) { tbConfTimer = setTimeout(tbConfNext, 400); return; }
+    tbConfShown = tbConfQ;
+    tbConfQ = [];
+    tbConfDraw();
+    tbConfTimer = setTimeout(tbConfNext, 400);
+  }
+  function tbConfDraw() {
+    var d = S.table.d, list = (tbConfShown || []).filter(function (x) { return tbRow(x.row) && tbCol(x.col); });
+    if (!d || !list.length) { if (qs('#tb-conf-box')) closeModal(); tbConfShown = null; return; }
+    tbConfShown = list;
     var label = function (x) { var r = tbRow(x.row), c = tbCol(x.col); return (r ? tbRowLabel(r) : '') + ' · ' + (c ? c.name : ''); };
     var one = list.length === 1;
     var boxes = list.slice(0, 4).map(function (x) {
@@ -2199,15 +2367,17 @@ window.__gyTableUi = function (core) {
         '<small>' + esc(x.by ? x.by + ' 선생님' + (x.at ? ' · ' + x.at.slice(11, 16) : '') : '') + '</small></div>' +
         '<div><span class="chip chip-accent">내가 쓴 값</span><b>' + (String(x.mine).trim() ? esc(String(x.mine).trim()) : '<span class="faint">(빈칸)</span>') + '</b><small>지금 저장하려던 값</small></div></div>';
     }).join('');
-    openModal('<h2 id="m-title">다른 선생님이 먼저 고쳤어요</h2>' +
+    openModal('<div id="tb-conf-box"><h2 id="m-title">다른 선생님이 먼저 고쳤어요</h2>' +
       '<p class="muted" style="margin:0">' + (one ? esc(label(list[0])) : list.length + '칸을 그사이 다른 선생님이 고쳤어요. 어느 값으로 둘까요?') + '</p>' + boxes +
       (list.length > 4 ? '<p class="faint">…그리고 ' + (list.length - 4) + '칸 더</p>' : '') +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">먼저 고친 값 두기</button>' +
-      '<button type="button" class="btn btn-primary" id="tb-mine">' + (one ? '내 값으로 바꾸기' : '모두 내 값으로 바꾸기') + '</button></div>', { noBackdropClose: true });
+      '<button type="button" class="btn btn-primary" id="tb-mine">' + (one ? '내 값으로 바꾸기' : '모두 내 값으로 바꾸기') + '</button></div></div>', { noBackdropClose: true });
     qs('#tb-mine').addEventListener('click', function () {
+      var mine = tbConfShown || [];
+      tbConfShown = null;
       closeModal();
       if (!S.table.d || S.table.d !== d) return;
-      tbSave(list.filter(function (x) { return tbRow(x.row) && tbCol(x.col); }).map(function (x) { return { r: x.row, c: x.col, value: x.mine, base: x.base }; }), null, { done: '내 값으로 바꿨어요' });
+      tbSave(mine.filter(function (x) { return tbRow(x.row) && tbCol(x.col); }).map(function (x) { return { r: x.row, c: x.col, value: x.mine, base: x.base }; }), null, { done: '내 값으로 바꿨어요' });
     });
   }
 
@@ -2516,13 +2686,15 @@ window.__gyTableUi = function (core) {
   function tbMergeMenu(btn) {
     var T = S.table, rg = tbRange(), one = rg && tbBlock(rg.i1, rg.j1);
     var single = !rg || (one.i === rg.i1 && one.j === rg.j1 && one.rs === rg.i2 - rg.i1 + 1 && one.cs === rg.j2 - rg.j1 + 1 && one.rs * one.cs === 1);
-    var hit = rg ? (T.merges || []).filter(function (m) { return !(m.i > rg.i2 || m.i + m.rs - 1 < rg.i1 || m.j > rg.j2 || m.j + m.cs - 1 < rg.j1); }) : [];
+    var local = tbLocalOn();
+    var hit = rg && !local ? (T.merges || []).filter(function (m) { return !(m.i > rg.i2 || m.i + m.rs - 1 < rg.i1 || m.j > rg.j2 || m.j + m.cs - 1 < rg.j1); }) : [];
     tbMenu(btn, [
-      { key: 'all', label: '모두 합치기', icon: ti('merge'), disabled: single },
-      { key: 'h', label: '가로로 합치기', icon: ti('merge'), disabled: !rg || rg.j1 === rg.j2, small: rg && rg.j1 === rg.j2 ? '한 열만 골랐어요' : '' },
-      { key: 'v', label: '세로로 합치기', icon: ti('mergeV'), disabled: !rg || rg.i1 === rg.i2, small: rg && rg.i1 === rg.i2 ? '한 줄만 골랐어요' : '' },
+      { key: 'all', label: '모두 합치기', icon: ti('merge'), disabled: single || local },
+      { key: 'h', label: '가로로 합치기', icon: ti('merge'), disabled: !rg || rg.j1 === rg.j2 || local, small: !local && rg && rg.j1 === rg.j2 ? '한 열만 골랐어요' : '' },
+      { key: 'v', label: '세로로 합치기', icon: ti('mergeV'), disabled: !rg || rg.i1 === rg.i2 || local, small: !local && rg && rg.i1 === rg.i2 ? '한 줄만 골랐어요' : '' },
       { key: 'un', label: '합치기 풀기', icon: ti('unmerge'), disabled: !hit.length },
-      { sep: 1 }, { note: '합친 칸에는 왼쪽 위 칸의 글만 보여요. 다른 칸의 글은 지우지 않고 숨겨 두었다가, 합치기를 풀면 다시 보여요.' }
+      { sep: 1 }, { note: local ? '걸러 보거나 정렬하는 중에는 칸을 합치거나 풀 수 없어요. 위의 "모두 풀기"를 누른 뒤 해 주세요.'
+        : '합친 칸에는 왼쪽 위 칸의 글만 보여요. 다른 칸의 글은 지우지 않고 숨겨 두었다가, 합치기를 풀면 다시 보여요.' }
     ], function (x) { tbMergeOp(x.key); }, { wide: true });
   }
   /** 칸 합치기: all(한 칸으로)·h(줄마다)·v(열마다)·un(풀기). 걸친 합친 칸은 먼저 푼다 */
@@ -2531,7 +2703,7 @@ window.__gyTableUi = function (core) {
     if (!d || !rg) return;
     if (T.edit) tbCommit(null, false);
     var cols = d.table.cols, rows = T.vrows;
-    if (kind !== 'un' && tbLocalOn()) { toast('걸러 보거나 정렬하는 중에는 칸을 합칠 수 없어요. "모두 풀기"를 누른 뒤 합쳐 주세요'); return; }
+    if (tbLocalOn()) { toast(kind === 'un' ? '걸러 보거나 정렬하는 중에는 합치기를 풀 수 없어요. "모두 풀기"를 누른 뒤 풀어 주세요' : '걸러 보거나 정렬하는 중에는 칸을 합칠 수 없어요. "모두 풀기"를 누른 뒤 합쳐 주세요'); return; }
     if (kind !== 'un' && !d.table.canEdit && cols.slice(rg.j1, rg.j2 + 1).some(function (c) { return c.lock; })) {
       toast('잠긴 열이 들어 있어 합칠 수 없어요. 만든 분과 연구부장·부담당만 합칠 수 있어요');
       return;
@@ -2605,10 +2777,10 @@ window.__gyTableUi = function (core) {
     tbBusy++;
     tbQueue(function () {
       return server('table.view', { id: id, view: nv }).then(function (res) {
-        if (S.table.d && S.table.d.table.id === id && res.view) { S.table.d.table.view = res.view; tbRedraw(); }
+        if (S.table.d && S.table.d.table.id === id && res.view) { S.table.d.table.view = res.view; S.table.d.mver = Number(res.ver) || 0; tbRedraw(); }
       }, function (e) {
         if (S.table.d && S.table.d.table.id === id) { S.table.d.table.view = old; tbRedraw(); }
-        toast(e.message);
+        toast(e.message, 'error');
       });
     }).then(function () { tbBusy--; }, function () { tbBusy--; });
   }
@@ -2833,13 +3005,19 @@ window.__gyTableUi = function (core) {
     if (!q) { toast('찾을 말을 적어 주세요'); return; }
     if (!F.hits.length) tbFindRun();
     var pick = all ? F.hits : (F.k >= 0 ? [F.hits[F.k]] : F.hits.slice(0, 1));
-    var list = [], locked = 0;
+    var list = [], locked = 0, seen = {};
     pick.forEach(function (h) {
       var r = tbRow(h.r), c = tbCol(h.c), i = tbRowIdx(h.r), j = tbColIdx(h.c);
       if (!r || !c) return;
       if (!tbCanAt(i, j)) { locked++; return; }
       var v = tbVal(r, c.id), nv = tbReplaceIn(v, q, F.rep);
-      if (nv !== v) list.push({ r: r.id, c: c.id, value: nv, base: tbBase(r, c.id) });
+      if (nv === v) return;
+      tbRunRows(i, j).forEach(function (rr) { // 예전 '위아래 합침' 열은 이어진 줄을 함께 바꾼다(칸이 갈라지지 않게)
+        var k = rr.id + '|' + c.id;
+        if (seen[k]) return;
+        seen[k] = 1;
+        list.push({ r: rr.id, c: c.id, value: nv, base: tbBase(rr, c.id) });
+      });
     });
     if (!list.length) { toast(locked ? '잠긴 칸이라 바꾸지 않았어요' : '바꿀 칸이 없어요'); return; }
     tbSave(list, null, { done: (list.length > 1 ? list.length + '칸을 바꿨어요' : '바꿨어요') + (locked ? ' · 잠긴 칸 ' + locked + '개는 그대로' : '') });
@@ -2897,6 +3075,8 @@ window.__gyTableUi = function (core) {
   function tbSwitchSheet(sid, force) {
     var T = S.table, d = T.d;
     if (!d || (!force && sid === d.table.id && !T.pendingSheet)) return;
+    if (!force && !tbLeaveOk(function () { tbSwitchSheet(sid, true); })) return; // 저장하지 못한 칸이 있으면 먼저 묻는다
+    tbDropFailed();
     if (T.edit) tbCommit(null, false);
     tbCloseMenu();
     clearTimeout(tbTimer);
@@ -2915,7 +3095,7 @@ window.__gyTableUi = function (core) {
       if (S.table.sel !== sel) return;
       T.loading = false;
       T.pendingSheet = '';
-      toast(e.message);
+      toast(e.message, 'error');
       if (S.table.d) { T.sheet = S.table.d.table.id; tbDrawDetail(); tbPollStart(); }
     });
   }
@@ -3000,11 +3180,11 @@ window.__gyTableUi = function (core) {
     server('table.sheet.copy', { id: t.id }).then(function (r) {
       toast('사본을 만들었어요');
       if (S.table.d && S.table.sel === t.doc) tbSwitchSheet(r.id, true);
-    }, function (e) { toast(e.message); });
+    }, function (e) { toast(e.message, 'error'); });
   }
   function tbSheetMove(dir) {
     var t = S.table.d.table;
-    server('table.sheet.move', { id: t.id, dir: dir }).then(function () { tbReload(); }, function (e) { toast(e.message); });
+    server('table.sheet.move', { id: t.id, dir: dir }).then(function () { tbReload(); }, function (e) { toast(e.message, 'error'); });
   }
   function tbSheetDelete() {
     var T = S.table, d = T.d, t = d.table, sheets = d.doc.sheets, k = sheets.map(function (s) { return s.id; }).indexOf(t.id);
@@ -3048,7 +3228,7 @@ window.__gyTableUi = function (core) {
         var cell = tbTdAt(tbRowIdx(res.row.id), tbColIdx(first.id));
         if (cell && cell.scrollIntoView) { try { cell.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (x) {} }
         tbFocusEd();
-      }, function (e) { toast(e.message); });
+      }, function (e) { toast(e.message, 'error'); });
     }).then(function () { tbBusy--; }, function () { tbBusy--; });
   }
   function tbRowDelete(rowId) {
@@ -3086,7 +3266,8 @@ window.__gyTableUi = function (core) {
       var subs = subCols.map(function (c) { var v = tbEff(r, c.id).replace(/\s+/g, ' '); return v ? (v.length <= 8 ? c.name + ' ' + v : v) : ''; }).filter(Boolean).slice(0, 2);
       var pv = pick ? tbEff(r, pick.id) : '';
       var lit = Object.keys(T.flash).some(function (k) { return k.indexOf(r.id + '|') === 0 && T.flash[k].until > now; });
-      out += '<button type="button" class="tb-rowcard' + (lit ? ' flash' : '') + '" data-action="tb-rowedit" data-row="' + esc(r.id) + '">' +
+      var bad = cols.some(function (c) { return tbSaveCls(r, c.id) === ' unsaved'; });
+      out += '<button type="button" class="tb-rowcard' + (lit ? ' flash' : '') + (bad ? ' unsaved' : '') + '" data-action="tb-rowedit" data-row="' + esc(r.id) + '">' +
         '<span class="tb-rc-main"><b>' + esc(tbEff(r, titleCol.id) || '빈 줄') + '</b>' +
         (subs.length ? '<span class="tb-rc-sub">' + esc(subs.join(' · ')) + '</span>' : '') + '</span>' +
         (pick ? '<span class="tb-pick' + (pv && pv === pick.options[0] ? ' ok' : !pv ? ' none' : pick.options.indexOf(pv) < 0 ? ' other' : '') + '">' + esc(pv || '비어 있음') + '</span>' : '') +
@@ -3344,7 +3525,7 @@ window.__gyTableUi = function (core) {
       return server('table.delete', { id: t.doc }).then(function () {
         closeModal();
         toast('표를 지웠어요');
-        tbBackToList();
+        tbBackToList(true);
       });
     }, true);
   }
@@ -3954,6 +4135,7 @@ window.__gyTableUi = function (core) {
       case 'tb-new': tbNew('doc'); break;
       case 'tb-open': T.sel = id; T.sheet = T.last[id] || ''; T.d = null; T.find = null; SCREENS.table(qs('#screen')); window.scrollTo(0, 0); break;
       case 'tb-back': tbBackToList(); break;
+      case 'tb-resend': tbResend(); break;
       case 'tb-copy': tbCopyAll(); break;
       case 'tb-csv': tbCsv(); break;
       case 'tb-menu': tbToggleMenu(t, function () { tbTableMenu(t); }); break;
@@ -4019,7 +4201,7 @@ window.__gyTableUi = function (core) {
     if (!document.hidden && S.screen === 'table' && S.table.sel && S.table.d) tbPollNow();
   });
   window.addEventListener('beforeunload', function (e) {
-    if (!tbBusy && !S.table.edit) return;
+    if (!tbBusy && !S.table.edit && !tbFailed.length) return;
     e.preventDefault();
     e.returnValue = '';
   });
@@ -4044,7 +4226,14 @@ window.__gyTableUi = function (core) {
     /** 메뉴에서 '취합 시트'를 누르면 목록부터 */
     reset: function () { S.table.sel = ''; S.table.sheet = ''; S.table.d = null; S.table.find = null; },
     /** 누구로 보는지가 바뀌면 들고 있던 표를 버린다 */
-    forget: function () { S.table.list = null; S.table.d = null; S.table.edit = null; S.table.find = null; },
+    forget: function () {
+      S.table.list = null; S.table.d = null; S.table.edit = null; S.table.find = null; S.table.loc = {}; S.table.last = {};
+      tbUndo = []; tbRedo = []; // 다음 선생님이 앞 선생님이 고친 칸을 되돌리지 않게
+      tbDropFailed();
+      tbConfShown = null; tbConfQ = [];
+    },
+    /** 다른 화면으로 갈 때: 저장 못 한 칸이 있으면 묻는다(괜찮으면 true, 아니면 묻고 false: 나가기를 고르면 proceed) */
+    leaving: function (proceed) { return S.screen !== 'table' || tbLeaveOk(proceed); },
     /** 휴지통에서 되살린 뒤 목록을 새로 받게 */
     listDirty: function () { S.table.list = null; },
     busy: function () { return tbBusy > 0 || !!S.table.edit; }

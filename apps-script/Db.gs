@@ -399,6 +399,12 @@ function publicRow_(r) {
 // ---------------------------------------------------------------- 쓰기 (모두 잠금 안에서)
 
 var DB_LOCK_DEPTH_ = 0;
+var DB_AFTER_ = []; // 잠금을 풀기 직전(시트에 확정한 뒤)에 할 일: 취합 시트의 '바뀐 줄' 적기(Table.gs tbLogFlush_)
+
+/** 잠금 안에서 부른다: 잠금을 풀기 직전, 시트에 확정하고 서버 기억의 판을 바꾼 뒤에 fn을 한 번 부른다 */
+function afterLock_(fn) {
+  if (DB_AFTER_.indexOf(fn) < 0) DB_AFTER_.push(fn);
+}
 
 function withLock_(fn) {
   if (DB_LOCK_DEPTH_ > 0) return fn(); // 이미 잠금 안이면 그대로
@@ -407,17 +413,20 @@ function withLock_(fn) {
   dirty_(); // 잠금 안에서는 최신 값을 다시 읽는다
   DB_LOCK_DEPTH_++;
   DB_WRITTEN_ = {};
+  DB_AFTER_ = [];
   try {
     return fn();
   } finally {
     DB_LOCK_DEPTH_--;
-    var written = Object.keys(DB_WRITTEN_);
+    var written = Object.keys(DB_WRITTEN_), after = DB_AFTER_;
     DB_WRITTEN_ = {};
+    DB_AFTER_ = [];
     try {
       if (written.length) {
         try { SpreadsheetApp.flush(); } catch (e0) { /* 아래 판 바꾸기에서 한 번 더 */ } // 서버 기억을 못 써도 잠금을 풀기 전에 시트에 확정한다
         memoBump_(written); // 잠금을 풀기 전에: 서버 기억의 판을 바꾼다
       }
+      after.forEach(function (f) { try { f(); } catch (e1) { /* 못 해도 저장은 끝났다 */ } });
     } finally {
       lock.releaseLock();
     }

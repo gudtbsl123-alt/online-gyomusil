@@ -3430,5 +3430,176 @@ test('시트 양식: 목록·꺼내기는 서버 기억에서 한 번에 꺼내�
   assert.deepStrictEqual(call(g, 'table.tpl.list', {}, a).data.saved.map((x) => x.name), ['점검 2'], '저장한 뒤에는 새 이름');
 });
 
+// ---------------------------------------------------------------- 전체 보완(판 2026-10-19a): 서버 파일 공통
+
+test('서버 파일: 웹앱에서는 모든 .gs 파일이 이름을 함께 쓰므로, 함수·변수 이름이 두 파일(또는 한 파일 안)에서 겹치지 않는다', () => {
+  const seen = {}, dup = [];
+  GAS_FILES.forEach((f) => {
+    const src = fs.readFileSync(path.join(GAS_DIR, f), 'utf8');
+    (src.match(/^(?:function|var) ([A-Za-z0-9_$]+)/gm) || []).forEach((m) => {
+      const name = m.replace(/^(?:function|var) /, '');
+      if (seen[name]) dup.push(name + ' (' + seen[name] + ', ' + f + ')'); else seen[name] = f;
+    });
+  });
+  assert.deepStrictEqual(dup, []);
+});
+
+// ---------------------------------------------------------------- 전체 보완(판 2026-10-19a): 취합 시트
+
+test('취합 시트 보완: 가로로만 합친 줄 아래에 더한 줄은 덮이지 않고, 세로로 합친 칸만 새 줄까지 늘어난다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부'), a = who('심청');
+  const cols = [{ id: 'c1', name: '구분' }, { id: 'c2', name: '내용' }, { id: 'c3', name: '메모' }];
+  const rows = [
+    { cells: { c1: '1학기 행사' }, ms: { c1: [1, 3] } }, // 가로로 세 칸(제목 줄)
+    { cells: { c1: '3월', c2: '입학식' }, ms: { c1: [2, 1] } }, // 세로로 두 줄
+    { cells: { c2: '학부모 총회' } }
+  ];
+  const id = call(g, 'table.create', { fields: { title: '행사', sheet: '1학기' }, cols, rows }, owner).data.id;
+  let d = tbGet(g, id, a);
+  const R = d.rows.map((r) => r.id);
+  const add1 = call(g, 'table.row.add', { id, after: R[0] }, a);
+  assert.ok(add1.ok, add1.error);
+  d = tbGet(g, id, a);
+  assert.deepStrictEqual(plain(d.rows[0].fmt.c1.m), [R[0], 'c3'], '가로로 합친 칸은 그대로(새 줄을 덮지 않음)');
+  assert.strictEqual(d.rows[1].id, add1.data.row.id, '새 줄은 제목 줄 바로 아래');
+  assert.deepStrictEqual(plain(add1.data.rows), [], '바뀐 다른 줄 없음');
+  const add2 = call(g, 'table.row.add', { id, after: R[2] }, a);
+  assert.ok(add2.ok, add2.error);
+  d = tbGet(g, id, a);
+  assert.deepStrictEqual(plain(d.rows.find((x) => x.id === R[1]).fmt.c1.m), [add2.data.row.id, 'c1'], '세로로 합친 칸은 새 줄까지');
+});
+
+test('취합 시트 보완: 같은 줄 아래에 잇달아 25번 더해도 늘 바로 아래에 들어가고(순서를 다시 매김), 보던 화면도 새 순서를 받는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부'), a = who('심청');
+  const id = tbMake(g, owner);
+  const d0 = tbGet(g, id, a);
+  const head = d0.rows[0].id, tail = d0.rows[1].id;
+  let after = head, renumbered = 0;
+  const added = [];
+  for (let k = 0; k < 25; k++) {
+    const r = call(g, 'table.row.add', { id, after, cells: { c4: '더한 ' + (k + 1) } }, owner);
+    assert.ok(r.ok, r.error);
+    if (r.data.rows.length) renumbered++;
+    added.push(r.data.row.id);
+    after = r.data.row.id;
+  }
+  assert.ok(renumbered >= 1, '순서를 다시 매긴 적이 있다');
+  const d = tbGet(g, id, a);
+  assert.deepStrictEqual(d.rows.map((r) => r.id).slice(0, 27), [head].concat(added).concat([tail]), '더한 차례 그대로, 원래 둘째 줄은 그 뒤');
+  // 처음부터 보던 화면: 새로 받은 줄을 얹으면 새로 연 것과 같은 차례
+  const p = call(g, 'table.poll', { id, since: d0.table.ver, dsince: d0.table.dver }, a);
+  assert.ok(p.ok, p.error);
+  const m = new Map(d0.rows.map((r) => [r.id, r]));
+  p.data.rows.forEach((r) => m.set(r.id, r));
+  assert.deepStrictEqual(Array.from(m.values()).sort((x, y) => x.order - y.order).map((r) => r.id), d.rows.map((r) => r.id));
+});
+
+test('취합 시트 보완: 60줄에 한꺼번에 서식을 넣어도 시트는 붙은 행끼리 한 번에 읽고 쓴다(잠금을 오래 쥐지 않게)', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부');
+  const cols = [{ id: 'c1', name: '번호' }, { id: 'c2', name: '내용' }];
+  const rows = Array.from({ length: 60 }, (_, i) => ({ cells: { c1: String(i + 1), c2: '내용 ' + (i + 1) } }));
+  const id = call(g, 'table.create', { fields: { title: '큰 표', sheet: '시트1' }, cols, rows }, owner).data.id;
+  const d = tbGet(g, id, owner);
+  const sh = g._ss.sheets.find((x) => x.name === '함께표줄');
+  const proto = Object.getPrototypeOf(sh.getRange(1, 1));
+  const gv = proto.getValues, sv = proto.setValues;
+  let reads = 0, writes = 0, r, h;
+  proto.getValues = function () { if (this.s === sh) reads++; return gv.apply(this, arguments); };
+  proto.setValues = function () { if (this.s === sh) writes++; return sv.apply(this, arguments); };
+  try {
+    r = call(g, 'table.cells', { id, cells: d.rows.flatMap((x) => ['c1', 'c2'].map((c) => ({ row: x.id, n: x.n, col: c, f: { bd: '1111' } }))) }, owner);
+    assert.ok(r.ok, r.error);
+    assert.ok(reads <= 3, '읽기 ' + reads + '번');
+    assert.ok(writes <= 2, '쓰기 ' + writes + '번');
+    reads = 0; writes = 0;
+    h = call(g, 'table.rowh', { id, rows: d.rows.map((x) => ({ row: x.id, n: x.n, h: 40 })) }, owner);
+    assert.ok(h.ok, h.error);
+    assert.ok(reads <= 3 && writes <= 2, '줄 높이: 읽기 ' + reads + '번, 쓰기 ' + writes + '번');
+  } finally { proto.getValues = gv; proto.setValues = sv; }
+  assert.strictEqual(r.data.formatted, 120);
+  const back = tbGet(g, id, owner);
+  assert.ok(back.rows.every((x) => x.fmt.c1.bd === '1111' && x.fmt.c2.bd === '1111' && x.h === 40));
+  assert.strictEqual(call(g, 'table.cells', { id, cells: Array.from({ length: 5001 }, () => ({ row: d.rows[0].id, col: 'c1', f: { b: 1 } })) }, owner).error,
+    '한 번에 5000칸까지 바꿀 수 있어요. 나눠서 해 주세요.');
+});
+
+test('취합 시트 보완: 10초 새로 받기는 서버 기억에 적어 둔 바뀐 줄만 읽고(큰 줄 탭을 다 읽지 않음), 적은 것이 없거나 빈 데가 있으면 탭에서 찾아 같은 답을 준다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부'), a = who('심청');
+  const id = tbMake(g, owner);
+  const d0 = tbGet(g, id, a);
+  const [r0, r1, r2] = d0.rows;
+  assert.ok(call(g, 'table.cell', { id, row: r0.id, n: r0.n, col: 'c4', value: '책상 2개', base: tbBase(d0, 0, 'c4') }, owner).ok);
+  assert.ok(call(g, 'table.cells', { id, cells: [{ row: r1.id, n: r1.n, col: 'c4', value: '의자 9개', base: tbBase(d0, 1, 'c4') }, { row: r2.id, n: r2.n, col: 'c3', f: { b: 1 } }] }, owner).ok);
+  const add = call(g, 'table.row.add', { id, after: r0.id, cells: { c4: '새 줄' } }, owner);
+  assert.ok(add.ok, add.error);
+  assert.ok(call(g, 'table.row.delete', { id, row: add.data.row.id }, owner).ok);
+  assert.ok(call(g, 'table.rowh', { id, rows: [{ row: r2.id, n: r2.n, h: 60 }] }, owner).ok);
+  assert.ok(call(g, 'table.colw', { id, w: { c4: 320 } }, owner).ok);
+  assert.ok(call(g, 'table.view', { id, view: { fr: 1, gap: 's' } }, owner).ok);
+  const seen = [], orig = g.tbRows_;
+  g.tbRows_ = function (tab) { seen.push(tab); return orig.apply(this, arguments); };
+  let p;
+  try { p = call(g, 'table.poll', { id, since: d0.table.ver, dsince: d0.table.dver }, a); } finally { g.tbRows_ = orig; }
+  assert.ok(p.ok, p.error);
+  assert.ok(seen.indexOf('함께표줄') < 0, '큰 줄 탭은 읽지 않음: ' + seen.join(','));
+  assert.strictEqual(p.data.rows.length, 4, '고친 3줄 + 더했다 뺀 줄');
+  assert.ok(p.data.rows.some((r) => r.del && r.id === add.data.row.id));
+  assert.strictEqual(p.data.table.view.fr, 1);
+  assert.strictEqual(p.data.table.cols.find((c) => c.id === 'c4').w, 320);
+  // 적어 둔 것이 없으면(서버 기억이 지워짐) 탭에서 찾는다: 같은 답
+  const key = (rows) => plain(rows).map((r) => JSON.stringify(r)).sort();
+  Object.keys(g._cache._store).filter((k) => k.indexOf('gy:tbc:') === 0).forEach((k) => delete g._cache._store[k]);
+  const q = call(g, 'table.poll', { id, since: d0.table.ver, dsince: d0.table.dver }, a);
+  assert.deepStrictEqual(key(q.data.rows), key(p.data.rows));
+  // 적지 않고 판만 오른 것(빈 데)이 있으면 탭에서 찾는다
+  const t = g.findRow_('함께표', id);
+  g.withLock_(() => g.updateRow_('함께표', id, { '판': String(Number(t['판']) + 1) }, { id: '', name: '시험' }, '시험'));
+  const v1 = q.data.ver;
+  assert.ok(call(g, 'table.cell', { id, row: r0.id, n: r0.n, col: 'c4', value: '책상 3개', base: p.data.rows.find((r) => r.id === r0.id).stamps.c4[0] }, owner).ok);
+  const z = call(g, 'table.poll', { id, since: v1, dsince: q.data.dver }, a);
+  assert.deepStrictEqual(z.data.rows.map((r) => r.cells.c4), ['책상 3개']);
+});
+
+test('취합 시트 보완: 여러 가지로 고치는 동안 10초마다 새로 받은 화면은 늘 표를 새로 연 것과 같다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('흥부'), a = who('심청');
+  const cols = [{ id: 'c1', name: '번호' }, { id: 'c2', name: '내용' }];
+  const id = call(g, 'table.create', { fields: { title: '함께 고치기', sheet: '시트1' }, cols, rows: Array.from({ length: 12 }, (_, i) => ({ cells: { c1: String(i + 1) } })) }, owner).data.id;
+  const view = tbGet(g, id, a);
+  const rows = new Map(view.rows.map((r) => [r.id, r]));
+  let ver = view.table.ver, seed = 7;
+  const rnd = (n) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n; };
+  for (let step = 0; step < 40; step++) {
+    const cur = tbGet(g, id, owner).rows;
+    const pick = cur[rnd(cur.length)], k = rnd(5);
+    let res;
+    if (k === 0) res = call(g, 'table.cell', { id, row: pick.id, n: pick.n, col: 'c2', value: '값 ' + step, base: (pick.stamps.c2 || [0])[0] }, owner);
+    else if (k === 1) res = call(g, 'table.cells', { id, cells: cur.slice(0, 10).map((x) => ({ row: x.id, n: x.n, col: 'c1', f: { b: step % 2 ? 1 : null } })) }, owner);
+    else if (k === 2) res = call(g, 'table.row.add', { id, after: pick.id, cells: { c2: '더함 ' + step } }, owner);
+    else if (k === 3 && cur.length > 5) res = call(g, 'table.row.delete', { id, row: pick.id }, owner);
+    else res = call(g, 'table.rowh', { id, rows: cur.slice(0, 9).map((x) => ({ row: x.id, n: x.n, h: 30 + step })) }, owner);
+    assert.ok(res.ok, res.error);
+    const p = call(g, 'table.poll', { id, since: ver, dsince: view.table.dver }, a);
+    assert.ok(p.ok, p.error);
+    if (!p.data.same) {
+      p.data.rows.forEach((r) => { if (r.del) rows.delete(r.id); else rows.set(r.id, r); });
+      ver = p.data.ver;
+    }
+    const fresh = tbGet(g, id, a).rows;
+    const mine = Array.from(rows.values()).sort((x, y) => x.order - y.order);
+    assert.deepStrictEqual(mine.map((r) => r.id), fresh.map((r) => r.id), step + '번째: 줄 차례');
+    assert.deepStrictEqual(plain(mine.map((r) => [r.cells, r.fmt, r.h])), plain(fresh.map((r) => [r.cells, r.fmt, r.h])), step + '번째: 내용');
+  }
+});
+
 console.log(results.join('\n'));
 console.log('\n' + passed + '/' + results.length + ' 통과');
