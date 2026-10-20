@@ -355,6 +355,20 @@ body.tb-resizing.rows,body.tb-resizing.rows *{cursor:row-resize!important}
   .tb-pick{min-height:0;padding:0;font-size:11px}
   .tb-pick svg,.tb-tip,.tb-live{display:none!important}
 }
+/* 태블릿·휴대폰(손가락으로 누르는 기기): 작은 단추를 손가락 크기로(2026-10-19a). 화면 배치는 그대로 */
+@media (pointer:coarse){
+  .tb-tb,.tb-tools .tb-tb{min-width:40px;height:40px}
+  .tb-fs{height:40px}
+  .tb-fs input{height:36px}
+  .tb-tab{min-height:44px}
+  .tb-tab .tchv{width:32px;height:32px}
+  .tb-grid th{padding-right:42px}
+  .tb-hb{width:34px;height:34px}
+  .tb-rowbtn{width:40px;height:40px}
+  .tb-cr{width:12px}
+  .tb-rr{height:12px}
+  .tb-find .btn-sm,.tb-local .btn{min-height:44px}
+}
 </style>
 <script>
 /**
@@ -2295,7 +2309,7 @@ window.__gyTableUi = function (core) {
     if (T.edit && (!tbRow(T.edit.r) || !tbCol(T.edit.c) || !d.table.canWrite)) {
       T.edit = null;
       tbEdOff();
-      toast(!d.table.canWrite ? '그사이 표가 마감됐어요. 고치던 글은 저장하지 않았어요' : '고치던 칸이 그사이 빠졌어요');
+      toast(!d.table.canWrite ? '그사이 표가 마감됐어요. 고치던 글은 저장하지 않았어요' : '고치던 칸이 그사이 빠졌어요', 'error'); // 쓴 글이 저장되지 않았으니 닫을 때까지
     }
     if (T.cur && (!tbRow(T.cur.r) || !tbCol(T.cur.c))) { T.cur = null; T.anchor = null; }
     if (headChanged || tabsChanged) tbDrawDetail();
@@ -3557,7 +3571,7 @@ window.__gyTableUi = function (core) {
       '<button type="button" class="btn btn-primary" id="tbx-dl">' + icon('down', 18) + '파일 내려받기</button></div>');
     qs('#tbx-dl').addEventListener('click', function () {
       try { saveBlob(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }), name); toast('파일을 내려받았어요'); }
-      catch (e) { toast('내려받지 못했어요. "표 복사"를 써 주세요'); }
+      catch (e) { toast('내려받지 못했어요. "표 복사"를 써 주세요', 'error'); }
     });
     qs('#tbx-copy').addEventListener('click', function () { tbCopyAll(); });
   }
@@ -3567,7 +3581,7 @@ window.__gyTableUi = function (core) {
     if (!d) return;
     var out = T.vrows.length && d.table.cols.length ? tbClipOut({ i1: 0, i2: T.vrows.length - 1, j1: 0, j2: d.table.cols.length - 1 }, true)
       : { tsv: d.table.cols.map(function (c) { return tbTsvCell(c.name); }).join('\t'), html: '' };
-    (out.html ? tbCopyRich(out) : copyText(out.tsv)).then(function (ok) { toast(ok ? '표를 복사했어요. 구글 시트나 엑셀에 붙여 넣으세요' : '복사하지 못했어요'); });
+    (out.html ? tbCopyRich(out) : copyText(out.tsv)).then(function (ok) { toast(ok ? '표를 복사했어요. 구글 시트나 엑셀에 붙여 넣으세요' : '복사하지 못했어요', ok ? '' : 'error'); });
   }
 
   // ------------------------------------------------------------ 새 표 만들기·시트 더하기(구글 시트에서 붙여 넣기)

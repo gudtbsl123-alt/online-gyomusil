@@ -73,7 +73,7 @@ function ss_() {
 }
 
 function openSs_() {
-  var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+  var id = typeof propGet_ === 'function' ? propGet_('SHEET_ID') : PropertiesService.getScriptProperties().getProperty('SHEET_ID'); // 요청마다 속성을 읽지 않게(Auth.gs)
   if (id) {
     DB_SS_ = SpreadsheetApp.openById(id);
   } else {

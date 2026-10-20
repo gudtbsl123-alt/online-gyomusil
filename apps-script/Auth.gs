@@ -22,6 +22,50 @@ function props_() {
   return PropertiesService.getScriptProperties();
 }
 
+// ---------------------------------------------------------------- 스크립트 속성 읽기(하루 한도·속도, 2026-10-19a)
+// 요청마다 3~5번 읽던 값(서명 비밀 값·비밀번호 판·해시·시트ID)은 서버 기억(CacheService)에 10분 두고, 없으면 getProperties 한 번으로 모두 읽는다.
+// 바꿀 때는 propSet_로 바꿔 기억도 버린다. 틀린 횟수·잠금 같은 보안 숫자와 그 밖의 속성은 늘 속성에서 읽는다
+var PROP_KEYS_ = ['SHEET_ID', 'PIN_PEPPER', 'TOKEN_SECRET', 'COMMON_PW_HASH', 'COMMON_PW_SALT', 'COMMON_PW_VER', 'ADMIN_PW_HASH', 'ADMIN_PW_SALT', 'ADMIN_PW_VER'];
+var PROP_TTL_ = 600; // 초
+var PROP_MEMO_ = null; // 한 요청 안에서 쓰는 값(api()가 요청마다 비운다)
+
+function propsCache_() {
+  try { return CacheService.getScriptCache(); } catch (e) { return null; }
+}
+
+function propsMemo_() {
+  if (PROP_MEMO_) return PROP_MEMO_;
+  var c = propsCache_(), got = null;
+  if (c) { try { got = JSON.parse(c.get('gy:props') || 'null'); } catch (e) { got = null; } }
+  if (!got || typeof got !== 'object') {
+    var all = props_().getProperties() || {};
+    got = {};
+    PROP_KEYS_.forEach(function (k) { if (all[k] !== undefined && all[k] !== null && all[k] !== '') got[k] = String(all[k]); });
+    if (c) { try { c.put('gy:props', JSON.stringify(got), PROP_TTL_); } catch (e) { /* 기억을 못 써도 속성에서 읽으면 된다 */ } }
+  }
+  PROP_MEMO_ = got;
+  return got;
+}
+
+/** 스크립트 속성 한 칸: 자주 읽는 것(PROP_KEYS_)은 기억에서, 그 밖은 속성에서 */
+function propGet_(name) {
+  if (PROP_KEYS_.indexOf(name) < 0) return props_().getProperty(name);
+  var m = propsMemo_();
+  return Object.prototype.hasOwnProperty.call(m, name) ? m[name] : null;
+}
+
+/** 스크립트 속성 바꾸기. 자주 읽는 것이면 기억을 버려 다음 요청이 새 값을 읽게 한다 */
+function propSet_(name, value) {
+  props_().setProperty(name, String(value));
+  if (PROP_KEYS_.indexOf(name) >= 0) propsForget_();
+}
+
+function propsForget_() {
+  PROP_MEMO_ = null;
+  var c = propsCache_();
+  if (c) { try { c.remove('gy:props'); } catch (e) { /* 10분 안에 저절로 사라진다 */ } }
+}
+
 // ---------------------------------------------------------------- 해시·서명
 
 function hex_(bytes) {
@@ -37,11 +81,14 @@ function sha256Hex_(s) {
 
 /** 없으면 만들어 두는 비밀 값(설치할 때 한 번 생김) */
 function secretProp_(name) {
-  var p = props_();
-  var v = p.getProperty(name);
+  var v = propGet_(name);
   if (!v) {
-    v = Utilities.getUuid() + Utilities.getUuid();
-    p.setProperty(name, v);
+    v = props_().getProperty(name); // 기억이 늦었을 수 있다: 속성에 이미 있으면 그대로 쓴다(새로 만들면 모든 로그인이 풀린다)
+    if (!v) {
+      v = Utilities.getUuid() + Utilities.getUuid();
+      props_().setProperty(name, v);
+    }
+    propsForget_();
   }
   return v;
 }
@@ -89,7 +136,7 @@ function pwKey_(kind) {
 }
 
 function hasPassword_(kind) {
-  return !!props_().getProperty(pwKey_(kind) + '_PW_HASH');
+  return !!propGet_(pwKey_(kind) + '_PW_HASH');
 }
 
 function pwHash_(pw, salt) {
@@ -108,10 +155,11 @@ function setPassword_(kind, pw) {
   }
   var salt = Utilities.getUuid();
   var p = props_();
-  var ver = Number(p.getProperty(k + '_PW_VER') || 0) + 1;
+  var ver = Number(p.getProperty(k + '_PW_VER') || 0) + 1; // 바꿀 때는 기억이 아니라 속성에서
   p.setProperty(k + '_PW_SALT', salt);
   p.setProperty(k + '_PW_HASH', pwHash_(pw, salt));
   p.setProperty(k + '_PW_VER', String(ver));
+  propsForget_(); // 예전 로그인이 다음 요청부터 바로 풀리게
   if (kind === 'admin') {
     p.setProperty('ADMIN_FAILS', '0');
     p.setProperty('ADMIN_LOCK_UNTIL', '0');
@@ -120,15 +168,14 @@ function setPassword_(kind, pw) {
 
 function checkPassword_(kind, pw) {
   var k = pwKey_(kind);
-  var p = props_();
-  var hash = p.getProperty(k + '_PW_HASH');
-  var salt = p.getProperty(k + '_PW_SALT');
+  var hash = propGet_(k + '_PW_HASH');
+  var salt = propGet_(k + '_PW_SALT');
   if (!hash || !salt) return false;
   return sameText_(pwHash_(String(pw || ''), salt), hash);
 }
 
 function pwVer_(kind) {
-  return Number(props_().getProperty(pwKey_(kind) + '_PW_VER') || 0);
+  return Number(propGet_(pwKey_(kind) + '_PW_VER') || 0);
 }
 
 // ---------------------------------------------------------------- 잠금 기준 (설정 탭)

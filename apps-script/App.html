@@ -656,12 +656,18 @@
     var find = qs('#id-find');
     if (find) find.addEventListener('input', function () { drawPeople(find.value); });
     var pinBox = qs('#id-pin');
-    if (pinBox) pinBox.addEventListener('input', function () { pinBox.value = pinBox.value.replace(/\D/g, '').slice(0, 4); });
+    /** 이름을 고르면(번호 방식은 번호 4자리를 다 넣으면) '확인' 단추가 화면 안에 보이게 내린다(낮은 화면에서 단추를 못 찾지 않게) */
+    var showOk = function () {
+      var b = qs('#id-form [type=submit]');
+      if (b && b.scrollIntoView) { try { b.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { b.scrollIntoView(false); } }
+    };
+    if (pinBox) pinBox.addEventListener('input', function () { pinBox.value = pinBox.value.replace(/\D/g, '').slice(0, 4); if (pinBox.value.length === 4) showOk(); });
     if ($people) $people.addEventListener('change', function () {
       qsa('.person', $people).forEach(function (l) { l.classList.toggle('on', l.querySelector('input').checked); });
       var p = list.filter(function (x) { return x.id === (qs('input[name=who]:checked') || {}).value; })[0];
       qs('#id-err').textContent = pin && p && !p.hasPin ? '아직 개인 번호가 없어요. 연구부장·부담당에게 받아 주세요.' : '';
       if (pin && p && p.hasPin) pinBox.focus();
+      else if (!pin) showOk();
     });
 
     qs('#id-form').addEventListener('submit', function (ev) {
@@ -734,15 +740,16 @@
     $app.innerHTML =
       '<div class="refresh-bar print-hide" id="refresh-bar" aria-hidden="true"' + (refreshN ? '' : ' hidden') + '></div>' +
       '<div class="app print-root">' +
-      '<nav class="side print-hide" aria-label="주 메뉴">' +
+      '<nav class="side print-hide" aria-label="주 메뉴"><div class="side-scroll">' +
       '<button type="button" class="brand" data-go="home"><span class="brand-mark emblem" aria-hidden="true"></span>' +
       '<span class="brand-text"><span class="brand-sub">' + esc(school) + '</span><span class="brand-name">온라인 교무실</span></span></button>' +
       '<div class="nav">' + MENU.map(function (x) { return navButton(x); }).join('') + '</div>' +
       '<div class="nav-group"><span class="nav-label">관리 · 연구부장·부담당</span>' + ADMIN_MENU.map(function (x) { return navButton(x); }).join('') + '</div>' +
       '<div class="side-foot">' + themeSeg() +
       designSeg() +
-      zoomControl() +
-      meCard() +
+      zoomControl() + '</div></div>' +
+      // 내 이름 카드·나가기는 메뉴 맨 아래에 붙여 늘 보이게(창이 낮아 메뉴가 밀려도, 공용 PC에서 나가기를 찾게)
+      '<div class="side-me">' + meCard() +
       '<button type="button" class="nav-item small" data-action="logout">' + icon('out', 20) + '나가기</button></div>' +
       '</nav>' +
       '<header class="topbar print-hide"><span class="brand-mark emblem" aria-hidden="true"></span><span class="topbar-name">온라인 교무실</span>' +
@@ -1982,7 +1989,7 @@
     Promise.all([server('admin.trash.list'), server('admin.trash.surveys'), server('admin.trash.library'),
       server('admin.trash.tables').catch(function () { return []; })]).then(function (res) {
       var list = res[0], surveys = res[1], libs = res[2], tables = res[3] || [];
-      panel.innerHTML = '<div class="wrap" style="gap:16px"><p class="hint">' + icon('info', 16) + '<span>지운 일정·조사·자료·도움말·취합 시트는 구글 시트에서 실제로 지워지지 않고 여기 남아요. 되살리면 원래 화면에 다시 보여요.</span></p>' +
+      panel.innerHTML = '<div class="wrap" style="gap:16px"><p class="hint">' + icon('info', 16) + '<span>지운 일정·조사·자료·도움말·공지·취합 시트(표·시트·양식)는 구글 시트에서 실제로 지워지지 않고 여기 남아요. 되살리면 원래 화면에 다시 보여요.</span></p>' +
         '<section class="card"><h2>지운 일정</h2>' + (list.length ? list.map(function (e) {
           return '<div class="log-item"><div class="log-top"><span class="chip">' + esc(e.kind) + '</span><b>' + esc(e.title) + '</b>' +
             '<span class="faint">' + esc(e.start === e.end ? e.start : e.start + '~' + e.end) + '</span>' +
@@ -1994,11 +2001,11 @@
             '<button type="button" class="btn btn-sm print-hide" style="margin-left:auto" data-action="trash-restore-sv" data-id="' + esc(sv2.id) + '">되살리기</button></div>' +
             '<p class="faint" style="margin-top:4px">지운 사람 ' + esc(sv2.deletedBy || '알 수 없음') + ' · ' + esc(sv2.deletedAt || '') + (sv2.by ? ' · 만든 사람 ' + esc(sv2.by) : '') + '</p></div>';
         }).join('') : '<p class="empty">지운 조사가 없어요.</p>') + '</section>' +
-        '<section class="card"><h2>지운 자료·도움말</h2>' + (libs.length ? libs.map(function (x) {
+        '<section class="card"><h2>지운 자료·도움말·공지</h2>' + (libs.length ? libs.map(function (x) {
           return '<div class="log-item"><div class="log-top"><span class="chip">' + esc(x.tab) + '</span><b>' + esc(x.title) + '</b>' + (x.sub ? '<span class="faint">' + esc(x.sub) + '</span>' : '') +
             '<button type="button" class="btn btn-sm print-hide" style="margin-left:auto" data-action="trash-restore-lib" data-tab="' + esc(x.tab) + '" data-id="' + esc(x.id) + '">되살리기</button></div>' +
             '<p class="faint" style="margin-top:4px">지운 사람 ' + esc(x.deletedBy || '알 수 없음') + ' · ' + esc(x.deletedAt || '') + (x.by ? ' · 처음 넣은 사람 ' + esc(x.by) : '') + '</p></div>';
-        }).join('') : '<p class="empty">지운 자료·도움말이 없어요.</p>') + '</section>' +
+        }).join('') : '<p class="empty">지운 자료·도움말·공지가 없어요.</p>') + '</section>' +
         '<section class="card"><h2>지운 취합 시트(표·시트·양식)</h2>' + (tables.length ? tables.map(function (x) {
           var kind = x.kind === 'sheet' || x.kind === 'tpl' ? x.kind : 'doc';
           return '<div class="log-item"><div class="log-top"><span class="chip">' + { doc: '표', sheet: '시트', tpl: '양식' }[kind] + '</span><b>' + esc(x.title) + (kind === 'sheet' ? ' › ' + esc(x.sheet || '') : '') + '</b>' +
@@ -2013,7 +2020,7 @@
       toast('일정을 되살렸어요');
       S.sched.data = null; S.sched.yearData = null;
       adminTrash(qs('#admin-panel'));
-    }).catch(function (e) { toast(e.message); });
+    }).catch(function (e) { toast(e.message, 'error'); });
   }
 
   // ============================================================ 조사·신청
@@ -2233,7 +2240,7 @@
       S.survey.list = l;
       setTodoCount(l.todoCount);
       if (S.screen === 'survey') drawSurvey();
-    }, function (e) { toast(e.message); });
+    }, function (e) { toast(e.message, 'error'); });
   }
 
   // ------------------------------------------------------------ 만든 사람 화면(제출 현황)
@@ -2339,12 +2346,12 @@
           a.click();
           setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
           toast('파일을 내려받았어요');
-        } catch (e) { toast('내려받지 못했어요. "표 복사"를 써 주세요'); }
+        } catch (e) { toast('내려받지 못했어요. "표 복사"를 써 주세요', 'error'); }
       });
       qs('#csv-copy').addEventListener('click', function () {
-        copyText(tsv).then(function (ok) { toast(ok ? '표를 복사했어요. 엑셀에 붙여 넣으세요' : '복사하지 못했어요'); });
+        copyText(tsv).then(function (ok) { toast(ok ? '표를 복사했어요. 엑셀에 붙여 넣으세요' : '복사하지 못했어요', ok ? '' : 'error'); });
       });
-    }).catch(function (e) { toast(e.message); });
+    }).catch(function (e) { toast(e.message, 'error'); });
   }
 
   // ------------------------------------------------------------ 새 조사 만들기·고치기
@@ -2362,7 +2369,7 @@
     surveyFormOpening = true;
     var btn = qs('[data-action="sv-new"]');
     busy(btn, true, '여는 중');
-    server('sched.month', key).then(function (m) { memoPut('sched.month', key, m); start(m.depts || [], null); }, function (e) { toast(e.message); })
+    server('sched.month', key).then(function (m) { memoPut('sched.month', key, m); start(m.depts || [], null); }, function (e) { toast(e.message, 'error'); })
       .then(function () { surveyFormOpening = false; busy(btn, false); });
   }
   var surveyFormOpening = false;
@@ -2632,8 +2639,8 @@
         a.click();
         setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
         toast('파일을 내려받았어요');
-      } catch (e) { toast('내려받지 못했어요. 다른 브라우저(크롬·웨일·엣지)로 해 보세요'); }
-    }).catch(function (e) { busy(btn, false); toast(e.message); });
+      } catch (e) { toast('내려받지 못했어요. 다른 브라우저(크롬·웨일·엣지)로 해 보세요', 'error'); }
+    }).catch(function (e) { busy(btn, false); toast(e.message, 'error'); });
   }
 
   function fileBtn(tab, x, primary) {
@@ -3028,7 +3035,7 @@
       }).then(function () {
         closeModal();
         toast('도움말을 ' + (edit ? '고쳤어요' : '넣었어요'));
-        loadMemo('help.list', {}, function (d2) { S.help.data = d2; drawHelpList(); }, function (e) { toast(e.message); });
+        loadMemo('help.list', {}, function (d2) { S.help.data = d2; drawHelpList(); }, function (e) { toast(e.message, 'error'); });
       }).catch(function (e) { busy(btn, false); err.textContent = e.message; });
     });
   }
@@ -3043,58 +3050,99 @@
         items.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul></section>';
     };
     $s.innerHTML = pageHead('', '운영 안내서', '처음 쓰는 선생님과 연구부장·부담당을 위한 안내예요. 인쇄해서 나눠 줘도 돼요.',
-      '<button type="button" class="btn btn-sm print-hide" data-action="print">' + icon('print', 18) + '인쇄</button>') +
+      '<span class="row-btns print-hide"><button type="button" class="btn btn-sm" data-action="print-guide-teacher">' + icon('print', 18) + '선생님용 1쪽 인쇄</button>' +
+      '<button type="button" class="btn btn-sm" data-action="print">' + icon('print', 18) + '모두 인쇄</button></span>') +
+      // '모든 선생님' 부분은 선생님용 1쪽 인쇄(guideTeacherStart)로 A4 한 장에 따로 찍는다
+      '<div class="guide-part" id="guide-teacher"><p class="guide-print-head">' + esc(st.school || '') + ' 온라인 교무실 · 선생님용 안내</p>' +
       '<h2 class="guide-h">모든 선생님</h2>' +
       sec(1, '들어오기', [
         '웹앱 주소를 열고 <b>공통 비밀번호</b>를 넣어요. 비밀번호는 연구부장·부담당이 알려 드려요.',
         st.pinMode ? '명단에서 내 이름을 고르고 <b>개인 번호 4자리</b>를 넣어요. 번호를 잊으면 연구부장·부담당이 새로 만들어 드려요.' : '명단에서 <b>내 이름</b>을 골라요. 일정·조사·자료에 고른 이름이 남아요.',
-        "'이 기기에서 기억하기'를 켜 두면 " + keep + ' 동안 다시 묻지 않아요. 여러 사람이 쓰는 컴퓨터에서는 끄고, 다 쓰면 <b>나가기</b>를 눌러요.'
+        "'이 기기에서 기억하기'를 켜 두면 " + keep + ' 동안 다시 묻지 않아요. 여러 사람이 쓰는 컴퓨터에서는 끄고, 다 쓰면 메뉴 맨 아래 <b>나가기</b>를 눌러요.'
       ]) +
-      sec(2, '홈과 검색', [
-        '홈에서 오늘 일정, 내가 낼 조사(내가 할 일), 이번 주 일정을 봐요.',
-        '홈 위의 <b>검색창</b>에 낱말을 넣으면 자료·일정·선생님·도움말·조사를 한 번에 찾아요.',
-        '홈 맨 아래 <b>학생 수 현황</b>에서 학년을 누르면 반별 남·여 학생 수가 보여요. 전학·입학으로 바뀌면 누구나 고쳐요. 고친 분과 바뀌기 전 숫자는 기록에 남아요.',
-        "왼쪽 메뉴 아래(휴대폰은 '전체') <b>화면 크기</b> 막대로 화면을 키우고 줄여요. 기기마다 따로 기억해요."
+      sec(2, '홈·검색·공지', [
+        '홈에서 오늘 일정, 내가 낼 조사(내가 할 일), 이번 주 일정, 지금 걸린 공지를 봐요.',
+        '홈 위의 <b>검색창</b>에 낱말을 넣으면 자료·일정·선생님·도움말·조사·공지를 한 번에 찾아요.',
+        '<b>공지</b>는 누구나 써요. 게시 끝일이 지나면 홈에서 내려가고 \'지난 공지\'에 남아요.',
+        '홈 맨 아래 <b>학생 수 현황</b>에서 학년을 누르면 반별 남·여 학생 수가 보여요. 바뀌면 누구나 고치고, 고친 분과 바뀌기 전 숫자는 기록에 남아요.',
+        "왼쪽 메뉴 아래(휴대폰은 '전체')에서 <b>밝게·어둡게</b>, 화면 디자인(<b>기본·장도·종이색</b>), <b>화면 크기</b>를 골라요. 기기마다 따로 기억해요."
       ]) +
       sec(3, '일정', [
         '<b>일정 › 행사 추가</b>로 넣어요. 한 번 넣으면 달력·월별 계획·연간 학사일정·홈에 함께 보여요.',
         "꼭 알려야 할 일정은 '중요'를 체크하면 파란 바탕과 ★로 보여요.",
+        '달력에서 내가 넣은 행사를 <b>끌어서 다른 날로</b> 옮길 수 있어요. 놓으면 한 번 물어요. 월별 계획은 인쇄하면 A4 한 장에 맞춰 나와요.',
         '고치기·지우기는 처음 넣은 분과 연구부장·부담당만 할 수 있어요.'
       ]) +
       sec(4, '조사·신청', [
         "홈 '내가 할 일'이나 <b>조사·신청</b>에서 응답해요. 마감 전에는 다시 내서 고칠 수 있어요.",
         '<b>새 조사 만들기</b>로 누구나 조사를 만들 수 있어요. 낸 사람·안 낸 사람을 보고, 안 낸 분께 다시 알리고, 메신저 문구를 복사해요.'
       ]) +
-      sec(5, '자료실·도움말·교직원', [
+      sec(5, '취합 시트', [
+        '<b>취합 시트</b>에서 표를 만들어 여러 선생님이 함께 채워요. 구글 시트에서 복사한 칸을 붙여 넣으면 글꼴·색·합친 칸까지 함께 와요.',
+        '표 하나에 시트를 여러 개 둘 수 있어요. 다른 분이 고친 칸은 잠깐 파랗게 보이고, 같은 칸을 함께 고치면 어느 값을 둘지 물어요.',
+        '자주 쓰는 시트는 시트 탭 ▾의 <b>양식으로 저장</b>으로 남겨 두고, 새 표·시트를 만들 때 <b>양식에서 고르기</b>로 써요.'
+      ]) +
+      sec(6, '자료실·도움말·교직원', [
         '<b>자료실</b>에 링크나 파일을 넣어요. 지난 학년도 자료는 보관함에 있어요.',
         '<b>도움말</b>에는 복무·인사 처리 안내와 학교 규칙·제규정을 모아요. 학교에서 정한 내용을 그대로 옮겨 적어요.',
         '<b>교직원</b>에서 선생님의 소속·담당 업무·내선을 찾아요.'
-      ]) +
-      '<h2 class="guide-h">연구부장·부담당</h2>' +
-      sec(6, '관리자 화면', [
+      ]) + '</div>' +
+      '<div class="guide-part guide-admin"><h2 class="guide-h">연구부장·부담당</h2>' +
+      sec(7, '관리자 화면', [
         '<b>관리자</b> 메뉴에서 관리자 비밀번호를 넣어요. 2시간 동안 열려 있고 기기에 기억하지 않아요.',
-        '교직원 표: 전입·전출·휴직은 지우지 말고 "사용 안 함"으로 바꿔요.',
+        '교직원 표: 전입·전출·휴직은 지우지 말고 "사용 안 함"으로 바꿔요. 내선 칸은 모두에게 보이니 휴대폰 번호는 넣지 않아요.',
         '다른 분의 일정·조사·자료를 고치거나 비공개 조사 결과를 볼 때, 학사일정을 올릴 때는 먼저 <b>관리자 화면</b>을 열어 두세요. 이름만 고르는 방식이라 관리자 비밀번호가 있어야 관리 일을 할 수 있어요.',
         '분류: 부서·자료 분류·도움말 분류 이름을 한곳에서 바꿔요.',
         "느리다는 말이 나오면 <b>관리자 › 점검 › 속도 재기</b>로 서버 왕복과 화면별 처리 시간을 볼 수 있어요."
       ]) +
-      sec(7, '학기 초에 할 일', [
-        '설정에서 1·2학기 시작일·끝일을 넣어요(수업일수 계산에 써요).',
+      sec(8, '학기 초에 할 일', [
+        '<b>설정 › 학기 기간</b>에 학년도마다 1·2학기 시작일·끝일을 넣어요(수업일수 계산에 써요).',
         '공휴일·휴업일은 일정에서 직접 넣어요. 날짜는 학교 학사일정을 보고 넣어요.',
         '공통 비밀번호를 바꾸면 모든 기기가 다시 로그인해요. 바꾼 비밀번호는 메신저로 알려요.'
       ]) +
-      sec(8, '새 학년도 넘기기', [
+      sec(9, '새 학년도 넘기기', [
         '<b>관리자 › 새 학년도</b>에서 해요. 지금 자료는 모두 보관함으로 가고, 고른 자료만 새 학년도로 옮겨 와요.',
-        '넘긴 뒤 설정에서 학기 기간을 새로 넣어요. 일정·조사는 날짜로 나뉘어서 그대로 있어요.'
+        '넘긴 뒤 설정에서 새 학년도 학기 기간을 넣어요. 일정·조사·공지는 날짜로 나뉘어서 그대로 있어요(지난 학년도 것은 \'이전 학년도 보기\'로 봐요).'
       ]) +
-      sec(9, '데이터 지키기', [
-        '지운 일정·조사·자료·도움말은 <b>관리자 › 휴지통</b>에서 되살릴 수 있어요.',
+      sec(10, '데이터 지키기', [
+        '지운 일정·조사·자료·도움말·공지·취합 시트(표·시트·양식)는 <b>관리자 › 휴지통</b>에서 되살릴 수 있어요.',
         '누가 언제 무엇을 바꿨는지는 <b>관리자 › 수정 기록</b>에서 바뀌기 전·뒤까지 볼 수 있어요.',
-        "전용 시트 메뉴 '온라인 교무실 › 4. 매일 자동 백업 켜기'를 켜 두면 매일 사본을 만들고 정한 개수만큼 남겨요.",
+        "전용 시트 메뉴 '온라인 교무실 › 4. 매일 자동 백업 켜기'를 켜 두면 매일 사본을 만들고 정한 개수만큼 남겨요. 사본에서 되살리는 방법은 설치 안내서의 <b>'백업에서 되살리기'</b>에 있어요.",
         '전용 시트를 직접 고칠 때는 1행(머리글)을 바꾸지 말고, 줄을 지우지 말아 주세요. 웹앱에서 지우면 되살릴 수 있어요.',
         '시트에서 칸을 직접 고치면 웹앱에 바로 보여요. 줄을 지우거나 정렬한 것은 조금 늦게(10분쯤) 보여요. 바로 보려면 <b>관리자 › 점검 › 시트 새로 읽기</b>를 눌러요.'
-      ]);
+      ]) + '</div>';
   };
+
+  // ------------------------------------------------------------ 운영 안내서 › 선생님용 1쪽 인쇄
+  // 인쇄 직전에 '모든 선생님' 부분(#guide-teacher)의 인쇄 모양 사본을 화면 밖에서 재서, A4 한 장보다 길면 그만큼 줄인다(월별 계획 인쇄와 같은 방법)
+  function guideTeacherStart() {
+    guideTeacherEnd();
+    var part = qs('#guide-teacher');
+    if (!part) return false;
+    var box = document.createElement('div'), copy = part.cloneNode(true);
+    box.className = 'guide-measure';
+    box.setAttribute('aria-hidden', 'true');
+    copy.removeAttribute('id');
+    copy.classList.add('guide-fit');
+    box.appendChild(copy);
+    document.body.appendChild(box);
+    var h = copy.getBoundingClientRect().height;
+    document.body.removeChild(box);
+    root.style.setProperty('--guide-zoom', h > PLAN_PAGE_H ? (Math.floor(PLAN_PAGE_H / h * 1000) / 1000).toString() : '1');
+    part.classList.add('guide-fit');
+    document.body.classList.add('print-guide-teacher');
+    var st = document.createElement('style');
+    st.id = 'guide-page';
+    st.textContent = '@page{size:A4 portrait;margin:10mm}';
+    document.head.appendChild(st);
+    return true;
+  }
+  function guideTeacherEnd() {
+    document.body.classList.remove('print-guide-teacher');
+    qsa('.guide-part.guide-fit').forEach(function (c) { c.classList.remove('guide-fit'); });
+    var st = qs('#guide-page');
+    if (st) st.parentNode.removeChild(st);
+  }
 
   // ============================================================ 홈 검색
   var searchTimer = null, searchSeq = 0;
@@ -4107,7 +4155,7 @@
       putStaff(row);
       drawStaff(qs('#admin-panel'));
       toast(row['이름'] + ' 선생님 잠금을 풀었어요');
-    }).catch(function (e) { toast(e.message); });
+    }).catch(function (e) { toast(e.message, 'error'); });
   }
 
   // ------------------------------------------------------------ 관리자 · 분류
@@ -4153,20 +4201,20 @@
     server('admin.cat.save', { id: id, name: name, order: order }).then(function () {
       toast('저장했어요');
       adminCat(qs('#admin-panel'));
-    }).catch(function (e) { toast(e.message); });
+    }).catch(function (e) { toast(e.message, 'error'); });
   }
   function catAdd(kind) {
     var input = qs('[data-cat-new="' + kind + '"]');
     server('admin.cat.save', { kind: kind, name: input.value }).then(function () {
       toast(kind + josa(kind, '을', '를') + ' 넣었어요');
       adminCat(qs('#admin-panel'));
-    }).catch(function (e) { toast(e.message); });
+    }).catch(function (e) { toast(e.message, 'error'); });
   }
   function catActive(id, turnOn) {
     server('admin.cat.setActive', { id: id, active: turnOn }).then(function () {
       toast(turnOn ? '다시 사용으로 바꿨어요' : '사용 안 함으로 바꿨어요');
       adminCat(qs('#admin-panel'));
-    }).catch(function (e) { toast(e.message); });
+    }).catch(function (e) { toast(e.message, 'error'); });
   }
 
   // ------------------------------------------------------------ 관리자 · 설정
@@ -4286,14 +4334,19 @@
     var tab = S.cache.logTab || '';
     panel.innerHTML = '<div class="wrap" style="gap:16px"><div class="toolbar print-hide"><label class="label" for="log-tab">어느 표</label>' +
       '<select id="log-tab" class="input" style="width:auto;min-width:160px">' +
-      ['', '교직원', '분류', '설정', '일정', '조사', '응답', '자료', '도움말'].map(function (t) {
-        return '<option value="' + t + '"' + (t === tab ? ' selected' : '') + '>' + (t || '전체') + '</option>';
+      ['', '교직원', '분류', '설정', '학기', '일정', '월별중점', '공지', '학생수', '조사', '응답', '자료', '도움말', '취합 시트', '시트양식'].map(function (t) {
+        return '<option value="' + t + '"' + (t === tab ? ' selected' : '') + '>' + (t ? logTabName(t) : '전체') + '</option>';
       }).join('') + '</select><span class="faint">최근 200개까지 보여요. 전체는 전용 시트의 "기록" 탭에 있어요.</span></div>' +
       '<section class="card" id="log-list">' + loadingHtml('기록을 불러오는 중이에요') + '</section></div>';
     qs('#log-tab').addEventListener('change', function (e) { S.cache.logTab = e.target.value; adminLog(panel); });
     server('admin.log.list', { tab: tab }).then(function (list) {
       qs('#log-list').innerHTML = list.length ? list.map(logItem).join('') : '<p class="empty">아직 기록이 없어요.</p>';
     }).catch(function (e) { qs('#log-list').innerHTML = '<p class="err">' + esc(e.message) + '</p>'; });
+  }
+
+  /** 기록의 탭 이름 → 화면에서 쓰는 이름(예전 이름 '함께표'는 '취합 시트'로) */
+  function logTabName(t) {
+    return { '함께표': '취합 시트', '함께표줄': '취합 시트', '시트양식': '시트 양식', '월별중점': '월별 중점지도', '학생수': '학생 수', '학기': '학기 기간' }[t] || t;
   }
 
   function logItem(l) {
@@ -4309,7 +4362,7 @@
       : '';
     var tone = l.action === '삭제' || l.action === '잠김' ? 'chip-warn' : l.action === '추가' ? 'chip-ok' : '';
     return '<div class="log-item"><div class="log-top"><span class="log-time">' + esc(l.time) + '</span>' +
-      '<span class="chip ' + tone + '">' + esc(l.action) + '</span><span class="chip">' + esc(l.tab) + '</span>' +
+      '<span class="chip ' + tone + '">' + esc(l.action) + '</span><span class="chip">' + esc(logTabName(l.tab)) + '</span>' +
       '<span class="faint">' + esc(l.who || '이름 없음') + '</span></div>' +
       '<p class="log-sum">' + esc(l.summary || '') + '</p>' + detail + '</div>';
   }
@@ -4375,15 +4428,23 @@
       var bad = r.items.filter(function (x) { return x.state === 'bad'; }).length;
       var warn = r.items.filter(function (x) { return x.state === 'warn'; }).length;
       var groups = uniq(r.items.map(function (x) { return x.group; }));
+      r.items.forEach(function (x, i) { x.no = i; });
+      // 맨 위에 고칠 것·확인할 것을 바로 보여 준다(무엇인지·어떻게 고치는지). 누르면 아래 그 줄로
+      var todo = r.items.filter(function (x) { return x.state !== 'ok'; }).sort(function (a, b) { return (a.state === 'bad' ? 0 : 1) - (b.state === 'bad' ? 0 : 1) || a.no - b.no; });
       panel.innerHTML = '<div class="stack">' +
-        '<section class="card check-sum"><div class="card-head"><div><h2>' + (bad ? '고칠 것이 ' + bad + '개 있어요' : warn ? '확인할 것이 ' + warn + '개 있어요' : '모두 정상이에요') + '</h2>' +
+        '<section class="card check-sum"><div class="card-head"><div><h2>' + (bad ? '고칠 것이 ' + bad + '개' + (warn ? ', 확인할 것이 ' + warn + '개' : '') + ' 있어요' : warn ? '확인할 것이 ' + warn + '개 있어요' : '모두 정상이에요') + '</h2>' +
         '<p class="faint" style="margin-top:4px">' + esc(atText(r.at)) + ' 점검 · 코드 판 ' + esc(r.build) + '</p></div>' +
         '<button type="button" class="btn btn-sm" data-action="check-again">' + icon('reload', 18) + '다시 점검</button></div>' +
+        (todo.length ? '<ul class="check-todo">' + todo.map(function (x) {
+          return '<li><span class="chip ' + chip[x.state] + '">' + label[x.state] + '</span><span class="check-main"><b>' + esc(x.group + ' › ' + x.label) + '</b>' +
+            '<span class="faint">' + esc(x.fix || x.detail || '') + '</span></span>' +
+            '<button type="button" class="linkish print-hide" data-action="check-go" data-i="' + x.no + '">자세히</button></li>';
+        }).join('') + '</ul>' : '') +
         '<p class="hint">' + icon('info', 16) + '<span>코드를 새로 붙여 넣은 뒤나, 화면에 \'잠깐 문제가 생겼어요\'가 뜰 때 여기부터 보세요. 고친 뒤에는 배포 관리 → 새 버전으로 배포해야 반영돼요.</span></p></section>' +
         groups.map(function (gname) {
           var list = r.items.filter(function (x) { return x.group === gname; });
           return '<section class="card"><h2>' + esc(gname) + '</h2><div class="check-list">' + list.map(function (x) {
-            return '<div class="check-row ' + x.state + '"><span class="chip ' + chip[x.state] + '">' + label[x.state] + '</span>' +
+            return '<div class="check-row ' + x.state + '" id="chk-' + x.no + '"><span class="chip ' + chip[x.state] + '">' + label[x.state] + '</span>' +
               '<div class="check-main"><b>' + esc(x.label) + '</b><span class="faint">' + esc(x.detail) + '</span>' +
               (x.state !== 'ok' && x.fix ? '<span class="check-fix">' + icon('chev', 16) + esc(x.fix) + '</span>' : '') + '</div></div>';
           }).join('') + '</div></section>';
@@ -4692,7 +4753,12 @@
       case 'pick-day': S.sched.day = t.getAttribute('data-day'); drawCal(); break;
       case 'phone-month': S.sched.phoneMonth = true; drawCal(); break;
       case 'phone-week': S.sched.phoneMonth = false; drawCal(); break;
+      case 'check-go':
+        var row = qs('#chk-' + t.getAttribute('data-i'));
+        if (row) { row.scrollIntoView({ block: 'center' }); row.classList.add('flash'); setTimeout(function () { row.classList.remove('flash'); }, 1600); }
+        break;
       case 'print': window.print(); break;
+      case 'print-guide-teacher': if (guideTeacherStart()) window.print(); break; // 인쇄 창을 닫으면(afterprint) 되돌린다
       case 'focus-edit': editFocus(); break;
       case 'sv-open': S.survey.sel = id; S.survey.showResults = false; drawSurvey(); if (isPhone()) window.scrollTo(0, 0); break;
       case 'sv-back': S.survey.sel = ''; drawSurvey(); break;
@@ -4710,7 +4776,7 @@
       case 'sv-results': keepSurveyDraft(); S.survey.showResults = !S.survey.showResults; drawSurveyDetail(); break;
       case 'sv-as-owner': S.survey.tab = 'mine'; drawSurvey(); break;
       case 'sv-copy':
-        copyText(S.survey.detail.messenger).then(function (ok) { toast(ok ? '안내 문구를 복사했어요. 메신저에 붙여 넣으세요' : '복사하지 못했어요. 글을 길게 눌러 복사해 주세요'); });
+        copyText(S.survey.detail.messenger).then(function (ok) { toast(ok ? '안내 문구를 복사했어요. 메신저에 붙여 넣으세요' : '복사하지 못했어요. 글을 길게 눌러 복사해 주세요', ok ? '' : 'error'); });
         break;
       case 'sv-close':
         var reopen = t.getAttribute('data-open') === '1';
@@ -4741,16 +4807,16 @@
           toast({ sheet: '시트를 되살렸어요', tpl: '양식을 되살렸어요' }[tbKind] || '표를 되살렸어요');
           if (TB) TB.listDirty();
           adminTrash(qs('#admin-panel'));
-        }).catch(function (e2) { toast(e2.message); });
+        }).catch(function (e2) { toast(e2.message, 'error'); });
         break;
       // 'tb-'로 시작하는 단추는 TableUi.html이 맡는다
       case 'trash-restore-sv':
-        server('admin.trash.restoreSurvey', { id: id }).then(function () { toast('조사를 되살렸어요'); S.survey.list = null; adminTrash(qs('#admin-panel')); }).catch(function (e2) { toast(e2.message); });
+        server('admin.trash.restoreSurvey', { id: id }).then(function () { toast('조사를 되살렸어요'); S.survey.list = null; adminTrash(qs('#admin-panel')); }).catch(function (e2) { toast(e2.message, 'error'); });
         break;
       case 'trash-restore-lib':
         server('admin.trash.restoreLibrary', { tab: t.getAttribute('data-tab'), id: id }).then(function () {
           toast('되살렸어요'); S.lib.data = null; S.help.data = null; adminTrash(qs('#admin-panel'));
-        }).catch(function (e2) { toast(e2.message); });
+        }).catch(function (e2) { toast(e2.message, 'error'); });
         break;
       case 'intro-off': stSet('gy.intro', 'off', true); var ib = t.closest('.intro'); if (ib) ib.parentNode.removeChild(ib); break;
       case 'search-clear': var hq = qs('#home-q'); if (hq) hq.value = ''; runSearch(''); if (hq) hq.focus(); break;
@@ -4833,7 +4899,7 @@
       case 'cache-clear':
         server('admin.cache.clear').then(function (r) {
           toast(r.done ? '서버 기억을 비웠어요. 다음 화면부터 시트에서 새로 읽어요' : '서버 기억을 쓸 수 없어요. 늘 시트에서 읽고 있어요');
-        }).catch(function (e) { toast(e.message); });
+        }).catch(function (e) { toast(e.message, 'error'); });
         break;
       case 'staff-import': openStaffImport(); break;
       case 'imp-template':
@@ -4929,6 +4995,7 @@
   // 월별 계획은 A4 세로 한 장에 맞춰 인쇄한다
   window.addEventListener('beforeprint', planPrintStart);
   window.addEventListener('afterprint', planPrintEnd);
+  window.addEventListener('afterprint', guideTeacherEnd);
 
   // 달력에서 일정을 끌어서 옮기기(마우스·터치)
   document.addEventListener('pointerdown', dragDown);
@@ -4975,7 +5042,7 @@
   if (!TB) { SCREENS.table = tbMissing; S.table = { tab: 'open', list: null, sel: '', d: null, edit: null, menu: null }; }
 
   // 미리보기·자동 점검에서 쓰는 창구
-  window.__gy = { S: S, go: go, renderApp: renderApp, server: server, init: init, memoClear: memoClear, tableUi: function () { return TB; } };
+  window.__gy = { S: S, go: go, renderApp: renderApp, server: server, init: init, memoClear: memoClear, toast: toast, tableUi: function () { return TB; } };
 
   init();
 })();

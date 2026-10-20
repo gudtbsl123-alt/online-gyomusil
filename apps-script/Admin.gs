@@ -301,13 +301,17 @@ function adminStaffUnlock_(args, actor) {
 
 // ---------------------------------------------------------------- 수정 기록
 
+/** 수정 기록 거르기: 화면 이름 하나가 탭 여러 개인 것(취합 시트 = 표 + 줄) */
+var LOG_TAB_GROUPS_ = { '취합 시트': ['함께표', '함께표줄'] };
+
 function adminLogList_(args) {
   var tab = String(args.tab || '');
+  var want = LOG_TAB_GROUPS_[tab] || (tab ? [tab] : null);
   var rows = tailRows_('기록', 5000); // 기록은 계속 늘어서 끝 5000줄만 본다(최근 200개를 보여 준다)
   var out = [];
   for (var i = rows.length - 1; i >= 0 && out.length < 200; i--) {
     var r = rows[i];
-    if (tab && r['탭'] !== tab) continue;
+    if (want && want.indexOf(r['탭']) < 0) continue;
     out.push({
       time: r['시각'], who: r['이름'], tab: r['탭'], target: r['대상ID'], action: r['동작'], summary: r['요약'],
       before: safeJson_(r['바뀌기 전']), after: safeJson_(r['바뀐 뒤'])

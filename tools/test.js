@@ -1519,7 +1519,7 @@ test('점검: 최신이면 문제 없음, 빠진 파일·예전 화면 파일·�
   // 시트에서 직접 비운 줄(손으로 고치면 시트가 onEdit를 불러 서버 기억을 버린다)
   const sh = g._ss.getSheetByName('교직원');
   sh.data[3] = sh.data[3].map(() => '');
-  g.onEdit({});
+  g.onEdit({ range: sh.getRange(4, 1) });
   r = call(g, 'admin.check', { client }, t).data;
   assert.strictEqual(by('교직원 탭 빈 줄').state, 'warn');
 });
@@ -1997,8 +1997,10 @@ test('서버 기억: 시트를 손으로 고치면 onEdit로 그 탭만 바로, 
   assert.deepStrictEqual(r2.tabs, ['공지'], '고친 탭만 다시 읽는다: ' + r2.tabs.join(','));
   assert.ok(Number(g.PropertiesService.getScriptProperties().getProperty('SHEET_EDIT_AT')) > 0, '점검 화면이 볼 수 있게 알아챈 시각을 남긴다');
   edit('손으로 고친 제목 3');
-  g.onEdit({ range: null });
-  assert.ok(title().includes('손으로 고친 제목 3'), '어느 탭인지 모르면 모두 버린다');
+  const at = g.PropertiesService.getScriptProperties().getProperty('SHEET_EDIT_AT');
+  [undefined, {}, { range: null }, { range: { getSheet: 'x' } }].forEach((ev) => g.onEdit(ev)); // 웹앱에서 이 이름으로 부른 것(시트에서 고친 칸이 없음)
+  assert.ok(!title().includes('손으로 고친 제목 3'), '웹앱에서 부른 onEdit는 서버 기억을 버리지 않는다');
+  assert.strictEqual(g.PropertiesService.getScriptProperties().getProperty('SHEET_EDIT_AT'), at, '알아챈 시각도 그대로');
   edit('손으로 고친 제목 4');
   const { t } = adminTokens(g);
   assert.strictEqual(call(g, 'admin.cache.clear', {}, who('심청')).code, 'ADMIN');
@@ -2062,7 +2064,7 @@ test('서버 기억: 큰 탭은 줄여서(gzip) 여러 칸에 나눠 담고, 아
     row[head.indexOf('입력 시각')] = g.nowText_();
     sh.data.push(row);
   }
-  g.onEdit({});
+  g.onEdit({ range: sh.getRange(2, 1) });
   call(g, 'notice.list', {}, me);
   const d = sheetReads(g, () => call(g, 'notice.list', {}, me).data);
   assert.ok(d.tabs.includes('공지'), '너무 크면 늘 시트에서');
@@ -3916,6 +3918,46 @@ test('자료실 보완: 홈 "자주 찾는 자료"는 6개까지 보내고 고�
   const h = call(g, 'home', {}, who('심청')).data;
   assert.strictEqual(h.library.length, 6);
   assert.strictEqual(h.libraryTotal, 8);
+});
+
+// ================================================================ 전체 보완 묶음 4: 서버·관리·화면 공통(판 2026-10-19a)
+
+test('서버 보완: 웹앱에서 onEdit를 불러도(시트에서 고친 칸 없음) 서버 기억을 비우지 않는다', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const me = who('심청');
+  call(g, 'notice.list', {}, me);
+  const before = JSON.stringify(g._cache._store['gy:ep']);
+  g.onEdit(); g.onEdit({}); g.onEdit({ range: { getSheet: true } });
+  assert.strictEqual(JSON.stringify(g._cache._store['gy:ep']), before);
+});
+
+test('서버 보완: 스크립트 속성은 요청마다 읽지 않는다(서버 기억 10분, 없으면 한 번에 모두) · 비밀번호를 바꾸면 다음 요청부터 바로 예전 로그인이 풀린다', () => {
+  const g = fresh();
+  const { t } = adminTokens(g);
+  const real = g.PropertiesService;
+  let one = 0, all = 0;
+  g.PropertiesService = { getScriptProperties() { const p = real.getScriptProperties(); return Object.assign({}, p, { getProperty(k) { one++; return p.getProperty(k); }, getProperties() { all++; return p.getProperties(); } }); } };
+  const count = (fn) => { one = 0; all = 0; const r = fn(); return { one, all, r }; };
+  try {
+    call(g, 'home', {}, t); // 기억을 채운다
+    const warm = count(() => call(g, 'sched.month', { year: 2026, month: 10 }, t));
+    assert.ok(warm.r.ok, warm.r.error);
+    assert.strictEqual(warm.one + warm.all, 0, '기억이 있으면 속성을 읽지 않음: ' + JSON.stringify([warm.one, warm.all]));
+    delete g._cache._store['gy:props'];
+    const cold = count(() => call(g, 'sched.month', { year: 2026, month: 10 }, t));
+    assert.ok(cold.r.ok);
+    assert.deepStrictEqual([cold.one, cold.all], [0, 1], '기억이 없으면 getProperties 한 번');
+    // 공통 비밀번호를 바꾸면 기억도 버려 예전 로그인 표가 바로 풀린다
+    const ch = call(g, 'admin.pw.common', { newPw: 'new-common-9', newPw2: 'new-common-9' }, t);
+    assert.ok(ch.ok, ch.error);
+    assert.strictEqual(call(g, 'home', {}, t).code, 'LOGIN');
+    assert.ok(call(g, 'login', { password: 'new-common-9' }).ok);
+    assert.strictEqual(call(g, 'login', { password: COMMON }).ok, false);
+  } finally { g.PropertiesService = real; }
+  // 서버 기억에도 원래 비밀번호 글자는 없다
+  const dump = JSON.stringify(g._cache._store);
+  assert.ok(!dump.includes('new-common-9') && !dump.includes(ADMIN));
 });
 
 console.log(results.join('\n'));

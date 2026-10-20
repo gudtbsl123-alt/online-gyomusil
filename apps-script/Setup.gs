@@ -13,9 +13,11 @@ function fileMark_Setup_() { return '2026-10-16e'; } // 판 표시(관리자 ›
  * 이름이 '_'로 끝나지 않아 웹앱에서도 부를 수 있지만, 기억을 버리기만 하므로 괜찮다
  */
 function onEdit(e) {
+  // 웹앱(google.script.run)에서도 이 이름으로 부를 수 있다 → 시트에서 고친 칸(range)이 없으면 아무것도 하지 않는다(누구나 서버 기억을 통째로 비우지 못하게)
+  if (!e || !e.range || typeof e.range.getSheet !== 'function') return;
   try {
     var tab = '';
-    try { tab = e && e.range ? e.range.getSheet().getName() : ''; } catch (e1) { tab = ''; }
+    try { tab = e.range.getSheet().getName(); } catch (e1) { tab = ''; }
     CacheService.getScriptCache().put(tab ? 'gy:v:' + tab : 'gy:ep', Utilities.getUuid().replace(/-/g, '').slice(0, 10), 21600);
   } catch (err) { /* 무시 */ }
   try { PropertiesService.getScriptProperties().setProperty('SHEET_EDIT_AT', String(Date.now())); } catch (err2) { /* 점검 화면 표시용이라 못 남겨도 괜찮다 */ }
@@ -72,6 +74,7 @@ function setupAllNow_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var p = PropertiesService.getScriptProperties();
   p.setProperty('SHEET_ID', ss.getId());
+  propsForget_();
   secretProp_('PIN_PEPPER');
   secretProp_('TOKEN_SECRET');
   DB_SS_ = ss;

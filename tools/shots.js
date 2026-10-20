@@ -32,6 +32,8 @@ async function startServer() {
   srv.unref();
 }
 let FILE = ''; // startServer() 뒤에 정한다
+let guideInfo = ''; // 운영 안내서 선생님용 인쇄 쪽수(보완4)
+const PREVIEW = process.env.PREVIEW || path.join(__dirname, '..', '미리보기', '미리보기.html'); // 다른 곳에 복사해 둔 미리보기로 돌릴 때(고치는 동안 뒤에서 돌리기)
 const OUT = process.argv[2] || path.join(__dirname, '..', 'docs', '스크린샷');
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -1028,7 +1030,7 @@ async function dragCheck(browser) {
 let loggedIn = '';
 function loggedInCopy() {
   if (loggedIn) return loggedIn;
-  const src = fs.readFileSync(path.join(__dirname, '..', '미리보기', '미리보기.html'), 'utf8');
+  const src = fs.readFileSync(PREVIEW, 'utf8');
   const hook = '  window.__previewSheet = env._ss;';
   if (!src.includes(hook)) throw new Error('미리보기에 미리 로그인을 끼울 자리가 없어요');
   const auto = `  (function () {
@@ -2769,8 +2771,126 @@ async function svFixCheck(browser) {
   await ctx.close();
 }
 
+/** 전체 보완 묶음 4(판 2026-10-19a): 메뉴 아래 내 이름·나가기, 이름 고르기 확인 단추, 오류 알림, 수정 기록 이름·거르기, 운영 안내서 1쪽 인쇄, 점검 요약, 태블릿 터치 크기 */
+async function b4FixCheck(browser) {
+  // 1) 낮은 노트북 창(1280×720·1366×768)에서도 메뉴 맨 아래 내 이름·나가기가 보이고, 이름 고르기의 '확인' 단추가 보인다
+  for (const vp of [{ width: 1280, height: 720 }, { width: 1366, height: 768 }]) {
+    const ctx = await newCtx(browser, { viewport: vp });
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => problems.push('보완4 페이지 오류: ' + e.message));
+    await page.goto(FILE);
+    await waitText(page, '어서 오세요');
+    await login(page);
+    await page.locator('.person', { hasText: '심청' }).first().click();
+    await page.waitForTimeout(600);
+    const ok = await page.evaluate(() => { const r = document.querySelector('#id-form [type=submit]').getBoundingClientRect(); return { top: r.top, bottom: r.bottom, h: innerHeight }; });
+    if (ok.bottom > ok.h + 1 || ok.top < 0) problems.push('보완4 ' + vp.width + '×' + vp.height + ': 이름을 골랐는데 확인 단추가 화면 밖 ' + JSON.stringify(ok));
+    if (vp.width === 1280) await shot(page, '보완4_이름고르기_확인단추_1280x720');
+    await page.click('#id-form [type=submit]');
+    await page.locator('.main').waitFor();
+    await page.locator('.today-card').waitFor();
+    const me = await page.evaluate(() => {
+      const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom) }; };
+      return { card: r('.side .me-card'), out: r('.side [data-action=logout]'), h: innerHeight, scroll: document.querySelector('.side-scroll').scrollHeight > document.querySelector('.side-scroll').clientHeight };
+    });
+    if (!me.card || !me.out || me.out.bottom > me.h || me.card.top < 0) problems.push('보완4 ' + vp.width + '×' + vp.height + ': 메뉴의 내 이름·나가기가 첫 화면에 안 보임 ' + JSON.stringify(me));
+    if (vp.width === 1280) await shot(page, '보완4_메뉴_내이름_나가기_1280x720');
+    await ctx.close();
+  }
+
+  const ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('보완4 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  await page.locator('.today-card').waitFor();
+  // 2) 오류 알림은 닫을 때까지 남고, 보통 알림은 글 길이에 맞춰 사라진다
+  await page.evaluate(() => window.__gy.toast('시험용 오류 알림이에요. 닫기를 누를 때까지 남아요.', 'error'));
+  await page.waitForTimeout(9000);
+  if (!(await page.evaluate(() => document.querySelector('#toast').classList.contains('show')))) problems.push('보완4: 오류 알림이 9초 안에 사라짐');
+  await shot(page, '보완4_오류알림_닫기단추');
+  await page.click('#toast .toast-x');
+  await page.waitForTimeout(300);
+  if (await page.evaluate(() => document.querySelector('#toast').classList.contains('show'))) problems.push('보완4: 오류 알림 닫기 단추가 안 됨');
+  await page.evaluate(() => window.__gy.toast('짧은 알림'));
+  await page.waitForTimeout(3600);
+  if (await page.evaluate(() => document.querySelector('#toast').classList.contains('show'))) problems.push('보완4: 짧은 보통 알림이 3.6초가 지나도 남음');
+
+  // 3) 관리자 › 수정 기록: 예전 이름 '함께표'는 '취합 시트'로, 공지·학생 수·취합 시트로 거르기
+  await page.evaluate(() => window.__gy.go('admin'));
+  await page.fill('#admin-pw', 'admin1');
+  await page.click('#admin-form [type=submit]');
+  await page.click('[data-admin-tab=log]');
+  await page.locator('#log-tab').waitFor();
+  const opts = await page.evaluate(() => Array.from(document.querySelectorAll('#log-tab option')).map((o) => o.textContent));
+  for (const o of ['공지', '학생 수', '취합 시트', '시트 양식']) if (opts.indexOf(o) < 0) problems.push('보완4 수정 기록: 거르기에 ' + o + '이(가) 없음 ' + opts.join(','));
+  await page.selectOption('#log-tab', '취합 시트');
+  await page.locator('#log-list .log-item').first().waitFor({ timeout: 6000 }).catch(() => problems.push('보완4 수정 기록: 취합 시트로 거른 기록이 없음'));
+  const chips = await page.evaluate(() => Array.from(document.querySelectorAll('#log-list .log-item .log-top')).map((t) => (t.querySelectorAll('.chip')[1] || {}).textContent));
+  if (!chips.length || chips.some((c) => c !== '취합 시트')) problems.push('보완4 수정 기록: 표 이름 칩 ' + JSON.stringify(chips.slice(0, 5)));
+  if (await page.evaluate(() => /함께표/.test(document.querySelector('#log-list').textContent.replace(/\(.*?\)/g, '')) && Array.from(document.querySelectorAll('#log-list .chip')).some((c) => /함께표/.test(c.textContent)))) problems.push('보완4 수정 기록: 칩에 예전 이름 함께표가 보임');
+  await shot(page, '보완4_수정기록_취합시트');
+
+  // 4) 관리자 › 점검: 맨 위에 고칠 것·확인할 것과 '자세히'
+  await page.click('[data-admin-tab=check]');
+  await page.locator('.check-sum').waitFor();
+  const sum = await page.evaluate(() => ({ todo: document.querySelectorAll('.check-todo li').length, warn: document.querySelectorAll('.check-row.warn,.check-row.bad').length }));
+  if (sum.todo !== sum.warn) problems.push('보완4 점검: 맨 위 목록(' + sum.todo + ')과 확인할 줄(' + sum.warn + ')이 다름');
+  if (sum.todo) {
+    await page.locator('.check-todo [data-action=check-go]').first().click();
+    await page.waitForTimeout(300);
+    if (!(await page.locator('.check-row.flash').count())) problems.push('보완4 점검: 자세히를 눌러도 그 줄로 가지 않음');
+    await page.evaluate(() => window.scrollTo(0, 0));
+  }
+  await shot(page, '보완4_점검_맨위_확인할것');
+
+  // 5) 운영 안내서: 선생님용 1쪽 인쇄는 A4 한 장, 모두 인쇄에는 연구부장 부분도
+  await page.evaluate(() => window.__gy.go('guide'));
+  await page.locator('#guide-teacher').waitFor();
+  const text = await page.locator('#screen').innerText();
+  for (const w of ['공지', '취합 시트', '양식으로 저장', '끌어서', '장도', '백업에서 되살리기']) if (!text.includes(w)) problems.push('보완4 운영 안내서: "' + w + '" 안내가 없음');
+  await shot(page, '보완4_운영안내서', true);
+  await page.evaluate(() => { window.print = () => {}; });
+  await page.click('[data-action=print-guide-teacher]');
+  await page.emulateMedia({ media: 'print' });
+  const f = path.join(OUT, '인쇄_운영안내서_선생님용.pdf');
+  await page.pdf({ path: f, preferCSSPageSize: true });
+  const pages = pdfPages(f);
+  if (pages !== 1) problems.push('보완4 운영 안내서: 선생님용 인쇄가 ' + pages + '쪽(한 장이어야 함)');
+  await page.emulateMedia({ media: 'screen' });
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  if (await page.evaluate(() => document.body.classList.contains('print-guide-teacher'))) problems.push('보완4 운영 안내서: 인쇄가 끝났는데 1쪽 인쇄 모양이 남음');
+  guideInfo = '운영 안내서 선생님용 인쇄 ' + pages + '쪽';
+  await ctx.close();
+
+  // 6) 태블릿(손가락): 취합 시트 도구 막대·달력 행사 칸이 손가락 크기
+  const tctx = await newCtx(browser, { viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: false, deviceScaleFactor: 1 });
+  const tp = await tctx.newPage();
+  await tp.goto(FILE);
+  await waitText(tp, '어서 오세요');
+  await login(tp);
+  await verify(tp, '홍길동');
+  await tp.locator('.today-card').waitFor();
+  const coarse = await tp.evaluate(() => matchMedia('(pointer:coarse)').matches);
+  if (!coarse) problems.push('보완4 태블릿: 손가락 기기 흉내가 안 됨(pointer:coarse 아님)');
+  await tp.evaluate(() => { window.__gy.S.sched.view = 'cal'; window.__gy.go('schedule'); });
+  await tp.locator('.cal .ev').first().waitFor();
+  const evH = await tp.evaluate(() => Math.round(document.querySelector('.cal .ev').getBoundingClientRect().height));
+  if (coarse && evH < 36) problems.push('보완4 태블릿: 달력 행사 칸 높이 ' + evH + 'px');
+  await shot(tp, '보완4_태블릿_달력');
+  await tp.evaluate(() => { window.__gy.S.table.sel = ''; window.__gy.S.table.d = null; window.__gy.go('table'); });
+  await tp.locator('.tb-card').first().click();
+  await tp.locator('.tb-tools .tb-tb').first().waitFor();
+  const tb = await tp.evaluate(() => ({ tool: Math.round(document.querySelector('.tb-tools .tb-tb').getBoundingClientRect().height), tab: Math.round((document.querySelector('.tb-tab') || { getBoundingClientRect: () => ({ height: 0 }) }).getBoundingClientRect().height) }));
+  if (coarse && (tb.tool < 40 || tb.tab < 44)) problems.push('보완4 태블릿: 취합 시트 단추 크기 ' + JSON.stringify(tb));
+  await shot(tp, '보완4_태블릿_취합시트');
+  await tctx.close();
+}
+
 async function tableMissingCheck(browser) {
-  const src = fs.readFileSync(path.join(__dirname, '..', '미리보기', '미리보기.html'), 'utf8');
+  const src = fs.readFileSync(PREVIEW, 'utf8');
   const a = src.indexOf('<style>\n/* ---------- 취합 시트(TableUi.html'), b = src.indexOf('window.__gyTableUi = function'), end = '\n};\n</script>', c = b < 0 ? -1 : src.indexOf(end, b);
   if (a < 0 || b < a || c < 0) { problems.push('표 파일 없음 점검: 미리보기에서 TableUi를 찾지 못함'); return; }
   const f = path.join(require('os').tmpdir(), 'gy-no-tableui.html');
@@ -2973,7 +3093,7 @@ async function introReducedMotionCheck(browser) {
 
 (async () => {
   await startServer();
-  FILE = serveFile('미리보기.html', path.join(__dirname, '..', '미리보기', '미리보기.html'));
+  FILE = serveFile('미리보기.html', PREVIEW);
   const browser = await chromium.launch();
   // ONLY=print: 인쇄 점검만(고치는 동안 빨리 돌려 보기)
   if (process.env.ONLY === 'print') {
@@ -2995,6 +3115,15 @@ async function introReducedMotionCheck(browser) {
   if (process.env.ONLY === 'schedfix') {
     await schedFixCheck(browser);
     await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
+  // ONLY=b4fix: 메뉴·이름 고르기·알림·수정 기록·안내서·점검·태블릿 보완 점검만(판 2026-10-19a)
+  if (process.env.ONLY === 'b4fix') {
+    await b4FixCheck(browser);
+    await browser.close();
+    if (guideInfo) console.log(guideInfo);
     console.log('사진 ' + n + '장 → ' + OUT);
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
@@ -3127,6 +3256,7 @@ async function introReducedMotionCheck(browser) {
   await tableFixCheck(browser);
   await schedFixCheck(browser);
   await svFixCheck(browser);
+  await b4FixCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
   await browser.close();
@@ -3136,6 +3266,7 @@ async function introReducedMotionCheck(browser) {
   if (tableInfo) console.log(tableInfo);
   if (table2Info) console.log(table2Info);
   if (tplInfo) console.log(tplInfo);
+  if (guideInfo) console.log(guideInfo);
   console.log('사진 ' + n + '장 → ' + OUT);
   if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; }
   else console.log('넘침·오류 없음');

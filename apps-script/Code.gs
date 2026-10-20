@@ -242,6 +242,7 @@ function thenReads_(list, actor, ctx, max) {
  */
 function api(reqText) {
   SETTINGS_CACHE_ = null;
+  PROP_MEMO_ = null; // 스크립트 속성(Auth.gs): 요청마다 서버 기억에서 한 번
   DB_SS_ = null;
   dbReset_();
   PERF_ = newPerf_();
