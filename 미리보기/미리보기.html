@@ -2038,8 +2038,8 @@ function tableUiFileBuild_() {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-19a';
-function fileMark_Code_() { return '2026-10-19a'; }
+var APP_BUILD_ = '2026-10-20a';
+function fileMark_Code_() { return '2026-10-20a'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -2047,9 +2047,9 @@ function fileMark_Code_() { return '2026-10-19a'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-19a', 'Db': '2026-10-19a', 'Auth': '2026-10-19a', 'Admin': '2026-10-19a', 'Schedule': '2026-10-19a',
+    'Code': '2026-10-20a', 'Db': '2026-10-19a', 'Auth': '2026-10-19a', 'Admin': '2026-10-19a', 'Schedule': '2026-10-19a',
     'Survey': '2026-10-19a', 'Library': '2026-10-19a', 'Help': '2026-10-19a', 'Setup': '2026-10-19a', 'Table': '2026-10-19a',
-    'App': '2026-10-19a', 'Styles': '2026-10-19a', 'Index': '2026-10-19a', 'TableUi': '2026-10-19a'
+    'App': '2026-10-20a', 'Styles': '2026-10-19a', 'Index': '2026-10-19a', 'TableUi': '2026-10-19a'
   };
 }
 
@@ -2327,7 +2327,7 @@ function apiStart_() {
 }
 
 /**
- * 바탕화면 바로가기 파일(.url)에 넣을 웹앱 주소(판 2026-10-19a, 교사 결정). /exec로 끝나는 주소만 보내고, 아니면 ''(화면이 주소창의
+ * 바탕화면 바로가기 파일(.url)·자동 등록 파일(.bat, 판 2026-10-20a)에 넣을 웹앱 주소(판 2026-10-19a, 교사 결정). /exec로 끝나는 주소만 보내고, 아니면 ''(화면이 주소창의
  * 주소를 붙여 넣게 한다). 확인 필요: 배포가 여러 개일 때 getUrl()이 어느 배포 주소를 주는지
  */
 function apiShortcutUrl_() {
@@ -9219,7 +9219,7 @@ function seedTestTables_() {
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-19a'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-10-20a'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -12552,8 +12552,10 @@ function seedTestTables_() {
         '웹앱 주소를 열고 <b>공통 비밀번호</b>를 넣어요. 비밀번호는 연구부장·부담당이 알려 드려요.',
         st.pinMode ? '명단에서 내 이름을 고르고 <b>개인 번호 4자리</b>를 넣어요. 번호를 잊으면 연구부장·부담당이 새로 만들어 드려요.' : '명단에서 <b>내 이름</b>을 골라요. 일정·조사·자료에 고른 이름이 남아요.',
         "'이 기기에서 기억하기'를 켜 두면 " + keep + ' 동안 다시 묻지 않아요. 여러 사람이 쓰는 컴퓨터에서는 끄고, 다 쓰면 메뉴 맨 아래 <b>나가기</b>를 눌러요.',
-        '내 PC에서는 <b>바탕화면 바로가기</b>를 만들어 두면 두 번 눌러 바로 열려요. <button type="button" class="btn btn-sm print-hide guide-sc" data-action="shortcut-file">' + icon('down', 16) + '바로가기 파일 받기</button>' +
-          '<span class="faint">크롬은 오른쪽 위 ⋮ 메뉴의 <b>바로가기 만들기</b>, 엣지는 … 메뉴 › 앱 › <b>이 사이트를 앱으로 설치</b>로도 만들 수 있어요(메뉴 이름은 브라우저 판마다 조금 달라요).</span>'
+        '내 PC에서는 <b>바탕화면 바로가기</b>를 만들어 두면 두 번 눌러 바로 열려요. <span class="guide-sc print-hide" style="display:inline-flex;flex-wrap:wrap;gap:6px">' +
+          '<button type="button" class="btn btn-sm" data-action="shortcut-file">' + icon('down', 16) + '바로가기 파일 받기</button>' +
+          '<button type="button" class="btn btn-sm" data-action="bat-file">' + icon('down', 16) + '자동 등록 파일 받기</button></span>' +
+          '<span class="faint"><b>자동 등록 파일</b>(윈도우 PC용)은 두 번 누르면 바로가기를 만들고, 고르면 컴퓨터를 켤 때마다 저절로 열어 줘요. 메신저로 나눠 줘도 돼요. 크롬은 오른쪽 위 ⋮ 메뉴의 <b>바로가기 만들기</b>, 엣지는 … 메뉴 › 앱 › <b>이 사이트를 앱으로 설치</b>로도 만들 수 있어요(메뉴 이름은 브라우저 판마다 조금 달라요).</span>'
       ]) +
       sec(2, '홈·검색·공지', [
         '홈에서 오늘 일정, <b>내가 할 일</b>(낼 조사·채울 취합 시트), 이번 주 일정, 지금 걸린 공지를 봐요.',
@@ -12640,6 +12642,183 @@ function seedTestTables_() {
       saveBlob(new Blob(['[InternetShortcut]\r\nURL=' + u + '\r\n'], { type: 'application/octet-stream' }), '온라인 교무실.url');
       closeModal();
       toast('바로가기 파일을 받았어요. 바탕화면으로 옮겨 두세요');
+    });
+  }
+
+  /**
+   * 자동 등록 파일(.bat, 윈도우 PC용) 받기(판 2026-10-20a, 교사 선택). 동료 선생님께 메신저로 나눠 주는 파일이다.
+   * 두 번 누르면 번호를 골라 ① 바탕화면에 '온라인 교무실' 바로가기(.url, 바로가기 파일 받기와 같은 이름·내용) ② ①과 함께 시작프로그램
+   * 폴더에도(컴퓨터를 켤 때마다 열림) ③ 시작프로그램의 그 바로가기만 지우기. 관리자 권한·인터넷 내려받기·PowerShell·설정 바꾸기는 없다(바탕화면 위치는 읽기만)
+   * - 한글: 한글 윈도우의 cmd는 CP949로 읽으므로 CP949로 담고 맨 위에서 chcp 949로 맞춘다(UTF-8로 담으면 한글이 깨질 수 있음).
+   *   CP949 표는 브라우저의 TextDecoder('euc-kr')(웹 표준에서 euc-kr = CP949)로 거꾸로 만든다
+   * - 주소: cmd가 특별하게 읽는 글자(빈칸 & % ^ ! ? = 따옴표 괄호 < > |)가 없는 https 주소만. 붙여 넣은 글이 명령이 되지 않게
+   * - 확인 필요: 이 작업 환경에는 윈도우가 없어 실제로 돌려 보지 못함. 학교 PC의 보안 경고·백신·명령 프롬프트 막힘·메신저 첨부 막힘
+   */
+  var BAT = (function () {
+    var FILE = '온라인 교무실 등록.bat';
+    var LINES = [
+      '@echo off',
+      'chcp 949 >nul',
+      'title 온라인 교무실 등록',
+      'rem ==============================================================',
+      'rem  온라인 교무실 등록 파일 - 윈도우 PC용',
+      'rem  메모장으로 열면 이 파일이 하는 일을 볼 수 있어요.',
+      'rem   1번: 바탕화면에 \'온라인 교무실\' 바로가기를 만들고 지금 열어요.',
+      'rem   2번: 1번과 함께, 컴퓨터를 켤 때마다 저절로 열리게 해요.',
+      'rem        시작프로그램 폴더에 같은 바로가기를 넣어요.',
+      'rem   3번: 저절로 열리기를 꺼요. 시작프로그램의 그 바로가기만 지워요.',
+      'rem  관리자 권한, 인터넷 내려받기, 윈도우 설정 바꾸기는 하지 않아요.',
+      'rem  웹앱 주소가 바뀌면 아래 URL= 뒤의 주소만 고쳐 저장해요.',
+      'rem ==============================================================',
+      'setlocal',
+      'set "URL={URL}"',
+      'set "NAME=온라인 교무실"',
+      'set "STARTUP=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"',
+      // 바탕화면 위치: 원드라이브로 옮긴 PC도 있어 레지스트리에서 읽는다(읽기만). 못 읽으면 보통 자리
+      'set "DESK="',
+      'for /f "tokens=1,2,*" %%a in (\'reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders" /v Desktop 2^>nul\') do if /i "%%a"=="Desktop" set "DESK=%%c"',
+      'if defined DESK call set "DESK=%DESK%"',
+      'if not defined DESK set "DESK=%USERPROFILE%\\Desktop"',
+      'if not exist "%DESK%\\" set "DESK=%USERPROFILE%\\Desktop"',
+      'if /i not "%URL:~0,8%"=="https://" goto badurl',
+      'echo(',
+      'echo   온라인 교무실 등록',
+      'echo   주소: %URL%',
+      'echo(',
+      'echo   1  바탕화면에 바로가기 만들기',
+      'echo   2  1번 + 컴퓨터를 켤 때마다 저절로 열기',
+      'echo   3  저절로 열기 끄기',
+      'echo(',
+      'choice /c 123 /n /m "  번호를 누르세요 [1, 2, 3]: "',
+      'set "PICK=%errorlevel%"',
+      'echo(',
+      'if "%PICK%"=="3" goto off',
+      'if "%PICK%"=="2" goto make',
+      'if "%PICK%"=="1" goto make',
+      'goto done',
+      '',
+      ':make',
+      '(',
+      'echo [InternetShortcut]',
+      'echo URL=%URL%',
+      ')>"%DESK%\\%NAME%.url"',
+      'if not exist "%DESK%\\%NAME%.url" goto failed',
+      'echo   바탕화면에 \'%NAME%\' 바로가기를 만들었어요.',
+      'if not "%PICK%"=="2" goto open',
+      '(',
+      'echo [InternetShortcut]',
+      'echo URL=%URL%',
+      ')>"%STARTUP%\\%NAME%.url"',
+      'if exist "%STARTUP%\\%NAME%.url" echo   이제 컴퓨터를 켤 때마다 온라인 교무실이 저절로 열려요.',
+      'if exist "%STARTUP%\\%NAME%.url" echo   끄려면 이 파일을 다시 열고 3을 누르세요.',
+      'if not exist "%STARTUP%\\%NAME%.url" echo   저절로 열기는 켜지 못했어요. 백신이 막았을 수 있어요.',
+      ':open',
+      'echo   지금 온라인 교무실을 열어요.',
+      'start "" "%DESK%\\%NAME%.url"',
+      'goto done',
+      '',
+      ':off',
+      'if not exist "%STARTUP%\\%NAME%.url" echo   저절로 열기가 켜져 있지 않아요.',
+      'if not exist "%STARTUP%\\%NAME%.url" goto done',
+      'del "%STARTUP%\\%NAME%.url" 2>nul',
+      'if exist "%STARTUP%\\%NAME%.url" echo   저절로 열기를 끄지 못했어요.',
+      'if not exist "%STARTUP%\\%NAME%.url" echo   저절로 열기를 껐어요. 바탕화면 바로가기는 그대로 있어요.',
+      'goto done',
+      '',
+      ':failed',
+      'echo   바탕화면에 바로가기를 만들지 못했어요. 백신이 막았을 수 있어요.',
+      'echo   온라인 교무실 운영 안내서의 \'바로가기 파일 받기\'를 써 주세요.',
+      'goto done',
+      '',
+      ':badurl',
+      'echo   웹앱 주소가 비었거나 맞지 않아요.',
+      'echo   이 파일을 메모장으로 열어 URL= 뒤의 주소를 확인해 주세요.',
+      '',
+      ':done',
+      'echo(',
+      'echo   아무 키나 누르면 이 창이 닫혀요.',
+      'pause >nul',
+      'endlocal'
+    ];
+    var map = null;
+    function urlOk(u) {
+      return typeof u === 'string' && u.length <= 400 && /^https:\/\/[A-Za-z0-9.-]+(\/[A-Za-z0-9._~\/-]*)?$/.test(u);
+    }
+    function text(u) { return LINES.join('\r\n').split('{URL}').join(u) + '\r\n'; }
+    // CP949 표(글자 → 두 바이트): 앞 바이트 81~FE × 뒤 바이트 41~FE를 한 번에 풀고(사이마다 줄바꿈) 한 글자로 풀린 것만 담는다
+    function cpMap() {
+      if (map) return map;
+      var buf = new Uint8Array(126 * 190 * 3), keys = [], k = 0;
+      for (var a = 0x81; a <= 0xFE; a++) for (var b = 0x41; b <= 0xFE; b++) { buf[k++] = a; buf[k++] = b; buf[k++] = 10; keys.push(a * 256 + b); }
+      var parts = new TextDecoder('euc-kr').decode(buf).split('\n'), m = Object.create(null);
+      for (var i = 0; i < keys.length; i++) { var c = parts[i]; if (c && c.length === 1 && c !== '�' && !(c in m)) m[c] = keys[i]; }
+      return (map = m);
+    }
+    function cp949(s) {
+      var out = [];
+      for (var i = 0; i < s.length; i++) {
+        var c = s.charCodeAt(i);
+        if (c < 0x80) { out.push(c); continue; }
+        var v = cpMap()[s.charAt(i)];
+        if (!v) throw new Error('CP949로 담을 수 없는 글자: ' + s.charAt(i));
+        out.push(v >> 8, v & 255);
+      }
+      return new Uint8Array(out);
+    }
+    function bytes(u) {
+      if (!urlOk(u)) throw new Error('주소');
+      return cp949(text(u));
+    }
+    // 메신저로 파일과 함께 보낼 안내 글
+    function guide(u) {
+      return ['[온라인 교무실 바로가기 등록 안내]',
+        '첨부한 \'' + FILE + '\' 파일을 윈도우 PC에서 두 번 누르고 번호를 골라 주세요.',
+        '1번: 바탕화면에 바로가기 만들기',
+        '2번: 1번 + 컴퓨터를 켤 때마다 저절로 열기',
+        '3번: 저절로 열기 끄기(2번을 고른 뒤 끄고 싶을 때 파일을 다시 열어 3번)',
+        '· 바로가기를 만들고 지우는 일만 해요. 메모장으로 열면 하는 일이 적혀 있어요.',
+        '· 윈도우가 실행할지 물으면 \'실행\'을 눌러 주세요. 백신이 막거나 열리지 않으면 억지로 열지 마시고, 아래 주소로 들어가 운영 안내서 › 들어오기의 \'바로가기 파일 받기\'를 써 주세요.',
+        '· 보낸 사람을 모르는 실행 파일(.bat·.exe)은 열지 마세요.',
+        '온라인 교무실: ' + u].join('\n');
+    }
+    return { FILE: FILE, urlOk: urlOk, text: text, bytes: bytes, guide: guide };
+  })(); // BAT 끝
+
+  function batFile(btn) {
+    busy(btn, true, '주소를 찾는 중');
+    server('shortcut.url').then(function (r) { busy(btn, false); batDialog(r.url || ''); }, function () { busy(btn, false); batDialog(''); });
+  }
+  // 받은 뒤에도 창을 닫지 않는다: 먼저 이 PC에서 열어 보고 '안내 글 복사'와 함께 메신저로 보내게
+  function batDialog(url) {
+    openModal('<h2 id="m-title">자동 등록 파일 받기</h2>' +
+      '<p class="muted" style="margin:0">받은 파일(<b>' + esc(BAT.FILE) + '</b>)을 윈도우 PC에서 두 번 누르면 번호를 골라요.<br>' +
+      '① 바탕화면에 바로가기 만들기<br>② ①과 함께, 컴퓨터를 켤 때마다 저절로 열기<br>③ 저절로 열기 끄기</p>' +
+      '<div class="field"><label class="label" for="bat-url">웹앱 주소</label><input class="input" id="bat-url" value="' + esc(url) + '" placeholder="https://script.google.com/…/exec" spellcheck="false" autocomplete="off"></div>' +
+      '<p class="hint">' + icon('info', 16) + '<span>' + (url ? '주소가 맞는지 한 번 봐 주세요. ' : '주소를 찾지 못했어요. 배포 관리의 웹 앱 주소나 주소창의 주소를 붙여 넣어 주세요. ') +
+      '먼저 이 PC에서 열어 보고, 잘 되면 <b>안내 글 복사</b>와 함께 메신저로 보내요. 실행 파일이라 브라우저·윈도우가 한 번 더 묻거나 학교 백신이 막을 수 있어요. 막히면 \'바로가기 파일 받기\'를 써 주세요.</span></p>' +
+      '<p class="err" id="bat-err" role="alert"></p>' +
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
+      '<button type="button" class="btn" id="bat-copy">' + icon('copy', 18) + '안내 글 복사</button>' +
+      '<button type="button" class="btn btn-primary" id="bat-go">' + icon('down', 18) + '파일 받기</button></div>');
+    var inp = qs('#bat-url'), err = qs('#bat-err');
+    inp.addEventListener('input', function () { err.textContent = ''; });
+    var good = function () {
+      var u = inp.value.trim();
+      if (!/^https:\/\//.test(u)) { err.textContent = 'https://로 시작하는 웹앱 주소를 넣어 주세요.'; inp.focus(); return ''; }
+      if (!BAT.urlOk(u)) { err.textContent = '주소에 넣을 수 없는 글자(빈칸·&·%·?·괄호 등)가 있어요. 배포 관리의 웹 앱 주소를 그대로 넣어 주세요.'; inp.focus(); return ''; }
+      return u;
+    };
+    qs('#bat-go').addEventListener('click', function () {
+      var u = good(), b;
+      if (!u) return;
+      try { b = BAT.bytes(u); } catch (e) { err.textContent = '이 브라우저에서는 파일을 만들 수 없어요. 크롬이나 엣지에서 받아 주세요.'; return; }
+      saveBlob(new Blob([b], { type: 'application/octet-stream' }), BAT.FILE);
+      toast('자동 등록 파일을 받았어요. 먼저 이 PC에서 열어 보세요');
+    });
+    qs('#bat-copy').addEventListener('click', function () {
+      var u = good();
+      if (!u) return;
+      copyText(BAT.guide(u)).then(function (ok) { toast(ok ? '안내 글을 복사했어요. 메신저에 붙여 넣고 파일을 함께 보내요' : '복사하지 못했어요', ok ? '' : 'error'); });
     });
   }
 
@@ -14414,6 +14593,7 @@ function seedTestTables_() {
         break;
       case 'todo-open': S.survey.tab = 'answer'; S.survey.sel = id; go('survey'); break;
       case 'shortcut-file': shortcutFile(t); break;
+      case 'bat-file': batFile(t); break;
       case 'todo-table':
       case 'sr-table': // 홈 '내가 할 일'·검색에서 취합 시트(그 시트)를 바로 연다
         if (TB && TB.open) TB.open(id, t.getAttribute('data-sheet') || '');

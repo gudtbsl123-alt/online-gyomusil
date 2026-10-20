@@ -3157,6 +3157,65 @@ async function b5ShortcutCheck(browser) {
 }
 
 /**
+ * 자동 등록 파일(.bat, 판 2026-10-20a): 운영 안내서 '들어오기'의 두 단추, 창(주소 검사·파일 받기·안내 글 복사), 받은 파일의 바이트(CP949·CRLF), 휴대폰 창
+ * 윈도우에서 실제로 돌려 보는 것은 이 환경에서 할 수 없다(확인 필요). 파일 모양은 test.js가 줄마다 본다
+ */
+async function batCheck(browser) {
+  const { open, toastHas } = tbKit(browser);
+  const P = (m) => problems.push('자동 등록 파일: ' + m);
+  const URL0 = 'https://script.google.com/macros/s/AKfy-preview/exec';
+  let { ctx, page } = await open({ width: 1440, height: 900 }, '심청');
+  await page.evaluate(() => window.__gy.go('guide'));
+  await page.locator('[data-action=bat-file]').waitFor();
+  await page.locator('[data-action=bat-file]').scrollIntoViewIfNeeded();
+  await shot(page, '등록파일_운영안내서_단추');
+  const boxes = await page.evaluate(() => ['shortcut-file', 'bat-file'].map((a) => { const r = document.querySelector('[data-action=' + a + ']').getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top }; }));
+  if (boxes[1].l < boxes[0].r + 4 && Math.abs(boxes[1].t - boxes[0].t) < 4) P('두 단추가 붙거나 겹침 ' + JSON.stringify(boxes));
+  await page.click('[data-action=bat-file]');
+  await page.locator('#bat-url').waitFor();
+  if (await page.inputValue('#bat-url')) P('미리보기는 웹앱 주소를 모르는데 칸이 채워짐');
+  await page.click('#bat-go');
+  if (!/https:\/\/로 시작하는/.test(await page.locator('#bat-err').innerText())) P('주소 없이 받을 때 안내가 없음');
+  await page.fill('#bat-url', URL0 + '&calc');
+  await page.click('#bat-go');
+  if (!/넣을 수 없는 글자/.test(await page.locator('#bat-err').innerText())) P('& 든 주소를 막지 않음');
+  await page.fill('#bat-url', URL0);
+  if (await page.locator('#bat-err').innerText()) P('고친 뒤에도 안내가 남음');
+  await shot(page, '등록파일_창');
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 6000 }), page.click('#bat-go')]).catch(() => [null]);
+  if (!dl) { P('파일을 내려받지 않음'); await ctx.close(); return; }
+  if (dl.suggestedFilename() !== '온라인 교무실 등록.bat') P('파일 이름이 ' + dl.suggestedFilename());
+  const buf = fs.readFileSync(await dl.path());
+  const txt = new TextDecoder('euc-kr').decode(buf);
+  const head2 = Buffer.from('@echo off\r\nchcp 949 >nul\r\n');
+  if (!buf.subarray(0, head2.length).equals(head2)) P('맨 앞 두 줄이 다름');
+  if (!txt.includes('\r\nset "URL=' + URL0 + '"\r\n')) P('주소 줄이 없음');
+  if (!buf.includes(Buffer.from([0xbf, 0xc2, 0xb6, 0xf3, 0xc0, 0xce]))) P('한글이 CP949가 아님');
+  if (/[^\r]\n/.test(txt) || !txt.endsWith('\r\n')) P('CRLF가 아닌 줄');
+  if (!(await toastHas(page, /자동 등록 파일을 받았어요/))) P('받았다는 알림이 없음');
+  if (!(await page.locator('#bat-url').isVisible())) P('받은 뒤 창이 닫힘(안내 글 복사를 이어서 못 함)');
+  await page.evaluate(() => { window.__copied = null; Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: (t) => { window.__copied = t; return Promise.resolve(); } }); });
+  await page.click('#bat-copy');
+  if (!(await toastHas(page, /안내 글을 복사했어요/))) P('복사 알림이 없음');
+  const copied = await page.evaluate(() => window.__copied);
+  if (!copied || !copied.includes('온라인 교무실 등록.bat') || !copied.includes(URL0) || !/3번: 저절로 열기 끄기/.test(copied)) P('안내 글 ' + JSON.stringify(copied));
+  await shot(page, '등록파일_안내글복사');
+  await ctx.close();
+  // 휴대폰: 단추와 창이 화면 안에
+  ({ ctx, page } = await open({ width: 390, height: 844 }, '심청', true));
+  await page.evaluate(() => window.__gy.go('guide'));
+  await page.locator('[data-action=bat-file]').waitFor();
+  await page.locator('[data-action=bat-file]').scrollIntoViewIfNeeded();
+  await shot(page, '등록파일_휴대폰_단추');
+  await page.click('[data-action=bat-file]');
+  await page.locator('#bat-url').waitFor();
+  const over = await page.evaluate(() => { const r = document.querySelector('.modal').getBoundingClientRect(); return r.right > innerWidth + 1 || r.left < -1 || document.documentElement.scrollWidth > innerWidth + 1; });
+  if (over) P('휴대폰에서 창이 넘침');
+  await shot(page, '등록파일_휴대폰_창');
+  await ctx.close();
+}
+
+/**
  * 취합 시트 화면 파일(TableUi.html) 받기(판 2026-10-19a, 45)
  *  1) 열 때 받기(기본): 첫 화면에는 없고 취합 시트를 처음 열 때 한 번 받는다(홈 '채우기'로 바로 그 표). 서버에 파일이 없으면 그 화면만 안내, 점검은 '문제'
  *  2) 처음에 함께(설정 '처음에 함께', 예전 방식): 처음부터 들어 있어 받지 않는다. 파일이 없으면 그 화면만 안내
@@ -3490,6 +3549,16 @@ async function introReducedMotionCheck(browser) {
     await b5SchedCheck(browser);
     await b5TableCheck(browser);
     await b5ShortcutCheck(browser);
+    await batCheck(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
+  // ONLY=bat: 자동 등록 파일(.bat, 판 2026-10-20a) 점검만
+  if (process.env.ONLY === 'bat') {
+    await b5ShortcutCheck(browser);
+    await batCheck(browser);
     await browser.close();
     console.log('사진 ' + n + '장 → ' + OUT);
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
@@ -3636,6 +3705,7 @@ async function introReducedMotionCheck(browser) {
   await b5SchedCheck(browser);
   await b5TableCheck(browser);
   await b5ShortcutCheck(browser);
+  await batCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
   await browser.close();

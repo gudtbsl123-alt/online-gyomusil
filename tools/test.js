@@ -4366,5 +4366,92 @@ test('취합 시트 화면 파일(45): 기본은 열 때 받기(첫 화면에 �
   assert.ok(fs.readFileSync(path.join(GAS_DIR, 'Index.html'), 'utf8').includes("<?!= typeof tableUiTag_ === 'function' ? tableUiTag_() : include('TableUi'); ?>"), 'Index는 Code.gs가 예전 것이어도 예전처럼 연다');
 });
 
+// ---------------------------------------------------------------- 자동 등록 파일(.bat, 판 2026-10-20a)
+// 이 작업 환경에는 윈도우가 없어 실제로 돌려 볼 수 없으므로, 파일 모양(한글 담는 방식·줄바꿈·명령·자리 이름·주소 검사)을 글자로 확인한다
+
+test('자동 등록 파일(.bat): 한글은 CP949·줄은 CRLF, 하는 일은 바로가기 만들기·지우기뿐, 주소는 cmd가 특별하게 읽는 글자가 없는 https만', () => {
+  const vm = require('vm');
+  const src = fs.readFileSync(path.join(GAS_DIR, 'App.html'), 'utf8');
+  const head = 'var BAT = (function () {', tail = '})(); // BAT 끝';
+  const a = src.indexOf(head), b = src.indexOf(tail, a);
+  assert.ok(a > 0 && b > a, '등록 파일 묶음');
+  const sb = { TextDecoder };
+  vm.createContext(sb);
+  vm.runInContext(src.slice(a, b + tail.length) + '\nthis.BAT = BAT;', sb);
+  const B = sb.BAT;
+  assert.strictEqual(B.FILE, '온라인 교무실 등록.bat');
+  // 주소: 붙여 넣은 글이 cmd 명령이 되지 않게
+  const good = ['https://script.google.com/macros/s/AKfycbx-Ab_12.c~d/exec', 'https://script.google.com/a/macros/jangdo.es.kr/s/AKfy123/exec'];
+  const bad = ['', 'http://script.google.com/macros/s/a/exec', 'https://script.google.com/macros/s/a b/exec', 'https://x/exec&calc', 'https://x/%TEMP%', 'https://x/"a"',
+    'https://x/a)b', 'https://x/a(b', 'https://x/a^b', 'https://x/a!b', 'https://x/exec?x=1', 'https://x/a=b', 'https://x/a|b', 'https://x/a<b', 'https://x/a>b', "https://x/a'b",
+    'https://x/a\nb', 'https://x/a$&b', 'javascript:alert(1)', 'https://x/' + 'a'.repeat(400)];
+  good.forEach((u) => assert.ok(B.urlOk(u), u));
+  bad.forEach((u) => assert.ok(!B.urlOk(u), JSON.stringify(u)));
+  assert.throws(() => B.bytes('https://x/a&b'), '맞지 않는 주소로는 만들지 않는다');
+  const url = good[0];
+  const buf = Buffer.from(B.bytes(url));
+  const txt = B.text(url);
+  // 한글: CP949(Node의 euc-kr 풀기 = 웹 표준 euc-kr = CP949)로 담겨 다시 풀면 같고, UTF-8·BOM이 아니다
+  assert.strictEqual(new TextDecoder('euc-kr').decode(buf), txt);
+  assert.notStrictEqual(buf.subarray(0, 3).toString('hex'), 'efbbbf', 'BOM 없음');
+  assert.throws(() => new TextDecoder('utf-8', { fatal: true }).decode(buf), 'UTF-8로 담지 않음');
+  assert.ok(buf.includes(Buffer.from([0xbf, 0xc2, 0xb6, 0xf3, 0xc0, 0xce])), "'온라인'이 CP949 바이트(BFC2 B6F3 C0CE)로");
+  // 줄: CRLF, 줄 끝 빈칸 없음, 맨 앞 두 줄은 영문(chcp 949 앞)
+  assert.ok(txt.endsWith('\r\n') && !/[^\r]\n/.test(txt) && !/\r[^\n]/.test(txt), 'CRLF');
+  const L = txt.slice(0, -2).split('\r\n');
+  assert.deepStrictEqual(L.slice(0, 2), ['@echo off', 'chcp 949 >nul']);
+  L.forEach((l, i) => assert.ok(!/ $/.test(l), (i + 1) + '번째 줄 끝에 빈칸'));
+  // 주소는 set 한 줄에만, 그 밖의 바깥 주소는 없다
+  assert.deepStrictEqual(L.filter((l) => l.includes(url)), ['set "URL=' + url + '"']);
+  assert.ok(!L.some((l) => /https?:\/\/[a-z]/i.test(l) && !l.includes(url)), '다른 바깥 주소 없음');
+  // 명령: 정해 둔 것만. 지우기는 시작프로그램의 그 바로가기만, 쓰기는 바탕화면·시작프로그램의 그 바로가기만, 레지스트리는 읽기만
+  const forbid = /powershell|bitsadmin|certutil|curl|wget|mshta|wscript|cscript|rundll32|schtasks|attrib|icacls|takeown|regedit|\breg\s+(add|delete|import|copy)|\brd\b|\brmdir\b|\bformat\b|\bcopy\b|\bmove\b|\bxcopy\b|\bsetx\b/i;
+  const cmds = new Set(['@echo', 'chcp', 'title', 'rem', 'setlocal', 'set', 'for', 'if', 'echo', 'echo(', 'choice', 'goto', 'start', 'del', 'pause', 'endlocal']);
+  const ifLine = /^if (?:\/i )?(?:not )?(?:defined [A-Z]+|exist "[^"]+"|"[^"]*"=="[^"]*") (echo .*|goto [a-z]+|set "[^"]*"|call set "[^"]*")$/;
+  const echoText = (s) => !/[\^&|<>()]/.test(s) && !/%/.test(s.replace(/%(NAME|URL)%/g, ''));
+  let inBlock = false, blocks = 0;
+  L.forEach((l) => {
+    assert.ok(!forbid.test(l), '쓰지 않는 명령: ' + l);
+    if (!l || /^:[a-z]+$/.test(l)) return;
+    if (l === '(') { assert.ok(!inBlock, '괄호 안에 괄호'); inBlock = true; return; }
+    if (l.startsWith(')')) {
+      assert.ok(inBlock, '여는 괄호 없이 닫음');
+      assert.ok(/^\)>"%(DESK|STARTUP)%\\%NAME%\.url"$/.test(l), '쓰는 곳: ' + l);
+      inBlock = false; blocks++;
+      return;
+    }
+    if (inBlock) { assert.ok(/^echo (\[InternetShortcut\]|URL=%URL%)$/.test(l), '괄호 안은 바로가기 두 줄만: ' + l); return; }
+    const w = l.split(' ')[0].toLowerCase();
+    assert.ok(cmds.has(w), '모르는 명령: ' + l);
+    if (w === 'rem') assert.ok(!/[%^&|<>()]/.test(l), 'rem 줄에 특수 글자: ' + l);
+    if (w === 'echo') assert.ok(echoText(l.slice(5)), 'echo 줄에 특수 글자: ' + l);
+    if (w === 'if') {
+      const m = ifLine.exec(l);
+      assert.ok(m, 'if 줄 모양: ' + l);
+      if (/^echo /.test(m[1])) assert.ok(echoText(m[1].slice(5)), 'echo 글에 특수 글자: ' + l);
+    }
+    if (w === 'del') assert.strictEqual(l, 'del "%STARTUP%\\%NAME%.url" 2>nul', '지우는 것은 시작프로그램의 그 바로가기만');
+    if (w === 'start') assert.strictEqual(l, 'start "" "%DESK%\\%NAME%.url"', '여는 것은 방금 만든 바로가기');
+    if (w === 'for') assert.strictEqual(l, 'for /f "tokens=1,2,*" %%a in (\'reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders" /v Desktop 2^>nul\') do if /i "%%a"=="Desktop" set "DESK=%%c"', '바탕화면 위치는 레지스트리에서 읽기만');
+    assert.ok(!/[<>|]/.test(l.replace(/2\^?>nul|>nul/g, '')), '정해 둔 곳 말고는 쓰지 않음: ' + l);
+  });
+  assert.ok(!inBlock && blocks === 2, '바로가기 쓰기 두 곳(바탕화면·시작프로그램)');
+  assert.ok(L.includes('set "STARTUP=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"'), '시작프로그램 폴더(사용자 것, 관리자 권한 없이)');
+  assert.ok(L.includes('choice /c 123 /n /m "  번호를 누르세요 [1, 2, 3]: "'));
+  // 자리 이름(goto): 모두 있고, 모두 쓰이고, 겹치지 않는다
+  const labels = L.filter((l) => /^:[a-z]+$/.test(l)).map((l) => l.slice(1));
+  const gotos = [].concat(...L.map((l) => (l.match(/goto [a-z]+/g) || []).map((g) => g.slice(5))));
+  gotos.forEach((g) => assert.ok(labels.includes(g), '없는 자리로 감: ' + g));
+  labels.forEach((x) => assert.ok(gotos.includes(x), '쓰지 않는 자리: ' + x));
+  assert.strictEqual(new Set(labels).size, labels.length, '같은 자리 이름이 두 번');
+  // 바로가기 내용은 '바로가기 파일 받기'와 같다
+  assert.ok(src.includes("'[InternetShortcut]\\r\\nURL=' + u + '\\r\\n'"), '바로가기 파일 받기의 내용');
+  // 안내 글: 파일 이름·번호·주소·조심할 점
+  const g = B.guide(url);
+  assert.ok(g.includes(B.FILE) && g.includes(url) && /3번: 저절로 열기 끄기/.test(g) && /보낸 사람을 모르는 실행 파일/.test(g) && /바로가기 파일 받기/.test(g), g);
+  // 화면 연결: 운영 안내서 '들어오기'의 단추와 누르기 처리
+  assert.ok(src.includes('data-action="bat-file"') && src.includes("case 'bat-file': batFile(t); break;"));
+});
+
 console.log(results.join('\n'));
 console.log('\n' + passed + '/' + results.length + ' 통과');
