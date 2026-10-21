@@ -4,7 +4,7 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="gy-build" content="2026-10-19a">
+<meta name="gy-build" content="2026-10-21c">
 <title>온라인 교무실</title>
 <script>
 /* 여는 그림(인트로) ①: 그림이 처음 보이기 전에 밝기·화면 디자인과 보여 주는 방식을 정한다(어두운 화면·다른 디자인을 고른 분은 처음부터 그 모습으로)
@@ -216,11 +216,6 @@ window.__gyIntroU = (function () {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     var top = B.cy - (two ? big * 0.95 : big * 0.55);
-    if (ctx.subEl) {
-      ctx.subEl.textContent = ctx.school;
-      ctx.subEl.style.top = Math.round(top - sub * 0.4) + 'px';
-      ctx.subEl.style.fontSize = sub + 'px';
-    }
     g.font = '800 ' + big + 'px ' + fam;
     if (two) {
       g.fillText('온라인', W / 2, top + sub * 0.6 + big * 0.62);
@@ -240,6 +235,15 @@ window.__gyIntroU = (function () {
         var px = Math.round(x + (Math.random() - 0.5) * step * 0.5), py = Math.round(y + (Math.random() - 0.5) * step * 0.5);
         if (px >= 0 && py >= 0 && px < W && py < H && data[(py * W + px) * 4 + 3] > 110) pts.push(px, py);
       }
+    }
+    // 학교 이름: 아래 끝과 '온라인 교무실' 글자(맨 위 알갱이) 사이를 학교 이름 글자 크기만큼 띄운다(판 2026-10-21c, 교사 요청 '붙어 있어')
+    if (ctx.subEl) {
+      var topY = Infinity;
+      for (var q = 1; q < pts.length; q += 2) if (pts[q] < topY) topY = pts[q];
+      if (topY === Infinity) topY = top + sub * 0.55 + big * 0.13;
+      ctx.subEl.textContent = ctx.school;
+      ctx.subEl.style.fontSize = sub + 'px';
+      ctx.subEl.style.top = Math.round(topY - sub - this.subInk(g, fam, sub, ctx.school)) + 'px';
     }
     // 알갱이마다 아무 자리나(섞어서) 맡긴다. 남는 알갱이는 뒤에 흩어진 별이 된다
     var idx = [];
@@ -263,6 +267,17 @@ window.__gyIntroU = (function () {
     B.doneT = B.T1 + end; // 마지막 알갱이가 글자에 닿는 때
     B.sampled = true;
     if (ctx.helloEl) ctx.helloEl.style.top = Math.round(B.textBottom + (two ? 6 : 14)) + 'px';
+  },
+  /** 학교 이름 칸(줄 높이 1) 위 끝에서 글자 아래 끝까지. 글꼴 높이로 재고, 못 재는 브라우저는 글자 크기의 0.9배(Pretendard에서 잰 값) */
+  subInk: function (g, fam, sub, text) {
+    try {
+      g.font = '700 ' + sub + 'px ' + fam;
+      g.textBaseline = 'alphabetic';
+      var m = g.measureText(text || '가');
+      // 줄 높이가 글자 크기와 같으면 기준선은 칸 위에서 (크기 + 올림 - 내림) / 2
+      if (m.fontBoundingBoxAscent > 0 && m.actualBoundingBoxDescent != null) return (sub + m.fontBoundingBoxAscent - m.fontBoundingBoxDescent) / 2 + m.actualBoundingBoxDescent;
+    } catch (e) { /* 아래 값으로 */ }
+    return sub * 0.9;
   },
   /** 자료가 오면: 고른 이름을 넣은 인사, 설정의 학교 이름 */
   info: function (info, ctx) {

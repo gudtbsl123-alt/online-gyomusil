@@ -63,8 +63,8 @@ function tableUiFileBuild_() {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-21b';
-function fileMark_Code_() { return '2026-10-21b'; }
+var APP_BUILD_ = '2026-10-21c';
+function fileMark_Code_() { return '2026-10-21c'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -72,9 +72,9 @@ function fileMark_Code_() { return '2026-10-21b'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-21b', 'Db': '2026-10-21b', 'Auth': '2026-10-21b', 'Admin': '2026-10-19a', 'Schedule': '2026-10-21b',
+    'Code': '2026-10-21c', 'Db': '2026-10-21b', 'Auth': '2026-10-21b', 'Admin': '2026-10-19a', 'Schedule': '2026-10-21b',
     'Survey': '2026-10-21b', 'Library': '2026-10-21b', 'Help': '2026-10-21b', 'Setup': '2026-10-21b', 'Table': '2026-10-21b',
-    'App': '2026-10-21b', 'Styles': '2026-10-21b', 'Index': '2026-10-19a', 'TableUi': '2026-10-21b'
+    'App': '2026-10-21b', 'Styles': '2026-10-21b', 'Index': '2026-10-21c', 'TableUi': '2026-10-21b'
   };
 }
 

@@ -3735,6 +3735,70 @@ async function introReducedMotionCheck(browser) {
   return '움직임 줄이기 기기 준비 ' + sec(st.readyAt) + ' → 걷힘 ' + sec(st.doneAt);
 }
 
+/**
+ * 여는 그림의 학교 이름 간격(판 2026-10-21c, 교사 요청 '온라인 교무실 글자에 붙어 있어'): 글자가 다 모인 마지막 장면에서
+ * 학교 이름 아래 끝과 '온라인 교무실' 알갱이 글자 위 끝 사이가 학교 이름 글자 크기쯤인지 화면 크기마다 잰다(예전에는 그 절반쯤)
+ */
+async function introGapCheck(browser) {
+  const out = [];
+  for (const [w, h] of [[1440, 900], [1280, 800], [1366, 768], [1920, 1080], [1259, 465], [844, 390], [390, 844], [360, 740]]) {
+    const label = w + 'x' + h, mobile = w < 900;
+    const ctx = await newCtx(browser, { viewport: { width: w, height: h }, deviceScaleFactor: 1, hasTouch: mobile, isMobile: mobile }, true);
+    await slowServer(ctx, 9000); // 자료가 늦게 와서 마지막 장면(학교 이름·글자·인사)에서 기다린다
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => problems.push('인트로 간격 ' + label + ' 페이지 오류: ' + e.message));
+    await page.goto(FILE);
+    const shown = await page.waitForFunction(() => {
+      const s = document.querySelector('#gy-intro .gib-sub');
+      return !!s && getComputedStyle(s).opacity === '1' && s.style.transform === 'none';
+    }, null, { timeout: 8000 }).then(() => true, () => false);
+    if (!shown) { problems.push('인트로 간격 ' + label + ': 학교 이름이 다 나타나지 않음'); await ctx.close(); continue; }
+    await page.waitForTimeout(300);
+    n++;
+    await page.screenshot({ path: path.join(OUT, String(n).padStart(2, '0') + '_인트로_간격_' + label + '.png') });
+    // 알갱이만, 학교 이름만 따로 찍어 줄마다 밝은 점을 센다(흩어진 별은 드물어서 글자 줄로 세지 않는다)
+    const vis = (sel, v) => page.evaluate(([s, x]) => { const el = document.querySelector(s); if (el) el.style.visibility = x; }, [sel, v]);
+    await vis('#gy-intro .gib-sub', 'hidden');
+    await vis('#gy-intro .gib-hello', 'hidden');
+    await vis('#gy-intro .gib-core', 'hidden');
+    const onlyText = (await page.screenshot()).toString('base64');
+    await vis('#gy-intro .gib-sub', 'visible');
+    await vis('#gy-intro .gib-cv', 'hidden');
+    const onlySchool = (await page.screenshot()).toString('base64');
+    const r = await page.evaluate(async ([a, b]) => {
+      const counts = async (b64) => {
+        const im = new Image();
+        im.src = 'data:image/png;base64,' + b64;
+        await im.decode();
+        const c = document.createElement('canvas');
+        c.width = im.width;
+        c.height = im.height;
+        const g = c.getContext('2d');
+        g.drawImage(im, 0, 0);
+        const d = g.getImageData(0, 0, im.width, im.height).data, out = [];
+        for (let y = 0; y < im.height; y++) { let k = 0; for (let x = 0; x < im.width; x++) if (d[(y * im.width + x) * 4] > 150) k++; out.push(k); }
+        return out;
+      };
+      const band = (cnt, min) => { let t = -1, e = -1; cnt.forEach((k, y) => { if (k > min) { if (t < 0) t = y; e = y; } }); return [t, e]; };
+      const P = await counts(a), S = await counts(b);
+      const [pTop, pBot] = band(P, Math.max.apply(null, P) * 0.08);
+      const [sTop, sBot] = band(S, 0);
+      const sub = document.querySelector('#gy-intro .gib-sub'), hello = document.querySelector('#gy-intro .gib-hello');
+      return { pTop, pBot, sTop, sBot, fs: parseFloat(getComputedStyle(sub).fontSize), helloTop: Math.round(hello.getBoundingClientRect().top) };
+    }, [onlyText, onlySchool]);
+    const gap = r.pTop - r.sBot;
+    out.push(label + ' ' + gap + 'px(글자 ' + r.fs + 'px)');
+    if (r.sTop < 0 || r.pTop < 0) problems.push('인트로 간격 ' + label + ': 학교 이름이나 글자를 찾지 못함 ' + JSON.stringify(r));
+    else {
+      if (!(gap >= r.fs * 0.85 && gap <= r.fs * 1.25 + 3)) problems.push('인트로 간격 ' + label + ': 학교 이름과 글자 사이 ' + gap + 'px(학교 이름 글자 ' + r.fs + 'px만큼이어야 함) ' + JSON.stringify(r));
+      if (r.sTop < 8) problems.push('인트로 간격 ' + label + ': 학교 이름이 화면 위 끝에 붙음(' + r.sTop + 'px)');
+      if (r.helloTop < r.pBot) problems.push('인트로 간격 ' + label + ': 인사가 글자와 겹침 ' + JSON.stringify(r));
+    }
+    await ctx.close();
+  }
+  return '학교 이름 간격 ' + out.join(', ');
+}
+
 (async () => {
   await startServer();
   FILE = serveFile('미리보기.html', PREVIEW);
@@ -3779,6 +3843,18 @@ async function introReducedMotionCheck(browser) {
   if (process.env.ONLY === 'drop') {
     await dropCheck(browser);
     await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
+  // ONLY=intro: 여는 그림 점검만(학교 이름 간격, 판 2026-10-21c)
+  if (process.env.ONLY === 'intro') {
+    await emblemCheck(browser);
+    await helloCheck(browser);
+    const intro = [await introGapCheck(browser), await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
+    await browser.close();
+    console.log('인트로: ' + intro.join(' / '));
+    if (helloInfo) console.log(helloInfo);
     console.log('사진 ' + n + '장 → ' + OUT);
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
@@ -3936,7 +4012,7 @@ async function introReducedMotionCheck(browser) {
   await batCheck(browser);
   await dropCheck(browser);
   await tableMissingCheck(browser);
-  const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
+  const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser), await introGapCheck(browser)];
   await browser.close();
   console.log('인트로: ' + intro.join(' / '));
   if (planInfo) console.log(planInfo);
