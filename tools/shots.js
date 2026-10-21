@@ -889,6 +889,59 @@ async function printCheck(browser) {
   };
   let pp = await planPdf('인쇄_월별계획.pdf');
   if (pp.pages !== 1) problems.push('인쇄: 월별 계획이 ' + pp.pages + '쪽(한 장이어야 함)');
+  // 공휴일·휴업일은 인쇄에도 빨강(교사 요청, 판 2026-10-21a): 날짜·요일·행사 이름 + 줄 바탕 연한 빨강, 토·일 요일도 빨강, 평일은 검정
+  // 가짜 일정의 '테스트 공휴일'은 다음 주 월요일이라 이달에 없으면 다음 달에서 본다
+  const RED = 'rgb(217, 45, 32)', INK = 'rgb(25, 31, 40)', TINT = 'rgb(251, 234, 233)';
+  const toSched = async (view, sel) => {
+    await page.emulateMedia({ media: 'screen' });
+    await page.evaluate((v) => { window.__gy.S.sched.view = v; window.__gy.go('schedule'); }, view);
+    await page.locator(sel).first().waitFor();
+    if (!(await page.locator(view === 'cal' ? '.cal-d.off' : view === 'plan' ? 'table.plan tr.off' : '.ylist li.off').count())) {
+      await page.click('[data-action=m-next]');
+      await page.waitForTimeout(400);
+      await page.locator(sel).first().waitFor();
+    }
+    await page.emulateMedia({ media: 'print' });
+  };
+  await toSched('plan', 'table.plan');
+  const pc = await page.evaluate(() => {
+    const st = (el, k) => (el ? getComputedStyle(el)[k] : null);
+    const q = (s) => document.querySelector(s);
+    const off = q('table.plan tr.off'), we = q('table.plan tr.we:not(.off)'), wd = q('table.plan tbody tr:not(.we):not(.off)');
+    return {
+      offDate: st(off && off.querySelector('.c-date'), 'color'), offDow: st(off && off.querySelector('.c-dow'), 'color'), offEv: st(off && off.querySelector('.plan-ev.off'), 'color'),
+      offBg: st(off && off.querySelector('td'), 'backgroundColor'), weDow: st(we && we.querySelector('.c-dow'), 'color'), weDate: st(we && we.querySelector('.c-date'), 'color'),
+      weBg: st(we && we.querySelector('td'), 'backgroundColor'), wdDow: st(wd && wd.querySelector('.c-dow'), 'color'), wdBg: st(wd && wd.querySelector('td'), 'backgroundColor')
+    };
+  });
+  if (pc.offDate !== RED || pc.offDow !== RED || pc.offEv !== RED) problems.push('인쇄: 월별 계획의 공휴일·휴업일 날짜·요일·이름이 빨강이 아님 ' + JSON.stringify(pc));
+  if (pc.offBg !== TINT) problems.push('인쇄: 월별 계획의 쉬는 날 줄 바탕이 연한 빨강이 아님 ' + pc.offBg);
+  if (pc.weDow !== RED || pc.weDate !== INK) problems.push('인쇄: 월별 계획의 토·일은 요일만 빨강이어야 함 ' + JSON.stringify(pc));
+  if (pc.wdDow !== INK || !/rgba\(0, 0, 0, 0\)|rgb\(255, 255, 255\)/.test(pc.wdBg) || !/rgba\(0, 0, 0, 0\)|rgb\(255, 255, 255\)/.test(pc.weBg)) problems.push('인쇄: 월별 계획의 평일·토·일 줄이 검정·흰 바탕이 아님 ' + JSON.stringify(pc));
+  const offPdf = await planPdf('인쇄_월별계획_쉬는날.pdf');
+  if (offPdf.pages !== 1) problems.push('인쇄: 쉬는 날이 있는 달의 월별 계획이 ' + offPdf.pages + '쪽');
+  for (const [view, sel, name] of [['cal', '.cal-d', '인쇄_달력_쉬는날.pdf'], ['year', '.ylist', '인쇄_연간학사일정.pdf']]) {
+    await toSched(view, sel);
+    const c = await page.evaluate((v) => {
+      const st = (el) => (el ? getComputedStyle(el).color : null);
+      const q = (s) => document.querySelector(s);
+      return v === 'cal' ? { num: st(q('.cal-d.off .cal-num')), ev: st(q('.ev-off')), plain: st(q('.cal-d:not(.off):not(.other) .cal-num')) }
+        : { num: st(q('.ylist li.off .yd')), ev: st(q('.ylist li.off .plan-ev.off')), plain: st(q('.ylist li:not(.off) .yd')) };
+    }, view);
+    if (view === 'cal') {
+      const lg = await page.evaluate(() => getComputedStyle(document.querySelector('.lg-off')).backgroundColor);
+      if (lg !== RED) problems.push('인쇄: 달력 색 설명의 휴업일·공휴일 네모가 빨강이 아님 ' + lg);
+    }
+    if (c.num !== RED || c.ev !== RED || c.plain !== INK) problems.push('인쇄: ' + (view === 'cal' ? '달력' : '연간 학사일정') + '의 공휴일·휴업일이 빨강(나머지는 검정)이 아님 ' + JSON.stringify(c));
+    await page.pdf({ path: path.join(OUT, name), format: 'A4' });
+  }
+  await page.emulateMedia({ media: 'screen' });
+  await page.evaluate(() => { window.__gy.S.sched.view = 'plan'; window.__gy.go('schedule'); });
+  await page.locator('table.plan').waitFor();
+  await page.click('[data-action=m-today]');
+  await page.waitForTimeout(400);
+  await page.locator('table.plan').waitFor();
+  await page.emulateMedia({ media: 'print' });
   // 행사가 아주 많은 달(날마다 4개씩, 긴 이름)도 한 장
   await page.emulateMedia({ media: 'screen' });
   const made = await page.evaluate(async () => {
