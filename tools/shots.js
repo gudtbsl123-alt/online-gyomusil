@@ -287,7 +287,7 @@ async function libraryFlow(page, kind) {
   if (!(await page.locator('.quick-card .sr-row').count())) problems.push(kind + ': 홈 자주 찾는 자료가 비어 있음');
 }
 
-/** 5단계: 학사일정 한 번에 올리기(연구부장·부담당) — SAMPLE_XLSX(엑셀로 만든 시험 파일)가 있을 때 */
+/** 5단계: 학사일정 한 번에 올리기(관리자) — SAMPLE_XLSX(엑셀로 만든 시험 파일)가 있을 때 */
 const SAMPLE_XLSX = process.env.SAMPLE_XLSX;
 const TEMPLATE_OUT = process.env.TEMPLATE_OUT;
 async function uploadFlow(page, kind) {
@@ -2920,7 +2920,7 @@ async function b4FixCheck(browser) {
   }
   await shot(page, '보완4_점검_맨위_확인할것');
 
-  // 5) 운영 안내서: 선생님용 1쪽 인쇄는 A4 한 장, 모두 인쇄에는 연구부장 부분도
+  // 5) 운영 안내서: 선생님용 1쪽 인쇄는 A4 한 장, 모두 인쇄에는 관리자 부분도
   await page.evaluate(() => window.__gy.go('guide'));
   await page.locator('#guide-teacher').waitFor();
   const text = await page.locator('#screen').innerText();
@@ -3290,6 +3290,152 @@ async function batCheck(browser) {
 }
 
 /**
+ * 자료 끌어다 놓기(판 2026-10-21b, 교사 요청): 자료실 화면에 여러 파일 → 창(파일마다 제목, 큰 파일 막기·빼기) → 한 번에 넣기,
+ * 창 안에 파일 하나('링크'였어도 파일 올리기로, 제목 채움), 다른 화면에 놓아도 브라우저가 파일을 열지 않음, 도움말 파일 칸,
+ * 휴대폰은 '파일 고르기'로 여러 개, 종이색·어둡게 사진
+ */
+async function dropCheck(browser) {
+  const { open, toastHas } = tbKit(browser);
+  const P = (m) => problems.push('끌어다 놓기: ' + m);
+  // 파일을 만들어 끌어 온 것처럼 보낸다(dragenter → dragover → drop). big = MB
+  const dropFiles = (page, sel, files, overOnly) => page.evaluate(([s, fs, oo]) => {
+    const dt = new DataTransfer();
+    fs.forEach((f) => dt.items.add(new File([f.big ? new Uint8Array(f.big * 1024 * 1024 + 10) : f.text], f.name, { type: f.type || 'application/octet-stream' })));
+    const el = document.querySelector(s);
+    const fire = (t) => { const e = new DragEvent(t, { dataTransfer: dt, bubbles: true, cancelable: true }); el.dispatchEvent(e); return e.defaultPrevented; };
+    fire('dragenter');
+    const over = fire('dragover');
+    return oo ? { over } : { over, drop: fire('drop') };
+  }, [sel, files, !!overOnly]);
+  // 진짜 끌어다 놓기(크롬 CDP Input.dispatchDragEvent): 디스크의 파일을 브라우저가 직접 끌어 온다. 놓을 수 없는 곳(dropEffect 'none')이면
+  // 브라우저가 drop을 보내지 않는다 → window.__dropSeen으로 본다. 위의 흉내(dropFiles)로는 dropEffect를 볼 수 없다(크롬이 무시함)
+  const tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'gy-drop-'));
+  const real = ['진짜 끌기 시험.hwp', '두번째 파일.pdf'].map((nm, k) => { const f = path.join(tmp, nm); fs.writeFileSync(f, '진짜 파일 ' + (k + 1)); return f; });
+  const realDrop = async (page, sel, paths) => {
+    await page.evaluate(() => { window.__dropSeen = false; window.addEventListener('drop', () => { window.__dropSeen = true; }, { capture: true, once: true }); });
+    const box = await page.locator(sel).first().boundingBox();
+    const x = Math.round(box.x + box.width / 2), y = Math.round(box.y + Math.min(box.height / 2, 40));
+    const cdp = await page.context().newCDPSession(page);
+    const data = { items: [], files: paths, dragOperationsMask: 1 };
+    for (const type of ['dragEnter', 'dragOver', 'drop']) await cdp.send('Input.dispatchDragEvent', { type, x, y, data });
+    await cdp.detach();
+    await page.waitForTimeout(300);
+    return page.evaluate(() => window.__dropSeen);
+  };
+  const rowsOf = (page) => page.evaluate(() => Array.from(document.querySelectorAll('#lf-rows .file-row')).map((r) => ({
+    name: r.querySelector('.fr-name b').textContent, t: r.querySelector('[data-fr-t]') ? r.querySelector('[data-fr-t]').value : null, bad: r.classList.contains('bad')
+  })));
+  let { ctx, page } = await open({ width: 1280, height: 900 }, '심청');
+  await page.evaluate(() => window.__gy.go('library'));
+  await page.locator('.lib-card').first().waitFor();
+  const maxMb = await page.evaluate(() => window.__gy.S.lib.data.maxMb);
+  // 1) 자료실 화면에 끌어 오면 화면 전체 덮개
+  const o1 = await dropFiles(page, '#lib-list', [{ name: '학년 협의록 양식.hwp', text: '가짜 한글' }], true);
+  if (!o1.over) P('끌어 올 때 기본 동작을 막지 않음(dragover)'); // 놓을 수 있는지(dropEffect)는 아래 진짜 끌기로 본다
+  await page.locator('#drop-cover').waitFor({ timeout: 2000 }).catch(() => P('자료실 화면에 끌어 와도 덮개가 안 보임'));
+  await shot(page, '끌어놓기_자료실_덮개');
+  await page.locator('#drop-cover').waitFor({ state: 'detached', timeout: 3000 }).catch(() => P('끌어 오다 그만두었는데 덮개가 남음'));
+  // 2) 여러 파일을 놓으면 창: 파일마다 제목(확장자 뺌), 한도를 넘는 파일은 빨간 줄
+  const r2 = await dropFiles(page, '#lib-list', [
+    { name: '학년 협의록 양식.hwp', text: '가짜 한글 1' }, { name: '출결 확인 양식.xlsx', text: '가짜 엑셀' },
+    { name: '현장체험학습 안내.pdf', text: '가짜 PDF' }, { name: '아주 큰 동영상.mp4', big: maxMb + 1 }]);
+  if (!r2.drop) P('놓을 때 브라우저가 파일을 여는 것을 막지 않음');
+  await page.locator('#lib-form').waitFor({ timeout: 3000 }).catch(() => P('놓아도 자료 넣기 창이 안 열림'));
+  if (await page.locator('#drop-cover').count()) P('놓은 뒤에도 덮개가 남음');
+  let rows = await rowsOf(page);
+  if (rows.length !== 4 || rows[0].t !== '학년 협의록 양식' || rows[2].t !== '현장체험학습 안내' || !rows[3].bad || rows.slice(0, 3).some((x) => x.bad)) P('여러 파일 줄 ' + JSON.stringify(rows));
+  if (!(await page.locator('#lf-title-box').isHidden())) P('여러 파일인데 제목 칸이 보임');
+  if (!(await page.locator('#lib-form [data-mode=file][aria-pressed=true]').count())) P('파일 올리기로 바뀌지 않음');
+  if (!(await page.locator('#lib-form [data-mode=link]').isDisabled())) P('여러 파일인데 링크로 바꿀 수 있음');
+  if ((await page.locator('#lf-go').innerText()).trim() !== '4개 넣기') P('단추 글: ' + (await page.locator('#lf-go').innerText()));
+  await page.waitForTimeout(150);
+  if (!(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-fr-t') === '0'))) P('첫 파일의 제목 칸으로 커서가 가지 않음');
+  await shot(page, '끌어놓기_여러파일_창');
+  await page.evaluate(() => { document.documentElement.setAttribute('data-theme', 'dark'); document.documentElement.setAttribute('data-design', 'paper'); });
+  await shot(page, '끌어놓기_여러파일_창_종이색어둡게');
+  await page.evaluate(() => { document.documentElement.setAttribute('data-theme', 'light'); document.documentElement.setAttribute('data-design', 'base'); });
+  await page.click('#lf-go');
+  if (!/빼 주세요/.test(await page.locator('#lf-err').innerText())) P('한도를 넘는 파일이 있는데 막지 않음');
+  await page.click('#lf-rows .file-row:nth-child(4) [data-fr-x]');
+  await page.fill('[data-fr-t="1"]', '출결 확인 양식(2학기)');
+  if ((await page.locator('#lf-go').innerText()).trim() !== '3개 넣기') P('뺀 뒤 단추 글: ' + (await page.locator('#lf-go').innerText()));
+  await page.click('#lf-go');
+  if (!(await toastHas(page, /3개 자료를 넣었어요/))) P('여러 파일을 넣었다는 알림이 없음');
+  await page.locator('#lib-form').waitFor({ state: 'detached', timeout: 8000 }).catch(() => P('다 넣었는데 창이 닫히지 않음'));
+  const want = ['학년 협의록 양식', '출결 확인 양식(2학기)', '현장체험학습 안내'];
+  const saved = await page.evaluate((w) => window.__gy.S.lib.data.items.filter((x) => w.indexOf(x.title) >= 0).map((x) => ({ t: x.title, f: x.fileName, has: x.hasFile, dept: x.deptId, owner: x.owner })), want);
+  if (saved.length !== 3 || saved.some((x) => !x.has || x.dept !== saved[0].dept || x.owner !== '심청')) P('저장된 자료 ' + JSON.stringify(saved));
+  if (!saved.some((x) => x.t === '출결 확인 양식(2학기)' && x.f === '출결 확인 양식.xlsx')) P('고친 제목·파일 이름이 다름 ' + JSON.stringify(saved));
+  for (const t of want) if (!(await page.locator('.lib-card', { hasText: t }).count())) P('목록에 없음: ' + t);
+  await shot(page, '끌어놓기_여러파일_넣은뒤');
+  // 3) 창 안에 파일 하나: '링크'였어도 파일 올리기로 바뀌고 제목이 채워진다. 끌어 오는 동안 숨은 상자 대신 창 전체를 밝힘
+  await page.click('[data-action=lib-new]');
+  await page.locator('#lib-form').waitFor();
+  await modalSettled(page);
+  await dropFiles(page, '#lf-desc', [{ name: '교실 안전 점검표.hwp', text: '가짜 점검표' }], true);
+  if (!(await page.locator('.modal.drop-over').count())) P("'링크'일 때 끌어 와도 창이 밝아지지 않음");
+  await shot(page, '끌어놓기_창_끌어오는중');
+  await dropFiles(page, '#lf-desc', [{ name: '교실 안전 점검표.hwp', text: '가짜 점검표' }]);
+  if (await page.locator('.modal.drop-over').count()) P('놓은 뒤에도 창 테두리가 남음');
+  if ((await page.inputValue('#lf-title')) !== '교실 안전 점검표') P('제목이 파일 이름으로 채워지지 않음: ' + (await page.inputValue('#lf-title')));
+  if (!(await page.locator('#lf-file-box').isVisible())) P('파일 칸으로 바뀌지 않음');
+  rows = await rowsOf(page);
+  if (rows.length !== 1 || rows[0].t !== null) P('파일 하나 줄 ' + JSON.stringify(rows));
+  await shot(page, '끌어놓기_창에_하나');
+  await page.click('#lf-go');
+  if (!(await toastHas(page, /"교실 안전 점검표" 자료를 넣었어요/))) P('파일 하나를 넣었다는 알림이 없음');
+  // 4) 다른 화면(홈)에 떨어뜨리면: 브라우저 기본 동작(파일 열기)을 막고 아무 창도 열지 않음
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.today-card').waitFor();
+  const r4 = await dropFiles(page, '.today-card', [{ name: '아무거나.hwp', text: 'x' }]);
+  if (!r4.drop) P('홈에 떨어뜨리면 브라우저가 파일을 열 수 있음(기본 동작을 막지 않음)');
+  const url0 = page.url();
+  const seenHome = await realDrop(page, '.today-card', real.slice(0, 1));
+  if (seenHome) P('홈인데 놓을 수 있다고 알림(진짜 끌기에서 drop이 옴)');
+  if (page.url() !== url0 || !(await page.evaluate(() => !!(window.__gy && document.querySelector('.today-card'))))) P('홈에 진짜로 떨어뜨렸더니 웹앱을 떠남 ' + page.url());
+  if (await page.locator('.modal').count()) P('홈에 떨어뜨렸는데 창이 열림');
+  // 자료실: 진짜 끌기로 놓으면(drop이 옴) 파일 두 개가 창에 들어간다
+  await page.evaluate(() => window.__gy.go('library'));
+  await page.locator('.lib-card').first().waitFor();
+  const seenLib = await realDrop(page, '#lib-list', real);
+  if (!seenLib) P('자료실인데 진짜 끌기에서 놓을 수 없음(drop이 안 옴)');
+  await page.locator('#lib-form').waitFor({ timeout: 3000 }).catch(() => P('진짜로 끌어다 놓아도 창이 안 열림'));
+  const realRows = await rowsOf(page);
+  if (realRows.map((x) => x.name).join() !== '진짜 끌기 시험.hwp,두번째 파일.pdf' || realRows[0].t !== '진짜 끌기 시험') P('진짜로 끌어 온 파일 줄 ' + JSON.stringify(realRows));
+  await page.click('#lib-form [data-action=close-modal]');
+  await page.locator('#lib-form').waitFor({ state: 'detached' });
+  // 5) 도움말: 파일 칸에 놓기(파일 하나)
+  await page.evaluate(() => window.__gy.go('help'));
+  await page.locator('.help-item').first().waitFor(); // 목록을 받은 뒤에야 '도움말 쓰기'가 창을 연다
+  await page.click('[data-action=help-new]');
+  await page.locator('#help-form').waitFor();
+  await modalSettled(page);
+  await dropFiles(page, '#hf-file-zone', [{ name: '학교폭력 신고 절차.pdf', text: '가짜 1' }, { name: '두 번째.pdf', text: '가짜 2' }]);
+  const hf = await page.evaluate(() => ({ rows: Array.from(document.querySelectorAll('#hf-rows .fr-name b')).map((b) => b.textContent), err: document.querySelector('#hf-err').textContent }));
+  if (hf.rows.join() !== '학교폭력 신고 절차.pdf' || !/첫 파일만/.test(hf.err)) P('도움말 파일 칸 ' + JSON.stringify(hf));
+  await shot(page, '끌어놓기_도움말');
+  await ctx.close();
+  // 6) 휴대폰: 상자 안의 '파일 고르기'로 여러 개 고르기
+  ({ ctx, page } = await open({ width: 390, height: 844 }, '심청', true));
+  await page.evaluate(() => window.__gy.go('library'));
+  await page.locator('.lib-card').first().waitFor();
+  await page.click('[data-action=lib-new]');
+  await page.locator('#lib-form').waitFor();
+  await modalSettled(page);
+  await page.click('#lib-form [data-mode=file]');
+  await page.locator('#lf-file-pick').scrollIntoViewIfNeeded();
+  await shot(page, '끌어놓기_휴대폰_상자');
+  await page.setInputFiles('#lf-file', [{ name: '가정통신문 양식.hwp', mimeType: 'application/x-hwp', buffer: Buffer.from('가짜 1') }, { name: '상담 일지.hwp', mimeType: 'application/x-hwp', buffer: Buffer.from('가짜 2') }]);
+  rows = await rowsOf(page);
+  if (rows.length !== 2 || rows[1].t !== '상담 일지') P('휴대폰에서 여러 개 고르기 ' + JSON.stringify(rows));
+  const wide = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || Array.from(document.querySelectorAll('.file-row')).some((r) => r.getBoundingClientRect().right > innerWidth + 1));
+  if (wide) P('휴대폰에서 파일 줄이 넘침');
+  await page.locator('#lf-rows').scrollIntoViewIfNeeded();
+  await shot(page, '끌어놓기_휴대폰_여러개');
+  await ctx.close();
+}
+
+/**
  * 취합 시트 화면 파일(TableUi.html) 받기(판 2026-10-19a, 45)
  *  1) 열 때 받기(기본): 첫 화면에는 없고 취합 시트를 처음 열 때 한 번 받는다(홈 '채우기'로 바로 그 표). 서버에 파일이 없으면 그 화면만 안내, 점검은 '문제'
  *  2) 처음에 함께(설정 '처음에 함께', 예전 방식): 처음부터 들어 있어 받지 않는다. 파일이 없으면 그 화면만 안내
@@ -3629,6 +3775,14 @@ async function introReducedMotionCheck(browser) {
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
   }
+  // ONLY=drop: 자료 끌어다 놓기(판 2026-10-21b) 점검만
+  if (process.env.ONLY === 'drop') {
+    await dropCheck(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
   // ONLY=bat: 자동 등록 파일(.bat, 판 2026-10-20a) 점검만
   if (process.env.ONLY === 'bat') {
     await b5ShortcutCheck(browser);
@@ -3780,6 +3934,7 @@ async function introReducedMotionCheck(browser) {
   await b5TableCheck(browser);
   await b5ShortcutCheck(browser);
   await batCheck(browser);
+  await dropCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser)];
   await browser.close();

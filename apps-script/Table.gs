@@ -30,7 +30,7 @@
  *   (줄의 행 번호는 잠금 밖에서 서버 기억으로 먼저 찾아 두고, 잠금 안에서 그 줄이 맞는지 다시 본다)
  */
 
-function fileMark_Table_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
+function fileMark_Table_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
 
 var TB_MAX_ROWS_ = 500;       // 한 시트의 줄
 var TB_MAX_COLS_ = 30;        // 한 시트의 열
@@ -117,7 +117,7 @@ function tbClosed_(t) {
 /** 이 시트에 무언가 쓸 수 있는지(이름을 고른 분, 마감한 표는 만든 분·관리) */
 function tbCheckWrite_(main, ctx) {
   if (!ctx.identity) throw userError_('이름을 고르면 고칠 수 있어요.', 'IDENTITY');
-  if (!tbOwner_(main, ctx) && tbClosed_(main)) throw userError_('마감한 표예요. 만든 분과 연구부장·부담당만 고칠 수 있어요.', 'CLOSED');
+  if (!tbOwner_(main, ctx) && tbClosed_(main)) throw userError_('마감한 표예요. 만든 분과 관리자만 고칠 수 있어요.', 'CLOSED');
 }
 
 function tbAllCols_(t) {
@@ -896,9 +896,9 @@ function tbHints_(id, rowIds, withRows, given) {
 /** 칸을 고칠 수 있는지(안 되면 오류) */
 function tbCheckCell_(main, col, row, ctx) {
   var owner = tbOwner_(main, ctx);
-  if (!owner && tbClosed_(main)) throw userError_('마감한 표예요. 만든 분과 연구부장·부담당만 고칠 수 있어요.', 'CLOSED');
+  if (!owner && tbClosed_(main)) throw userError_('마감한 표예요. 만든 분과 관리자만 고칠 수 있어요.', 'CLOSED');
   var mineRow = !!(row && ctx.identity && row['입력자ID'] === ctx.identity['교직원ID']);
-  if (col.lock && !owner && !mineRow) throw userError_("'" + col.name + "' 열은 잠겨 있어요. 만든 분과 연구부장·부담당만 고칠 수 있어요.", 'LOCKED');
+  if (col.lock && !owner && !mineRow) throw userError_("'" + col.name + "' 열은 잠겨 있어요. 만든 분과 관리자만 고칠 수 있어요.", 'LOCKED');
 }
 
 /** 잠금 안: 고친 칸을 줄에 넣는다 */
@@ -1049,7 +1049,7 @@ function apiTableCreate_(args, actor, ctx) {
 function apiTableSave_(args, actor, ctx) {
   var all = tbRows_('함께표'), t0 = tbById_(all, String(args.id || '')), m0 = t0 ? tbMainOf_(all, t0) : null;
   if (!m0 || m0['삭제 여부']) throw userError_('이 표를 찾지 못했어요. 지워졌을 수 있어요.', 'NOTFOUND');
-  if (!tbOwner_(m0, ctx)) throw userError_('만든 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
+  if (!tbOwner_(m0, ctx)) throw userError_('만든 분과 관리자만 고칠 수 있어요.', 'FORBIDDEN');
   var meta = tbCleanMeta_(args.fields || {}), rec = { '제목': meta['제목'], '부서ID': meta['부서ID'], '마감': meta['마감'] };
   tbEnsureCols_();
   return withLock_(function () {
@@ -1066,7 +1066,7 @@ function apiTableSave_(args, actor, ctx) {
 function apiTableSetOpen_(args, actor, ctx) {
   var all = tbRows_('함께표'), t0 = tbById_(all, String(args.id || '')), m0 = t0 ? tbMainOf_(all, t0) : null;
   if (!m0 || m0['삭제 여부']) throw userError_('이 표를 찾지 못했어요. 지워졌을 수 있어요.', 'NOTFOUND');
-  if (!tbOwner_(m0, ctx)) throw userError_('만든 분과 연구부장·부담당만 바꿀 수 있어요.', 'FORBIDDEN');
+  if (!tbOwner_(m0, ctx)) throw userError_('만든 분과 관리자만 바꿀 수 있어요.', 'FORBIDDEN');
   tbEnsureCols_();
   return withLock_(function () {
     var main = findRow_('함께표', m0['표ID']);
@@ -1083,7 +1083,7 @@ function apiTableSetOpen_(args, actor, ctx) {
 function apiTableDelete_(args, actor, ctx) {
   var all = tbRows_('함께표'), t0 = tbById_(all, String(args.id || '')), m0 = t0 ? tbMainOf_(all, t0) : null;
   if (!m0 || m0['삭제 여부']) throw userError_('이 표를 찾지 못했어요. 지워졌을 수 있어요.', 'NOTFOUND');
-  if (!tbOwner_(m0, ctx)) throw userError_('만든 분과 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
+  if (!tbOwner_(m0, ctx)) throw userError_('만든 분과 관리자만 지울 수 있어요.', 'FORBIDDEN');
   return withLock_(function () {
     var main = findRow_('함께표', m0['표ID']);
     if (!main || main['삭제 여부']) return { done: true };
@@ -1102,7 +1102,7 @@ function tbDocFresh_(id, ctx, need) {
   var all = tbRows_('함께표'), t = tbById_(all, id), main = t ? tbMainOf_(all, t) : null;
   if (!main || main['삭제 여부']) throw userError_('이 표가 지워졌어요.', 'NOTFOUND');
   if (need === 'sheet' && (!t || tbSheetGone_(t))) throw userError_('이 시트가 지워졌어요. 표를 새로 불러올게요.', 'NOTFOUND');
-  if (!tbOwner_(main, ctx)) throw userError_('시트는 만든 분과 연구부장·부담당만 더하고 고칠 수 있어요.', 'FORBIDDEN');
+  if (!tbOwner_(main, ctx)) throw userError_('시트는 만든 분과 관리자만 더하고 고칠 수 있어요.', 'FORBIDDEN');
   return { all: all, t: t, main: main, sheets: tbSheetsOf_(all, main['표ID']) };
 }
 /** 잠금 안: 시트 순서를 list 차례(1, 2, 3…)로 다시 매긴다(바뀐 줄만 쓴다) */
@@ -1273,7 +1273,7 @@ function apiTableCells_(args, actor, ctx) {
   return withLock_(function () {
     var L = tbLockPair_(id, hint), t = L.t, main = L.main;
     var owner = tbOwner_(main, ctx);
-    if (!owner && tbClosed_(main)) throw userError_('마감한 표예요. 만든 분과 연구부장·부담당만 고칠 수 있어요.', 'CLOSED');
+    if (!owner && tbClosed_(main)) throw userError_('마감한 표예요. 만든 분과 관리자만 고칠 수 있어요.', 'CLOSED');
     var cols = tbCols_(t), colOf = {};
     cols.forEach(function (c) { colOf[c.id] = c; });
     var rh = tbHead_('함께표줄');
@@ -1387,7 +1387,7 @@ function apiTableRowAdd_(args, actor, ctx) {
   var grow = below ? hint.merges.filter(function (m) { return m.bottom === afterId && m.row !== afterId; }) : [];
   return withLock_(function () {
     var L = tbLockPair_(id, hint), t = L.t, main = L.main;
-    if (!tbOwner_(main, ctx) && tbClosed_(main)) throw userError_('마감한 표예요. 만든 분과 연구부장·부담당만 고칠 수 있어요.', 'CLOSED');
+    if (!tbOwner_(main, ctx) && tbClosed_(main)) throw userError_('마감한 표예요. 만든 분과 관리자만 고칠 수 있어요.', 'CLOSED');
     var cols = tbCols_(t), fmt = {}, ver = 0, rh = tbHead_('함께표줄'), extra = [];
     var bump = function () { if (!ver) ver = tbBump_(t, L.th); return ver; };
     Object.keys(args.fmt || {}).forEach(function (cid) {
@@ -1443,8 +1443,8 @@ function apiTableRowDelete_(args, actor, ctx) {
     if (!r || r['표ID'] !== id) throw userError_('이 줄을 찾지 못했어요. 표를 새로 불러올게요.', 'STALE');
     if (r['삭제 여부']) return { ver: Number(t['판']) || 0, row: tbRowView_(r, names, main['입력자ID']), rows: [] };
     var owner = tbOwner_(main, ctx), mineRow = !!(ctx.identity && r['입력자ID'] === ctx.identity['교직원ID']);
-    if (!owner && !mineRow) throw userError_('줄은 만든 분과 연구부장·부담당, 그 줄을 더한 분만 뺄 수 있어요.', 'FORBIDDEN');
-    if (!owner && tbClosed_(main)) throw userError_('마감한 표예요. 만든 분과 연구부장·부담당만 고칠 수 있어요.', 'CLOSED');
+    if (!owner && !mineRow) throw userError_('줄은 만든 분과 관리자, 그 줄을 더한 분만 뺄 수 있어요.', 'FORBIDDEN');
+    if (!owner && tbClosed_(main)) throw userError_('마감한 표예요. 만든 분과 관리자만 고칠 수 있어요.', 'CLOSED');
     var ver = tbBump_(t, L.th), cols = tbCols_(t), cells = tbParse_(r['칸'], {}), fmt = tbParse_(r['서식'], {});
     r['삭제 여부'] = '삭제';
     r['판'] = String(ver);
@@ -1505,7 +1505,7 @@ function apiTableRowDelete_(args, actor, ctx) {
 function apiTableCols_(args, actor, ctx) {
   var all = tbRows_('함께표'), t0 = tbById_(all, String(args.id || '')), m0 = t0 ? tbMainOf_(all, t0) : null;
   if (!t0 || !m0 || m0['삭제 여부'] || tbSheetGone_(t0)) throw userError_('이 시트를 찾지 못했어요. 지워졌을 수 있어요.', 'NOTFOUND');
-  if (!tbOwner_(m0, ctx)) throw userError_('열은 만든 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
+  if (!tbOwner_(m0, ctx)) throw userError_('열은 만든 분과 관리자만 고칠 수 있어요.', 'FORBIDDEN');
   return withLock_(function () {
     var t = findRow_('함께표', t0['표ID']);
     if (!t || tbSheetGone_(t)) throw userError_('이 시트가 지워졌어요.', 'NOTFOUND');
@@ -1919,7 +1919,7 @@ function apiTableTplUpdate_(args, actor, ctx) {
   return withLock_(function () {
     var saved = tbTplRows_(), r = saved.filter(function (x) { return x['양식ID'] === id; })[0];
     if (!r) throw userError_('이 양식을 찾지 못했어요. 지워졌을 수 있어요.', 'NOTFOUND');
-    if (!tbTplOwner_(r, ctx)) throw userError_('양식은 저장한 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
+    if (!tbTplOwner_(r, ctx)) throw userError_('양식은 저장한 분과 관리자만 고칠 수 있어요.', 'FORBIDDEN');
     var name = tbCleanTplName_(args.name, saved, id);
     updateRow_('시트양식', id, { '이름': name, '설명': desc }, actor, '시트 양식 고침: ' + name);
     return { id: id, name: name };
@@ -1933,7 +1933,7 @@ function apiTableTplDelete_(args, actor, ctx) {
   return withLock_(function () {
     var r = tbTplRows_().filter(function (x) { return x['양식ID'] === id; })[0];
     if (!r) return { done: true };
-    if (!tbTplOwner_(r, ctx)) throw userError_('양식은 저장한 분과 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
+    if (!tbTplOwner_(r, ctx)) throw userError_('양식은 저장한 분과 관리자만 지울 수 있어요.', 'FORBIDDEN');
     softDelete_('시트양식', id, actor, '시트 양식 지움: ' + r['이름']);
     return { done: true };
   });

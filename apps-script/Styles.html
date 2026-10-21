@@ -11,7 +11,7 @@
 :root[data-design="paper"]{--c-bg:#F4EEE3;--c-sub:#FFFBF4;--c-card:#FFFDF8;--c-card2:#F4EEE3;--c-pill:#F1E9DB;--c-line:#E6DBC9;--c-line2:#D3C4AD;--c-seg:#F1E9DB;--c-avatar:#E6DBC9;--c-t0:#2A231C;--c-t1:#2A231C;--c-t2:#5A4F42;--c-t3:#6B6052;--c-dot:#B5A792;--c-radio:#B5A792;--c-warnBg:#FCEED6;--c-warnFg:#864809;--c-okBg:#E5F1E1;--c-okFg:#2E6A32;--c-red:#BE321C;--c-onAccent:#FFFFFF;--accent:#A0502A;--accent-soft:rgba(160, 80, 42, 0.1);--accent-ring:rgba(160, 80, 42, 0.35);--accent-glow:rgba(160, 80, 42, 0.22);--hero-a:rgba(214, 140, 70, 0.20);--hero-b:rgba(160, 80, 42, 0.06);--scheme:light;--seg-light-bg:#FFFDF8;--seg-light-fg:#2A231C;--seg-dark-bg:transparent;--seg-dark-fg:#6B6052;--sun-display:none;--moon-display:block;--stage:#E6DBC9}
 :root[data-design="paper"][data-theme="dark"]{--c-bg:#15120E;--c-sub:#1B1712;--c-card:#211C16;--c-card2:#28221B;--c-pill:#2B241C;--c-line:#2F281F;--c-line2:#3C3328;--c-seg:#3C3328;--c-avatar:#3C3328;--c-t0:#FBF6EE;--c-t1:#F3EBDF;--c-t2:#CFC1AF;--c-t3:#A89986;--c-dot:#A89986;--c-radio:#5E5243;--c-warnBg:#2E1F0A;--c-warnFg:#F2B36B;--c-okBg:#162814;--c-okFg:#86D080;--c-red:#FF7A66;--c-onAccent:#15120E;--accent:#E89C64;--accent-soft:rgba(232, 156, 100, 0.14);--accent-ring:rgba(232, 156, 100, 0.32);--accent-glow:rgba(232, 156, 100, 0.18);--hero-a:rgba(232, 156, 100, 0.26);--hero-b:rgba(232, 156, 100, 0.10);--scheme:dark;--seg-light-bg:transparent;--seg-light-fg:#A89986;--seg-dark-bg:#3C3328;--seg-dark-fg:#F3EBDF;--sun-display:block;--moon-display:none;--stage:#0B0907}
 html{background:var(--c-bg)}
-:root{--gy-build:"2026-10-21a"} /* 판 표시(관리자 › 점검) */
+:root{--gy-build:"2026-10-21b"} /* 판 표시(관리자 › 점검) */
 body{margin:0;word-break:keep-all;background:var(--c-bg);color:var(--c-t1);font-family:Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased}
 a{color:inherit}
 input::placeholder,textarea::placeholder{color:currentColor;opacity:.7}
@@ -608,6 +608,29 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .linkish.accent{color:var(--accent);text-decoration:none;font-weight:700}
 .input-file{padding:10px 12px;min-height:52px;font-size:15px}
 .file-now{display:flex;align-items:center;gap:8px;margin:0;font-size:15px;overflow-wrap:anywhere}
+/* 끌어다 놓기로 파일 올리기(판 2026-10-21b): 창의 상자, 고른 파일 줄, 자료실 화면 덮개 */
+.drop-zone{display:flex;flex-direction:column;align-items:center;gap:4px;padding:18px 14px;border:2px dashed var(--c-line2);border-radius:14px;background:var(--c-card2);color:var(--c-t2);font-size:15px;text-align:center;transition:border-color .15s,background-color .15s}
+.drop-zone p{margin:0}
+.drop-zone .faint{font-size:13px}
+.drop-zone svg{color:var(--c-t3)}
+.drop-zone .linkish{color:var(--accent)}
+.drop-zone.over{border-color:var(--accent);background:var(--accent-soft);color:var(--c-t1)}
+.drop-zone.over svg{color:var(--accent)}
+.modal.drop-over{outline:3px dashed var(--accent);outline-offset:-8px}
+.file-rows{display:flex;flex-direction:column;gap:8px}
+.file-rows:not(:empty){margin-top:8px}
+.file-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 8px;padding:8px 8px 8px 12px;border:1px solid var(--c-line);border-radius:12px;background:var(--c-card)}
+.file-row .fr-name{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px;color:var(--c-t3)}
+.file-row .fr-name b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c-t1);font-weight:600}
+.file-row .fr-name svg{flex:none}
+.file-row .input,.file-row .err{grid-column:1/-1}
+.file-row .err{margin:0;font-size:13px}
+.file-row.bad{border-color:var(--c-red)}
+.drop-cover{position:fixed;inset:0;z-index:75;display:grid;place-items:center;padding:24px;background:rgba(0,0,0,.35);pointer-events:none}
+.drop-cover-box{display:flex;flex-direction:column;align-items:center;gap:8px;width:min(520px,100%);padding:40px 24px;border:3px dashed var(--accent);border-radius:20px;background:var(--c-card);color:var(--c-t2);text-align:center;box-shadow:0 20px 50px -20px rgba(0,0,0,.5)}
+.drop-cover-box b{font-size:20px;color:var(--c-t1)}
+.drop-cover-box svg{color:var(--accent)}
+@media print{.drop-cover{display:none!important}}
 .ev-dl dd{overflow-wrap:anywhere}
 .home-search{width:340px;max-width:100%}
 .intro{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:16px 20px;background:var(--c-sub);border:1px solid var(--c-line);border-radius:14px}

@@ -11,7 +11,7 @@
  * - 파일은 지우지 않는다. 자료를 지우거나 파일을 바꿔도 드라이브 파일은 그대로 남고, 기록 탭에 파일ID가 남는다.
  */
 
-function fileMark_Library_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
+function fileMark_Library_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 도구
 
@@ -114,7 +114,7 @@ function apiFileGet_(args, actor, ctx) {
   try {
     blob = DriveApp.getFileById(row['파일ID']).getBlob();
   } catch (e) {
-    throw userError_('드라이브에서 파일을 찾지 못했어요. 연구부장·부담당에게 알려 주세요.', 'NOTFOUND');
+    throw userError_('드라이브에서 파일을 찾지 못했어요. 관리자에게 알려 주세요.', 'NOTFOUND');
   }
   return {
     name: row['파일 이름'] || blob.getName() || '파일',
@@ -211,8 +211,8 @@ function apiLibSave_(args, actor, ctx) {
   if (args.id) {
     row = findRow_('자료', String(args.id));
     if (!row || row['삭제 여부']) throw userError_('자료를 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
-    if (!canEditOwned_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
-    if (libView_(row, ctx, libCache_()).archived) throw userError_('보관함 자료는 고칠 수 없어요. 연구부장·부담당이 지금 학년도로 꺼내면 고칠 수 있어요.');
+    if (!canEditOwned_(row, ctx)) throw userError_('처음 넣은 분과 관리자만 고칠 수 있어요.', 'FORBIDDEN');
+    if (libView_(row, ctx, libCache_()).archived) throw userError_('보관함 자료는 고칠 수 없어요. 관리자가 지금 학년도로 꺼내면 고칠 수 있어요.');
   }
   if (f.mode === 'file') {
     if (!args.file && !(row && row['파일ID'])) throw userError_('올릴 파일을 골라 주세요.');
@@ -246,14 +246,14 @@ function apiLibSave_(args, actor, ctx) {
 function apiLibDelete_(args, actor, ctx) {
   var row = findRow_('자료', String(args.id || ''));
   if (!row || row['삭제 여부']) throw userError_('자료를 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
-  if (!canEditOwned_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
+  if (!canEditOwned_(row, ctx)) throw userError_('처음 넣은 분과 관리자만 지울 수 있어요.', 'FORBIDDEN');
   softDelete_('자료', row['자료ID'], actor, '자료 지움: ' + libSummary_(row));
   return { done: true };
 }
 
 /** 보관함 자료를 지금 학년도로 다시 꺼내기(관리) */
 function apiLibUnarchive_(args, actor, ctx) {
-  if (!canManage_(ctx)) throw manageDenied_(ctx, '보관 풀기는 연구부장·부담당이 해요.');
+  if (!canManage_(ctx)) throw manageDenied_(ctx, '보관 풀기는 관리자가 해요.');
   var row = findRow_('자료', String(args.id || ''));
   if (!row || row['삭제 여부']) throw userError_('자료를 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
   var cur = libYear_();

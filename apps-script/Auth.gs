@@ -12,7 +12,7 @@
  *   ADMIN_PW_HASH, ADMIN_PW_SALT, ADMIN_PW_VER, ADMIN_FAILS, ADMIN_LOCK_UNTIL
  */
 
-function fileMark_Auth_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
+function fileMark_Auth_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
 
 var AUTH_LOGIN_HOURS_ = 12;   // '기억하기'를 끈 로그인·본인 확인이 유지되는 시간 (제안)
 var AUTH_ADMIN_HOURS_ = 2;    // 관리자 화면이 열려 있는 시간 (제안)
@@ -226,7 +226,7 @@ function addLoginFail_() {
 
 function login_(args) {
   if (!hasPassword_('common')) {
-    throw userError_('아직 공통 비밀번호가 정해지지 않았어요. 연구부장·부담당에게 알려 주세요.', 'SETUP');
+    throw userError_('아직 공통 비밀번호가 정해지지 않았어요. 관리자에게 알려 주세요.', 'SETUP');
   }
   var f = loginFails_();
   if (f.n >= LOGIN_FAIL_MAX_) {
@@ -309,12 +309,12 @@ function verifyPin_(args) {
       throw userError_('명단에서 이름을 다시 골라 주세요.', 'NOTFOUND');
     }
     if (!row['개인번호해시']) {
-      throw userError_('아직 개인 번호가 없어요. 연구부장·부담당에게 받아 주세요.', 'NOPIN');
+      throw userError_('아직 개인 번호가 없어요. 관리자에게 받아 주세요.', 'NOPIN');
     }
     var until = Number(row['잠금 해제 시각']) || 0;
     if (until > Date.now()) {
       var left = Math.ceil((until - Date.now()) / 60000);
-      throw userError_('번호를 여러 번 틀려서 잠시 잠겼어요. ' + left + '분 뒤에 다시 해 주세요. 급하면 연구부장·부담당에게 알려 주세요.', 'LOCKED');
+      throw userError_('번호를 여러 번 틀려서 잠시 잠겼어요. ' + left + '분 뒤에 다시 해 주세요. 급하면 관리자에게 알려 주세요.', 'LOCKED');
     }
     if (sameText_(pinHash_(pin, row['솔트']), row['개인번호해시'])) {
       if (row['틀린 횟수'] && row['틀린 횟수'] !== '0') setCellsNoLog_('교직원', row, { '틀린 횟수': '0', '잠금 해제 시각': '' });

@@ -8,7 +8,7 @@
  * - 공지: 홈 공지 카드(아래)
  */
 
-function fileMark_Help_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
+function fileMark_Help_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 도움말
 
@@ -65,7 +65,7 @@ function apiHelpSave_(args, actor, ctx) {
   if (args.id) {
     row = findRow_('도움말', String(args.id));
     if (!row || row['삭제 여부']) throw userError_('도움말을 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
-    if (!canEditOwned_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
+    if (!canEditOwned_(row, ctx)) throw userError_('처음 넣은 분과 관리자만 고칠 수 있어요.', 'FORBIDDEN');
   }
   // 홈 '비상 시 이것부터'에 보이기: 관리만, 3개까지(2026-10-19a)
   if (canManage_(ctx) && f.home !== undefined) {
@@ -132,7 +132,7 @@ function homeHelp_(ctx) {
 function apiHelpDelete_(args, actor, ctx) {
   var row = findRow_('도움말', String(args.id || ''));
   if (!row || row['삭제 여부']) throw userError_('도움말을 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
-  if (!canEditOwned_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
+  if (!canEditOwned_(row, ctx)) throw userError_('처음 넣은 분과 관리자만 지울 수 있어요.', 'FORBIDDEN');
   softDelete_('도움말', row['항목ID'], actor, '도움말 지움: ' + row['제목']);
   return { done: true };
 }
@@ -302,7 +302,7 @@ function apiNoticeSave_(args, actor, ctx) {
   if (args.id) {
     row = findRow_('공지', String(args.id));
     if (!row || row['삭제 여부']) throw userError_('공지를 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
-    if (!canEditOwned_(row, ctx)) throw userError_('쓴 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
+    if (!canEditOwned_(row, ctx)) throw userError_('쓴 분과 관리자만 고칠 수 있어요.', 'FORBIDDEN');
   }
   var saved = row
     ? updateRow_('공지', row['공지ID'], rec, actor, '공지 고침: ' + rec['제목'])
@@ -313,7 +313,7 @@ function apiNoticeSave_(args, actor, ctx) {
 function apiNoticeDelete_(args, actor, ctx) {
   var row = findRow_('공지', String(args.id || ''));
   if (!row || row['삭제 여부']) throw userError_('공지를 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
-  if (!canEditOwned_(row, ctx)) throw userError_('쓴 분과 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
+  if (!canEditOwned_(row, ctx)) throw userError_('쓴 분과 관리자만 지울 수 있어요.', 'FORBIDDEN');
   softDelete_('공지', row['공지ID'], actor, '공지 지움: ' + row['제목']);
   return { done: true };
 }

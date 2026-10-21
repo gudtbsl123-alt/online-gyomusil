@@ -400,7 +400,7 @@ body.tb-resizing.rows,body.tb-resizing.rows *{cursor:row-resize!important}
  * - 웹앱은 이 파일을 취합 시트를 처음 열 때 받아 붙인다(App.html tableUiLoad, 서버 ui.table). 설정 '처음에 함께'면 예전처럼 처음부터 들어 있다
  * - 화면 코드에 U+2028·U+2029를 그대로 쓰지 않는다(\u2028처럼 적는다)
  */
-window.__gyTableUiBuild = '2026-10-19a';
+window.__gyTableUiBuild = '2026-10-21b';
 window.__gyTableUi = function (core) {
   'use strict';
   var S = core.S, SCREENS = core.SCREENS, $modal = core.$modal;
@@ -848,7 +848,7 @@ window.__gyTableUi = function (core) {
     var T = S.table, d = T.d, box = qs('#tb-detail');
     if (!box || !d) return;
     var t = d.table, phone = isPhone(), many = d.doc.sheets.length > 1;
-    var state = t.closed ? (t.canEdit ? '마감한 표예요(만든 분과 연구부장·부담당은 고칠 수 있어요)' : '마감한 표예요 · 보기만 할 수 있어요')
+    var state = t.closed ? (t.canEdit ? '마감한 표예요(만든 분과 관리자는 고칠 수 있어요)' : '마감한 표예요 · 보기만 할 수 있어요')
       : t.canWrite ? (phone ? '줄을 누르면 고칠 수 있어요' : '칸을 누르고 쓰면 바로 저장돼요') : '이름을 고르면 칸을 고칠 수 있어요';
     var lead = [t.by ? t.by + ' 선생님이 만듦' : '', many ? '시트 ' + d.doc.sheets.length + '개' : '', t.deadline ? '마감 ' + mdw(t.deadline) : ''].filter(Boolean).join(' · ');
     var leadHtml = esc(lead) + '<span class="print-hide">' + (lead ? ' · ' : '') + esc(state) + '</span>'; // 화면용 안내는 종이에 찍지 않는다
@@ -867,7 +867,7 @@ window.__gyTableUi = function (core) {
       '<div id="tb-main"></div>' +
       (t.canWrite ? '<div class="row-btns print-hide"><button type="button" class="btn btn-sm" data-action="tb-row-add">' + icon('plus', 18) + '줄 더하기</button></div>' : '') +
       (phone ? '' : '<p class="tb-hint print-hide">구글 시트처럼 칸을 누르고 바로 쓰면 바뀌고, 한 번 더 누르면(또는 Enter) 쓰던 글에 이어 써요. 잘못 고쳤으면 Ctrl+Z로 되돌려요. ' +
-        (t.cols.some(function (c) { return c.lock; }) ? '자물쇠 열은 만든 분과 연구부장·부담당(그 줄을 더한 분도)만 고칠 수 있어요. ' : '') +
+        (t.cols.some(function (c) { return c.lock; }) ? '자물쇠 열은 만든 분과 관리자(그 줄을 더한 분도)만 고칠 수 있어요. ' : '') +
         '여러 칸을 골라 복사(Ctrl+C)하면 구글 시트에 그대로 붙여 넣을 수 있고, 구글 시트에서 복사한 칸도 서식과 함께 붙여 넣을 수 있어요(값만은 Ctrl+Shift+V).</p>');
     document.title = t.title + ' · 취합 시트';
     tbVisible(); // 표 위 숫자 열 합계는 보이는 줄로(정렬·걸러 보기를 바꾼 뒤 다시 그릴 때도)
@@ -1419,8 +1419,8 @@ window.__gyTableUi = function (core) {
     tbLockToastAt = Date.now();
     toast(ghost ? '합친 칸이에요. 위의 "모두 풀기"를 누른 뒤 고쳐 주세요'
       : !S.me ? '이름을 고르면 칸을 고칠 수 있어요'
-        : t.closed && !t.canEdit ? '마감한 표예요. 만든 분과 연구부장·부담당만 고칠 수 있어요'
-          : c && c.lock ? "'" + c.name + "' 열은 잠겨 있어요. 만든 분과 연구부장·부담당(그 줄을 더한 분도)만 고칠 수 있어요" : '지금은 고칠 수 없어요');
+        : t.closed && !t.canEdit ? '마감한 표예요. 만든 분과 관리자만 고칠 수 있어요'
+          : c && c.lock ? "'" + c.name + "' 열은 잠겨 있어요. 만든 분과 관리자(그 줄을 더한 분도)만 고칠 수 있어요" : '지금은 고칠 수 없어요');
   }
 
   // ------------------------------------------------------------ 열 너비·줄 높이 끌기(모든 분 화면에 함께)
@@ -2859,7 +2859,7 @@ window.__gyTableUi = function (core) {
     var cols = d.table.cols, rows = T.vrows;
     if (tbLocalOn()) { toast(kind === 'un' ? '걸러 보거나 정렬하는 중에는 합치기를 풀 수 없어요. "모두 풀기"를 누른 뒤 풀어 주세요' : '걸러 보거나 정렬하는 중에는 칸을 합칠 수 없어요. "모두 풀기"를 누른 뒤 합쳐 주세요'); return; }
     if (kind !== 'un' && !d.table.canEdit && cols.slice(rg.j1, rg.j2 + 1).some(function (c) { return c.lock; })) {
-      toast('잠긴 열이 들어 있어 합칠 수 없어요. 만든 분과 연구부장·부담당만 합칠 수 있어요');
+      toast('잠긴 열이 들어 있어 합칠 수 없어요. 만든 분과 관리자만 합칠 수 있어요');
       return;
     }
     var hits = (T.merges || []).filter(function (m) { return !(m.i > rg.i2 || m.i + m.rs - 1 < rg.i1 || m.j > rg.j2 || m.j + m.cs - 1 < rg.j1); });
@@ -3300,7 +3300,7 @@ window.__gyTableUi = function (core) {
       { key: 'right', label: '오른쪽으로 옮기기', icon: ti('right'), disabled: k < 0 || k >= sheets.length - 1 },
       { sep: 1 },
       { key: 'del', label: '시트 지우기', icon: ti('trash'), danger: true, disabled: sheets.length <= 1, small: sheets.length <= 1 ? '하나뿐이에요' : '' },
-      { note: '시트를 더하고 고치는 건 만든 분과 연구부장·부담당만 할 수 있어요. 지운 시트는 관리자 › 휴지통에서 되살려요.' }
+      { note: '시트를 더하고 고치는 건 만든 분과 관리자만 할 수 있어요. 지운 시트는 관리자 › 휴지통에서 되살려요.' }
     ] : [tpl, { note: '이 시트의 열·서식을 양식으로 저장해 두면, 새 표나 시트를 만들 때 모든 선생님이 써요.' }], function (x) {
       if (x.key === 'save') tbSheetEdit();
       else if (x.key === 'cols') tbEditCols();
@@ -3344,7 +3344,7 @@ window.__gyTableUi = function (core) {
   function tbSheetDelete() {
     var T = S.table, d = T.d, t = d.table, sheets = d.doc.sheets, k = sheets.map(function (s) { return s.id; }).indexOf(t.id);
     var next = sheets[k + 1] || sheets[k - 1];
-    confirmBox('시트 지우기', '"' + esc(t.name) + '" 시트를 지울까요? 연구부장·부담당이 관리자 › 휴지통에서 되살릴 수 있어요.', '지우기', function () {
+    confirmBox('시트 지우기', '"' + esc(t.name) + '" 시트를 지울까요? 관리자가 관리자 › 휴지통에서 되살릴 수 있어요.', '지우기', function () {
       return server('table.sheet.delete', { id: t.id }).then(function () {
         closeModal();
         toast('시트를 지웠어요');
@@ -3573,7 +3573,7 @@ window.__gyTableUi = function (core) {
       depts.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === t.deptId ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') +
       (t.deptId && !depts.some(function (x) { return x.id === t.deptId; }) ? '<option value="' + esc(t.deptId) + '" selected>' + esc(t.dept || '지금 부서') + '</option>' : '') + '</select></div>' +
       '<div class="field"><label class="label" for="tbe-deadline">마감 (비우면 없음)</label><input class="input" type="date" id="tbe-deadline" value="' + esc(t.deadline) + '"></div></div>' +
-      '<p class="hint">' + icon('info', 16) + '<span>마감 날짜가 지나면(그날까지는 열려 있어요) 만든 분과 연구부장·부담당만 고칠 수 있어요. 표의 시트 모두에 같이 적용돼요.</span></p>' +
+      '<p class="hint">' + icon('info', 16) + '<span>마감 날짜가 지나면(그날까지는 열려 있어요) 만든 분과 관리자만 고칠 수 있어요. 표의 시트 모두에 같이 적용돼요.</span></p>' +
       '<div class="field"><label class="label" for="tbe-desc">\'' + esc(t.name) + '\' 시트 설명 (안 써도 돼요)</label><textarea class="input tb-ta" id="tbe-desc" rows="3" maxlength="500">' + esc(t.desc) + '</textarea></div>' +
       '<p class="err" id="tbe-err" role="alert"></p>' +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="button" class="btn btn-primary" id="tbe-save">저장</button></div>');
@@ -3597,7 +3597,7 @@ window.__gyTableUi = function (core) {
     var d = S.table.d, t = d.table;
     var list = t.cols.map(function (c) { return { id: c.id, name: c.name, type: c.type, options: c.options.slice(), lock: !!c.lock, merge: !!c.merge, w: c.w || 0, todo: !!c.todo }; });
     openModal('<h2 id="m-title">열 고치기' + (d.doc.sheets.length > 1 ? ' · ' + esc(t.name) : '') + '</h2>' +
-      '<p class="hint">' + icon('info', 16) + '<span>잠근 열은 만든 분과 연구부장·부담당(그 줄을 더한 분도)만 고쳐요. 고르기 열은 정해 둔 값 중 하나를 고르고, 맨 앞 값이 표 위에 "끝난 것"으로 세어져요(예: 완료, 미완료). 숫자 열은 표 위에 합계·평균이 나와요. \'위아래 합침\'을 켜면 위아래로 같은 값이 이어지는 칸을 한 칸처럼 보여 줘요. 뺀 열의 내용은 시트에 남아요.</span></p>' +
+      '<p class="hint">' + icon('info', 16) + '<span>잠근 열은 만든 분과 관리자(그 줄을 더한 분도)만 고쳐요. 고르기 열은 정해 둔 값 중 하나를 고르고, 맨 앞 값이 표 위에 "끝난 것"으로 세어져요(예: 완료, 미완료). 숫자 열은 표 위에 합계·평균이 나와요. \'위아래 합침\'을 켜면 위아래로 같은 값이 이어지는 칸을 한 칸처럼 보여 줘요. 뺀 열의 내용은 시트에 남아요.</span></p>' +
       '<p class="hint">' + ti('todo', 16) + '<span><b>할 일 열</b>(글 열 하나, 예: 담임)에 이름이 있는 분은 홈 \'내가 할 일\'에 끝나지 않은 줄이 떠요(늦어도 10분 안에). 첫 고르기 열이 맨 앞 값이 되면 끝난 줄이에요. 고르기 열이 없으면 숫자 열이, 숫자 열도 없으면 잠그지 않은 글 열이 모두 채워지면 끝난 줄이에요.</span></p>' +
       '<div class="tb-cols" id="tbc-list"></div>' +
       '<button type="button" class="btn btn-sm" id="tbc-add" style="align-self:flex-start">' + icon('plus', 18) + '열 더하기</button>' +
@@ -3690,7 +3690,7 @@ window.__gyTableUi = function (core) {
   function tbSetOpen(open) {
     var t = S.table.d.table;
     confirmBox(open ? '표 다시 열기' : '표 지금 마감', open ? '다시 열면 이름을 고른 선생님 모두가 다시 고칠 수 있어요.'
-      : '마감하면 만든 분과 연구부장·부담당만 고칠 수 있어요(시트 모두). 나중에 다시 열 수 있어요.', open ? '다시 열기' : '마감하기', function () {
+      : '마감하면 만든 분과 관리자만 고칠 수 있어요(시트 모두). 나중에 다시 열 수 있어요.', open ? '다시 열기' : '마감하기', function () {
       return server('table.setOpen', { id: t.doc, open: open }).then(function () {
         closeModal();
         toast(open ? '표를 다시 열었어요' : '표를 마감했어요');
@@ -3701,7 +3701,7 @@ window.__gyTableUi = function (core) {
   function tbDelete() {
     var d = S.table.d, t = d.table;
     confirmBox('표 지우기', '"' + esc(t.title) + '" 표를 지울까요?' + (d.doc.sheets.length > 1 ? ' 시트 ' + d.doc.sheets.length + '개가 모두 지워져요.' : '') +
-      ' 연구부장·부담당이 관리자 › 휴지통에서 되살릴 수 있어요.', '지우기', function () {
+      ' 관리자가 관리자 › 휴지통에서 되살릴 수 있어요.', '지우기', function () {
       return server('table.delete', { id: t.doc }).then(function () {
         closeModal();
         toast('표를 지웠어요');
@@ -3781,7 +3781,7 @@ window.__gyTableUi = function (core) {
   function tbNew(mode) {
     if (!needMe(mode === 'sheet' ? '시트를 더하면' : '표를 만들면')) return;
     var T = S.table, l = T.list || {}, sheet = mode === 'sheet' && T.d;
-    if (mode === 'sheet' && (!T.d || !T.d.table.canEdit)) { toast('시트는 만든 분과 연구부장·부담당만 더할 수 있어요'); return; }
+    if (mode === 'sheet' && (!T.d || !T.d.table.canEdit)) { toast('시트는 만든 분과 관리자만 더할 수 있어요'); return; }
     var depts = sheet ? T.d.depts || [] : l.depts || [];
     T.make = { mode: sheet ? 'sheet' : 'doc', how: 'paste', g: null, header: true, cols: [], blank: false, depts: depts, nextId: 1,
       tpl: null, tpls: null, tplSel: '', tplEdit: null, tplQ: '', view: null, named: false };
@@ -3932,7 +3932,7 @@ window.__gyTableUi = function (core) {
     }
     if (E && E.mode === 'del') {
       return '<div class="tb-tpl ask"' + data + '><div class="tb-tplf"><b>"' + esc(x.name) + '" 양식을 지울까요?</b>' +
-        '<small>지운 양식은 연구부장·부담당이 관리자 › 휴지통에서 되살릴 수 있어요.</small>' +
+        '<small>지운 양식은 관리자가 관리자 › 휴지통에서 되살릴 수 있어요.</small>' +
         '<p class="err" id="tbt-err" role="alert"></p><div class="btns"><button type="button" class="btn btn-sm" data-tple="cancel">그만두기</button>' +
         '<button type="button" class="btn btn-sm btn-danger" data-tple="del">지우기</button></div></div></div>';
     }
@@ -3980,7 +3980,7 @@ window.__gyTableUi = function (core) {
       var id = b.getAttribute('data-tplm');
       tbToggleMenu(b, function () {
         tbMenu(b, [{ key: 'edit', label: '이름·설명 고치기', icon: ti('pen') }, { key: 'del', label: '지우기', icon: ti('trash'), danger: true },
-          { note: '고치기·지우기는 저장한 분과 연구부장·부담당만 할 수 있어요.' }], function (x) {
+          { note: '고치기·지우기는 저장한 분과 관리자만 할 수 있어요.' }], function (x) {
           M.tplEdit = { id: id, mode: x.key };
           tbTplDraw();
           if (x.key === 'del') { var d = qs('[data-tple="cancel"]', qs('#tbm-tplbox')); if (d) d.focus(); }
@@ -4102,7 +4102,7 @@ window.__gyTableUi = function (core) {
       opt('all', '줄 내용까지', n + '줄의 글·채우기 색·서식·합친 칸·줄 높이를 그대로 담아요', true) +
       (locks && locks < t.cols.length ? opt('lock', '잠근 열 글만', '자물쇠 열(실·이름 등)의 글만 남기고 다른 칸의 글은 비워요. 서식은 그대로예요', false) : '') +
       opt('cols', '열 모양만', '줄 없이 저장해요. 쓸 때 빈 줄 10개로 시작해요', false) + '</div></fieldset>' +
-      '<p class="hint">' + icon('info', 16) + '<span>양식은 모든 선생님이 함께 써요. 이름 고치기·지우기는 저장한 분과 연구부장·부담당만 할 수 있어요.</span></p>' +
+      '<p class="hint">' + icon('info', 16) + '<span>양식은 모든 선생님이 함께 써요. 이름 고치기·지우기는 저장한 분과 관리자만 할 수 있어요.</span></p>' +
       '<p class="err" id="tbt-serr" role="alert"></p>' +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="button" class="btn btn-primary" id="tbt-save">양식으로 저장</button></div>');
     var box = qs('#tbt-what');

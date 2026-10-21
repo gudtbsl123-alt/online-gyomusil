@@ -1314,7 +1314,7 @@ test('올리기: 머리글을 찾아 줄을 읽고, 확인 필요·오류를 표
   assert.strictEqual(r.data.days.now.total - r.data.days.after.total, 2);
 });
 
-test('올리기: 연구부장·부담당만, 머리글 없는 표는 양식 순서로 읽는다', () => {
+test('올리기: 관리자만, 머리글 없는 표는 양식 순서로 읽는다', () => {
   const g = freshName();
   const { who, boss } = ids(g);
   const grid = [['2026-11-02', '', '5교시', '동아리 발표회', '전체', '연구부', '강당', '행사', '', '']];
@@ -3495,7 +3495,7 @@ test('일정 보완: 내가 넣은 휴업일·공휴일도 관리자 화면이 �
   assert.strictEqual(call(g, 'sched.move', { id: h.id, start: '2026-10-22' }, me).code, 'FORBIDDEN');
 });
 
-test('일정 보완: 관리자 화면이 닫힌(2시간 지난) 기기에서 관리 일을 하면 ADMIN으로 알린다(연구부장에게 "연구부장만"이라고 하지 않게)', () => {
+test('일정 보완: 관리자 화면이 닫힌(2시간 지난) 기기에서 관리 일을 하면 ADMIN으로 알린다(관리자에게 "관리자만"이라고 하지 않게)', () => {
   const g = freshName();
   const { who, boss } = ids(g);
   const b = boss('홍길동');
@@ -3975,7 +3975,7 @@ test('일정 새 구분: 회의는 누구나, 근무(관리자 근무)는 관리
   assert.strictEqual(meet.data.canEdit, true);
   const no = call(g, 'sched.save', { fields: { start: t, title: '교장 출장', kind: '근무' } }, me);
   assert.strictEqual(no.code, 'FORBIDDEN');
-  assert.match(no.error, /근무는 연구부장·부담당만/);
+  assert.match(no.error, /근무는 관리자만/);
   const duty = call(g, 'sched.save', { fields: { start: t, title: '교장 출장', kind: '근무', time: '오후' } }, b);
   assert.ok(duty.ok, duty.error);
   // 관리자 화면이 없는 기기에서는 내가 넣은 근무도 고칠 수 없다(처음 넣은 분이어도)
@@ -4451,6 +4451,16 @@ test('자동 등록 파일(.bat): 한글은 CP949·줄은 CRLF, 하는 일은 �
   assert.ok(g.includes(B.FILE) && g.includes(url) && /3번: 저절로 열기 끄기/.test(g) && /보낸 사람을 모르는 실행 파일/.test(g) && /바로가기 파일 받기/.test(g), g);
   // 화면 연결: 운영 안내서 '들어오기'의 단추와 누르기 처리
   assert.ok(src.includes('data-action="bat-file"') && src.includes("case 'bat-file': batFile(t); break;"));
+});
+
+test("낱말: 화면·알림 글은 '관리자'(예전 '연구부장·부담당'이 남지 않는다, 교사 요청 2026-10-21b)", () => {
+  for (const f of fs.readdirSync(GAS_DIR)) {
+    const src = fs.readFileSync(path.join(GAS_DIR, f), 'utf8');
+    assert.ok(!/부담당/.test(src), f + "에 '부담당'이 남음");
+  }
+  const app = fs.readFileSync(path.join(GAS_DIR, 'App.html'), 'utf8');
+  assert.ok(app.includes('<span class="nav-label">관리</span>'), "메뉴 묶음 이름은 '관리'(바로 아래 메뉴가 '관리자')");
+  assert.ok(app.includes('<h2 class="guide-h">관리자</h2>'), "운영 안내서의 관리 부분 제목");
 });
 
 console.log(results.join('\n'));

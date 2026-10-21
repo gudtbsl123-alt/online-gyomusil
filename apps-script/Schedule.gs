@@ -8,7 +8,7 @@
  * 고치기·지우기: 처음 넣은 사람, 역할이 '관리'인 분, 관리자 화면을 연 분만.
  */
 
-function fileMark_Schedule_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
+function fileMark_Schedule_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
 
 function schedKinds_() {
   return ['행사', '교육활동', '회의', '휴업일', '공휴일', '근무']; // 회의·근무는 2026-10-19a(교사 요청·검토 55번)
@@ -117,12 +117,12 @@ function isManageKind_(kind) { return isOffKind_(kind) || kind === '근무'; }
 
 /** 관리만 하는 구분을 막을 때의 말 */
 function manageKindMsg_(kind, verb) {
-  return kind === '근무' ? '근무는 연구부장·부담당만 ' + verb + ' 수 있어요.' : '휴업일·공휴일은 연구부장·부담당만 ' + verb + ' 수 있어요.';
+  return kind === '근무' ? '근무는 관리자만 ' + verb + ' 수 있어요.' : '휴업일·공휴일은 관리자만 ' + verb + ' 수 있어요.';
 }
 
 /**
  * 관리 권한이 없어 막을 때의 오류. 관리자 화면 표를 보냈는데 그 표가 끝났으면(연 지 2시간) 'ADMIN'으로 알린다
- * (화면이 관리자 화면을 닫고, 연구부장·부담당에게 '연구부장·부담당만'이라는 엉뚱한 말이 나오지 않게)
+ * (화면이 관리자 화면을 닫고, 관리자에게 '관리자만'이라는 엉뚱한 말이 나오지 않게)
  */
 function manageDenied_(ctx, msg) {
   if (ctx && !ctx.admin && ctx.tokens && ctx.tokens.admin && !checkAdmin_(ctx.tokens.admin)) {
@@ -324,14 +324,14 @@ function apiSchedSave_(args, actor, ctx) {
   var rec = cleanEvent_(args.fields || {});
   ensureCols_('일정'); // '중요' 칸이 없는 예전 시트도 그대로 쓸 수 있게
   if (isManageKind_(rec['구분']) && !canManage_(ctx)) {
-    throw manageDenied_(ctx, rec['구분'] === '근무' ? manageKindMsg_('근무', '넣을') : '휴업일·공휴일은 수업일수에 영향을 줘서 연구부장·부담당만 넣을 수 있어요.');
+    throw manageDenied_(ctx, rec['구분'] === '근무' ? manageKindMsg_('근무', '넣을') : '휴업일·공휴일은 수업일수에 영향을 줘서 관리자만 넣을 수 있어요.');
   }
   var depts = categoryNames_('부서'), names = staffNames_();
   if (args.id) {
     return withLock_(function () { // 견주고 쓰는 사이에 다른 분 저장이 끼지 않게
       var row = findRow_('일정', String(args.id));
       if (!row || row['삭제 여부']) throw userError_('이 일정을 찾지 못했어요. 이미 지워졌을 수 있어요.');
-      if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
+      if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 관리자만 고칠 수 있어요.', 'FORBIDDEN');
       if (isManageKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, manageKindMsg_(row['구분'], '고칠'));
       if (!args.force) checkEventBase_(row, args.base, names, '쓰던 내용은 그대로 있어요. "그래도 저장"을 누르면 내 내용으로 바꿔요.');
       updateRow_('일정', row['일정ID'], rec, actor, '일정 고침: ' + eventSummary_(rec));
@@ -355,7 +355,7 @@ function apiSchedMove_(args, actor, ctx) {
   return withLock_(function () {
     var row = findRow_('일정', String(args.id || ''));
     if (!row || row['삭제 여부']) throw userError_('이 일정을 찾지 못했어요. 이미 지워졌을 수 있어요.');
-    if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 옮길 수 있어요.', 'FORBIDDEN');
+    if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 관리자만 옮길 수 있어요.', 'FORBIDDEN');
     if (isManageKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, manageKindMsg_(row['구분'], '옮길'));
     checkEventBase_(row, args.base, names, '달력을 새로 불러왔어요. 다시 옮겨 주세요.');
     var old = eventSummary_(row);
@@ -367,7 +367,7 @@ function apiSchedMove_(args, actor, ctx) {
 function apiSchedDelete_(args, actor, ctx) {
   var row = findRow_('일정', String(args.id || ''));
   if (!row || row['삭제 여부']) throw userError_('이 일정을 찾지 못했어요. 이미 지워졌을 수 있어요.');
-  if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
+  if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 관리자만 지울 수 있어요.', 'FORBIDDEN');
   if (isManageKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, manageKindMsg_(row['구분'], '지울'));
   softDelete_('일정', row['일정ID'], actor, '일정 지움: ' + eventSummary_(row));
   return { done: true };
@@ -408,7 +408,7 @@ function apiSchedDeleteRepeat_(args, actor, ctx) {
     if (!row || row['삭제 여부']) throw userError_('이 일정을 찾지 못했어요. 이미 지워졌을 수 있어요.');
     var gid = row['반복 묶음ID'];
     if (!gid) throw userError_('반복 일정이 아니에요.');
-    if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
+    if (!canEditEvent_(row, ctx)) throw userError_('처음 넣은 분과 관리자만 지울 수 있어요.', 'FORBIDDEN');
     if (isManageKind_(row['구분']) && !canManage_(ctx)) throw manageDenied_(ctx, manageKindMsg_(row['구분'], '지울'));
     var ids = liveRows_('일정').filter(function (e) { return e['반복 묶음ID'] === gid && canEditEvent_(e, ctx); }).map(function (e) { return e['일정ID']; });
     var n = updateRowsSame_('일정', ids, { '삭제 여부': '삭제' }, actor, '반복 일정 모두 지움: ' + row['행사명'] + ' ' + ids.length + '개', '삭제');
@@ -427,7 +427,7 @@ function focusOf_(schoolYear, month) {
 }
 
 function apiFocusSave_(args, actor, ctx) {
-  if (!canManage_(ctx)) throw manageDenied_(ctx, '중점지도는 연구부장·부담당이 넣어요.');
+  if (!canManage_(ctx)) throw manageDenied_(ctx, '중점지도는 관리자가 넣어요.');
   var y = Number(args.year), m = Number(args.month);
   if (!(y >= 2000 && y <= 2100 && m >= 1 && m <= 12)) throw userError_('달을 다시 골라 주세요.');
   var text = cleanText_(args.text, 500, '중점지도 내용');
@@ -824,7 +824,7 @@ function seedTestSchedule_() {
   return list.length;
 }
 
-// ---------------------------------------------------------------- 학사일정 한 번에 올리기 (연구부장·부담당)
+// ---------------------------------------------------------------- 학사일정 한 번에 올리기 (관리자)
 //
 // 1) 화면이 엑셀·CSV 파일이나 붙여 넣은 표를 칸 목록(grid)으로 보낸다 → 2) 여기서 머리글을 찾아 줄마다 읽고 확인한다
 // 3) 미리보기에서 고치거나 뺀 줄(rows)을 다시 보낸다 → 4) 올리기: 한 묶음ID로 넣고, '방금 올린 것 되돌리기'를 할 수 있다
@@ -832,7 +832,7 @@ function seedTestSchedule_() {
 // - 전에 올린 같은 행사는 '건너뛰기' 또는 '바꾸기'(전 것은 숨김 삭제, 되돌리기로 다시 살아남)
 
 function requireManage_(ctx) {
-  if (!canManage_(ctx)) throw manageDenied_(ctx, '학사일정 올리기는 연구부장·부담당만 할 수 있어요.');
+  if (!canManage_(ctx)) throw manageDenied_(ctx, '학사일정 올리기는 관리자만 할 수 있어요.');
 }
 
 /** 이름을 고르지 않고 관리자 화면에서 한 일은 기록에 '관리자(본인 확인 전)'으로 남긴다 */

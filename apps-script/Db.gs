@@ -8,7 +8,7 @@
  * - 시트에 쓸 때는 잠금(LockService)을 걸어 동시에 저장해도 꼬이지 않게 한다.
  */
 
-function fileMark_Db_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
+function fileMark_Db_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
 
 /** 모든 표(기록·설정 제외)에 붙는 입력·수정·삭제 칸 */
 function auditCols_() {
@@ -79,7 +79,7 @@ function openSs_() {
   } else {
     DB_SS_ = SpreadsheetApp.getActiveSpreadsheet();
   }
-  if (!DB_SS_) throw userError_('아직 처음 설정이 되지 않았어요. 연구부장·부담당에게 알려 주세요.', 'SETUP');
+  if (!DB_SS_) throw userError_('아직 처음 설정이 되지 않았어요. 관리자에게 알려 주세요.', 'SETUP');
   return DB_SS_;
 }
 

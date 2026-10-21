@@ -4,7 +4,7 @@
  * 메뉴 함수는 시트 안에서만 돌아간다(웹앱에서 부르면 requireSheetUi_()가 막는다).
  */
 
-function fileMark_Setup_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
+function fileMark_Setup_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
 
 /**
  * 시트를 손으로 고치면 고친 탭의 서버 기억을 버리게 한다(다음 요청은 그 탭만 시트에서 새로 읽는다).
@@ -138,7 +138,7 @@ function menuAdminPassword() {
 function showPasswordDialog_(kind) {
   var title = kind === 'admin' ? '관리자 비밀번호 정하기' : '공통 비밀번호 정하기';
   var note = kind === 'admin'
-    ? '연구부장·부담당만 아는 비밀번호예요. 공통 비밀번호와 다르게 정해 주세요.'
+    ? '관리자만 아는 비밀번호예요. 공통 비밀번호와 다르게 정해 주세요.'
     : '교직원 모두가 함께 쓰는 비밀번호예요. 바꾸면 모든 기기에서 다시 로그인해야 해요.';
   var html =
     '<div style="font:15px/1.6 -apple-system,\'Malgun Gothic\',sans-serif;color:#191F28">' +

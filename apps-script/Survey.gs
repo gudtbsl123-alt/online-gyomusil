@@ -9,7 +9,7 @@
  * - 결과(누가 뭐라고 답했는지): 만든 사람·관리자, 그리고 '결과 공개'를 켠 조사는 대상 교직원 모두
  */
 
-function fileMark_Survey_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
+function fileMark_Survey_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
 
 function qTypes_() {
   return { one: '하나 고르기', many: '여러 개 고르기', short: '짧은 글', long: '긴 글', number: '숫자', date: '날짜' };
@@ -341,7 +341,7 @@ function apiSurveySave_(args, actor, ctx) {
   if (args.id) {
     var s = findRow_('조사', String(args.id));
     if (!s || s['삭제 여부']) throw userError_('이 조사를 찾지 못했어요.', 'NOTFOUND');
-    if (!canEditSurvey_(s, ctx)) throw userError_('만든 분과 연구부장·부담당만 고칠 수 있어요.', 'FORBIDDEN');
+    if (!canEditSurvey_(s, ctx)) throw userError_('만든 분과 관리자만 고칠 수 있어요.', 'FORBIDDEN');
     if (liveResponses_(s['조사ID']).length && !sameQuestions_(safeParse_(s['질문'], []), questions)) {
       throw userError_('이미 낸 답이 있어서 질문은 고칠 수 없어요. 제목·마감·대상·안내 문구만 고칠 수 있어요.', 'LOCKED');
     }
@@ -368,7 +368,7 @@ function sameQuestions_(a, b) {
 function apiSurveySetOpen_(args, actor, ctx) {
   var s = findRow_('조사', String(args.id || ''));
   if (!s || s['삭제 여부']) throw userError_('이 조사를 찾지 못했어요.', 'NOTFOUND');
-  if (!canEditSurvey_(s, ctx)) throw userError_('만든 분과 연구부장·부담당만 바꿀 수 있어요.', 'FORBIDDEN');
+  if (!canEditSurvey_(s, ctx)) throw userError_('만든 분과 관리자만 바꿀 수 있어요.', 'FORBIDDEN');
   if (args.open) {
     if (s['마감 일시'] <= nowMin_()) throw userError_('마감이 이미 지났어요. "고치기"에서 마감을 늦춰 주세요.');
     updateRow_('조사', s['조사ID'], { '상태': '진행 중' }, actor, '조사 다시 엶: ' + s['제목']);
@@ -381,7 +381,7 @@ function apiSurveySetOpen_(args, actor, ctx) {
 function apiSurveyDelete_(args, actor, ctx) {
   var s = findRow_('조사', String(args.id || ''));
   if (!s || s['삭제 여부']) throw userError_('이 조사를 찾지 못했어요.', 'NOTFOUND');
-  if (!canEditSurvey_(s, ctx)) throw userError_('만든 분과 연구부장·부담당만 지울 수 있어요.', 'FORBIDDEN');
+  if (!canEditSurvey_(s, ctx)) throw userError_('만든 분과 관리자만 지울 수 있어요.', 'FORBIDDEN');
   softDelete_('조사', s['조사ID'], actor, '조사 지움: ' + s['제목']);
   return { done: true };
 }
@@ -452,7 +452,7 @@ function apiSurveyRespond_(args, actor, ctx) {
 function apiSurveyRemind_(args, actor, ctx) {
   var s = findRow_('조사', String(args.id || ''));
   if (!s || s['삭제 여부']) throw userError_('이 조사를 찾지 못했어요.', 'NOTFOUND');
-  if (!canEditSurvey_(s, ctx)) throw userError_('만든 분과 연구부장·부담당만 알릴 수 있어요.', 'FORBIDDEN');
+  if (!canEditSurvey_(s, ctx)) throw userError_('만든 분과 관리자만 알릴 수 있어요.', 'FORBIDDEN');
   if (surveyClosed_(s)) throw userError_('마감된 조사예요. 마감을 늦춘 뒤에 알려 주세요.');
   var done = {};
   liveResponses_(s['조사ID']).forEach(function (r) { done[r['교직원ID']] = true; });

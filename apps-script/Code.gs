@@ -63,8 +63,8 @@ function tableUiFileBuild_() {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-21a';
-function fileMark_Code_() { return '2026-10-21a'; }
+var APP_BUILD_ = '2026-10-21b';
+function fileMark_Code_() { return '2026-10-21b'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -72,9 +72,9 @@ function fileMark_Code_() { return '2026-10-21a'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-21a', 'Db': '2026-10-19a', 'Auth': '2026-10-19a', 'Admin': '2026-10-19a', 'Schedule': '2026-10-19a',
-    'Survey': '2026-10-19a', 'Library': '2026-10-19a', 'Help': '2026-10-19a', 'Setup': '2026-10-19a', 'Table': '2026-10-19a',
-    'App': '2026-10-20a', 'Styles': '2026-10-21a', 'Index': '2026-10-19a', 'TableUi': '2026-10-19a'
+    'Code': '2026-10-21b', 'Db': '2026-10-21b', 'Auth': '2026-10-21b', 'Admin': '2026-10-19a', 'Schedule': '2026-10-21b',
+    'Survey': '2026-10-21b', 'Library': '2026-10-21b', 'Help': '2026-10-21b', 'Setup': '2026-10-21b', 'Table': '2026-10-21b',
+    'App': '2026-10-21b', 'Styles': '2026-10-21b', 'Index': '2026-10-19a', 'TableUi': '2026-10-21b'
   };
 }
 
@@ -289,7 +289,7 @@ function api(reqText) {
     if (!route) throw userError_('알 수 없는 요청이에요. 화면을 새로 고쳐 주세요.');
     var fn = typeof route.fn === 'string' ? globalFn_(route.fn) : route.fn;
     if (!fn) {
-      throw userError_('이 기능의 코드 파일이 빠졌거나 예전 것이에요(' + route.fn + '). 연구부장·부담당이 관리자 › 점검에서 확인해 주세요.', 'MISSING');
+      throw userError_('이 기능의 코드 파일이 빠졌거나 예전 것이에요(' + route.fn + '). 관리자가 관리자 › 점검에서 확인해 주세요.', 'MISSING');
     }
     var t = req.tokens || {};
     // 읽기 요청은 읽을 탭을 모두, 그 밖(쓰기 등)은 로그인 확인에 쓰는 탭만 서버 기억에서 한 번에 꺼낸다. 빈 요청(ping)·로그인은 꺼내지 않는다
@@ -321,7 +321,7 @@ function api(reqText) {
     console.error(err && err.stack ? err.stack : err);
     // 원인 한 줄(예: ReferenceError: ○○ is not defined)을 함께 보내 화면에 작게 보여 준다(고칠 곳을 바로 찾게)
     var detail = err && err.name ? err.name + ': ' + err.message : String(err);
-    return JSON.stringify({ ok: false, error: '잠시 문제가 생겼어요. 잠깐 뒤에 다시 해 주세요. 계속 안 되면 연구부장·부담당에게 알려 주세요.', code: 'ERROR', detail: detail.slice(0, 300) });
+    return JSON.stringify({ ok: false, error: '잠시 문제가 생겼어요. 잠깐 뒤에 다시 해 주세요. 계속 안 되면 관리자에게 알려 주세요.', code: 'ERROR', detail: detail.slice(0, 300) });
   }
 }
 

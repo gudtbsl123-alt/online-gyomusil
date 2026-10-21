@@ -8,7 +8,7 @@
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-20a'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-10-21b'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -132,7 +132,7 @@
             var msg = e && e.message ? String(e.message) : '';
             var net = !msg || /NetworkError|HTTP 0|Failed to fetch|network/i.test(msg);
             var err = new Error(net ? '서버에 닿지 못했어요. 인터넷 연결을 확인하고 다시 해 주세요.'
-              : '서버에서 처리하다 멈췄어요. 잠깐 뒤에 다시 해 주세요. 계속 안 되면 연구부장·부담당에게 알려 주세요.');
+              : '서버에서 처리하다 멈췄어요. 잠깐 뒤에 다시 해 주세요. 계속 안 되면 관리자에게 알려 주세요.');
             err.code = net ? 'NET' : 'ERROR';
             err.detail = msg ? ((e.name ? e.name + ': ' : '') + msg).slice(0, 300) : '';
             reject(err);
@@ -557,7 +557,7 @@
   function showNotReady() {
     $app.innerHTML = gateWrap('<div class="gate-card"><span class="glow" aria-hidden="true"></span>' +
       '<h1>아직 준비 중이에요</h1>' +
-      '<p class="muted" style="margin:0">연구부장·부담당이 전용 시트에서 처음 설정과 공통 비밀번호 정하기를 마치면 열려요.</p></div>');
+      '<p class="muted" style="margin:0">관리자가 전용 시트에서 처음 설정과 공통 비밀번호 정하기를 마치면 열려요.</p></div>');
   }
 
   // ============================================================ 1) 공통 로그인
@@ -571,7 +571,7 @@
       '<button type="button" class="icon-btn" data-action="pw-eye" data-for="login-pw" aria-label="비밀번호 보이기">' + icon('eye') + '</button></div></div>' +
       '<p class="err" id="login-err" role="alert">' + esc(msg || '') + '</p>' +
       '<button type="submit" class="btn btn-primary btn-block">들어가기</button>' +
-      '<p class="hint">' + icon('info', 16) + '<span>비밀번호는 연구부장·부담당에게 물어보세요. 학기 초에 바뀔 수 있어요.</span></p>' +
+      '<p class="hint">' + icon('info', 16) + '<span>비밀번호는 관리자에게 물어보세요. 학기 초에 바뀔 수 있어요.</span></p>' +
       '</form>', { foot: '학생 정보와 개인 연락처는 이곳에 올리지 않아요.' });
     var f = qs('#login-form');
     setTimeout(function () { var i = qs('#login-pw'); if (i) i.focus(); }, 50);
@@ -624,12 +624,12 @@
         ? '<div class="field"><label class="search" for="id-find">' + icon('search', 20) +
           '<span class="sr-only">이름으로 찾기</span><input id="id-find" type="search" placeholder="이름으로 찾기" autocomplete="off"></label></div>' +
           '<div class="people" id="id-people" role="radiogroup" aria-label="교직원 명단"></div>'
-        : '<div class="box muted">아직 교직원 명단이 비어 있어요. 연구부장·부담당이 관리자 화면에서 명단을 넣으면 고를 수 있어요.</div>') +
+        : '<div class="box muted">아직 교직원 명단이 비어 있어요. 관리자가 관리자 화면에서 명단을 넣으면 고를 수 있어요.</div>') +
       (pin ? '<div class="field"><label class="label" for="id-pin">개인 번호 4자리</label>' +
         '<input id="id-pin" class="input input-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"></div>' : '') +
       '<label class="check"><input type="checkbox" id="id-remember"' + (pin ? '' : ' checked') + '>이 기기에서 기억하기 (' + dayText + ')</label>' +
       '<p class="hint">' + icon('info', 16) + '<span>' + (pin
-        ? '기억하기는 내 휴대폰에서만 켜 주세요. 교무실 공용 PC에서는 꺼 두세요. 번호를 잊었다면 연구부장·부담당에게 다시 받으세요.'
+        ? '기억하기는 내 휴대폰에서만 켜 주세요. 교무실 공용 PC에서는 꺼 두세요. 번호를 잊었다면 관리자에게 다시 받으세요.'
         : '여러 사람이 함께 쓰는 교무실 PC에서는 기억하기를 꺼 주세요. 다른 분이 내 이름으로 기록하지 않게요.') + '</span></p>' +
       '<p class="err" id="id-err" role="alert"></p>' +
       '<button type="submit" class="btn btn-primary btn-block"' + (list.length ? '' : ' disabled') + '>확인</button>' +
@@ -665,7 +665,7 @@
     if ($people) $people.addEventListener('change', function () {
       qsa('.person', $people).forEach(function (l) { l.classList.toggle('on', l.querySelector('input').checked); });
       var p = list.filter(function (x) { return x.id === (qs('input[name=who]:checked') || {}).value; })[0];
-      qs('#id-err').textContent = pin && p && !p.hasPin ? '아직 개인 번호가 없어요. 연구부장·부담당에게 받아 주세요.' : '';
+      qs('#id-err').textContent = pin && p && !p.hasPin ? '아직 개인 번호가 없어요. 관리자에게 받아 주세요.' : '';
       if (pin && p && p.hasPin) pinBox.focus();
       else if (!pin) showOk();
     });
@@ -744,7 +744,7 @@
       '<button type="button" class="brand" data-go="home"><span class="brand-mark emblem" aria-hidden="true"></span>' +
       '<span class="brand-text"><span class="brand-sub">' + esc(school) + '</span><span class="brand-name">온라인 교무실</span></span></button>' +
       '<div class="nav">' + MENU.map(function (x) { return navButton(x); }).join('') + '</div>' +
-      '<div class="nav-group"><span class="nav-label">관리 · 연구부장·부담당</span>' + ADMIN_MENU.map(function (x) { return navButton(x); }).join('') + '</div>' +
+      '<div class="nav-group"><span class="nav-label">관리</span>' + ADMIN_MENU.map(function (x) { return navButton(x); }).join('') + '</div>' +
       '<div class="side-foot">' + themeSeg() +
       designSeg() +
       zoomControl() + '</div></div>' +
@@ -826,7 +826,7 @@
   }
   function isOff(e) { return e.kind === '휴업일' || e.kind === '공휴일'; }
   var KINDS = ['행사', '교육활동', '회의', '휴업일', '공휴일', '근무']; // 서버 Schedule.gs schedKinds_와 같게(회의·근무 2026-10-19a)
-  var MANAGE_KINDS = ['휴업일', '공휴일', '근무']; // 연구부장·부담당만
+  var MANAGE_KINDS = ['휴업일', '공휴일', '근무']; // 관리자만
 
   // 반복 일정(2026-10-19a): 시작 날짜로 규칙을 정하고(매주 ○요일·매월 ○일·매월 ○째 ○요일) 끝나는 날까지 날짜를 만든다
   var REP_MAX = 60; // 서버 Schedule.gs REPEAT_MAX_와 같게
@@ -1764,7 +1764,7 @@
             }).join('') + '</ul></details>' : '') + '</div>';
         }).join('') +
         (days.semesters.length === 2 ? '<div class="sem total"><p class="kicker">연간</p><p class="stat-num">' + days.total + '일</p><p class="faint">1학기 + 2학기</p></div>' : '')
-      : '<p class="muted">학기 기간이 아직 없어요. ' + (d.canManage ? '관리자 화면 › 설정에 1·2학기 시작일과 끝일을 넣으면 계산돼요.' : '연구부장·부담당이 학기 기간을 넣으면 계산돼요.') + '</p>';
+      : '<p class="muted">학기 기간이 아직 없어요. ' + (d.canManage ? '관리자 화면 › 설정에 1·2학기 시작일과 끝일을 넣으면 계산돼요.' : '관리자가 학기 기간을 넣으면 계산돼요.') + '</p>';
     body.innerHTML =
       '<div class="card">' + '<div class="month-nav"><button type="button" class="icon-btn print-hide" data-action="y-prev" aria-label="이전 학년도">' + icon('chevl') + '</button>' +
       '<h2 class="month-title">' + d.year + '학년도 학사일정</h2>' +
@@ -1909,7 +1909,7 @@
       (e.repeat ? '<span class="chip">반복' + (e.repeatN ? ' · 모두 ' + e.repeatN + '개' : '') + '</span>' : '') + '</div>' +
       '<h2 id="m-title">' + esc(e.title) + '</h2>' +
       '<dl class="ev-dl">' + rows.map(function (r) { return '<dt>' + r[0] + '</dt><dd>' + esc(r[1]).replace(/\n/g, '<br>') + '</dd>'; }).join('') + '</dl>' +
-      (e.canEdit ? '' : S.me ? '<p class="hint">' + icon('info', 16) + '<span>처음 넣은 분과 연구부장·부담당만 고칠 수 있어요.</span></p>' : '') +
+      (e.canEdit ? '' : S.me ? '<p class="hint">' + icon('info', 16) + '<span>처음 넣은 분과 관리자만 고칠 수 있어요.</span></p>' : '') +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
       (e.canEdit && e.repeat ? '<button type="button" class="btn btn-ghost-danger" data-action="ev-del-rep" data-ev="' + esc(e.id) + '">이 반복 모두 지우기</button>' : '') +
       (e.canEdit ? '<button type="button" class="btn btn-primary" data-action="ev-edit" data-ev="' + esc(e.id) + '">' + (e.repeat ? '이 날짜만 고치기' : '고치기') + '</button>' : '') + '</div>');
@@ -1918,7 +1918,7 @@
   /** 반복 일정 모두 지우기(처음 넣은 분·관리). 휴지통에서는 하나씩 되살린다 */
   function deleteRepeat(id) {
     var e = eventById(id) || {};
-    confirmBox('반복 일정 모두 지우기', '"' + esc(e.title || '') + '" 반복 일정' + (e.repeatN ? ' ' + e.repeatN + '개' : '') + '를 모두 지울까요? 연구부장·부담당이 휴지통에서 하나씩 되살릴 수 있어요.', '모두 지우기', function () {
+    confirmBox('반복 일정 모두 지우기', '"' + esc(e.title || '') + '" 반복 일정' + (e.repeatN ? ' ' + e.repeatN + '개' : '') + '를 모두 지울까요? 관리자가 휴지통에서 하나씩 되살릴 수 있어요.', '모두 지우기', function () {
       return server('sched.deleteRepeat', { id: id }, schedThen('')).then(function (r) {
         S.sched.form = null;
         closeModal();
@@ -2008,9 +2008,9 @@
       '<div class="field"><span class="label">구분</span><div class="seg seg-kinds" role="group" aria-label="구분">' +
       KINDS.map(function (k) {
         var lock = MANAGE_KINDS.indexOf(k) >= 0 && !canOff;
-        return '<button type="button" data-kind="' + k + '" aria-pressed="' + (kind === k) + '"' + (lock ? ' disabled title="연구부장·부담당만 넣을 수 있어요"' : '') + '>' + k + '</button>';
+        return '<button type="button" data-kind="' + k + '" aria-pressed="' + (kind === k) + '"' + (lock ? ' disabled title="관리자만 넣을 수 있어요"' : '') + '>' + k + '</button>';
       }).join('') + '</div>' +
-      (canOff ? '' : '<p class="hint">휴업일·공휴일(수업일수에 영향을 줘요)과 관리자 근무는 연구부장·부담당이 넣어요.</p>') + '</div>' +
+      (canOff ? '' : '<p class="hint">휴업일·공휴일(수업일수에 영향을 줘요)과 관리자 근무는 관리자가 넣어요.</p>') + '</div>' +
       '<div class="field"><span class="label">대상</span><div class="tgs" role="group" aria-label="대상 학년">' +
       '<button type="button" class="tg" data-tg="전체" aria-pressed="' + (targets.indexOf('전체') >= 0) + '">전체</button>' +
       ['1', '2', '3', '4', '5', '6'].map(function (g) { return tg(g, g); }).join('') + tg('교직원', '교직원') + '</div></div>' +
@@ -2180,7 +2180,7 @@
 
   function deleteEvent(id) {
     var e = eventById(id) || {};
-    confirmBox('일정 지우기', '"' + esc(e.title || '') + '"' + josa(e.title || '', '을', '를') + ' 지울까요? 지운 일정은 연구부장·부담당이 휴지통에서 되살릴 수 있어요.', '지우기', function () {
+    confirmBox('일정 지우기', '"' + esc(e.title || '') + '"' + josa(e.title || '', '을', '를') + ' 지울까요? 지운 일정은 관리자가 휴지통에서 되살릴 수 있어요.', '지우기', function () {
       return server('sched.delete', { id: id }, schedThen('')).then(function () {
         S.sched.form = null;
         patchEvent(null, id);
@@ -3061,8 +3061,8 @@
       (i.archived ? '<span class="chip">' + esc(i.year) + ' 보관함</span>' : '') + (i.home ? '<span class="chip chip-accent">홈에 보임</span>' : '') + '</div>' +
       '<h2 id="m-title">' + esc(i.title) + '</h2>' + (i.desc ? '<p class="sv-desc">' + esc(i.desc) + '</p>' : '') +
       '<dl class="ev-dl">' + rows.map(function (r) { return '<dt>' + r[0] + '</dt><dd>' + esc(r[1]) + '</dd>'; }).join('') + '</dl>' +
-      (i.archived ? '<p class="hint">' + icon('info', 16) + '<span>지난 학년도 자료라 고칠 수 없어요.' + (manage ? ' 올해도 쓰려면 "지금 학년도로 꺼내기"를 눌러 주세요.' : ' 올해도 써야 하면 연구부장·부담당에게 알려 주세요.') + '</span></p>'
-        : !i.canEdit && S.me ? '<p class="hint">' + icon('info', 16) + '<span>처음 넣은 분과 연구부장·부담당만 고칠 수 있어요.</span></p>' : '') +
+      (i.archived ? '<p class="hint">' + icon('info', 16) + '<span>지난 학년도 자료라 고칠 수 없어요.' + (manage ? ' 올해도 쓰려면 "지금 학년도로 꺼내기"를 눌러 주세요.' : ' 올해도 써야 하면 관리자에게 알려 주세요.') + '</span></p>'
+        : !i.canEdit && S.me ? '<p class="hint">' + icon('info', 16) + '<span>처음 넣은 분과 관리자만 고칠 수 있어요.</span></p>' : '') +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
       (i.canEdit && !i.archived && S.lib.data ? '<button type="button" class="btn btn-ghost-danger" data-action="lib-del" data-id="' + esc(i.id) + '">지우기</button>' +
         '<button type="button" class="btn" data-action="lib-edit" data-id="' + esc(i.id) + '">고치기</button>' : '') +
@@ -3086,15 +3086,130 @@
       }).join('') + '</select>';
   }
 
-  function openLibForm(edit) {
+  // ------------------------------------------------------------ 끌어다 놓기로 파일 올리기(판 2026-10-21b, 교사 요청)
+  // 자료 넣기 창·도움말 창의 파일 칸은 끌어다 놓는 상자, 자료실 화면은 어디에 놓아도 자료 넣기 창이 열린다(여러 파일은 파일마다 자료 하나).
+  // 다른 화면에 떨어뜨려도 브라우저가 그 파일을 열어 웹앱을 떠나지 않게 막는다. 휴대폰은 상자 안의 '파일 고르기'를 쓴다
+  var DROP_MAX = 20; // 한 번에 넣는 파일 수(폴더째 끌어 온 수백 개를 막으려고)
+  function dragHasFiles(e) {
+    var t = e.dataTransfer && e.dataTransfer.types;
+    return !!t && Array.prototype.indexOf.call(t, 'Files') >= 0;
+  }
+  /** 놓은 것에서 파일만 고른다. 폴더는 세어서 알려 준다(폴더 안은 열지 않음) */
+  function droppedFiles(dt) {
+    var files = [], dirs = 0, items = dt.items ? Array.prototype.slice.call(dt.items) : [];
+    if (items.length) {
+      items.forEach(function (it) {
+        if (it.kind !== 'file') return;
+        var en = it.webkitGetAsEntry ? it.webkitGetAsEntry() : null;
+        if (en && en.isDirectory) { dirs++; return; }
+        var f = it.getAsFile();
+        if (f) files.push(f);
+      });
+    } else files = Array.prototype.slice.call(dt.files || []);
+    return { files: files, dirs: dirs };
+  }
+  /** 끌어다 놓는 상자. 안의 '파일 고르기'가 숨긴 파일 칸을 연다 */
+  function dropZoneHtml(id, multi) {
+    return '<div class="drop-zone" id="' + id + '-zone" data-drop>' + icon('upload', 22) +
+      '<p>여기로 파일을 끌어다 놓거나 <button type="button" class="linkish" id="' + id + '-pick">파일 고르기</button></p>' +
+      (multi ? '<p class="faint">여러 파일을 한 번에 넣을 수도 있어요(' + DROP_MAX + '개까지)</p>' : '') +
+      '<input id="' + id + '" class="sr-only" type="file"' + (multi ? ' multiple' : '') + ' tabindex="-1"></div>';
+  }
+  /** 상자에 '파일 고르기'를 붙이고, 창이 떠 있는 동안 창 어디에 놓아도 onFiles(files, dirs)로 받는다 */
+  function bindDropZone(id, onFiles) {
+    var inp = qs('#' + id);
+    qs('#' + id + '-pick').addEventListener('click', function () { inp.click(); });
+    inp.addEventListener('change', function () {
+      var fs = Array.prototype.slice.call(inp.files || []);
+      inp.value = '';
+      if (fs.length) onFiles(fs, 0);
+    });
+    qs('#' + id + '-zone').__onFiles = onFiles;
+  }
+  /** 올릴 수 없는 파일이면 까닭(빈 파일·크기 한도) */
+  function fileProblem(f, maxMb) {
+    if (!f.size) return '빈 파일이에요';
+    if (f.size > maxMb * 1024 * 1024) return maxMb + 'MB가 넘어요';
+    return '';
+  }
+  /** 파일 이름에서 제목: 확장자만 뺀다(60자까지) */
+  function fileBase(name) {
+    var s = String(name || '').trim(), b = s.replace(/\.[^.\s]{1,8}$/, '').trim();
+    return (b || s).slice(0, 60);
+  }
+  function fileRowHtml(p, k, withTitle) {
+    return '<div class="file-row' + (p.bad || p.error ? ' bad' : '') + '" data-k="' + k + '">' +
+      '<span class="fr-name">' + icon('doc', 18) + '<b>' + esc(p.file.name) + '</b><span class="faint">' + esc(sizeText(p.file.size)) + '</span></span>' +
+      '<button type="button" class="icon-btn" data-fr-x="' + k + '" aria-label="' + esc(p.file.name) + ' 빼기">' + icon('x', 18) + '</button>' +
+      (withTitle ? '<input class="input" data-fr-t="' + k + '" maxlength="60" value="' + esc(p.title) + '" aria-label="' + esc(p.file.name) + '의 제목" autocomplete="off">' : '') +
+      (p.bad || p.error ? '<p class="err">' + esc(p.bad || p.error) + '</p>' : '') + '</div>';
+  }
+  function busyText(btn, text) {
+    if (btn && btn.disabled) btn.innerHTML = '<span class="spin" aria-hidden="true"></span>' + esc(text);
+  }
+  // 끌어 오는 동안: 창이 떠 있으면 창의 상자를, 자료실 화면이면 화면 전체 덮개를 밝힌다(창이 받지 않으면 놓을 수 없음 표시)
+  var dropTimer = 0;
+  function dropTarget() {
+    if ($modal.innerHTML) {
+      var mz = qs('.modal [data-drop]', $modal);
+      return mz && mz.__onFiles ? { zone: mz, fn: mz.__onFiles } : null;
+    }
+    if (S.screen === 'library' && S.lib.data) return { cover: true, fn: function (files, dirs) { openLibForm(null, files, dirs); } };
+    return null;
+  }
+  function dropShow(t) {
+    qsa('.drop-zone.over').forEach(function (z) { if (!t || z !== t.zone) z.classList.remove('over'); });
+    qsa('.modal.drop-over').forEach(function (m) { m.classList.remove('drop-over'); });
+    if (t && t.zone) {
+      t.zone.classList.add('over');
+      if (!t.zone.offsetParent) { var md = t.zone.closest('.modal'); if (md) md.classList.add('drop-over'); } // '링크'를 골라 상자가 숨어 있으면 창 전체를 밝힌다
+    }
+    var cv = qs('#drop-cover');
+    if (t && t.cover) {
+      if (cv) return;
+      cv = document.createElement('div');
+      cv.id = 'drop-cover';
+      cv.className = 'drop-cover';
+      cv.innerHTML = '<div class="drop-cover-box">' + icon('upload', 36) + '<b>여기에 놓으면 자료로 넣어요</b><span>여러 파일도 한 번에 넣을 수 있어요(' + DROP_MAX + '개까지)</span></div>';
+      document.body.appendChild(cv);
+    } else if (cv) cv.parentNode.removeChild(cv);
+  }
+  window.addEventListener('dragover', function (e) {
+    if (!dragHasFiles(e)) return;
+    e.preventDefault();
+    var t = dropTarget();
+    e.dataTransfer.dropEffect = t ? 'copy' : 'none';
+    dropShow(t);
+    clearTimeout(dropTimer);
+    dropTimer = setTimeout(function () { dropShow(null); }, 1000); // 창 밖에서 그만두면 dragover가 끊긴다
+  });
+  window.addEventListener('dragleave', function (e) {
+    if (!dragHasFiles(e) || e.relatedTarget) return;
+    clearTimeout(dropTimer);
+    dropTimer = setTimeout(function () { dropShow(null); }, 80); // 창 밖으로 나감(안에서 옮겨 다니면 곧 dragover가 다시 온다)
+  });
+  window.addEventListener('drop', function (e) {
+    if (!dragHasFiles(e)) return;
+    e.preventDefault();
+    clearTimeout(dropTimer);
+    var t = dropTarget();
+    dropShow(null);
+    if (!t) return;
+    var r = droppedFiles(e.dataTransfer);
+    if (r.files.length || r.dirs) t.fn(r.files, r.dirs);
+  });
+
+  /** 자료 넣기·고치기 창. files·dirs = 자료실 화면에 끌어다 놓은 것(여러 파일이면 파일마다 자료 하나, 고치기는 파일 하나만) */
+  function openLibForm(edit, files0, dirs0) {
     if (!needMe('자료를 넣으면')) return;
     var d = S.lib.data;
     if (!d) return;
     var i = edit || {};
     var mode = edit && edit.hasFile ? 'file' : 'link';
+    var picked = [], wasMulti = false; // { file, title, bad, error, saved }
     openModal('<h2 id="m-title">' + (edit ? '자료 고치기' : '자료 넣기') + '</h2>' +
       '<form class="form" id="lib-form" novalidate>' +
-      '<div class="field"><label class="label" for="lf-title">제목 <span class="req">*</span></label>' +
+      '<div class="field" id="lf-title-box"><label class="label" for="lf-title">제목 <span class="req">*</span></label>' +
       '<input id="lf-title" class="input" maxlength="60" value="' + esc(i.title || '') + '" placeholder="예: 학년 협의록 양식" autocomplete="off"></div>' +
       '<div class="form-grid"><div class="field"><label class="label" for="lf-dept">부서</label>' + catSelect('lf-dept', d.depts, edit ? i.deptId : (S.me && S.me.deptId) || '', '(없음)') + '</div>' +
       '<div class="field"><label class="label" for="lf-kind">분류</label>' + catSelect('lf-kind', d.kinds, i.kindId || '', '(없음)') + '</div></div>' +
@@ -3108,43 +3223,131 @@
       '<p class="hint">' + icon('info', 16) + '<span>구글 드라이브·문서 주소를 붙여 넣으세요. 그 파일을 누가 열 수 있는지는 드라이브의 공유 설정을 따라요.</span></p></div>' +
       '<div class="field" id="lf-file-box"' + (mode === 'file' ? '' : ' hidden') + '><label class="label" for="lf-file">파일' + (edit && edit.hasFile ? ' (바꿀 때만 고르기)' : ' <span class="req">*</span>') + '</label>' +
       (edit && edit.hasFile ? '<p class="box file-now">' + icon('doc', 18) + '<span>지금 파일: <b>' + esc(i.fileName) + '</b> · ' + esc(sizeText(i.fileSize)) + '</span></p>' : '') +
-      '<input id="lf-file" class="input input-file" type="file">' +
+      dropZoneHtml('lf-file', !edit) + '<div class="file-rows" id="lf-rows"></div>' +
       '<p class="hint">' + icon('info', 16) + '<span>' + d.maxMb + 'MB까지 올릴 수 있어요. 올린 파일은 공유하지 않는 드라이브 폴더에 두고, 온라인 교무실에서만 내려받아요.</span></p></div>' +
+      '<p class="hint" id="lf-multi-note" hidden>' + icon('info', 16) + '<span>파일마다 자료가 하나씩 생겨요. 부서·분류·설명·담당·공통 자료는 모두 같게 들어가고, 제목은 파일마다 고칠 수 있어요.</span></p>' +
       '<div class="common-box"><label class="check"><input type="checkbox" id="lf-common"' + (i.common ? ' checked' : '') + '>공통 자료로 자료실 맨 위에 보이기</label>' +
       '<p class="hint">' + icon('info', 16) + '<span>비상연락망·출결 양식·가정통신문 양식·표준 기안문처럼 모든 선생님이 함께 보는 자료에 체크해요.</span></p>' +
       '<div class="field" id="lf-corder-box"' + (i.common ? '' : ' hidden') + ' style="max-width:240px"><label class="label" for="lf-corder">공통 자료 순서</label>' +
       '<input id="lf-corder" class="input" inputmode="numeric" maxlength="3" value="' + esc(i.commonOrder || '') + '" placeholder="숫자가 작을수록 앞"></div></div>' +
-      (d.canManage ? '<label class="check"><input type="checkbox" id="lf-home"' + (i.home ? ' checked' : '') + '>홈 \'자주 찾는 자료\'에 보이기 <span class="faint">(홈에는 6개까지 보여요 · 지금 ' +
+      (d.canManage ? '<label class="check" id="lf-home-box"><input type="checkbox" id="lf-home"' + (i.home ? ' checked' : '') + '>홈 \'자주 찾는 자료\'에 보이기 <span class="faint">(홈에는 6개까지 보여요 · 지금 ' +
         d.items.filter(function (x) { return x.home && !x.archived; }).length + '개)</span></label>' : '') +
       '<p class="err" id="lf-err" role="alert"></p>' +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
-      '<button type="submit" class="btn btn-primary">' + (edit ? '저장' : '넣기') + '</button></div></form>');
-    var form = qs('#lib-form');
-    qs('#lf-common').addEventListener('change', function (e) { qs('#lf-corder-box').hidden = !e.target.checked; });
-    qsa('[data-mode]', form).forEach(function (b) {
-      b.addEventListener('click', function () {
-        mode = b.getAttribute('data-mode');
-        qsa('[data-mode]', form).forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
-        qs('#lf-link-box').hidden = mode !== 'link';
-        qs('#lf-file-box').hidden = mode !== 'file';
+      '<button type="submit" class="btn btn-primary" id="lf-go">' + (edit ? '저장' : '넣기') + '</button></div></form>');
+    var form = qs('#lib-form'), err = qs('#lf-err');
+    var setMode = function (m) {
+      mode = m;
+      qsa('[data-mode]', form).forEach(function (o) { o.setAttribute('aria-pressed', o.getAttribute('data-mode') === m ? 'true' : 'false'); });
+      qs('#lf-link-box').hidden = m !== 'link';
+      qs('#lf-file-box').hidden = m !== 'file';
+    };
+    // 여러 파일이면 제목 칸 대신 파일마다 제목, 공통 순서·홈 표시는 숨김(하나씩 고쳐서 정함), 링크로는 못 바꿈
+    var drawRows = function () {
+      var multi = picked.length > 1;
+      if (multi && !wasMulti && picked[0]) { var t0 = qs('#lf-title').value.trim(); if (t0) picked[0].title = t0.slice(0, 60); }
+      if (!multi && wasMulti && picked[0]) qs('#lf-title').value = picked[0].title;
+      wasMulti = multi;
+      qs('#lf-title-box').hidden = multi;
+      qs('#lf-multi-note').hidden = !multi;
+      qs('#lf-corder-box').hidden = multi || !qs('#lf-common').checked;
+      if (qs('#lf-home-box')) qs('#lf-home-box').hidden = multi;
+      var linkBtn = qs('[data-mode=link]', form);
+      linkBtn.disabled = multi;
+      linkBtn.title = multi ? '여러 파일을 넣는 동안에는 링크로 바꿀 수 없어요' : '';
+      qs('#lf-rows').innerHTML = picked.map(function (p, k) { return fileRowHtml(p, k, multi); }).join('');
+      var go = qs('#lf-go');
+      if (!go.disabled) go.textContent = edit ? '저장' : multi ? picked.length + '개 넣기' : '넣기';
+    };
+    var addFiles = function (files, dirs) {
+      err.textContent = '';
+      var notes = [], over = '한 번에 ' + DROP_MAX + '개까지 넣을 수 있어요. 앞의 ' + DROP_MAX + '개만 담았어요.';
+      if (dirs) notes.push('폴더는 넣을 수 없어요. 폴더 안의 파일을 골라 끌어다 놓아 주세요.');
+      if (edit) { // 고치기: 파일 하나만 바꾼다
+        if (files.length > 1) notes.push('자료 고치기에서는 파일 하나만 바꿀 수 있어요. 첫 파일만 담았어요.');
+        if (files.length) picked = [];
+        files = files.slice(0, 1);
+      }
+      files.forEach(function (f) {
+        if (picked.some(function (p) { return p.file.name === f.name && p.file.size === f.size && p.file.lastModified === f.lastModified; })) return;
+        if (picked.length >= DROP_MAX) { if (notes.indexOf(over) < 0) notes.push(over); return; }
+        picked.push({ file: f, title: fileBase(f.name), bad: fileProblem(f, d.maxMb), error: '' });
       });
+      if (picked.length) {
+        setMode('file');
+        if (picked.length === 1 && !qs('#lf-title').value.trim()) qs('#lf-title').value = picked[0].title;
+        drawRows();
+      }
+      if (notes.length) err.textContent = notes.join(' ');
+    };
+    bindDropZone('lf-file', addFiles);
+    qs('#lf-rows').addEventListener('input', function (e) {
+      var k = e.target.getAttribute('data-fr-t');
+      if (k !== null && picked[+k]) picked[+k].title = e.target.value;
     });
+    qs('#lf-rows').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-fr-x]');
+      if (!b || qs('#lf-go').disabled) return;
+      picked.splice(+b.getAttribute('data-fr-x'), 1);
+      err.textContent = '';
+      drawRows();
+    });
+    qs('#lf-common').addEventListener('change', function (e) { qs('#lf-corder-box').hidden = !e.target.checked || picked.length > 1; });
+    qsa('[data-mode]', form).forEach(function (b) {
+      b.addEventListener('click', function () { setMode(b.getAttribute('data-mode')); });
+    });
+    var base = function () {
+      return { '부서ID': qs('#lf-dept').value, '분류ID': qs('#lf-kind').value, '설명': qs('#lf-desc').value, '담당': qs('#lf-owner').value, common: qs('#lf-common').checked };
+    };
+    // 여러 파일: 하나씩 차례로 올린다. 못 올린 파일은 창에 남겨 다시 넣게 한다
+    var saveMany = function () {
+      var bad = picked.filter(function (p) { return p.bad; }).length;
+      if (bad) { err.textContent = '올릴 수 없는 파일 ' + bad + '개(빨간 줄)를 빼 주세요.'; return; }
+      var empty = -1;
+      picked.forEach(function (p, k) { if (empty < 0 && !p.title.trim()) empty = k; });
+      if (empty >= 0) { err.textContent = '제목을 적어 주세요.'; var el = qs('[data-fr-t="' + empty + '"]'); if (el) el.focus(); return; }
+      var btn = qs('#lf-go'), list = picked.slice(), n = list.length, ok = 0, b0 = base();
+      list.forEach(function (p) { p.error = ''; });
+      busy(btn, true, '올리는 중 1/' + n);
+      var alive = function () { return document.body.contains(form); };
+      var done = function () {
+        picked = list.filter(function (p) { return !p.saved; });
+        if (S.screen === 'library') { if (S.lib.view !== 'now') { S.lib.view = 'now'; drawLib(); } else drawLibList(); }
+        if (!picked.length) { if (alive()) closeModal(); toast(n + '개 자료를 넣었어요'); return; }
+        if (!alive()) { toast(ok + '개 자료를 넣었어요. ' + picked.length + '개는 넣지 못했어요', 'error'); return; }
+        busy(btn, false);
+        drawRows();
+        err.textContent = (ok ? ok + '개는 넣었어요. ' : '') + picked.length + '개는 넣지 못했어요. 빨간 줄을 보고 다시 넣어 주세요.';
+      };
+      var step = function (k) {
+        if (k >= n) return done();
+        if (alive()) busyText(btn, '올리는 중 ' + (k + 1) + '/' + n);
+        var p = list[k];
+        readFile(p.file, d.maxMb).then(function (file) {
+          var f2 = { '제목': p.title, '부서ID': b0['부서ID'], '분류ID': b0['분류ID'], '설명': b0['설명'], '담당': b0['담당'], mode: 'file', link: '', common: b0.common, commonOrder: '' };
+          return server('lib.save', { id: '', fields: f2, file: file });
+        }).then(function (row) { putLib(row); p.saved = true; ok++; step(k + 1); },
+          function (e) { p.error = e.message; step(k + 1); });
+      };
+      step(0);
+    };
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
-      var err = qs('#lf-err');
-      var fields = {
-        '제목': qs('#lf-title').value, '부서ID': qs('#lf-dept').value, '분류ID': qs('#lf-kind').value,
-        '설명': qs('#lf-desc').value, '담당': qs('#lf-owner').value, mode: mode, link: qs('#lf-link').value.trim()
-      };
+      err.textContent = '';
+      if (mode === 'file' && picked.length > 1) return saveMany();
+      var fields = base();
+      fields['제목'] = qs('#lf-title').value;
+      fields.mode = mode;
+      fields.link = qs('#lf-link').value.trim();
       if (qs('#lf-home')) fields.home = qs('#lf-home').checked;
-      fields.common = qs('#lf-common').checked;
       fields.commonOrder = fields.common ? qs('#lf-corder').value.trim() : '';
       if (fields.commonOrder && !/^\d+$/.test(fields.commonOrder)) { err.textContent = '공통 자료 순서는 숫자로 적어 주세요.'; qs('#lf-corder').focus(); return; }
-      var f = qs('#lf-file').files[0];
+      var p = picked[0], f = p ? p.file : null;
       if (!fields['제목'].trim()) { err.textContent = '제목을 적어 주세요.'; qs('#lf-title').focus(); return; }
       if (mode === 'link' && !/^https:\/\//.test(fields.link)) { err.textContent = '링크는 https:// 로 시작하는 주소를 넣어 주세요.'; qs('#lf-link').focus(); return; }
+      if (mode === 'file' && p && p.bad) { err.textContent = p.bad + '. 다른 파일을 골라 주세요.'; return; }
       if (mode === 'file' && !f && !(edit && edit.hasFile)) { err.textContent = '올릴 파일을 골라 주세요.'; return; }
-      var btn = form.querySelector('[type=submit]');
+      var btn = qs('#lf-go');
       busy(btn, true, mode === 'file' && f ? '올리는 중' : '저장하는 중');
       (mode === 'file' && f ? readFile(f, d.maxMb) : Promise.resolve(null)).then(function (file) {
         return server('lib.save', { id: edit ? edit.id : '', fields: fields, file: file });
@@ -3155,6 +3358,8 @@
         toast('"' + row.title + '" 자료를 ' + (edit ? '고쳤어요' : '넣었어요'));
       }).catch(function (e) { busy(btn, false); err.textContent = e.message; });
     });
+    if ((files0 && files0.length) || dirs0) addFiles(files0 || [], dirs0 || 0);
+    if (picked.length > 1) setTimeout(function () { var t = qs('[data-fr-t="0"]'); if (t) t.focus(); }, 60); // 제목 칸이 숨었으니 첫 파일의 제목으로
   }
 
   // ============================================================ 교직원 명단
@@ -3175,7 +3380,7 @@
         return '<option value="' + esc(x.id) + '"' + (x.id === D.dept ? ' selected' : '') + '>' + esc(x.name) + '</option>';
       }).join('') + '</select></div>' +
       '<div id="dir-list" class="stack"></div>' +
-      '<p class="hint print-hide">' + icon('info', 16) + '<span>명단은 연구부장·부담당이 관리자 화면의 교직원 표에서 고쳐요. 개인 연락처는 넣지 않아요(내선만).</span></p>';
+      '<p class="hint print-hide">' + icon('info', 16) + '<span>명단은 관리자가 관리자 화면의 교직원 표에서 고쳐요. 개인 연락처는 넣지 않아요(내선만).</span></p>';
     bindFind('dir-q', function (v) { D.q = v; drawDirList(); });
     qs('#dir-dept').addEventListener('change', function (e) { D.dept = e.target.value; drawDirList(); });
     drawDirList();
@@ -3291,12 +3496,26 @@
       '<div class="field"><label class="label" for="hf-file">파일' + (i.hasFile ? ' (바꿀 때만 고르기)' : ' (있으면)') + '</label>' +
       (i.hasFile ? '<p class="box file-now">' + icon('doc', 18) + '<span>지금 파일: <b>' + esc(i.fileName) + '</b> · ' + esc(sizeText(i.fileSize)) + '</span></p>' +
         '<label class="check"><input type="checkbox" id="hf-nofile">이 파일 빼기</label>' : '') +
-      '<input id="hf-file" class="input input-file" type="file"><p class="hint">' + icon('info', 16) + '<span>' + d.maxMb + 'MB까지 올릴 수 있어요. 규정 한글·PDF 파일을 올려 두면 온라인 교무실에서만 내려받아요.</span></p></div>' +
+      dropZoneHtml('hf-file', false) + '<div class="file-rows" id="hf-rows"></div>' +
+      '<p class="hint">' + icon('info', 16) + '<span>' + d.maxMb + 'MB까지 올릴 수 있어요. 규정 한글·PDF 파일을 올려 두면 온라인 교무실에서만 내려받아요.</span></p></div>' +
       (d.canManage ? '<label class="check"><input type="checkbox" id="hf-home"' + (i.home ? ' checked' : '') + '>홈 \'비상 시 이것부터\'에 보이기 <span class="faint">(3개까지 · 대피 경로처럼 급할 때 볼 글)</span></label>' : '') +
       '<p class="err" id="hf-err" role="alert"></p>' +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
       '<button type="submit" class="btn btn-primary">' + (edit ? '저장' : '넣기') + '</button></div></form>', { wide: true });
-    var form = qs('#help-form');
+    var form = qs('#help-form'), hfPick = null; // 붙일 파일 하나(끌어다 놓기·고르기, 판 2026-10-21b)
+    var drawHf = function () { qs('#hf-rows').innerHTML = hfPick ? fileRowHtml(hfPick, 0, false) : ''; };
+    bindDropZone('hf-file', function (files, dirs) {
+      var notes = [];
+      if (dirs) notes.push('폴더는 붙일 수 없어요. 파일을 골라 주세요.');
+      if (files.length > 1) notes.push('도움말에는 파일 하나만 붙일 수 있어요. 첫 파일만 담았어요.');
+      if (files[0]) {
+        hfPick = { file: files[0], bad: fileProblem(files[0], d.maxMb), error: '' };
+        if (qs('#hf-nofile')) qs('#hf-nofile').checked = false;
+      }
+      drawHf();
+      qs('#hf-err').textContent = notes.join(' ');
+    });
+    qs('#hf-rows').addEventListener('click', function (e) { if (e.target.closest('[data-fr-x]')) { hfPick = null; drawHf(); } });
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
       var err = qs('#hf-err');
@@ -3305,8 +3524,9 @@
         '내용': qs('#hf-body').value, '링크': qs('#hf-link').value.trim(), removeFile: !!(qs('#hf-nofile') && qs('#hf-nofile').checked)
       };
       if (qs('#hf-home')) fields.home = qs('#hf-home').checked;
-      var f = qs('#hf-file').files[0];
+      var f = hfPick ? hfPick.file : null;
       if (!fields['분류ID']) { err.textContent = '분류를 골라 주세요.'; return; }
+      if (hfPick && hfPick.bad) { err.textContent = hfPick.bad + '. 다른 파일을 골라 주세요.'; return; }
       if (!fields['제목'].trim()) { err.textContent = '제목을 적어 주세요.'; qs('#hf-title').focus(); return; }
       if (fields['링크'] && !/^https:\/\//.test(fields['링크'])) { err.textContent = '링크는 https:// 로 시작하는 주소를 넣어 주세요.'; return; }
       var btn = form.querySelector('[type=submit]');
@@ -3331,15 +3551,15 @@
       return '<section class="card guide-card"><h2><span class="step-no">' + no + '</span>' + title + '</h2><ul class="guide-list">' +
         items.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul></section>';
     };
-    $s.innerHTML = pageHead('', '운영 안내서', '처음 쓰는 선생님과 연구부장·부담당을 위한 안내예요. 인쇄해서 나눠 줘도 돼요.',
+    $s.innerHTML = pageHead('', '운영 안내서', '처음 쓰는 선생님과 관리자를 위한 안내예요. 인쇄해서 나눠 줘도 돼요.',
       '<span class="row-btns print-hide"><button type="button" class="btn btn-sm" data-action="print-guide-teacher">' + icon('print', 18) + '선생님용 1쪽 인쇄</button>' +
       '<button type="button" class="btn btn-sm" data-action="print">' + icon('print', 18) + '모두 인쇄</button></span>') +
       // '모든 선생님' 부분은 선생님용 1쪽 인쇄(guideTeacherStart)로 A4 한 장에 따로 찍는다
       '<div class="guide-part" id="guide-teacher"><p class="guide-print-head">' + esc(st.school || '') + ' 온라인 교무실 · 선생님용 안내</p>' +
       '<h2 class="guide-h">모든 선생님</h2>' +
       sec(1, '들어오기', [
-        '웹앱 주소를 열고 <b>공통 비밀번호</b>를 넣어요. 비밀번호는 연구부장·부담당이 알려 드려요.',
-        st.pinMode ? '명단에서 내 이름을 고르고 <b>개인 번호 4자리</b>를 넣어요. 번호를 잊으면 연구부장·부담당이 새로 만들어 드려요.' : '명단에서 <b>내 이름</b>을 골라요. 일정·조사·자료에 고른 이름이 남아요.',
+        '웹앱 주소를 열고 <b>공통 비밀번호</b>를 넣어요. 비밀번호는 관리자가 알려 드려요.',
+        st.pinMode ? '명단에서 내 이름을 고르고 <b>개인 번호 4자리</b>를 넣어요. 번호를 잊으면 관리자가 새로 만들어 드려요.' : '명단에서 <b>내 이름</b>을 골라요. 일정·조사·자료에 고른 이름이 남아요.',
         "'이 기기에서 기억하기'를 켜 두면 " + keep + ' 동안 다시 묻지 않아요. 여러 사람이 쓰는 컴퓨터에서는 끄고, 다 쓰면 메뉴 맨 아래 <b>나가기</b>를 눌러요.',
         '내 PC에서는 <b>바탕화면 바로가기</b>를 만들어 두면 두 번 눌러 바로 열려요. <span class="guide-sc print-hide" style="display:inline-flex;flex-wrap:wrap;gap:6px">' +
           '<button type="button" class="btn btn-sm" data-action="shortcut-file">' + icon('down', 16) + '바로가기 파일 받기</button>' +
@@ -3359,7 +3579,7 @@
         '<b>반복</b>을 켜면 매주·격주·매월 ○째 ○요일로 끝날까지 한 번에 넣어요(60개까지, 공휴일·휴업일은 건너뛰어요). 넣기 전에 날짜를 보여 줘요.',
         '<b>주간 안내</b>로 이번 주·다음 주 일정을 메신저 문구로 복사하거나 A4 한 장으로 인쇄해요.',
         '달력에서 내가 넣은 행사를 <b>끌어서 다른 날로</b> 옮길 수 있어요. 놓으면 한 번 물어요. 월별 계획은 인쇄하면 A4 한 장에 맞춰 나와요.',
-        '고치기·지우기는 처음 넣은 분과 연구부장·부담당만 할 수 있어요.'
+        '고치기·지우기는 처음 넣은 분과 관리자만 할 수 있어요.'
       ]) +
       sec(4, '조사·신청', [
         "홈 '내가 할 일'이나 <b>조사·신청</b>에서 응답해요. 마감 전에는 다시 내서 고칠 수 있어요.",
@@ -3374,11 +3594,11 @@
         '목록의 찾기 칸·부서로 표를 찾고, 휴대폰은 줄 찾기와 <b>내 이름이 있는 줄</b>로 내 줄만 봐요.'
       ]) +
       sec(6, '자료실·도움말·교직원', [
-        '<b>자료실</b>에 링크나 파일을 넣어요. 지난 학년도 자료는 보관함에 있어요.',
+        '<b>자료실</b>에 링크나 파일을 넣어요. PC에서는 파일을 자료실 화면에 <b>끌어다 놓으면</b> 바로 넣어요(여러 개도 한 번에). 지난 학년도 자료는 보관함에 있어요.',
         '<b>도움말</b>에는 복무·인사 처리 안내와 학교 규칙·제규정을 모아요. 학교에서 정한 내용을 그대로 옮겨 적어요.',
         '<b>교직원</b>에서 선생님의 소속·담당 업무·내선을 찾아요.'
       ]) + '</div>' +
-      '<div class="guide-part guide-admin"><h2 class="guide-h">연구부장·부담당</h2>' +
+      '<div class="guide-part guide-admin"><h2 class="guide-h">관리자</h2>' +
       sec(7, '관리자 화면', [
         '<b>관리자</b> 메뉴에서 관리자 비밀번호를 넣어요. 2시간 동안 열려 있고 기기에 기억하지 않아요.',
         '교직원 표: 전입·전출·휴직은 지우지 말고 "사용 안 함"으로 바꿔요. 내선 칸은 모두에게 보이니 휴대폰 번호는 넣지 않아요.',
@@ -3735,7 +3955,7 @@
   }
 
   /** 홈 '자주 찾는 자료' */
-  /** 홈 '비상 시 이것부터': 도움말에서 '홈에 보이기'를 켠 글 3개까지(연구부장·부담당이 고름). 누르면 그 도움말을 연다 */
+  /** 홈 '비상 시 이것부터': 도움말에서 '홈에 보이기'를 켠 글 3개까지(관리자가 고름). 누르면 그 도움말을 연다 */
   function sosCard(h) {
     var list = h.emergency || [];
     if (!list.length) return '';
@@ -3753,7 +3973,7 @@
     return '<section class="card quick-card"><div class="card-head"><h2>자주 찾는 자료</h2><button type="button" class="linkish" data-go="library">자료실 가기</button></div>' +
       (list.length ? '<div class="sr-list">' + list.map(function (i) {
         return srRow('sr-lib', i.id, i.hasFile ? 'doc' : 'link', esc(i.title), i.dept);
-      }).join('') + '</div>' : '<p class="faint">연구부장·부담당이 자료를 고르면 여기에 보여요.</p>') +
+      }).join('') + '</div>' : '<p class="faint">관리자가 자료를 고르면 여기에 보여요.</p>') +
       (more > 0 ? '<p class="faint quick-more">홈에는 ' + list.length + '개까지 보여요. <button type="button" class="linkish" data-go="library">나머지 ' + more + '개는 자료실에서</button></p>' : '') + '</section>';
   }
 
@@ -4019,18 +4239,18 @@
     });
   }
 
-  // ============================================================ 학사일정 한 번에 올리기 (연구부장·부담당)
+  // ============================================================ 학사일정 한 번에 올리기 (관리자)
   S.up = { input: 'file', res: null, filter: 'all', mode: 'skip', last: null, depts: [], year: '', pasteGrid: null, more: false, done: null };
 
   /** 관리 권한: 관리자 화면이 열렸거나, '이름+개인 번호' 방식에서 역할 '관리'인 분(서버 canManage_와 같은 규칙) */
   function canManageMe() { return S.admin || !!(S.me && S.me.role === '관리' && S.start && S.start.pinMode); }
 
   SCREENS.upload = function ($s) {
-    $s.innerHTML = pageHead('관리 · 연구부장·부담당만 써요', '학사일정 한 번에 올리기', '목록 양식으로 올리면 달력·홈·월별 계획에 한 번에 들어가요.',
+    $s.innerHTML = pageHead('관리자만 써요', '학사일정 한 번에 올리기', '목록 양식으로 올리면 달력·홈·월별 계획에 한 번에 들어가요.',
       '<button type="button" class="btn btn-sm print-hide" data-go="schedule">' + icon('chevl', 18) + '일정으로 돌아가기</button>') +
       '<div id="up-body" class="stack">' + loadingHtml('불러오는 중이에요') + '</div>';
     if (!canManageMe()) {
-      qs('#up-body').innerHTML = '<section class="card" style="align-items:flex-start"><h2>연구부장·부담당만 쓸 수 있어요</h2>' +
+      qs('#up-body').innerHTML = '<section class="card" style="align-items:flex-start"><h2>관리자만 쓸 수 있어요</h2>' +
         '<p class="muted">관리자 비밀번호로 관리자 화면을 연 뒤에 쓸 수 있어요. 2시간 동안 열려 있어요.</p>' +
         '<button type="button" class="btn" data-go="admin">관리자 화면 열기</button></section>';
       return;
@@ -4399,7 +4619,7 @@
   SCREENS.admin = function ($s) {
     if (!S.admin) return adminGate($s);
     var tabs = [['staff', '교직원 표'], ['cat', '분류'], ['settings', '설정'], ['year', '새 학년도'], ['log', '수정 기록'], ['trash', '휴지통'], ['pw', '비밀번호'], ['check', '점검']];
-    $s.innerHTML = pageHead('관리 · 연구부장·부담당', '관리자', '계정·분류·설정을 관리해요. 바꾼 내용은 모두 수정 기록에 남아요.',
+    $s.innerHTML = pageHead('관리', '관리자', '계정·분류·설정을 관리해요. 바꾼 내용은 모두 수정 기록에 남아요.',
       '<button type="button" class="btn btn-sm print-hide" data-action="admin-out">' + icon('lock', 18) + '관리자 화면 닫기</button>') +
       (S.me ? '' : '<div class="box" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px"><span class="warn-text" style="font-size:15px">본인 확인 전이라 기록에 "관리자(본인 확인 전)"으로 남아요.</span>' +
         '<button type="button" class="btn btn-sm" data-action="identity">본인 확인하기</button></div>') +
@@ -4413,10 +4633,10 @@
   };
 
   function adminGate($s) {
-    $s.innerHTML = pageHead('관리 · 연구부장·부담당', '관리자') +
+    $s.innerHTML = pageHead('관리', '관리자') +
       '<form class="card" id="admin-form" style="max-width:520px" novalidate><span class="glow" aria-hidden="true"></span>' +
       '<div style="display:flex;align-items:center;gap:12px"><span class="brand-mark">' + icon('shield', 24) + '</span><h2>관리자 비밀번호를 넣어 주세요</h2></div>' +
-      '<p class="muted">공통 비밀번호와 다른 비밀번호예요. 연구부장·부담당만 알고 있어요.</p>' +
+      '<p class="muted">공통 비밀번호와 다른 비밀번호예요. 관리자만 알고 있어요.</p>' +
       '<div class="field"><label class="label" for="admin-pw">관리자 비밀번호</label>' +
       '<div class="pw-wrap"><input id="admin-pw" class="input" type="password" autocomplete="off">' +
       '<button type="button" class="icon-btn" data-action="pw-eye" data-for="admin-pw" aria-label="비밀번호 보이기">' + icon('eye') + '</button></div></div>' +
@@ -4447,9 +4667,9 @@
   function failHtml(e) {
     return '<div class="card"><p class="err">' + esc(e.message) + '</p>' + detailHtml(e) + '</div>';
   }
-  /** 예상 못 한 오류의 원인 한 줄(연구부장·부담당이 고칠 곳을 찾게) */
+  /** 예상 못 한 오류의 원인 한 줄(관리자가 고칠 곳을 찾게) */
   function detailHtml(e) {
-    return e && e.detail ? '<p class="err-detail">자세한 내용(연구부장·부담당께 전해 주세요): <code>' + esc(e.detail) + '</code></p>' : '';
+    return e && e.detail ? '<p class="err-detail">자세한 내용(관리자께 전해 주세요): <code>' + esc(e.detail) + '</code></p>' : '';
   }
 
   // ------------------------------------------------------------ 관리자 · 교직원 표
@@ -4555,7 +4775,7 @@
       '<div class="field"><span class="label">역할</span><div class="seg" role="group" aria-label="역할" style="max-width:320px">' +
       '<button type="button" data-role="일반" aria-pressed="' + (x['역할'] !== '관리') + '">일반</button>' +
       '<button type="button" data-role="관리" aria-pressed="' + (x['역할'] === '관리') + '">관리</button></div>' +
-      '<p class="hint">' + icon('info', 16) + '<span>"관리"는 연구부장·부담당 표시예요. 관리자 화면은 관리자 비밀번호로 들어가요.</span></p></div>' +
+      '<p class="hint">' + icon('info', 16) + '<span>"관리"는 관리자 표시예요. 관리자 화면은 관리자 비밀번호로 들어가요.</span></p></div>' +
       (depts.length ? '' : '<p class="hint">' + icon('info', 16) + '<span>부서 목록이 비어 있어요. "분류" 탭에서 부서를 먼저 넣으면 고를 수 있어요.</span></p>') +
       '<p class="err" id="sf-err" role="alert"></p>' +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
@@ -4647,7 +4867,7 @@
       return '<div class="slip"><div>' + esc(school) + ' 온라인 교무실 · 개인 번호</div>' +
         '<div style="font-size:18px;font-weight:800;margin-top:4px">' + esc(p.name) + ' 선생님 <span style="font-weight:600;font-size:14px">' + esc(p.group || '') + '</span></div>' +
         '<div class="slip-pin">' + esc(p.pin) + '</div>' +
-        '<div>조사에 답하거나 일정을 넣을 때 이름을 고르고 이 번호를 넣어요. 다른 사람에게 보여 주지 마세요. 잊으면 연구부장·부담당에게 다시 받으세요.</div></div>';
+        '<div>조사에 답하거나 일정을 넣을 때 이름을 고르고 이 번호를 넣어요. 다른 사람에게 보여 주지 마세요. 잊으면 관리자에게 다시 받으세요.</div></div>';
     }).join('') + '</div>';
     document.body.classList.add('printing-slips');
     setTimeout(function () {
@@ -4910,7 +5130,7 @@
       pwField('pc-1', '새 공통 비밀번호 (6자 이상)', 'new-password') + pwField('pc-2', '한 번 더', 'new-password') +
       '<p class="err" id="pc-err" role="alert"></p><div><button type="submit" class="btn btn-primary">공통 비밀번호 바꾸기</button></div></form>' +
       '<form class="card" id="pw-admin" novalidate><h2>관리자 비밀번호 바꾸기</h2>' +
-      '<p class="faint">연구부장·부담당이 바뀌면 꼭 바꿔 주세요. 공통 비밀번호와 다르게 정해야 해요.</p>' +
+      '<p class="faint">관리자가 바뀌면 꼭 바꿔 주세요. 공통 비밀번호와 다르게 정해야 해요.</p>' +
       pwField('pa-0', '지금 관리자 비밀번호', 'current-password') + pwField('pa-1', '새 관리자 비밀번호 (6자 이상)', 'new-password') + pwField('pa-2', '한 번 더', 'new-password') +
       '<p class="err" id="pa-err" role="alert"></p><div><button type="submit" class="btn btn-primary">관리자 비밀번호 바꾸기</button></div></form>' +
       '</div>';
@@ -5141,7 +5361,7 @@
   function tbMissing($s) {
     $s.classList.remove('tb-full');
     $s.innerHTML = pageHead('', '취합 시트', '') +
-      '<section class="card"><p class="empty">취합 시트 화면 파일(TableUi)이 아직 없거나 열리지 않았어요. 연구부장·부담당께 알려 주세요(관리자 › 점검에서 확인할 수 있어요).</p></section>';
+      '<section class="card"><p class="empty">취합 시트 화면 파일(TableUi)이 아직 없거나 열리지 않았어요. 관리자께 알려 주세요(관리자 › 점검에서 확인할 수 있어요).</p></section>';
   }
   SCREENS.table = tbMissing;
 
@@ -5187,7 +5407,7 @@
       if (S.screen !== 'table' || !qs('#screen')) return;
       if (e && e.code === 'MISSING_UI') { tbMissing(qs('#screen')); return; }
       qs('#screen').innerHTML = pageHead('', '취합 시트', '') + '<section class="card stack">' + failHtml(e) +
-        '<p class="faint">계속 열리지 않으면 연구부장·부담당이 관리자 › 설정 › 취합 시트 화면 파일을 \'처음에 함께\'로 바꿔 주세요.</p>' +
+        '<p class="faint">계속 열리지 않으면 관리자가 관리자 › 설정 › 취합 시트 화면 파일을 \'처음에 함께\'로 바꿔 주세요.</p>' +
         '<div><button type="button" class="btn" data-go="table">' + icon('reload', 18) + '다시 받기</button></div></section>';
     });
   }
@@ -5370,7 +5590,7 @@
         });
         break;
       case 'sv-del':
-        confirmBox('조사 지우기', '"' + esc(S.survey.detail.card.title) + '" 조사를 지울까요? 낸 답도 함께 숨겨져요. 연구부장·부담당이 휴지통에서 되살릴 수 있어요.', '지우기', function () {
+        confirmBox('조사 지우기', '"' + esc(S.survey.detail.card.title) + '" 조사를 지울까요? 낸 답도 함께 숨겨져요. 관리자가 휴지통에서 되살릴 수 있어요.', '지우기', function () {
           return server('survey.delete', { id: S.survey.sel }, [['survey.list', svArgs()]]).then(function () { closeModal(); toast('조사를 지웠어요'); S.survey.sel = ''; refreshSurveyList(); });
         }, true);
         break;
@@ -5433,7 +5653,7 @@
       case 'lib-year': S.lib.year = t.getAttribute('data-y'); drawLib(); break;
       case 'lib-del':
         var ld = libById(id);
-        confirmBox('자료 지우기', '"' + esc(ld.title) + '" 자료를 지울까요? 연구부장·부담당이 휴지통에서 되살릴 수 있어요.', '지우기', function () {
+        confirmBox('자료 지우기', '"' + esc(ld.title) + '" 자료를 지울까요? 관리자가 휴지통에서 되살릴 수 있어요.', '지우기', function () {
           return server('lib.delete', { id: id }).then(function () {
             S.lib.data.items = S.lib.data.items.filter(function (x) { return x.id !== id; });
             S.home = null;
@@ -5475,7 +5695,7 @@
       case 'notice-edit': openNoticeForm(noticeById(id)); break;
       case 'notice-del':
         var nd2 = noticeById(id);
-        confirmBox('공지 지우기', '"' + esc(nd2.title) + '" 공지를 지울까요? 연구부장·부담당이 휴지통에서 되살릴 수 있어요.', '지우기', function () {
+        confirmBox('공지 지우기', '"' + esc(nd2.title) + '" 공지를 지울까요? 관리자가 휴지통에서 되살릴 수 있어요.', '지우기', function () {
           return server('notice.delete', { id: id }, noticeThen()).then(function () {
             closeModal(); S.home = null; toast('공지를 지웠어요');
             if (S.screen === 'home') return SCREENS.home(qs('#screen'));
@@ -5519,7 +5739,7 @@
       case 'help-kind': S.help.kind = id || ''; drawHelp(); break;
       case 'help-del':
         var hd = helpById(id);
-        confirmBox('도움말 지우기', '"' + esc(hd.title) + '" 글을 지울까요? 연구부장·부담당이 휴지통에서 되살릴 수 있어요.', '지우기', function () {
+        confirmBox('도움말 지우기', '"' + esc(hd.title) + '" 글을 지울까요? 관리자가 휴지통에서 되살릴 수 있어요.', '지우기', function () {
           return server('help.delete', { id: id }).then(function () {
             S.help.data.items = S.help.data.items.filter(function (x) { return x.id !== id; });
             closeModal(); drawHelpList(); toast('도움말을 지웠어요');
