@@ -8,7 +8,7 @@
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-21b'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-10-21d'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -171,7 +171,7 @@
     S.home = null; S.search = null;
     S.sched.data = null; S.sched.yearData = null; S.sched.form = null;
     S.survey.list = null; S.survey.detail = null; S.survey.showResults = false; S.survey.draft = null;
-    S.lib.data = null; S.dir.data = null; S.help.data = null; S.notice.data = null;
+    S.lib.data = null; S.lib.dept = ''; S.dir.data = null; S.help.data = null; S.notice.data = null; // 부서 단추는 사람마다 전체부터
     if (TB) TB.forget();
   }
 
@@ -2968,16 +2968,55 @@
       '<div class="seg" role="group" aria-label="자료 보기">' +
       '<button type="button" data-action="lib-view" data-v="now" aria-pressed="' + (L.view === 'now') + '">' + esc(d.year) + '학년도</button>' +
       '<button type="button" data-action="lib-view" data-v="archive" aria-pressed="' + (L.view === 'archive') + '">' + icon('archive', 18) + '보관함</button></div>' +
-      '<select class="input input-sm" id="lib-dept" aria-label="부서로 거르기">' + opt(d.depts, L.dept, '모든 부서') + '</select>' +
       '<select class="input input-sm" id="lib-kind" aria-label="분류로 거르기">' + opt(d.kinds, L.kind, '모든 분류') + '</select></div>' +
       (L.view === 'archive' && years.length ? '<div class="tgs print-hide" role="group" aria-label="학년도">' + years.map(function (y) {
         return '<button type="button" class="tg" data-action="lib-year" data-y="' + esc(y) + '" aria-pressed="' + (y === L.year) + '">' + esc(y) + '학년도</button>';
       }).join('') + '</div>' : '') +
+      '<div id="lib-depts" class="tgs tg-scroll lib-depts print-hide" role="group" aria-label="부서로 거르기"></div>' +
       '<div id="lib-list" class="stack"></div>';
     bindFind('lib-q', function (v) { L.q = v; drawLibList(); });
-    qs('#lib-dept').addEventListener('change', function (e) { L.dept = e.target.value; drawLibList(); });
     qs('#lib-kind').addEventListener('change', function (e) { L.kind = e.target.value; drawLibList(); });
     drawLibList();
+    libDeptIntoView();
+  }
+
+  // 부서 단추 줄(판 2026-10-21d, 교사 요청): [전체] [내 부서] [부서…] [부서 없음]. 숫자는 지금 보기(학년도·보관함·분류·찾기)에 맞는 그 부서 자료 수(공통 자료 포함).
+  // 처음은 전체, 고른 단추는 이 창에서만 기억. 휴대폰은 한 줄로 옆으로 민다(끝이 흐려짐, updateTabHints)
+  var LIB_NONE = '_none'; // '부서 없음' 단추: 부서가 비었거나 지금은 없는 부서의 자료
+  function libInDept(i, dep, known) { return dep === LIB_NONE ? !known[i.deptId] : i.deptId === dep; }
+  function drawLibDepts(scope, base, known) {
+    var L = S.lib, d = L.data, row = qs('#lib-depts');
+    if (!row) return;
+    var count = function (dep) { return base.filter(function (i) { return libInDept(i, dep, known); }).length; };
+    var mine = S.me && S.me.deptId;
+    // 사용 안 함 부서는 이 보기에 자료가 있을 때만(찾는 동안 단추가 생겼다 없어지지 않게 찾기 전 자료로 본다)
+    var list = d.depts.filter(function (dp) {
+      return dp.active || dp.id === L.dept || scope.some(function (i) { return i.deptId === dp.id; });
+    });
+    var me = list.filter(function (dp) { return dp.id === mine; });
+    list = me.concat(list.filter(function (dp) { return dp.id !== mine; })); // 내 부서는 전체 바로 뒤
+    var btn = function (id, name, n, tag) {
+      return '<button type="button" class="tg' + (n ? '' : ' zero') + '" data-action="lib-dept" data-id="' + esc(id) + '" aria-pressed="' + (L.dept === id) + '">' +
+        esc(name) + (tag || '') + '<span class="tg-n">' + n + '<span class="sr-only">개</span></span></button>';
+    };
+    var keep = row.scrollLeft;
+    row.hidden = !scope.length; // 이 보기에 자료가 하나도 없으면(빈 보관함 등) 0만 늘어선 줄을 숨긴다
+    row.innerHTML = btn('', '전체', base.length) + list.map(function (dp) {
+      return btn(dp.id, dp.name, count(dp.id), dp.id === mine ? '<span class="tg-mine">내 부서</span>' : '');
+    }).join('') + (L.dept === LIB_NONE || scope.some(function (i) { return !known[i.deptId]; }) ? btn(LIB_NONE, '부서 없음', count(LIB_NONE)) : '');
+    row.scrollLeft = keep;
+  }
+  /** 고른 단추가 한 줄(휴대폰)에서 가려져 있으면 보이게 민다 */
+  function libDeptIntoView() {
+    var row = qs('#lib-depts'), b = row && qs('[aria-pressed="true"]', row);
+    if (!b || row.scrollWidth <= row.clientWidth) return;
+    if (b.offsetLeft < row.scrollLeft || b.offsetLeft + b.offsetWidth > row.scrollLeft + row.clientWidth) row.scrollLeft = Math.max(0, b.offsetLeft - 24);
+  }
+  /** 새 자료의 처음 부서: 고른 부서 단추(사용 중인 부서일 때), 아니면 내 부서 */
+  function libNewDept() {
+    var dep = S.lib.dept, d = S.lib.data;
+    if (dep && dep !== LIB_NONE && d && d.depts.some(function (dp) { return dp.id === dep && dp.active; })) return dep;
+    return (S.me && S.me.deptId) || '';
   }
 
   function drawLibList() {
@@ -2994,35 +3033,45 @@
       return;
     }
     var scope = d.items.filter(function (i) { return L.view === 'now' ? !i.archived : i.archived && i.year === L.year; });
-    var list = scope.filter(function (i) {
-      if (L.dept && i.deptId !== L.dept && !i.common) return false; // 공통 자료는 부서로 걸러도 맨 위에 그대로
+    var known = {};
+    d.depts.forEach(function (dp) { known[dp.id] = true; });
+    if (L.dept && L.dept !== LIB_NONE && !known[L.dept]) L.dept = ''; // 고른 부서가 분류에서 지워졌으면 전체로
+    // 분류·찾기에 맞는 자료(부서 단추의 숫자도 이것으로 센다)
+    var base = scope.filter(function (i) {
       if (L.kind && i.kindId !== L.kind) return false;
       return textMatch(L.q, [i.title, i.desc, i.owner, i.dept, i.kind, i.fileName]);
     });
+    drawLibDepts(scope, base, known);
+    var list = base.filter(function (i) { return !L.dept || i.common || libInDept(i, L.dept, known); }); // 공통 자료는 부서 단추를 골라도 맨 위에 그대로
+    var own = list.filter(function (i) { return !i.common; }).length, other = base.length - list.length;
+    // 고른 부서에 보일 자료가 없으면 한 줄. 찾는 중에 다른 부서에 있으면 그 수와 '전체에서 보기'(내 부서만 보다가 없는 줄 알지 않게)
+    var note = !L.dept || own ? '' : base.some(function (i) { return i.common && libInDept(i, L.dept, known); }) ? '이 부서 자료는 위 공통 자료에 있어요.'
+      : L.q || L.kind ? '이 부서에는 찾는 자료가 없어요.' : '이 부서 자료는 아직 없어요.';
+    var more = L.dept && L.q && other ? '<p class="hint lib-other">' + icon('info', 16) + '<span>다른 부서에도 찾는 자료가 ' + other + '개 있어요. ' +
+      '<button type="button" class="linkish" data-action="lib-dept" data-id="">전체에서 보기</button></span></p>' : '';
     if (!list.length) {
       var msg = L.view === 'archive' && !libYears().length ? '보관함이 비어 있어요. 새 학년도로 넘기면 지난 자료가 여기로 와요.'
+        : note && scope.length ? note
         : scope.length ? '찾는 자료가 없어요.' + (L.view === 'now' ? ' 보관함에서도 찾아보세요.' : '')
         : '아직 자료가 없어요. "자료 넣기"로 첫 자료를 넣어 보세요.';
-      box.innerHTML = '<div class="card"><p class="empty">' + msg + '</p></div>';
+      box.innerHTML = more + '<div class="card"><p class="empty">' + msg + '</p></div>';
       return;
     }
-    var known = {};
     // 공통 자료는 맨 위에 한 번만(부서 칸에는 다시 나오지 않음). 공통 순서 번호 → 제목 순
     var commons = list.filter(function (i) { return i.common; }).sort(function (a, b) {
       return (Number(a.commonOrder) || 999) - (Number(b.commonOrder) || 999) || a.title.localeCompare(b.title, 'ko');
     });
     var rest = list.filter(function (i) { return !i.common; });
     var groups = [{ name: '공통 자료', common: true, items: commons }].concat(d.depts.map(function (dp) {
-      known[dp.id] = true;
       return { name: dp.name, items: rest.filter(function (i) { return i.deptId === dp.id; }) };
     }));
     groups.push({ name: '부서 없음', items: rest.filter(function (i) { return !known[i.deptId]; }) });
-    box.innerHTML = '<p class="faint" aria-live="polite">' + (L.view === 'archive' ? esc(L.year) + '학년도 보관함 · ' : '') + list.length + '개</p>' +
+    box.innerHTML = more + '<p class="faint" aria-live="polite">' + (L.view === 'archive' ? esc(L.year) + '학년도 보관함 · ' : '') + list.length + '개</p>' +
       groups.filter(function (g) { return g.items.length; }).map(function (g) {
         return '<section class="lib-group' + (g.common ? ' common' : '') + '"><h2 class="lib-h">' + (g.common ? icon('star', 22, ' class="lib-h-ico"') : '') + esc(g.name) +
           ' <span class="faint">' + g.items.length + '</span>' + (g.common ? '<span class="lib-h-note">모든 선생님이 함께 보는 자료</span>' : '') + '</h2>' +
           '<div class="lib-grid">' + g.items.map(libCard).join('') + '</div></section>';
-      }).join('');
+      }).join('') + (note ? '<div class="card"><p class="empty">' + note + '</p></div>' : '');
   }
 
   function libCard(i) {
@@ -3211,7 +3260,7 @@
       '<form class="form" id="lib-form" novalidate>' +
       '<div class="field" id="lf-title-box"><label class="label" for="lf-title">제목 <span class="req">*</span></label>' +
       '<input id="lf-title" class="input" maxlength="60" value="' + esc(i.title || '') + '" placeholder="예: 학년 협의록 양식" autocomplete="off"></div>' +
-      '<div class="form-grid"><div class="field"><label class="label" for="lf-dept">부서</label>' + catSelect('lf-dept', d.depts, edit ? i.deptId : (S.me && S.me.deptId) || '', '(없음)') + '</div>' +
+      '<div class="form-grid"><div class="field"><label class="label" for="lf-dept">부서</label>' + catSelect('lf-dept', d.depts, edit ? i.deptId : libNewDept(), '(없음)') + '</div>' +
       '<div class="field"><label class="label" for="lf-kind">분류</label>' + catSelect('lf-kind', d.kinds, i.kindId || '', '(없음)') + '</div></div>' +
       '<div class="field"><label class="label" for="lf-desc">설명</label><textarea id="lf-desc" class="input" maxlength="500" rows="3" placeholder="어떤 자료인지 한두 줄로 적어 주세요">' + esc(i.desc || '') + '</textarea></div>' +
       '<div class="field"><label class="label" for="lf-owner">담당</label><input id="lf-owner" class="input" maxlength="20" value="' + esc(edit ? i.owner || '' : S.me.name) + '" autocomplete="off"></div>' +
@@ -3594,7 +3643,7 @@
         '목록의 찾기 칸·부서로 표를 찾고, 휴대폰은 줄 찾기와 <b>내 이름이 있는 줄</b>로 내 줄만 봐요.'
       ]) +
       sec(6, '자료실·도움말·교직원', [
-        '<b>자료실</b>에 링크나 파일을 넣어요. PC에서는 파일을 자료실 화면에 <b>끌어다 놓으면</b> 바로 넣어요(여러 개도 한 번에). 지난 학년도 자료는 보관함에 있어요.',
+        '<b>자료실</b>에 링크나 파일을 넣어요. <b>부서 단추</b>로 부서별로 골라 봐요. PC에서는 파일을 자료실 화면에 <b>끌어다 놓으면</b> 바로 넣어요(여러 개도 한 번에). 지난 학년도 자료는 보관함에 있어요.',
         '<b>도움말</b>에는 복무·인사 처리 안내와 학교 규칙·제규정을 모아요. 학교에서 정한 내용을 그대로 옮겨 적어요.',
         '<b>교직원</b>에서 선생님의 소속·담당 업무·내선을 찾아요.'
       ]) + '</div>' +
@@ -5346,7 +5395,7 @@
 
   // ------------------------------------------------------------ 옆으로 밀리는 탭: 더 있다는 표시
   function updateTabHints() {
-    qsa('.tabs').forEach(function (t) {
+    qsa('.tabs, .tg-scroll').forEach(function (t) { // .tg-scroll: 휴대폰에서 한 줄로 미는 단추 줄(자료실 부서)
       t.classList.toggle('more-r', t.scrollLeft + t.clientWidth < t.scrollWidth - 2);
       t.classList.toggle('more-l', t.scrollLeft > 2);
     });
@@ -5651,6 +5700,7 @@
       case 'lib-edit': closeModal(); openLibForm(libById(id)); break;
       case 'lib-view': S.lib.view = t.getAttribute('data-v'); drawLib(); break;
       case 'lib-year': S.lib.year = t.getAttribute('data-y'); drawLib(); break;
+      case 'lib-dept': S.lib.dept = id || ''; drawLibList(); libDeptIntoView(); break;
       case 'lib-del':
         var ld = libById(id);
         confirmBox('자료 지우기', '"' + esc(ld.title) + '" 자료를 지울까요? 관리자가 휴지통에서 되살릴 수 있어요.', '지우기', function () {
@@ -5835,7 +5885,7 @@
   });
 
   // 옆으로 밀리는 탭(관리자 탭 등): 더 있으면 끝을 흐리게
-  document.addEventListener('scroll', function (e) { if (e.target.classList && e.target.classList.contains('tabs')) updateTabHints(); }, true);
+  document.addEventListener('scroll', function (e) { if (e.target.classList && (e.target.classList.contains('tabs') || e.target.classList.contains('tg-scroll'))) updateTabHints(); }, true);
   if (window.MutationObserver) {
     var tabTimer;
     new MutationObserver(function () { clearTimeout(tabTimer); tabTimer = setTimeout(updateTabHints, 50); }).observe($app, { childList: true, subtree: true });

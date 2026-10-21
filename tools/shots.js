@@ -230,9 +230,9 @@ async function libraryFlow(page, kind) {
   await shot(page, kind + '_자료실', true);
   const firstGroup = await page.locator('.lib-group').first().evaluate((el) => ({ common: el.classList.contains('common'), n: el.querySelectorAll('.lib-card').length, first: el.querySelector('.lib-title').textContent }));
   if (!firstGroup.common || firstGroup.n !== 3 || firstGroup.first !== '가정통신문 양식(가짜)') problems.push(kind + ': 공통 자료가 맨 위에 순서대로 안 보임 ' + JSON.stringify(firstGroup));
-  await page.selectOption('#lib-dept', { label: '정보부' });
+  await page.locator('#lib-depts .tg', { hasText: '정보부' }).click();
   if ((await page.locator('.lib-group.common .lib-card').count()) !== 3) problems.push(kind + ': 부서로 거르면 공통 자료가 사라짐');
-  await page.selectOption('#lib-dept', '');
+  await page.click('#lib-depts .tg[data-id=""]');
   // 파일 올리기
   await page.click('[data-action=lib-new]');
   await page.locator('#lib-form').waitFor();
@@ -3736,6 +3736,147 @@ async function introReducedMotionCheck(browser) {
 }
 
 /**
+ * 자료실 부서 단추 줄(판 2026-10-21d, 교사 요청): '모든 부서' 고르는 칸 대신 [전체] [내 부서] [부서…] 단추. 처음은 전체, 숫자는 그 부서
+ * 자료 수(공통 자료 포함), 부서를 골라도 공통 자료는 맨 위, 찾는 중 다른 부서에 있으면 '전체에서 보기', 고른 부서가 새 자료의 처음 부서,
+ * 이 창에서 기억, 휴대폰은 한 줄로 옆으로 밀기(끝이 흐려짐)
+ */
+async function libDeptCheck(browser) {
+  const P = (m) => problems.push('부서 단추: ' + m);
+  const state = (page) => page.evaluate(() => {
+    const row = document.querySelector('#lib-depts');
+    if (!row) return null;
+    const btns = [...row.querySelectorAll('.tg')].map((b) => ({
+      name: b.childNodes[0].textContent.trim(), n: Number(b.querySelector('.tg-n').firstChild.textContent), on: b.getAttribute('aria-pressed') === 'true',
+      mine: !!b.querySelector('.tg-mine'), zero: b.classList.contains('zero'), top: Math.round(b.getBoundingClientRect().top)
+    }));
+    return {
+      btns, sel: !!document.querySelector('#lib-dept'), count: (document.querySelector('#lib-list > p.faint') || {}).textContent || '',
+      cards: document.querySelectorAll('.lib-card').length, commons: document.querySelectorAll('.lib-group.common .lib-card').length,
+      groups: [...document.querySelectorAll('.lib-group:not(.common) .lib-h')].map((h) => h.childNodes[0].textContent.trim()),
+      more: (document.querySelector('.lib-other') || {}).textContent || '', note: [...document.querySelectorAll('#lib-list .card .empty')].map((e) => e.textContent).join(' / '),
+      scrollW: row.scrollWidth, clientW: row.clientWidth, cls: row.className
+    };
+  });
+  const pick = (page, name) => page.locator('#lib-depts .tg', { hasText: name }).first().click();
+  const libOpen = async (page) => {
+    await page.evaluate(() => window.__gy.go('library'));
+    await page.locator('#lib-list .lib-card, #lib-list .empty').first().waitFor();
+  };
+  // PC: 심청 선생님(정보부)
+  let ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
+  let page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('부서 단추 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '심청');
+  await libOpen(page);
+  await page.waitForFunction(() => !document.querySelector('#toast.show'), null, { timeout: 6000 }).catch(() => {});
+  let s = await state(page);
+  if (!s) { P('단추 줄이 없음'); await ctx.close(); return; }
+  if (s.sel) P("예전 '모든 부서' 고르는 칸이 남아 있음");
+  const names = (st) => st.btns.map((b) => b.name + b.n).join(',');
+  if (names(s) !== '전체9,정보부1,교무부4,연구부2,인성안전부2') P('단추·숫자가 다름: ' + names(s));
+  if (!s.btns[0].on) P('처음에 전체가 골라져 있지 않음');
+  if (!s.btns[1].mine) P("내 부서(정보부)가 전체 바로 뒤에 '내 부서' 표시와 함께 있지 않음");
+  if (new Set(s.btns.map((b) => b.top)).size !== 1) P('PC에서 단추가 한 줄이 아님');
+  await check(page, 'PC 자료실 부서 단추');
+  await shot(page, 'PC_자료실_부서단추_전체');
+  // 인성안전부: 공통 자료 3개는 맨 위에 그대로, 그 아래 인성안전부 2개
+  await pick(page, '인성안전부');
+  s = await state(page);
+  if (!s.btns.find((b) => b.name === '인성안전부').on) P('누른 단추가 골라지지 않음');
+  if (s.commons !== 3 || s.groups.join() !== '인성안전부' || !/^5개/.test(s.count)) P('인성안전부를 골랐을 때 목록이 다름 ' + JSON.stringify({ c: s.commons, g: s.groups, n: s.count }));
+  await shot(page, 'PC_자료실_부서단추_인성안전부');
+  // 찾기: 인성안전부를 고른 채 '학적'(교무부 자료) → 단추 숫자가 찾은 것으로, 다른 부서에 1개 · 전체에서 보기
+  await page.fill('#lib-q', '학적');
+  await page.waitForFunction(() => !!document.querySelector('.lib-other'), null, { timeout: 3000 }).catch(() => {});
+  s = await state(page);
+  if (!/다른 부서에도 찾는 자료가 1개/.test(s.more)) P('찾는 중 다른 부서에 있는데 안내가 없음: ' + s.more);
+  if (!/이 부서에는 찾는 자료가 없어요/.test(s.note)) P('고른 부서에 찾는 자료가 없다는 글이 없음: ' + s.note);
+  if (names(s) !== '전체1,정보부0,교무부1,연구부0,인성안전부0') P('찾는 중 단추 숫자가 다름: ' + names(s));
+  if (!s.btns.find((b) => b.name === '정보부').zero) P('0개 단추가 흐리지 않음');
+  await shot(page, 'PC_자료실_부서단추_찾기_다른부서');
+  await page.click('.lib-other [data-action=lib-dept]');
+  s = await state(page);
+  if (!s.btns[0].on || !(await page.locator('.lib-title', { hasText: '학적 업무 안내' }).count())) P("'전체에서 보기'를 눌러도 찾은 자료가 안 보임");
+  await page.fill('#lib-q', '');
+  await page.waitForFunction(() => document.querySelectorAll('.lib-card').length === 9, null, { timeout: 3000 }).catch(() => P('찾기를 지워도 9개로 돌아오지 않음'));
+  // 분류로 거르면 숫자도 함께. 0개 부서를 고르면 '이 부서에는 찾는 자료가 없어요'
+  await page.selectOption('#lib-kind', { label: '연수 자료' });
+  s = await state(page);
+  if (names(s) !== '전체2,정보부0,교무부0,연구부1,인성안전부1') P('분류로 거를 때 단추 숫자가 다름: ' + names(s));
+  await pick(page, '정보부');
+  s = await state(page);
+  if (s.cards || !/이 부서에는 찾는 자료가 없어요/.test(s.note)) P('0개 부서를 골랐는데 빈 글이 다름 ' + JSON.stringify({ cards: s.cards, note: s.note }));
+  await page.selectOption('#lib-kind', '');
+  // 고른 부서가 새 자료의 처음 부서, 전체면 내 부서
+  await pick(page, '연구부');
+  const newDept = async () => {
+    await page.click('[data-action=lib-new]');
+    await page.locator('#lib-form').waitFor();
+    const v = await page.$eval('#lf-dept', (e) => e.options[e.selectedIndex].textContent);
+    await page.click('.modal [data-action=close-modal]');
+    await page.locator('.modal').waitFor({ state: 'detached' }).catch(() => {});
+    return v;
+  };
+  let dep = await newDept();
+  if (dep !== '연구부') P('연구부를 고른 채 자료 넣기를 열었는데 부서가 ' + dep);
+  // 이 창에서 기억: 홈에 갔다 와도 연구부
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.today-card').waitFor();
+  await libOpen(page);
+  s = await state(page);
+  if (!s.btns.find((b) => b.name === '연구부').on) P('다른 화면에 갔다 오면 고른 부서를 잊음');
+  await page.click('#lib-depts .tg[data-id=""]');
+  dep = await newDept();
+  if (dep !== '정보부') P('전체에서 자료 넣기를 열었는데 처음 부서가 내 부서가 아님: ' + dep);
+  // 보관함도 같은 단추 줄(그 학년도 자료 수)
+  await page.click('[data-action=lib-view][data-v=archive]');
+  await page.locator('#lib-list .lib-card, #lib-list .empty').first().waitFor();
+  await page.waitForFunction(() => !document.querySelector('#lib-list .spin'), null, { timeout: 5000 }).catch(() => {});
+  s = await state(page);
+  if (!s || s.btns[0].n !== s.cards) P('보관함에서 전체 숫자와 보이는 자료 수가 다름 ' + JSON.stringify(s && { n: s.btns[0].n, cards: s.cards }));
+  await shot(page, 'PC_자료실_부서단추_보관함');
+  await page.click('[data-action=lib-view][data-v=now]');
+  // 어둡게 + 종이색
+  await page.evaluate(() => { localStorage.setItem('gy.theme', 'dark'); localStorage.setItem('gy.design', 'paper'); });
+  await page.reload();
+  await waitText(page, '어서 오세요').catch(() => {});
+  if (await page.locator('#login-pw').count()) { await login(page); await verify(page, '심청'); }
+  await page.locator('.main').waitFor();
+  await libOpen(page);
+  await pick(page, '교무부');
+  await shot(page, 'PC_자료실_부서단추_어둡게_종이색');
+  await ctx.close();
+  // 휴대폰: 한 줄로 옆으로 밀기, 끝이 흐려짐, 화면이 옆으로 넘치지 않음
+  ctx = await newCtx(browser, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('부서 단추 휴대폰 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '심청');
+  await libOpen(page);
+  await page.waitForTimeout(300);
+  s = await state(page);
+  if (new Set(s.btns.map((b) => b.top)).size !== 1) P('휴대폰에서 단추가 한 줄이 아님');
+  if (!(s.scrollW > s.clientW)) P('휴대폰에서 단추 줄이 옆으로 밀리지 않음(넘치지 않음) ' + JSON.stringify({ w: s.scrollW, c: s.clientW }));
+  else if (!/more-r/.test(s.cls)) P('휴대폰에서 단추가 더 있는데 오른쪽 끝이 흐려지지 않음');
+  await check(page, '휴대폰 자료실 부서 단추');
+  await shot(page, '휴대폰_자료실_부서단추');
+  await page.evaluate(() => { const r = document.querySelector('#lib-depts'); r.scrollLeft = r.scrollWidth; });
+  await page.waitForTimeout(300);
+  s = await state(page);
+  if (!/more-l/.test(s.cls) || /more-r/.test(s.cls)) P('끝까지 밀었는데 흐림이 맞지 않음: ' + s.cls);
+  await page.locator('#lib-depts .tg', { hasText: '인성안전부' }).tap();
+  s = await state(page);
+  if (!s.btns.find((b) => b.name === '인성안전부').on || s.groups.join() !== '인성안전부') P('휴대폰에서 단추를 눌러도 거르지 않음');
+  await shot(page, '휴대폰_자료실_부서단추_인성안전부');
+  await ctx.close();
+}
+
+/**
  * 여는 그림의 학교 이름 간격(판 2026-10-21c, 교사 요청 '온라인 교무실 글자에 붙어 있어'): 글자가 다 모인 마지막 장면에서
  * 학교 이름 아래 끝과 '온라인 교무실' 알갱이 글자 위 끝 사이가 학교 이름 글자 크기쯤인지 화면 크기마다 잰다(예전에는 그 절반쯤)
  */
@@ -3842,6 +3983,14 @@ async function introGapCheck(browser) {
   // ONLY=drop: 자료 끌어다 놓기(판 2026-10-21b) 점검만
   if (process.env.ONLY === 'drop') {
     await dropCheck(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
+  // ONLY=lib: 자료실 부서 단추 줄(판 2026-10-21d) 점검만
+  if (process.env.ONLY === 'lib') {
+    await libDeptCheck(browser);
     await browser.close();
     console.log('사진 ' + n + '장 → ' + OUT);
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
@@ -4011,6 +4160,7 @@ async function introGapCheck(browser) {
   await b5ShortcutCheck(browser);
   await batCheck(browser);
   await dropCheck(browser);
+  await libDeptCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser), await introGapCheck(browser)];
   await browser.close();
