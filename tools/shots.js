@@ -4513,8 +4513,11 @@ async function introGapCheck(browser) {
     await verify(page, '홍길동');
     await check(page, vp.width + ' 홈');
     // 모니터 절반(960) 같은 좁은 PC 창: '내가 할 일'이 오늘 일정 옆에 좁게 끼지 않고 아래로
-    await page.locator('.home-top').waitFor();
-    const homeCols = await page.evaluate(() => getComputedStyle(document.querySelector('.home-top')).gridTemplateColumns.split(' ').length);
+    // 넓은 모니터(1600 이상)는 '내가 할 일'이 오른쪽 사이드바(판 2026-10-22a): 오늘 일정과 나란히 있는 것은 같아 2칸으로 센다
+    await page.locator('.today-card').waitFor();
+    const homeSide = await page.evaluate(() => !!document.querySelector('.home-aside'));
+    if ((vp.width >= 1600) !== homeSide) problems.push(vp.width + ' 홈: 오른쪽 사이드바가 ' + (homeSide ? '좁은 창에 생김' : '넓은 창에 없음'));
+    const homeCols = homeSide ? 2 : await page.evaluate(() => getComputedStyle(document.querySelector('.home-top')).gridTemplateColumns.split(' ').length);
     if (vp.width <= 1024 && homeCols !== 1) problems.push(vp.width + ' 홈: 내가 할 일이 오늘 일정 옆에 좁게 끼어 있음');
     const weekCols = await page.evaluate(() => getComputedStyle(document.querySelector('.week')).gridTemplateColumns.split(' ').length);
     if (vp.width <= 1024 && weekCols !== 1) problems.push(vp.width + ' 홈: 이번 주 5칸이 좁은 창에서 목록으로 바뀌지 않음');
