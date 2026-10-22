@@ -77,10 +77,10 @@ test('SHA-256·HMAC 가짜 구현이 Node crypto와 같다', () => {
   }
 });
 
-test('처음 설정: 탭 17개와 머리글, 설정 기본값을 만든다', () => {
+test('처음 설정: 탭 19개와 머리글, 설정 기본값을 만든다', () => {
   const g = loadGas();
   const r = g.setupAll_();
-  assert.strictEqual(r.created.length, 17);
+  assert.strictEqual(r.created.length, 19); // 회의·회의내용(2026-10-22a)
   const names = g._ss.sheets.map((s) => s.name);
   for (const t of Object.keys(g.tabs_())) assert.ok(names.includes(t), t);
   assert.deepStrictEqual(plain(g.headOf_('교직원')), plain(g.tabs_()['교직원']));
@@ -4461,6 +4461,245 @@ test("낱말: 화면·알림 글은 '관리자'(예전 '연구부장·부담당'
   const app = fs.readFileSync(path.join(GAS_DIR, 'App.html'), 'utf8');
   assert.ok(app.includes('<span class="nav-label">관리</span>'), "메뉴 묶음 이름은 '관리'(바로 아래 메뉴가 '관리자')");
   assert.ok(app.includes('<h2 class="guide-h">관리자</h2>'), "운영 안내서의 관리 부분 제목");
+});
+
+// ---------------------------------------------------------------- 회의록(Meeting.gs, 판 2026-10-22a)
+
+/** 새 회의(만든 분: by). rows는 목록의 칸 후보 그대로 */
+function mtMake(g, by, extra) {
+  const ls = call(g, 'meet.list', {}, by);
+  assert.ok(ls.ok, ls.error);
+  const kind = (extra && extra.kindName) || '부장회의';
+  const k = ls.data.kinds.find((x) => x.name === kind);
+  const req = Object.assign({ kindId: k.id, title: '2학기 부장회의 (1)', date: g.todayYmd_(), time: '15:00', place: '교무실', rows: ls.data.rowsDefault }, extra || {});
+  delete req.kindName;
+  const r = call(g, 'meet.save', req, by);
+  assert.ok(r.ok, r.error);
+  return r.data.id;
+}
+function mtGet(g, id, by) {
+  const r = call(g, 'meet.get', { id }, by);
+  assert.ok(r.ok, r.error);
+  return r.data.meeting;
+}
+
+test('회의록: 탭이 없던 시트에서도 목록이 열리고(기본 종류 2개·맨 위 칸·부서 칸 후보), 첫 회의를 만들면 탭과 회의 종류가 생긴다', () => {
+  const g = freshName();
+  const { L, who } = ids(g);
+  g._ss.sheets = g._ss.sheets.filter((x) => x.name !== '회의' && x.name !== '회의내용'); // 이 기능 전에 설치한 시트
+  const ls = call(g, 'meet.list', {}, { login: L });
+  assert.ok(ls.ok, ls.error);
+  assert.deepStrictEqual(plain(ls.data.items), []);
+  assert.deepStrictEqual(ls.data.kinds.map((k) => k.name), ['부장회의', '교직원회의']);
+  assert.ok(ls.data.kinds.every((k) => k.virtual), '아직 분류에 넣지 않은 기본 종류');
+  assert.deepStrictEqual(ls.data.rowsDefault.map((x) => x.n), ['교장 선생님', '교감 선생님', '교무부', '연구부', '정보부', '인성안전부']);
+  assert.ok(!ls.data.rowsDefault.some((x) => /행정/.test(x.n)), '행정실 칸은 넣지 않는다');
+  // 이름을 고르지 않으면 만들 수 없다
+  assert.strictEqual(call(g, 'meet.save', { kindId: '_k1', title: 'x', date: g.todayYmd_(), rows: ls.data.rowsDefault }, { login: L }).code, 'IDENTITY');
+  const id = mtMake(g, who('이몽룡'));
+  assert.ok(g._ss.getSheetByName('회의') && g._ss.getSheetByName('회의내용'), '탭이 저절로 생김');
+  const kinds = g.liveRows_('분류').filter((r) => r['종류'] === '회의 종류').map((r) => r['이름']);
+  assert.deepStrictEqual(plain(kinds), ['부장회의', '교직원회의']);
+  const ls2 = call(g, 'meet.list', {}, { login: L }).data;
+  assert.strictEqual(ls2.items.length, 1);
+  assert.strictEqual(ls2.items[0].id, id);
+  assert.strictEqual(ls2.items[0].kind, '부장회의');
+  assert.strictEqual(ls2.items[0].total, 6);
+  assert.strictEqual(ls2.items[0].filled, 0);
+  assert.ok(ls2.kinds.every((k) => !k.virtual), '이제 분류의 진짜 종류');
+  // 다른 화면이 들고 있던 옛 가짜 종류(_k2)로 만들어도 같은 이름의 진짜 종류로
+  const id2 = call(g, 'meet.save', { kindId: '_k2', title: '10월 교직원회의', date: g.todayYmd_(), rows: ls.data.rowsDefault.slice(2) }, who('성춘향'));
+  assert.ok(id2.ok, id2.error);
+  assert.strictEqual(call(g, 'meet.list', {}, { login: L }).data.items.find((x) => x.id === id2.data.id).kind, '교직원회의');
+  assert.strictEqual(g.liveRows_('분류').filter((r) => r['종류'] === '회의 종류').length, 2, '종류가 또 늘지 않음');
+  // 잘못된 값
+  const bad = (x, re) => { const r = call(g, 'meet.save', Object.assign({ kindId: ls2.kinds[0].id, title: 't', date: g.todayYmd_(), rows: ls.data.rowsDefault }, x), who('성춘향')); assert.ok(!r.ok && re.test(r.error), r.error); };
+  bad({ title: '' }, /제목/);
+  bad({ date: '2026-13-01' }, /날짜/);
+  bad({ time: '3시' }, /15:00/);
+  bad({ kindId: 'C없음' }, /종류/);
+  bad({ rows: [] }, /칸/);
+});
+
+test('회의록: 누구나 모든 칸을 쓰고(쓴 분이 남음), 같은 칸을 그사이 다른 분이 고쳤으면 덮어쓰지 않고 묻는다(내 것으로 바꾸기 가능)', () => {
+  const g = freshName();
+  const { L, who } = ids(g);
+  const id = mtMake(g, who('이몽룡'));
+  let m = mtGet(g, id, { login: L });
+  const gyomu = m.rows.find((x) => x.name === '교무부');
+  assert.strictEqual(gyomu.ver, 0);
+  assert.strictEqual(gyomu.content, '');
+  // 만든 분이 아닌 성춘향도 교무부 칸을 쓴다(교사 선택 '누구나 모든 칸')
+  let r = call(g, 'meet.row', { id, k: gyomu.k, content: '1. 학부모 상담 주간\r\n2. 출결 서류', base: 0 }, who('성춘향'));
+  assert.ok(r.ok, r.error);
+  assert.strictEqual(r.data.piece.by, '성춘향');
+  assert.strictEqual(r.data.piece.ver, 1);
+  assert.strictEqual(r.data.piece.content, '1. 학부모 상담 주간\n2. 출결 서류', '줄 바꿈은 \\n으로');
+  // 심청은 성춘향이 쓰기 전 화면(판 0)에서 저장 → 덮어쓰지 않고 지금 내용을 돌려준다
+  r = call(g, 'meet.row', { id, k: gyomu.k, content: '심청이 쓴 것', base: 0 }, who('심청'));
+  assert.ok(r.ok, r.error);
+  assert.ok(r.data.conflict && !r.data.piece);
+  assert.strictEqual(r.data.conflict.by, '성춘향');
+  assert.strictEqual(mtGet(g, id, { login: L }).rows.find((x) => x.k === gyomu.k).content, '1. 학부모 상담 주간\n2. 출결 서류');
+  // '내 내용으로 바꾸기'(force)
+  r = call(g, 'meet.row', { id, k: gyomu.k, content: '심청이 쓴 것', base: 0, force: true }, who('심청'));
+  assert.ok(r.ok && r.data.piece.ver === 2 && r.data.piece.by === '심청', JSON.stringify(r));
+  m = mtGet(g, id, { login: L });
+  assert.strictEqual(m.rows.find((x) => x.k === gyomu.k).by, '심청');
+  assert.strictEqual(m.filled, 1);
+  assert.strictEqual(call(g, 'meet.list', {}, { login: L }).data.items[0].filled, 1);
+  // 내용을 비우면 안 쓴 칸으로
+  r = call(g, 'meet.row', { id, k: gyomu.k, content: '   ', base: 2 }, who('이몽룡'));
+  assert.ok(r.ok, r.error);
+  m = mtGet(g, id, { login: L });
+  assert.strictEqual(m.rows.find((x) => x.k === gyomu.k).by, '', '비운 칸은 쓴 분을 보이지 않는다');
+  assert.strictEqual(m.filled, 0);
+  // 맨 위 칸(교장 선생님)도 누구나
+  const top = m.rows.find((x) => x.top);
+  assert.ok(call(g, 'meet.row', { id, k: top.k, content: '전달 사항 없음', base: 0 }, who('흥부')).ok);
+  // 없는 칸·이름을 고르지 않음·너무 긴 글
+  assert.strictEqual(call(g, 'meet.row', { id, k: 'C없음', content: 'x', base: 0 }, who('흥부')).code, 'NOTFOUND');
+  assert.strictEqual(call(g, 'meet.row', { id, k: gyomu.k, content: 'x', base: 3 }, { login: L }).code, 'IDENTITY');
+  assert.match(call(g, 'meet.row', { id, k: gyomu.k, content: 'x'.repeat(5001), base: 3 }, who('흥부')).error, /5000자/);
+  // 기록 탭에 바뀌기 전·후
+  const log = g.readRows_('기록').filter((x) => x['탭'] === '회의내용');
+  assert.ok(log.some((x) => /회의록 칸: 2학기 부장회의 \(1\) › 교무부/.test(x['요약']) && /심청이 쓴 것/.test(x['바뀐 뒤'])), '기록에 칸 이름과 바뀐 내용');
+});
+
+test('회의록: 기타 안건은 누구나 더하고 고치며(판 확인), 빼기는 더한 분·회의를 만든 분·관리만', () => {
+  const g = freshName();
+  const { L, who, boss } = ids(g);
+  const id = mtMake(g, who('이몽룡'));
+  const a1 = call(g, 'meet.etc.add', { id, content: '체육대회 우천 시 계획' }, who('성춘향'));
+  const a2 = call(g, 'meet.etc.add', { id, content: '교실 냉난방기 점검' }, who('흥부'));
+  assert.ok(a1.ok && a2.ok, a1.error || a2.error);
+  assert.match(call(g, 'meet.etc.add', { id, content: '  ' }, who('흥부')).error, /안건을 적어/);
+  let m = mtGet(g, id, { login: L });
+  assert.deepStrictEqual(m.etcItems.map((x) => x.content), ['체육대회 우천 시 계획', '교실 냉난방기 점검']);
+  assert.strictEqual(m.etc, 2);
+  // 심청이 성춘향의 안건을 고친다(누구나), 옛 판이면 묻는다
+  let r = call(g, 'meet.etc.save', { eid: a1.data.piece.id, content: '체육대회 우천 시 강당 사용', base: 1 }, who('심청'));
+  assert.ok(r.ok && r.data.piece.ver === 2, JSON.stringify(r));
+  r = call(g, 'meet.etc.save', { eid: a1.data.piece.id, content: '옛 화면에서 고침', base: 1 }, who('흥부'));
+  assert.ok(r.ok && r.data.conflict && r.data.conflict.by === '심청', JSON.stringify(r));
+  // 빼기: 다른 분은 못 빼고, 더한 분·만든 분·관리는 뺀다
+  const del = (eid, by) => call(g, 'meet.etc.delete', { eid }, by);
+  assert.strictEqual(del(a1.data.piece.id, who('심청')).code, 'FORBIDDEN');
+  m = mtGet(g, id, who('심청'));
+  assert.deepStrictEqual(m.etcItems.map((x) => x.canDelete), [false, false], '다른 분 화면에는 빼기 단추가 없다');
+  assert.deepStrictEqual(mtGet(g, id, who('성춘향')).etcItems.map((x) => x.canDelete), [true, false]);
+  assert.ok(del(a1.data.piece.id, who('이몽룡')).ok, '회의를 만든 분');
+  assert.ok(del(a2.data.piece.id, who('흥부')).ok, '더한 분');
+  assert.strictEqual(mtGet(g, id, { login: L }).etcItems.length, 0);
+  // 관리(관리자 화면을 연 기기)도 뺀다
+  const a3 = call(g, 'meet.etc.add', { id, content: '관리가 뺄 안건' }, who('흥부')).data.piece.id;
+  assert.ok(del(a3, boss('심청')).ok);
+  // 다시 더하면 순서가 이어진다(뺀 안건 뒤로)
+  const a4 = call(g, 'meet.etc.add', { id, content: '새 안건' }, who('흥부')).data.piece.id;
+  const row = g.readRows_('회의내용').find((x) => x['내용ID'] === a4);
+  assert.strictEqual(row['순서'], '4');
+});
+
+test('회의록: 회의 정보는 만든 분·관리만 고치고, 내용이 있는 칸은 뺄 수 없으며, 지난 회의의 칸 이름은 그대로 · 지운 회의는 휴지통에서 되살린다', () => {
+  const g = freshName();
+  const { L, who, boss } = ids(g);
+  const id = mtMake(g, who('이몽룡'));
+  let m = mtGet(g, id, { login: L });
+  const gyomu = m.rows.find((x) => x.name === '교무부'), info = m.rows.find((x) => x.name === '정보부');
+  assert.ok(call(g, 'meet.row', { id, k: gyomu.k, content: '전달 사항', base: 0 }, who('성춘향')).ok);
+  const rowsOf = (mm) => mm.rows.map((x) => ({ k: x.k, n: x.name, t: x.top ? 1 : 0 }));
+  const save = (patch, by) => call(g, 'meet.save', Object.assign({ id, kindId: m.kindId, title: m.title, date: m.date, time: m.time, place: m.place, rows: rowsOf(m) }, patch), by);
+  assert.strictEqual(save({ title: '바꿈' }, who('심청')).code, 'FORBIDDEN');
+  assert.strictEqual(m.canEdit, false, '로그인만 한 화면');
+  assert.strictEqual(mtGet(g, id, who('이몽룡')).canEdit, true);
+  // 내용이 있는 교무부 칸은 뺄 수 없다
+  const r1 = save({ rows: rowsOf(m).filter((x) => x.k !== gyomu.k) }, who('이몽룡'));
+  assert.ok(!r1.ok && /교무부/.test(r1.error) && /뺄 수 없어요/.test(r1.error), r1.error);
+  // 빈 정보부 칸은 빼고, 새 맨 위 칸을 더한다(새 키)
+  const r2 = save({ title: '2학기 부장회의 (1) 고침', rows: rowsOf(m).filter((x) => x.k !== info.k).concat([{ k: '', n: '협의 사항', t: 1 }]) }, who('이몽룡'));
+  assert.ok(r2.ok, r2.error);
+  m = mtGet(g, id, { login: L });
+  assert.ok(!m.rows.some((x) => x.name === '정보부'));
+  const added = m.rows.find((x) => x.name === '협의 사항');
+  assert.ok(added && added.top && added.k === 't3', JSON.stringify(added));
+  assert.strictEqual(m.rows.find((x) => x.k === gyomu.k).content, '전달 사항', '남은 칸의 내용은 그대로');
+  // 부서 이름을 바꾸면: 지난 회의는 그대로, 새 회의는 새 이름
+  const t = adminTokens(g).t;
+  const gid = g.liveRows_('분류').find((r) => r['종류'] === '부서' && r['이름'] === '교무부')['분류ID'];
+  assert.ok(call(g, 'admin.cat.save', { id: gid, name: '교무기획부' }, t).ok);
+  assert.strictEqual(mtGet(g, id, { login: L }).rows.find((x) => x.k === gid).name, '교무부');
+  assert.ok(call(g, 'meet.list', {}, { login: L }).data.rowsDefault.some((x) => x.n === '교무기획부'));
+  // 지우기: 다른 분 못 함, 관리는 됨 → 목록에서 빠지고 휴지통에서 되살림
+  assert.strictEqual(call(g, 'meet.delete', { id }, who('심청')).code, 'FORBIDDEN');
+  assert.ok(call(g, 'meet.delete', { id }, boss('심청')).ok);
+  assert.strictEqual(call(g, 'meet.list', {}, { login: L }).data.items.length, 0);
+  assert.strictEqual(call(g, 'meet.get', { id }, { login: L }).code, 'NOTFOUND');
+  const tr = call(g, 'admin.trash.meetings', {}, t);
+  assert.ok(tr.ok, tr.error);
+  assert.strictEqual(tr.data.items.length, 1);
+  assert.strictEqual(tr.data.items[0].title, '2학기 부장회의 (1) 고침');
+  assert.ok(call(g, 'admin.trash.restoreMeeting', { id }, t).ok);
+  assert.strictEqual(call(g, 'meet.list', {}, { login: L }).data.items.length, 1);
+  assert.strictEqual(mtGet(g, id, { login: L }).rows.find((x) => x.k === gyomu.k).content, '전달 사항', '되살리면 내용도 그대로');
+  // 수정 기록: '회의록'으로 거르면 회의·회의내용만
+  const lg = call(g, 'admin.log.list', { tab: '회의록' }, t);
+  const logs = lg.data.items || lg.data;
+  assert.ok(lg.ok && logs.length >= 4 && logs.every((x) => x.tab === '회의' || x.tab === '회의내용'), JSON.stringify(logs.slice(0, 2)));
+});
+
+test('회의록: 학기 나누기(학기 기간이 있으면 2학기 시작일로, 없으면 3~8월 1학기)·회의 종류 이름을 분류에서 바꾸면 모두 바뀐다·맨 위 칸 설정(비우면 부서 칸만)', () => {
+  const g = freshName();
+  const { L, who } = ids(g);
+  const a = { id: '', name: '시험' };
+  g.putSetting_('1학기 시작일', '2026-03-02', a); g.putSetting_('1학기 끝일', '2026-07-24', a);
+  g.putSetting_('2학기 시작일', '2026-08-17', a); g.putSetting_('2학기 끝일', '2027-01-08', a);
+  const mk = (date) => mtMake(g, who('이몽룡'), { date, title: date });
+  mk('2026-07-01'); mk('2026-08-20'); mk('2027-01-05'); mk('2025-09-01');
+  const ls = call(g, 'meet.list', {}, { login: L }).data;
+  const term = (d) => ls.items.find((x) => x.date === d).term;
+  assert.strictEqual(term('2026-07-01'), '2026-1');
+  assert.strictEqual(term('2026-08-20'), '2026-2');
+  assert.strictEqual(term('2027-01-05'), '2026-2', '1월은 그 학년도 2학기');
+  assert.strictEqual(term('2025-09-01'), '2025-2', '학기 기간이 없는 학년도는 달로');
+  assert.deepStrictEqual(ls.items.map((x) => x.date), ['2027-01-05', '2026-08-20', '2026-07-01', '2025-09-01'], '새 회의 먼저');
+  assert.deepStrictEqual(ls.terms.map((x) => x.label), ['2026학년도 2학기', '2026학년도 1학기', '2025학년도 2학기']);
+  // 종류 이름 바꾸기(관리자 › 분류)
+  const t = adminTokens(g).t;
+  const kid = ls.kinds.find((k) => k.name === '부장회의').id;
+  assert.ok(call(g, 'admin.cat.save', { id: kid, name: '부장 협의회' }, t).ok);
+  assert.ok(call(g, 'meet.list', {}, { login: L }).data.items.every((x) => x.kind === '부장 협의회'));
+  // 관리자 › 분류에 '회의 종류'가 있고 새 종류를 더할 수 있다
+  assert.ok(g.categoryKinds_().includes('회의 종류'));
+  assert.ok(call(g, 'admin.cat.save', { kind: '회의 종류', name: '학년 협의회' }, t).ok);
+  assert.ok(call(g, 'meet.list', {}, { login: L }).data.kinds.some((k) => k.name === '학년 협의회'));
+  // 맨 위 칸 설정: 40자 넘게 적을 수 있고(100자까지), 비우면 부서 칸만
+  assert.ok(call(g, 'admin.settings.save', { values: { '회의록 맨 위 칸': '교장 선생님, 교감 선생님, 교무 협의, 학년 대표 협의, 기타 전달 사항 모음' } }, t).ok);
+  assert.deepStrictEqual(call(g, 'meet.list', {}, { login: L }).data.rowsDefault.filter((x) => x.t).map((x) => x.n), ['교장 선생님', '교감 선생님', '교무 협의', '학년 대표 협의', '기타 전달 사항 모음']);
+  assert.ok(call(g, 'admin.settings.save', { values: { '회의록 맨 위 칸': '' } }, t).ok);
+  assert.ok(!call(g, 'meet.list', {}, { login: L }).data.rowsDefault.some((x) => x.t));
+  assert.ok(!call(g, 'admin.settings.save', { values: { '학교명': '' } }, t).ok, '다른 글 설정은 여전히 비울 수 없다');
+});
+
+test('회의록: 점검(Meeting.gs 판·탭이 아직 없어도 괜찮음)·예시 데이터(가짜 교직원 이름만)', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  g._ss.sheets = g._ss.sheets.filter((x) => x.name !== '회의' && x.name !== '회의내용');
+  const b = g.fileBuilds_();
+  const r = call(g, 'admin.check', { client: { app: b.App, styles: b.Styles, index: b.Index } }, t).data;
+  assert.ok(r.items.some((x) => x.label === 'Meeting.gs' && x.state === 'ok'), 'Meeting.gs 판 확인');
+  const tab = r.items.find((x) => x.label === '회의 탭');
+  assert.ok(tab && tab.state === 'ok' && /저절로/.test(tab.detail), JSON.stringify(tab));
+  assert.ok(!r.items.some((x) => x.state === 'bad' && (x.group === '시트' || /Meeting/.test(x.label))), JSON.stringify(r.items.filter((x) => x.state === 'bad')));
+  // 예시 회의 2개, 쓴 분은 가짜 교직원(옛이야기 인물)
+  assert.strictEqual(g.seedTestMeetings_(), 2);
+  assert.throws(() => g.seedTestMeetings_(), /이미 회의가/);
+  const { L } = loginAll(g);
+  const ls = call(g, 'meet.list', {}, { login: L }).data;
+  assert.strictEqual(ls.items.length, 2);
+  assert.ok(ls.items.every((x) => /\(예시\)/.test(x.title)));
+  const m = mtGet(g, ls.items[0].id, { login: L });
+  const by = m.rows.map((x) => x.by).filter(Boolean).concat(m.etcItems.map((x) => x.by));
+  assert.ok(by.length >= 3 && by.every((n) => ['홍길동', '성춘향', '이몽룡', '심청', '흥부', '놀부', '장화', '홍련'].includes(n)), by.join(','));
 });
 
 console.log(results.join('\n'));

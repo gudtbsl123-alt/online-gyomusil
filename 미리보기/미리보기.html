@@ -33,7 +33,7 @@
 :root[data-design="paper"]{--c-bg:#F4EEE3;--c-sub:#FFFBF4;--c-card:#FFFDF8;--c-card2:#F4EEE3;--c-pill:#F1E9DB;--c-line:#E6DBC9;--c-line2:#D3C4AD;--c-seg:#F1E9DB;--c-avatar:#E6DBC9;--c-t0:#2A231C;--c-t1:#2A231C;--c-t2:#5A4F42;--c-t3:#6B6052;--c-dot:#B5A792;--c-radio:#B5A792;--c-warnBg:#FCEED6;--c-warnFg:#864809;--c-okBg:#E5F1E1;--c-okFg:#2E6A32;--c-red:#BE321C;--c-onAccent:#FFFFFF;--accent:#A0502A;--accent-soft:rgba(160, 80, 42, 0.1);--accent-ring:rgba(160, 80, 42, 0.35);--accent-glow:rgba(160, 80, 42, 0.22);--hero-a:rgba(214, 140, 70, 0.20);--hero-b:rgba(160, 80, 42, 0.06);--scheme:light;--seg-light-bg:#FFFDF8;--seg-light-fg:#2A231C;--seg-dark-bg:transparent;--seg-dark-fg:#6B6052;--sun-display:none;--moon-display:block;--stage:#E6DBC9}
 :root[data-design="paper"][data-theme="dark"]{--c-bg:#15120E;--c-sub:#1B1712;--c-card:#211C16;--c-card2:#28221B;--c-pill:#2B241C;--c-line:#2F281F;--c-line2:#3C3328;--c-seg:#3C3328;--c-avatar:#3C3328;--c-t0:#FBF6EE;--c-t1:#F3EBDF;--c-t2:#CFC1AF;--c-t3:#A89986;--c-dot:#A89986;--c-radio:#5E5243;--c-warnBg:#2E1F0A;--c-warnFg:#F2B36B;--c-okBg:#162814;--c-okFg:#86D080;--c-red:#FF7A66;--c-onAccent:#15120E;--accent:#E89C64;--accent-soft:rgba(232, 156, 100, 0.14);--accent-ring:rgba(232, 156, 100, 0.32);--accent-glow:rgba(232, 156, 100, 0.18);--hero-a:rgba(232, 156, 100, 0.26);--hero-b:rgba(232, 156, 100, 0.10);--scheme:dark;--seg-light-bg:transparent;--seg-light-fg:#A89986;--seg-dark-bg:#3C3328;--seg-dark-fg:#F3EBDF;--sun-display:block;--moon-display:none;--stage:#0B0907}
 html{background:var(--c-bg)}
-:root{--gy-build:"2026-10-21d"} /* 판 표시(관리자 › 점검) */
+:root{--gy-build:"2026-10-22a"} /* 판 표시(관리자 › 점검) */
 body{margin:0;word-break:keep-all;background:var(--c-bg);color:var(--c-t1);font-family:Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased}
 a{color:inherit}
 input::placeholder,textarea::placeholder{color:currentColor;opacity:.7}
@@ -256,6 +256,16 @@ select.input{appearance:auto}
 .week-print .wp-day{width:92px;font-weight:700;white-space:nowrap}
 .week-print .wp-time{width:64px;white-space:nowrap}
 .week-print .wp-meta{width:34%;color:#4E5968}
+/* 회의록 A4 인쇄(App.html printMeet): '부서 | 내용' 표, 쓴 분 이름은 넣지 않는다 */
+.meet-print{color:#191F28}
+.meet-print h1{margin:0 0 4px;font-size:20px;font-weight:800;text-align:center}
+.meet-print .mp-sub{margin:0 0 12px;font-size:12.5px;color:#4E5968;text-align:center}
+.meet-print table{width:100%;border-collapse:collapse;font-size:12.5px;line-height:1.55}
+.meet-print th,.meet-print td{border:1px solid #AEB5BC;padding:6px 8px;text-align:left;vertical-align:top}
+.meet-print thead th{background:#F2F4F6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.meet-print tbody th{width:110px;font-weight:700;white-space:nowrap}
+.meet-print td{white-space:pre-wrap;overflow-wrap:anywhere}
+.meet-print tr{break-inside:avoid}
 
 @media (hover:hover){
   .nav-item:hover{background:var(--c-card2);color:var(--c-t1)}
@@ -303,6 +313,7 @@ select.input{appearance:auto}
 
 /* ---------- 인쇄: 흰 바탕·검은 글씨, 메뉴·단추 숨김 (시안 규칙) ---------- */
 @media print{
+  html,body{background:#FFFFFF!important} /* 인쇄 창에서 '배경 그래픽'을 켜도 화면 바탕(회색·어두운 화면은 검정)이 찍히지 않게(판 2026-10-22a) */
   .print-root{background:#FFFFFF!important;min-height:0!important}
   .print-root *{color:#191F28!important;background-color:transparent!important;border-color:#D1D6DB!important;box-shadow:none!important}
   .print-root .print-keep{background-color:#606B78!important}
@@ -777,6 +788,55 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .notice-item{gap:10px}
 .notice-item.pinned{border:2px solid var(--accent-ring)}
 .notice-item h2{margin:0}
+/* 공지 화면 위 탭 [공지 | 회의록]과 회의록(판 2026-10-22a) */
+.notice-tabs{margin-bottom:4px}
+.notice-seg{align-self:flex-start}
+.notice-seg button{padding:0 16px}
+.meet-tools .seg{flex:none}
+.meet-tools .seg button{padding:0 14px;white-space:nowrap}
+.meet-tools select{width:auto;min-width:180px}
+.meet-list{display:flex;flex-direction:column;gap:12px}
+.meet-card{display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;padding:20px 24px;text-align:left;font:inherit;color:var(--c-t1);cursor:pointer}
+.meet-title{font-size:19px;font-weight:800;line-height:1.35}
+.meet-meta{font-size:15px;color:var(--c-t2)}
+.meet-fill{font-size:13px;font-weight:600;color:var(--c-t3)}
+@media (hover:hover){ .meet-card:hover{border-color:var(--accent-ring)} }
+.meet-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.meet-doc{gap:6px}
+.meet-h{margin:4px 0 0;font-size:22px;font-weight:800}
+.meet-sub{margin:0 0 12px;font-size:15px;color:var(--c-t3)}
+.meet-table{border:1px solid var(--c-line);border-radius:14px;overflow:hidden}
+.meet-row{display:grid;grid-template-columns:minmax(120px,180px) minmax(0,1fr);border-top:1px solid var(--c-line)}
+.meet-row:first-child{border-top:0}
+.meet-row.head{background:var(--c-card2);font-size:14px;font-weight:700;color:var(--c-t3)}
+.meet-row.head .meet-name,.meet-row.head .meet-cell{padding-top:10px;padding-bottom:10px;font-weight:700;color:var(--c-t3)}
+.meet-name{padding:14px 18px;font-weight:800;color:var(--c-t1);background:var(--c-card2)}
+.meet-row.blank .meet-name{color:var(--c-t3)}
+.meet-cell{display:flex;flex-direction:column;gap:8px;min-width:0;padding:14px 18px}
+.meet-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;color:var(--c-t1)}
+.meet-none{margin:0;font-size:14px;color:var(--c-t3)}
+.meet-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px}
+.meet-by{font-size:13px;color:var(--c-t3)}
+.meet-etc{display:flex;flex-direction:column;gap:6px}
+.meet-etc+.meet-etc{padding-top:10px;border-top:1px dashed var(--c-line2)}
+.meet-ta{min-height:220px;resize:vertical;line-height:1.6}
+.meet-conflict{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:12px;background:var(--c-warnBg);color:var(--c-warnFg)}
+.meet-conflict p{margin:0}
+.meet-theirs{max-height:180px;overflow:auto;padding:10px 12px;border-radius:10px;background:var(--c-card);color:var(--c-t1)}
+.meet-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 12px}
+.meet-pick .check.locked{color:var(--c-t3)}
+.meet-pick-box{border:0;padding:0;margin:0}
+@media (max-width:899px){
+  .meet-card{padding:16px 18px}
+  .meet-title{font-size:17px}
+  .meet-row{grid-template-columns:minmax(0,1fr)}
+  .meet-row.head{display:none}
+  .meet-name{padding:10px 14px;background:var(--c-card2)}
+  .meet-cell{padding:10px 14px 14px}
+  .meet-tools select{flex:1 1 100%}
+  .meet-tools .seg{flex:1 1 100%}
+  .meet-tools .seg button{flex:1 1 0}
+}
 .err-detail{margin:8px 0 0;font-size:13px;color:var(--c-t3);overflow-wrap:anywhere}
 .err-detail code{font-family:ui-monospace,Consolas,monospace;font-size:12px}
 .check-list{display:flex;flex-direction:column}
@@ -909,6 +969,20 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
   .wday{min-height:0;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:6px 12px;padding:12px 14px}
   .wday-head{width:100%}
   .wday .wev{flex:1 1 100%}
+}
+
+/* ---------- 홈: 넓은 모니터는 오른쪽에 '내가 할 일'(스크롤을 따라옴, 판 2026-10-22a 교사 요청) ---------- */
+/* App.html homeSide()가 정한다(본문 폭 1264 이상, 100%로 보면 창 폭 약 1600 이상). 홈만 본문을 넓혀 가운데 기둥은 예전 폭(1120)까지, 오른쪽 300px에 붙인다 */
+#screen.home-side{max-width:1444px}
+.wrap.home-cols{display:grid;grid-template-columns:minmax(0,1fr) 300px;align-items:start;gap:24px;max-width:none}
+.home-main{display:flex;flex-direction:column;gap:24px;min-width:0;container:home / inline-size}
+.home-aside{position:sticky;top:24px;min-width:0}
+.home-aside>.card{max-height:calc((100vh - 48px) / var(--gy-zoom,1));max-height:calc((100dvh - 48px) / var(--gy-zoom,1));overflow:auto;overscroll-behavior:contain}
+@media print{
+  #screen.home-side{max-width:none}
+  .wrap.home-cols{display:flex;flex-direction:column}
+  .home-aside{position:static}
+  .home-aside>.card{max-height:none;overflow:visible}
 }
 
 /* ---------- 홈 맨 아래: 중점지도(왼쪽) · 학생 수 현황(오른쪽) ---------- */
@@ -2043,6 +2117,7 @@ window.__gyIntroU = (function () {
  *   Library.gs  자료실(자료 카드, 파일 올리기·내려받기), 새 학년도 넘기기
  *   Help.gs   도움말, 교직원 명단, 홈 검색, 공지
  *   Table.gs  취합 시트(예전 이름 '함께 쓰는 표'. 구글 시트처럼 여럿이 함께 채우는 표: 붙여 넣기, 칸 고치기, 10초마다 새로 받기, 시트 양식)
+ *   Meeting.gs  회의록(공지 › 회의록: 부서마다 칸을 채우는 회의록, 기타 안건, 휴지통)
  *   Setup.gs  시트 메뉴, 처음 설정, 매일 백업, 테스트 데이터
  *   Index.html / Styles.html / App.html  화면
  */
@@ -2092,8 +2167,8 @@ function tableUiFileBuild_() {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-21d';
-function fileMark_Code_() { return '2026-10-21d'; }
+var APP_BUILD_ = '2026-10-22a';
+function fileMark_Code_() { return '2026-10-22a'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -2101,9 +2176,9 @@ function fileMark_Code_() { return '2026-10-21d'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-21d', 'Db': '2026-10-21b', 'Auth': '2026-10-21b', 'Admin': '2026-10-19a', 'Schedule': '2026-10-21b',
+    'Code': '2026-10-22a', 'Db': '2026-10-22a', 'Auth': '2026-10-21b', 'Admin': '2026-10-22a', 'Schedule': '2026-10-21b',
     'Survey': '2026-10-21b', 'Library': '2026-10-21b', 'Help': '2026-10-21b', 'Setup': '2026-10-21b', 'Table': '2026-10-21b',
-    'App': '2026-10-21d', 'Styles': '2026-10-21d', 'Index': '2026-10-21c', 'TableUi': '2026-10-21b'
+    'Meeting': '2026-10-22a', 'App': '2026-10-22a', 'Styles': '2026-10-22a', 'Index': '2026-10-21c', 'TableUi': '2026-10-21b'
   };
 }
 
@@ -2165,6 +2240,14 @@ function routes_() {
     'notice.list': { need: 'login', fn: 'apiNoticeList_' },
     'notice.save': { need: 'identity', fn: 'apiNoticeSave_' },
     'notice.delete': { need: 'identity', fn: 'apiNoticeDelete_' },
+    'meet.list': { need: 'login', fn: 'apiMeetList_' }, // 회의록(Meeting.gs, 2026-10-22a)
+    'meet.get': { need: 'login', fn: 'apiMeetGet_' },
+    'meet.save': { need: 'identity', fn: 'apiMeetSave_' },
+    'meet.delete': { need: 'identity', fn: 'apiMeetDelete_' },
+    'meet.row': { need: 'identity', fn: 'apiMeetRow_' },
+    'meet.etc.add': { need: 'identity', fn: 'apiMeetEtcAdd_' },
+    'meet.etc.save': { need: 'identity', fn: 'apiMeetEtcSave_' },
+    'meet.etc.delete': { need: 'identity', fn: 'apiMeetEtcDelete_' },
 
     'table.list': { need: 'login', fn: 'apiTableList_' },
     'table.get': { need: 'login', fn: 'apiTableGet_' },
@@ -2213,6 +2296,8 @@ function routes_() {
     'admin.trash.restoreLibrary': { need: 'admin', fn: 'adminLibRestore_' },
     'admin.trash.tables': { need: 'admin', fn: 'adminTableTrash_' },
     'admin.trash.restoreTable': { need: 'admin', fn: 'adminTableRestore_' },
+    'admin.trash.meetings': { need: 'admin', fn: 'adminMeetTrash_' },
+    'admin.trash.restoreMeeting': { need: 'admin', fn: 'adminMeetRestore_' },
     'admin.year.preview': { need: 'admin', fn: function () { return adminYearPreview_(); } },
     'admin.year.check': { need: 'admin', fn: 'adminYearCheck_' },
     'admin.year.start': { need: 'admin', fn: 'adminYearStart_' },
@@ -2230,7 +2315,7 @@ function routes_() {
  * 쓰기 뒤 같은 요청 안에서 이어 읽을 수 있는 화면(로그인만 있으면 되는 읽기만).
  * 저장한 다음 목록을 다시 부르느라 서버를 한 번 더 다녀오지 않게 한다(속도).
  */
-var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'sched.range': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1, 'table.list': 1, 'table.get': 1, 'table.tpl.list': 1 };
+var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'sched.range': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'meet.list': 1, 'meet.get': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1, 'table.list': 1, 'table.get': 1, 'table.tpl.list': 1 };
 
 /**
  * 요청마다 읽는 탭(서버 기억에서 한 번에 꺼내 두기, 속도). 로그인·본인 확인에서 늘 설정·교직원·분류를 읽는다.
@@ -2248,6 +2333,8 @@ var ROUTE_TABS_ = {
   'survey.get': ['조사', '응답', '알림'],
   'lib.list': ['자료'],
   'notice.list': ['공지'],
+  'meet.list': ['회의', '회의내용', '학기'],
+  'meet.get': ['회의', '회의내용'],
   'help.list': ['도움말'],
   'table.list': ['함께표', '함께표줄'],
   'table.get': ['함께표', '함께표줄'],
@@ -2442,7 +2529,7 @@ function deptOptions_() {
  * - 시트에 쓸 때는 잠금(LockService)을 걸어 동시에 저장해도 꼬이지 않게 한다.
  */
 
-function fileMark_Db_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
+function fileMark_Db_() { return '2026-10-22a'; } // 판 표시(관리자 › 점검)
 
 /** 모든 표(기록·설정 제외)에 붙는 입력·수정·삭제 칸 */
 function auditCols_() {
@@ -2473,13 +2560,15 @@ function tabs_() {
     '함께표줄': ['줄ID', '표ID', '순서', '칸', '색', '칸 고친 때', '판'].concat(A).concat(['서식', '높이']),
     '시트양식': ['양식ID', '이름', '설명', '열', '줄', '보기'].concat(A), // 취합 시트의 시트 양식(Table.gs, 2026-10-18b), 처음 저장할 때 저절로 생긴다
     '학기': ['학기ID', '학년도', '1학기 시작일', '1학기 끝일', '2학기 시작일', '2학기 끝일'].concat(A), // 학년도마다 학기 기간(2026-10-19a), 처음 넣을 때 저절로 생긴다
+    '회의': ['회의ID', '학년도', '종류ID', '제목', '날짜', '시간', '장소', '칸'].concat(A), // 회의록(Meeting.gs, 2026-10-22a), 처음 만들 때 저절로 생긴다. 칸 = 만들 때의 칸 목록(JSON)
+    '회의내용': ['내용ID', '회의ID', '칸', '순서', '내용', '판'].concat(A), // 회의록의 칸 내용·기타 안건(칸 '_etc'), 판 = 같은 칸을 동시에 고칠 때 알아채는 번호
     '기록': ['시각', '교직원ID', '이름', '탭', '대상ID', '동작', '요약', '바뀌기 전', '바뀐 뒤']
   };
 }
 
 /** ID 앞글자 */
 function idPrefix_(tab) {
-  return { '분류': 'C', '교직원': 'T', '일정': 'E', '월별중점': 'F', '조사': 'S', '응답': 'R', '알림': 'N', '자료': 'D', '도움말': 'H', '공지': 'G', '학생수': 'P', '함께표': 'K', '함께표줄': 'L', '시트양식': 'Y', '학기': 'M' }[tab] || 'X';
+  return { '분류': 'C', '교직원': 'T', '일정': 'E', '월별중점': 'F', '조사': 'S', '응답': 'R', '알림': 'N', '자료': 'D', '도움말': 'H', '공지': 'G', '학생수': 'P', '함께표': 'K', '함께표줄': 'L', '시트양식': 'Y', '학기': 'M', '회의': 'V', '회의내용': 'W' }[tab] || 'X';
 }
 
 /** 기록에 남기지 않는 칸(개인 번호 해시 등) */
@@ -3677,7 +3766,7 @@ function assignPin_(row, actor) {
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-10-22a'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -3700,6 +3789,7 @@ function settingDefs_() {
     // 값은 스크립트 속성 TABLE_UI_INLINE에 둔다(웹앱을 열 때 시트를 열지 않고 읽으려고, Code.gs tableUiTag_). 설정 탭에는 기록용으로 함께 적는다
     { key: '취합 시트 화면 파일', def: '열 때 받기', type: 'choice', options: ['열 때 받기', '처음에 함께'], label: '취합 시트 화면 파일',
       note: "'열 때 받기'는 웹앱 첫 화면이 가벼워지고 취합 시트를 처음 열 때 화면 파일을 받아요. 취합 시트가 열리지 않으면 '처음에 함께'로 바꿔 예전처럼 써요(확인 필요). 바꾼 뒤에는 웹앱을 새로 고쳐 주세요" },
+    { key: '회의록 맨 위 칸', def: '교장 선생님, 교감 선생님', type: 'text', max: 100, optional: true, label: '회의록 맨 위 칸', note: '회의를 만들 때 부서 칸 위에 나오는 칸이에요. 쉼표로 나눠 적어요(비우면 부서 칸만). 이미 만든 회의는 그대로예요' },
     { key: '백업 폴더ID', def: '', type: 'readonly', label: '백업 폴더(자동)' },
     { key: '자료 폴더ID', def: '', type: 'readonly', label: '자료실 파일 폴더(자동, 공유하지 않음)' }
   ];
@@ -3771,7 +3861,7 @@ function adminSettingsSave_(args, actor) {
   defs.forEach(function (d) {
     if (!(d.key in values) || d.type === 'readonly') return;
     var v = values[d.key] === null || values[d.key] === undefined ? '' : String(values[d.key]).trim();
-    if (d.type === 'text') v = cleanText_(v, 40, d.label, true);
+    if (d.type === 'text') v = cleanText_(v, d.max || 40, d.label, !d.optional); // optional: 비워도 됨(회의록 맨 위 칸)
     if (d.type === 'year') {
       if (!/^20\d\d$/.test(v)) throw userError_('학년도는 2026처럼 네 자리로 적어 주세요.');
     }
@@ -3826,7 +3916,7 @@ function cleanLinks_(v) {
 // ---------------------------------------------------------------- 분류 (부서·자료 분류·도움말 분류)
 
 function categoryKinds_() {
-  return ['부서', '자료 분류', '도움말 분류'];
+  return ['부서', '자료 분류', '도움말 분류', '회의 종류']; // 회의 종류: 회의록(2026-10-22a), 처음에는 부장회의·교직원회의
 }
 
 /** id → 이름 (사용 안 함 포함, 예전 자료에도 이름이 보이게) */
@@ -3989,7 +4079,7 @@ function adminStaffUnlock_(args, actor) {
 // ---------------------------------------------------------------- 수정 기록
 
 /** 수정 기록 거르기: 화면 이름 하나가 탭 여러 개인 것(취합 시트 = 표 + 줄) */
-var LOG_TAB_GROUPS_ = { '취합 시트': ['함께표', '함께표줄'] };
+var LOG_TAB_GROUPS_ = { '취합 시트': ['함께표', '함께표줄'], '회의록': ['회의', '회의내용'] };
 
 function adminLogList_(args) {
   var tab = String(args.tab || '');
@@ -4047,10 +4137,11 @@ function adminCheck_(args) {
   var want = function (f) { return builds[f] || APP_BUILD_; };
   // 판 표시가 없어도 이 파일의 함수가 있으면 판 표시를 넣기 전(2026-10-15)의 예전 파일이다
   var probe = { 'Code': 'api', 'Db': 'sheetValues_', 'Auth': 'checkLogin_', 'Admin': 'adminCheck_', 'Schedule': 'apiSchedMonth_',
-    'Survey': 'apiSurveyList_', 'Library': 'apiLibList_', 'Help': 'apiHelpList_', 'Setup': 'setupAll_', 'Table': 'apiTableList_' };
-  ['Code', 'Db', 'Auth', 'Admin', 'Schedule', 'Survey', 'Library', 'Help', 'Setup', 'Table'].forEach(function (f) {
+    'Survey': 'apiSurveyList_', 'Library': 'apiLibList_', 'Help': 'apiHelpList_', 'Setup': 'setupAll_', 'Table': 'apiTableList_', 'Meeting': 'apiMeetList_' };
+  ['Code', 'Db', 'Auth', 'Admin', 'Schedule', 'Survey', 'Library', 'Help', 'Setup', 'Table', 'Meeting'].forEach(function (f) {
     var mark = globalFn_('fileMark_' + f + '_');
     if (!mark && globalFn_(probe[f])) add('코드 파일', f + '.gs', 'warn', '판 표시가 없는 예전 파일이에요(기능은 돌아가요)', paste(f));
+    else if (!mark && f === 'Meeting') add('코드 파일', 'Meeting.gs', 'bad', '파일이 없어요(회의록)', "Apps Script 편집기에서 + → 스크립트로 'Meeting' 파일을 새로 만들고, 설치안내 표의 'Meeting' 파일을 Copy raw file로 붙여 넣어 주세요");
     else if (!mark) add('코드 파일', f + '.gs', 'bad', '파일이 없거나 내용이 비어 있어요', paste(f));
     else if (f === 'Code' && !buildsFn) add('코드 파일', 'Code.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
     else if (mark() !== want(f)) add('코드 파일', f + '.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
@@ -4082,7 +4173,8 @@ function adminCheck_(args) {
   // 2) 시트 탭·칸 (나중에 더한 탭·칸 중 처음 쓸 때 저절로 생기는 것은 없어도 괜찮다)
   var tabs = tabs_(), bad = 0;
   var autoTabs = { '학생수': '학생 수를 처음 넣을 때 저절로 생겨요', '함께표': '취합 시트를 처음 만들 때 저절로 생겨요', '함께표줄': '취합 시트를 처음 만들 때 저절로 생겨요',
-    '시트양식': '취합 시트의 양식을 처음 저장할 때 저절로 생겨요', '학기': '학기 기간을 처음 넣을 때 저절로 생겨요(그 전에는 예전 설정 값을 써요)' }, notYet = 0;
+    '시트양식': '취합 시트의 양식을 처음 저장할 때 저절로 생겨요', '학기': '학기 기간을 처음 넣을 때 저절로 생겨요(그 전에는 예전 설정 값을 써요)',
+    '회의': '회의록을 처음 만들 때 저절로 생겨요', '회의내용': '회의록을 처음 만들 때 저절로 생겨요' }, notYet = 0;
   var autoCols = { // 저장할 때 ensureCols_가 붙이는 칸
     '학생수': { cols: ['반별'], when: '학생 수를 저장할 때' },
     '일정': { cols: ['중요'], when: '일정을 저장할 때' },
@@ -9237,6 +9329,327 @@ function seedTestTables_() {
   return 3;
 }
 
+/* ===== Meeting.gs ===== */
+/**
+ * Meeting.gs — 회의록(공지 › 회의록, 판 2026-10-22a 교사 요청)
+ *
+ * - 회의 하나 = '회의' 탭 한 줄. 칸 목록(맨 위 칸·부서)은 만들 때의 이름 그대로 '칸'(JSON)에 담아 둔다
+ *   → 나중에 부서 이름이 바뀌거나 부서가 늘어도 지난 회의록은 그대로
+ * - 칸 내용 = '회의내용' 탭 한 줄(회의ID·칸). 기타 안건은 칸 '_etc'로 여러 줄(순서)
+ * - 쓰기(교사 선택 '누구나 모든 칸'): 이름을 고른 교직원 누구나 모든 칸·기타 안건을 쓰고 고친다. 칸마다 마지막에 쓴 분이 남는다
+ *   같은 칸을 그사이 다른 분이 고쳤으면 덮어쓰지 않고 묻는다(칸마다 '판')
+ * - 회의 만들기: 이름을 고른 누구나. 회의 정보(종류·제목·날짜·시간·장소·칸) 고치기·회의 지우기: 만든 분과 관리
+ * - 기타 안건 빼기: 더한 분·회의를 만든 분·관리. 내용이 있는 칸은 회의 정보에서 뺄 수 없다
+ * - 회의 종류는 분류 '회의 종류'(처음에는 부장회의·교직원회의, 첫 회의를 만들 때 저절로 넣는다)
+ * - 맨 위 칸은 설정 '회의록 맨 위 칸'(기본 '교장 선생님, 교감 선생님'). 행정실 칸은 넣지 않는다(사용자는 교사끼리)
+ * - 지운 회의는 관리자 › 휴지통에서 되살린다. 모든 바꿈은 기록 탭에. 탭은 처음 회의를 만들 때 저절로 생긴다
+ */
+
+function fileMark_Meeting_() { return '2026-10-22a'; } // 판 표시(관리자 › 점검)
+
+var MEET_ETC_ = '_etc'; // 기타 안건 칸
+var MEET_KIND_DEFAULTS_ = ['부장회의', '교직원회의'];
+var MEET_TOP_DEFAULT_ = '교장 선생님, 교감 선생님';
+var MEET_MAX_ROWS_ = 40;
+
+/** 탭이 아직 없으면 빈 목록 */
+function meetRows_(tab, withDeleted) {
+  try { return withDeleted ? readRows_(tab) : liveRows_(tab); } catch (e) { if (e && e.code === 'SETUP') return []; throw e; }
+}
+
+/** 회의 종류: 분류 '회의 종류'. 아직 없으면 기본 두 가지(id '_k1'·'_k2', 첫 회의를 만들 때 진짜로 넣는다) */
+function meetKinds_() {
+  var rows = liveRows_('분류').filter(function (r) { return r['종류'] === '회의 종류'; })
+    .sort(function (a, b) { return (Number(a['순서']) || 999) - (Number(b['순서']) || 999) || a['이름'].localeCompare(b['이름'], 'ko'); });
+  if (rows.length) return rows.map(function (r) { return { id: r['분류ID'], name: r['이름'], active: r['사용 여부'] !== '사용 안 함' }; });
+  return MEET_KIND_DEFAULTS_.map(function (n, i) { return { id: '_k' + (i + 1), name: n, active: true, virtual: true }; });
+}
+
+/** 기본 종류를 분류에 넣는다(아직 하나도 없을 때만, 잠금 안). 돌려주는 값: 가짜 id → 진짜 id */
+function ensureMeetKinds_(actor) {
+  var map = {};
+  if (liveRows_('분류').some(function (r) { return r['종류'] === '회의 종류'; })) return map;
+  MEET_KIND_DEFAULTS_.forEach(function (n, i) {
+    map['_k' + (i + 1)] = insertRow_('분류', { '종류': '회의 종류', '이름': n, '순서': String(i + 1), '사용 여부': '사용' }, actor, '회의 종류 처음 넣음: ' + n)['분류ID'];
+  });
+  return map;
+}
+
+/** 맨 위 칸 이름들(설정 '회의록 맨 위 칸', 쉼표·줄 바꿈으로 나눔). 설정 칸이 없는 예전 Admin.gs면 기본값 */
+function meetTopNames_() {
+  var known = settingDefs_().some(function (d) { return d.key === '회의록 맨 위 칸'; });
+  var s = known ? String(setting_('회의록 맨 위 칸')) : MEET_TOP_DEFAULT_, seen = {};
+  return s.split(/[,\n，]/).map(function (x) { return x.trim().slice(0, 20); })
+    .filter(function (x) { if (!x || seen[x]) return false; seen[x] = true; return true; }).slice(0, 8);
+}
+
+/** 새 회의의 칸 후보: 맨 위 칸(k 비움, 저장할 때 정함) + 사용 중인 부서(분류 순서) */
+function meetDefaultRows_() {
+  return meetTopNames_().map(function (n) { return { k: '', n: n, t: 1 }; })
+    .concat(deptOptions_().filter(function (d) { return d.active; }).map(function (d) { return { k: d.id, n: d.name }; }));
+}
+
+function meetParseRows_(s) {
+  try { var v = JSON.parse(s || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
+
+/** 날짜의 학기: { key: '2026-2', label: '2026학년도 2학기' }. 학기 기간이 있으면 2학기 시작일로 나누고, 없으면 3~8월 1학기 */
+function meetTerm_(date, cache) {
+  if (!isDate_(date)) return { key: '', label: '' };
+  var sy = schoolYearOf_(date);
+  if (!(sy in cache)) cache[sy] = semesters_(sy);
+  var s2 = cache[sy].filter(function (s) { return s.name === '2학기'; })[0], n;
+  if (s2) n = date >= s2.from ? 2 : 1;
+  else { var m = Number(date.slice(5, 7)); n = m >= 3 && m <= 8 ? 1 : 2; }
+  return { key: sy + '-' + n, label: sy + '학년도 ' + n + '학기' };
+}
+
+/** 내용 줄(칸·기타 안건) → 화면 값 */
+function meetPieceView_(r, names) {
+  var by = r['수정자ID'] || r['입력자ID'];
+  return { id: r['내용ID'], k: r['칸'], content: r['내용'], by: names[by] || '', at: r['수정 시각'] || r['입력 시각'], ver: Number(r['판']) || 1, byId: r['입력자ID'] };
+}
+
+function canEditMeet_(r, ctx) { return canEditOwned_(r, ctx); } // 만든 분·관리(Library.gs)
+
+/** 회의 한 줄 → 목록 카드 값. pieces = 그 회의의 내용 줄 */
+function meetView_(r, ctx, kinds, names, pieces, termCache) {
+  var rows = meetParseRows_(r['칸']), filled = {};
+  pieces.forEach(function (p) { if (p['칸'] !== MEET_ETC_ && String(p['내용']).trim()) filled[p['칸']] = true; });
+  var term = meetTerm_(r['날짜'], termCache);
+  return {
+    id: r['회의ID'], kindId: r['종류ID'], kind: kinds[r['종류ID']] || '', title: r['제목'], date: r['날짜'], time: r['시간'], place: r['장소'],
+    year: r['학년도'], term: term.key, termLabel: term.label,
+    total: rows.length, filled: rows.filter(function (x) { return filled[x.k]; }).length,
+    etc: pieces.filter(function (p) { return p['칸'] === MEET_ETC_; }).length,
+    by: names[r['입력자ID']] || '', at: r['입력 시각'], canEdit: canEditMeet_(r, ctx)
+  };
+}
+
+function meetKindNames_() {
+  var m = categoryNames_('회의 종류');
+  meetKinds_().forEach(function (k) { if (k.virtual) m[k.id] = k.name; });
+  return m;
+}
+
+/** 회의 목록(새 회의 먼저): 학기 고르기·종류 단추·만들기 창에 쓸 것도 함께 */
+function apiMeetList_(args, actor, ctx) {
+  var kinds = meetKindNames_(), names = staffNames_(), termCache = {}, by = {};
+  meetRows_('회의내용').forEach(function (p) { (by[p['회의ID']] = by[p['회의ID']] || []).push(p); });
+  var items = meetRows_('회의').map(function (r) { return meetView_(r, ctx, kinds, names, by[r['회의ID']] || [], termCache); })
+    .sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : a.time < b.time ? 1 : a.time > b.time ? -1 : (a.at < b.at ? 1 : -1); });
+  var terms = [], seen = {};
+  items.forEach(function (m) { if (m.term && !seen[m.term]) { seen[m.term] = true; terms.push({ key: m.term, label: m.termLabel }); } });
+  terms.sort(function (a, b) { return a.key < b.key ? 1 : -1; });
+  // 새 회의 제목('2026학년도 2학기 부장회의 (5)')을 화면이 지을 때 쓰는 2학기 시작일(지금 학년도 앞뒤)
+  var sy = curSchoolYear_(), sem2 = {};
+  [sy - 1, sy, sy + 1].forEach(function (y) { var s = semesters_(y).filter(function (x) { return x.name === '2학기'; })[0]; if (s) sem2[y] = s.from; });
+  return { items: items, terms: terms, kinds: meetKinds_(), rowsDefault: meetDefaultRows_(), sem2: sem2, canManage: canManage_(ctx), today: todayYmd_() };
+}
+
+/** 회의 하나: 칸마다 내용·쓴 분·판, 기타 안건 */
+function apiMeetGet_(args, actor, ctx) {
+  var r = findMeet_(args && args.id);
+  var names = staffNames_(), kinds = meetKindNames_();
+  var pieces = meetRows_('회의내용').filter(function (p) { return p['회의ID'] === r['회의ID']; });
+  var byKey = {};
+  pieces.forEach(function (p) { if (p['칸'] !== MEET_ETC_) byKey[p['칸']] = p; });
+  var view = meetView_(r, ctx, kinds, names, pieces, {});
+  view.rows = meetParseRows_(r['칸']).map(function (x) {
+    var p = byKey[x.k];
+    var v = p ? meetPieceView_(p, names) : { content: '', by: '', at: '', ver: 0 };
+    return { k: x.k, name: x.n, top: !!x.t, content: v.content, by: String(v.content).trim() ? v.by : '', at: v.at, ver: v.ver };
+  });
+  var me = ctx.identity && ctx.identity['교직원ID'];
+  view.etcItems = pieces.filter(function (p) { return p['칸'] === MEET_ETC_; })
+    .sort(function (a, b) { return (Number(a['순서']) || 0) - (Number(b['순서']) || 0) || (a['입력 시각'] < b['입력 시각'] ? -1 : 1); })
+    .map(function (p) {
+      var v = meetPieceView_(p, names);
+      v.canDelete = !!(me && (p['입력자ID'] === me)) || view.canEdit;
+      return v;
+    });
+  return { meeting: view, canWrite: !!ctx.identity, kinds: meetKinds_(), rowsDefault: meetDefaultRows_() };
+}
+
+function findMeet_(id) {
+  var r = id ? meetRows_('회의').filter(function (x) { return x['회의ID'] === String(id); })[0] : null;
+  if (!r) throw userError_('회의를 찾지 못했어요. 다른 분이 지웠을 수 있어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
+  return r;
+}
+
+/**
+ * 회의 만들기·고치기. args = { id?, kindId, title, date, time, place, rows: [{ k, n, t }] }
+ * 칸: 부서 칸은 분류의 부서ID(이름은 처음 넣을 때의 이름을 담아 둔다), 맨 위 칸은 k가 비면 새로 정한다
+ */
+function apiMeetSave_(args, actor, ctx) {
+  var title = cleanText_(args.title, 60, '제목', true);
+  var date = String(args.date || '').trim();
+  if (!isDate_(date)) throw userError_('회의 날짜를 골라 주세요.');
+  var time = String(args.time || '').trim();
+  if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw userError_('시간은 15:00처럼 적어 주세요.');
+  var place = cleanText_(args.place, 40, '장소');
+  var want = Array.isArray(args.rows) ? args.rows : [];
+  if (!want.length) throw userError_('칸을 하나 이상 골라 주세요.');
+  if (want.length > MEET_MAX_ROWS_) throw userError_('칸은 ' + MEET_MAX_ROWS_ + '개까지 넣을 수 있어요.');
+  return withLock_(function () {
+    ensureTab_('회의');
+    ensureTab_('회의내용');
+    var old = args.id ? findMeet_(args.id) : null;
+    if (old && !canEditMeet_(old, ctx)) throw userError_('회의를 만든 분과 관리자만 회의 정보를 고칠 수 있어요.', 'FORBIDDEN');
+    var kindId = String(args.kindId || '');
+    if (/^_k\d$/.test(kindId)) { // 아직 분류에 없던 기본 종류: 넣고 진짜 ID로(그사이 다른 분이 넣었으면 같은 이름으로 찾는다)
+      var nm = MEET_KIND_DEFAULTS_[Number(kindId.slice(2)) - 1], made = ensureMeetKinds_(actor);
+      kindId = made[kindId] || (meetKinds_().filter(function (k) { return !k.virtual && k.name === nm; })[0] || {}).id || '';
+    }
+    if (!meetKinds_().some(function (k) { return !k.virtual && k.id === kindId; })) throw userError_('회의 종류를 골라 주세요.');
+    var oldRows = old ? meetParseRows_(old['칸']) : [], oldBy = {};
+    oldRows.forEach(function (x) { oldBy[x.k] = x; });
+    var depts = categoryNames_('부서'), used = {}, topN = 0, rows = [];
+    oldRows.forEach(function (x) { var m = /^t(\d+)$/.exec(x.k); if (m) topN = Math.max(topN, Number(m[1])); });
+    want.forEach(function (x) {
+      var k = String(x && x.k || '');
+      if (k && oldBy[k]) { if (!used[k]) { used[k] = true; rows.push({ k: k, n: oldBy[k].n, t: oldBy[k].t ? 1 : undefined }); } return; }
+      if (k && depts[k]) { if (!used[k]) { used[k] = true; rows.push({ k: k, n: depts[k] }); } return; }
+      var n = !k && x && x.t ? cleanText_(x.n, 20, '칸 이름') : ''; // 새 맨 위 칸(교장 선생님 등)
+      if (n) { topN++; rows.push({ k: 't' + topN, n: n, t: 1 }); }
+    });
+    if (!rows.length) throw userError_('칸을 하나 이상 골라 주세요.');
+    if (old) { // 내용이 있는 칸은 뺄 수 없다
+      var have = {};
+      meetRows_('회의내용').forEach(function (p) { if (p['회의ID'] === old['회의ID'] && p['칸'] !== MEET_ETC_ && String(p['내용']).trim()) have[p['칸']] = true; });
+      var lost = oldRows.filter(function (x) { return have[x.k] && !used[x.k]; });
+      if (lost.length) throw userError_('내용이 있는 칸(' + lost.map(function (x) { return x.n; }).join(', ') + ')은 뺄 수 없어요. 내용을 지운 뒤에 빼 주세요.');
+    }
+    var rec = { '학년도': String(schoolYearOf_(date)), '종류ID': kindId, '제목': title, '날짜': date, '시간': time, '장소': place, '칸': JSON.stringify(rows.map(function (x) { return x.t ? { k: x.k, n: x.n, t: 1 } : { k: x.k, n: x.n }; })) };
+    var saved = old ? updateRow_('회의', old['회의ID'], rec, actor, '회의록 고침: ' + title) : insertRow_('회의', rec, actor, '회의록 만듦: ' + title);
+    return { id: saved['회의ID'] };
+  });
+}
+
+function apiMeetDelete_(args, actor, ctx) {
+  return withLock_(function () {
+    var r = findMeet_(args && args.id);
+    if (!canEditMeet_(r, ctx)) throw userError_('회의를 만든 분과 관리자만 지울 수 있어요.', 'FORBIDDEN');
+    softDelete_('회의', r['회의ID'], actor, '회의록 지움: ' + r['제목']);
+    return { done: true };
+  });
+}
+
+function meetContent_(v) {
+  return cleanText_(String(v === null || v === undefined ? '' : v).replace(/\r\n?/g, '\n'), 5000, '내용');
+}
+
+/** 내용 줄을 판으로 확인해 쓴다. 그사이 다른 분이 고쳤으면(force가 아니면) 쓰지 않고 지금 내용을 돌려준다 */
+function meetWritePiece_(cur, rec, base, force, actor, summary) {
+  var names = staffNames_();
+  if (cur) {
+    if (!force && (Number(cur['판']) || 1) !== Number(base || 0)) return { conflict: meetPieceView_(cur, names) };
+    if (String(cur['내용']) === rec['내용']) return { piece: meetPieceView_(cur, names) };
+    rec['판'] = String((Number(cur['판']) || 1) + 1);
+    return { piece: meetPieceView_(updateRow_('회의내용', cur['내용ID'], rec, actor, summary), names) };
+  }
+  if (!force && Number(base || 0) !== 0) throw userError_('지운 안건이에요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
+  rec['판'] = '1';
+  return { piece: meetPieceView_(insertRow_('회의내용', rec, actor, summary), names) };
+}
+
+/** 칸 쓰기·고치기(이름을 고른 누구나). args = { id(회의), k(칸), content, base(본 판, 처음이면 0), force } */
+function apiMeetRow_(args, actor, ctx) {
+  var content = meetContent_(args.content);
+  return withLock_(function () {
+    ensureTab_('회의내용');
+    var m = findMeet_(args.id), k = String(args.k || '');
+    var row = meetParseRows_(m['칸']).filter(function (x) { return x.k === k; })[0];
+    if (!row) throw userError_('이 회의에 없는 칸이에요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
+    var cur = meetRows_('회의내용').filter(function (p) { return p['회의ID'] === m['회의ID'] && p['칸'] === k; })[0] || null;
+    return meetWritePiece_(cur, { '회의ID': m['회의ID'], '칸': k, '내용': content }, args.base, !!args.force, actor, '회의록 칸: ' + m['제목'] + ' › ' + row.n);
+  });
+}
+
+/** 기타 안건 더하기(누구나). args = { id(회의), content } */
+function apiMeetEtcAdd_(args, actor, ctx) {
+  var content = meetContent_(args.content);
+  if (!content) throw userError_('안건을 적어 주세요.');
+  return withLock_(function () {
+    ensureTab_('회의내용');
+    var m = findMeet_(args.id), n = 0;
+    meetRows_('회의내용', true).forEach(function (p) { if (p['회의ID'] === m['회의ID'] && p['칸'] === MEET_ETC_) n = Math.max(n, Number(p['순서']) || 0); });
+    var r = insertRow_('회의내용', { '회의ID': m['회의ID'], '칸': MEET_ETC_, '순서': String(n + 1), '내용': content, '판': '1' }, actor, '회의록 기타 안건 더함: ' + m['제목']);
+    return { piece: meetPieceView_(r, staffNames_()) };
+  });
+}
+
+/** 기타 안건 고치기(누구나, 판 확인). args = { eid, content, base, force } */
+function apiMeetEtcSave_(args, actor, ctx) {
+  var content = meetContent_(args.content);
+  if (!content) throw userError_('안건을 적어 주세요. 안건을 없애려면 "빼기"를 눌러 주세요.');
+  return withLock_(function () {
+    var cur = meetRows_('회의내용').filter(function (p) { return p['내용ID'] === String(args.eid || '') && p['칸'] === MEET_ETC_; })[0];
+    if (!cur) throw userError_('안건을 찾지 못했어요. 다른 분이 뺐을 수 있어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
+    var m = findMeet_(cur['회의ID']);
+    return meetWritePiece_(cur, { '내용': content }, args.base, !!args.force, actor, '회의록 기타 안건 고침: ' + m['제목']);
+  });
+}
+
+/** 기타 안건 빼기: 더한 분·회의를 만든 분·관리 */
+function apiMeetEtcDelete_(args, actor, ctx) {
+  return withLock_(function () {
+    var cur = meetRows_('회의내용').filter(function (p) { return p['내용ID'] === String(args.eid || '') && p['칸'] === MEET_ETC_; })[0];
+    if (!cur) throw userError_('안건을 찾지 못했어요. 화면을 새로 고쳐 주세요.', 'NOTFOUND');
+    var m = findMeet_(cur['회의ID']), me = ctx.identity && ctx.identity['교직원ID'];
+    if (!(me && cur['입력자ID'] === me) && !canEditMeet_(m, ctx)) throw userError_('안건을 더한 분과 회의를 만든 분·관리자만 뺄 수 있어요.', 'FORBIDDEN');
+    softDelete_('회의내용', cur['내용ID'], actor, '회의록 기타 안건 뺌: ' + m['제목']);
+    return { done: true };
+  });
+}
+
+// ---------------------------------------------------------------- 휴지통(관리자)
+
+function adminMeetTrash_() {
+  var names = staffNames_(), kinds = meetKindNames_();
+  return { items: meetRows_('회의', true).filter(function (r) { return r['삭제 여부']; }).map(function (r) {
+    return { tab: '회의', id: r['회의ID'], title: r['제목'], sub: [kinds[r['종류ID']] || '', r['날짜']].filter(Boolean).join(' · '), by: names[r['입력자ID']] || '', deletedBy: names[r['수정자ID']] || '', deletedAt: r['수정 시각'] };
+  }).sort(function (a, b) { return a.deletedAt < b.deletedAt ? 1 : a.deletedAt > b.deletedAt ? -1 : 0; }).slice(0, 200) };
+}
+
+function adminMeetRestore_(args, actor) {
+  var r = meetRows_('회의', true).filter(function (x) { return x['회의ID'] === String(args.id || ''); })[0];
+  if (!r || !r['삭제 여부']) throw userError_('되살릴 회의록을 찾지 못했어요.');
+  restoreRow_('회의', r['회의ID'], actor, '회의록 되살림: ' + r['제목']);
+  return { done: true };
+}
+
+// ---------------------------------------------------------------- 시험·미리보기용 예시
+
+/** 예시 회의 2개(오늘 앞뒤). 이름은 가짜 교직원(옛이야기 인물) */
+function seedTestMeetings_() {
+  if (meetRows_('회의').length) throw userError_('회의 탭에 이미 회의가 있어요. 예시 회의는 빈 테스트 시트에만 넣을 수 있어요.');
+  var staff = {}, t = todayYmd_();
+  liveRows_('교직원').forEach(function (s) { staff[s['이름']] = { id: s['교직원ID'], name: s['이름'] }; });
+  var a0 = staff['홍길동'] || { id: '', name: '테스트 데이터' }, other = function (n) { return staff[n] || a0; };
+  var made = [];
+  withLock_(function () {
+    ensureTab_('회의');
+    ensureTab_('회의내용');
+    var kinds = ensureMeetKinds_(a0), rows = meetDefaultRows_().map(function (x, i) { return x.t ? { k: 't' + (i + 1), n: x.n, t: 1 } : { k: x.k, n: x.n }; });
+    var kid = function (n) { var hit = liveRows_('분류').filter(function (r) { return r['종류'] === '회의 종류' && r['이름'] === n; })[0]; return hit ? hit['분류ID'] : kinds['_k1']; };
+    var mk = function (kind, title, date, place) {
+      return insertRow_('회의', { '학년도': String(schoolYearOf_(date)), '종류ID': kid(kind), '제목': title, '날짜': date, '시간': '15:00', '장소': place, '칸': JSON.stringify(rows) }, a0, '예시 회의')['회의ID'];
+    };
+    var m1 = mk('부장회의', '(예시) 부장회의', addDays_(t, 1), '교무실');
+    var m2 = mk('교직원회의', '(예시) 교직원회의', addDays_(t, -6), '과학실');
+    var dept = function (n) { var r = rows.filter(function (x) { return x.n === n; })[0]; return r ? r.k : ''; };
+    var put = function (m, k, text, who) { if (k) insertRow_('회의내용', { '회의ID': m, '칸': k, '내용': text, '판': '1' }, who, '예시 회의 내용'); };
+    put(m1, dept('교무부'), '1. (예시) 학부모 상담 주간 안내\n2. (예시) 다음 주 금요일까지 출결 서류 제출', other('이몽룡'));
+    put(m1, dept('연구부'), '전달 사항 없음', other('성춘향'));
+    put(m1, dept('인성안전부'), '1. (예시) 교실 안전점검표를 이번 주에 내 주세요', other('흥부'));
+    insertRow_('회의내용', { '회의ID': m1, '칸': MEET_ETC_, '순서': '1', '내용': '(예시) 체육대회 날 우천 시 계획', '판': '1' }, other('심청'), '예시 회의 내용');
+    put(m2, dept('교무부'), '(예시) 2학기 행사 일정 안내', other('이몽룡'));
+    made = [m1, m2];
+  });
+  return made.length;
+}
+
   setupAll_();
   setPassword_('common', 'preview1');
   setPassword_('admin', 'admin1');
@@ -9246,6 +9659,7 @@ function seedTestTables_() {
   seedTestLibrary_();
   seedTestNotices_();
   seedTestTables_();
+  seedTestMeetings_(); // 회의록 예시 2개(2026-10-22a)
   // 미리보기용 가짜 학기 기간(오늘이 들어가게): 수업일수 계산을 보여 주려는 값이에요
   (function () {
     var t = todayYmd_(), y = Number(t.slice(0, 4)), m = Number(t.slice(5, 7));
@@ -9273,7 +9687,7 @@ function seedTestTables_() {
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-21d'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-10-22a'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -9340,7 +9754,7 @@ function seedTestTables_() {
   var READS = {
     start: 1, ping: 1, boot: 1, batch: 1, session: 1, staffPicker: 1, home: 1, search: 1, 'sched.month': 1, 'sched.year': 1,
     'sched.upload.info': 1, 'sched.upload.check': 1, 'survey.list': 1, 'survey.get': 1, 'survey.csv': 1, 'lib.list': 1, 'file.get': 1,
-    'help.list': 1, 'staff.list': 1, 'notice.list': 1, 'admin.settings.get': 1, 'admin.cat.list': 1, 'admin.staff.list': 1,
+    'help.list': 1, 'staff.list': 1, 'notice.list': 1, 'meet.list': 1, 'meet.get': 1, 'admin.trash.meetings': 1, 'admin.settings.get': 1, 'admin.cat.list': 1, 'admin.staff.list': 1,
     'admin.log.list': 1, 'admin.trash.list': 1, 'admin.trash.surveys': 1, 'admin.trash.library': 1, 'admin.year.preview': 1,
     'admin.check': 1, 'admin.speed': 1, 'admin.staff.importCheck': 1,
     'table.list': 1, 'table.get': 1, 'table.poll': 1, 'table.find': 1, 'table.tpl.list': 1, 'table.tpl.get': 1, 'admin.trash.tables': 1, 'shortcut.url': 1, 'ui.table': 1
@@ -9374,7 +9788,7 @@ function seedTestTables_() {
         try { r = JSON.parse(text); } catch (e) { r = { ok: false, error: '서버 답을 읽지 못했어요. 다시 해 주세요.', code: 'ERROR' }; }
         if (r.ok) {
           if (!READS[action]) {
-            if (/^table\./.test(action)) memoForget('table.'); // 표를 고친 것은 표 화면 기억만 잊는다(다른 화면을 다시 받지 않게)
+            if (/^(table|meet)\./.test(action)) memoForget(action.split('.')[0] + '.'); // 표·회의록을 고친 것은 그 화면 기억만 잊는다(다른 화면을 다시 받지 않게)
             else { memoClear(); setTimeout(prefetchScreens, 400); }
           }
           if (then && r.then) then.forEach(function (x, i) { if (r.then[i]) memoPut(x[0], x[1], r.then[i].data); });
@@ -9437,6 +9851,7 @@ function seedTestTables_() {
     S.sched.data = null; S.sched.yearData = null; S.sched.form = null;
     S.survey.list = null; S.survey.detail = null; S.survey.showResults = false; S.survey.draft = null;
     S.lib.data = null; S.lib.dept = ''; S.dir.data = null; S.help.data = null; S.notice.data = null; // 부서 단추는 사람마다 전체부터
+    if (S.meet) { S.meet.data = null; S.meet.detail = null; } // 회의록(누가 보느냐에 따라 쓰기·고치기 단추가 다름)
     if (TB) TB.forget();
   }
 
@@ -9460,7 +9875,7 @@ function seedTestTables_() {
     memoGenT++;
   }
   /** 이 요청을 보낸 뒤 기억을 잊었으면 그 답은 옛 내용 */
-  function memoStale(action, gen, genT) { return gen !== memoGen || (action.indexOf('table.') === 0 && genT !== memoGenT); }
+  function memoStale(action, gen, genT) { return gen !== memoGen || ((action.indexOf('table.') === 0 || action.indexOf('meet.') === 0) && genT !== memoGenT); }
   function editingNow() {
     if ($modal.innerHTML || qs('#sheet')) return true;
     var a = document.activeElement;
@@ -9728,6 +10143,7 @@ function seedTestTables_() {
     stSet('gy.zoom', String(z), true);
     stDel('gy.big');
     applyZoom();
+    if (typeof shapeCheck === 'function') shapeCheck(); // 화면 크기를 키우면 홈 사이드바·일정 옆 칸 모양도 바뀐다
   }
   function stepZoom(n) {
     var steps = zoomSteps(), i = steps.indexOf(zoomNow()) + n;
@@ -10150,6 +10566,12 @@ function seedTestTables_() {
   function myGrades() { return S.me ? gradesIn(S.me.group) : []; }
   function isPhone() { return window.matchMedia('(max-width: 899px)').matches; }
   function isWide() { return window.innerWidth / zoomFactor() >= 1200; } // 화면 크기를 키우면 그만큼 좁은 화면처럼
+  /**
+   * 홈 '내가 할 일'을 오른쪽 사이드바로(판 2026-10-22a, 교사 요청 '스크롤 내려도 따라오게', 교사 선택 '넓은 모니터에서만'):
+   * 본문 폭(메뉴 248px·여백 80px를 뺀 폭, 화면 크기를 키우면 그만큼 좁게)이 1264 이상일 때. 100%로 보면 창 폭 약 1600 이상(기준 폭은 실제 모니터로 확인 필요)
+   */
+  var HOME_SIDE_MIN = 1264;
+  function homeSide() { return !isPhone() && (window.innerWidth - 248) / zoomFactor() - 80 >= HOME_SIDE_MIN; }
   function zoomFactor() {
     var z = parseFloat(getComputedStyle(root).getPropertyValue('--gy-zoom'));
     return z > 0 ? z : 1;
@@ -10225,6 +10647,7 @@ function seedTestTables_() {
   // ============================================================ 홈
   SCREENS.home = function ($s) {
     var hello = S.me ? esc(S.me.name) + ' 선생님, 오늘도 반가워요' : '어서 오세요';
+    $s.classList.toggle('home-side', homeSide()); // 넓은 모니터: 홈만 본문을 넓혀 오른쪽에 '내가 할 일'
     $s.innerHTML = pageHead(todayText(), hello, '', homeSearchBox()) + introBanner() + '<div id="home-body">' + loadingHtml('오늘 일정을 불러오는 중이에요') + '</div>';
     bindHomeSearch();
     if (S.homeQ) { var q = S.homeQ; S.homeQ = ''; S.search = null; runSearch(q); return; }
@@ -10260,18 +10683,17 @@ function seedTestTables_() {
     var links = h.links || [];
 
     var bottom = homeFocusCard(h) + studentsCard(h);
-    body.innerHTML = '<div class="wrap home-wrap">' +
-      '<div class="home-top">' +
-      '<section class="card today-card"><span class="glow" aria-hidden="true"></span>' +
+    var side = homeSide(), scr = qs('#screen');
+    if (scr) scr.classList.toggle('home-side', side);
+    var today = '<section class="card today-card"><span class="glow" aria-hidden="true"></span>' +
       '<div class="card-head"><div><p class="kicker">오늘 학교 일정</p>' +
       '<p class="big-num">' + (todays.length ? todays.length + '개 있어요' : '오늘은 일정이 없어요') + '</p></div>' +
       '<button type="button" class="btn btn-sm print-hide" data-go="schedule">' + (h.weekNext ? '다음 주' : '이번 주') + ' 전체 보기 ' + icon('chev', 18) + '</button></div>' +
       (todays.length ? '<div class="ev-rows">' + todays.map(evRow).join('') + '</div>' : '') +
       '<p class="tomorrow"><b>' + esc(h.nextLabel || '내일') + ' 미리 보기</b> ' + (tomorrow.length
         ? tomorrow.map(function (e) { return esc(e.title) + (e.time ? ' ' + esc(e.time) : ''); }).join(' · ')
-        : '일정이 없어요') + '</p></section>' +
-      todoCard(h) + '</div>' +
-      sosCard(h) +
+        : '일정이 없어요') + '</p></section>';
+    var rest = sosCard(h) +
       (isPhone() ? homeNoticeCard(h) : '') +
       '<section class="card"><div class="card-head"><h2>' + (h.weekNext ? '다음 주 일정' : '이번 주 일정') + ' <span class="faint" style="font-weight:600">' + md(h.monday) + ' – ' + md(addD(h.monday, 4)) + '</span></h2>' +
       '<div class="seg print-hide" role="group" aria-label="' + (h.weekNext ? '다음 주' : '이번 주') + ' 일정 보기">' +
@@ -10298,8 +10720,11 @@ function seedTestTables_() {
         '<p class="faint" style="margin-top:4px">2차에 온라인 교무실로 옮겨 와요. 그 전까지는 바로가기로 들어가세요.</p></div>' +
         '<div class="row-btns">' + links.map(function (l) {
           return '<a class="btn btn-sm" href="' + esc(safeUrl(l.url)) + '" target="_blank" rel="noopener">' + esc(l.name) + icon('ext', 16) + '</a>';
-        }).join('') + '</div></div></section>' : '') +
-      '</div>';
+        }).join('') + '</div></div></section>' : '');
+    // 넓은 모니터: [오늘 일정(본문 폭 모두) … | 내가 할 일(스크롤을 따라옴)]. 그 밖: 오늘 일정 옆에 내가 할 일(예전 그대로)
+    body.innerHTML = side ? '<div class="wrap home-wrap home-cols"><div class="home-main">' + today + rest + '</div>' +
+      '<aside class="home-aside" aria-label="내가 할 일">' + todoCard(h) + '</aside></div>'
+      : '<div class="wrap home-wrap"><div class="home-top">' + today + todoCard(h) + '</div>' + rest + '</div>';
   }
 
   function homeFocusCard(h) {
@@ -11505,9 +11930,9 @@ function seedTestTables_() {
     if (!panel) return; // 그사이 다른 화면으로 옮겼으면
     panel.innerHTML = loadingHtml('휴지통을 불러오는 중이에요');
     Promise.all([server('admin.trash.list'), server('admin.trash.surveys'), server('admin.trash.library'),
-      server('admin.trash.tables').catch(function () { return []; })]).then(function (res) {
-      var list = res[0], surveys = res[1], libs = res[2], tables = res[3] || [];
-      panel.innerHTML = '<div class="wrap" style="gap:16px"><p class="hint">' + icon('info', 16) + '<span>지운 일정·조사·자료·도움말·공지·취합 시트(표·시트·양식)는 구글 시트에서 실제로 지워지지 않고 여기 남아요. 되살리면 원래 화면에 다시 보여요.</span></p>' +
+      server('admin.trash.tables').catch(function () { return []; }), server('admin.trash.meetings').catch(function () { return { items: [] }; })]).then(function (res) {
+      var list = res[0], surveys = res[1], libs = res[2], tables = res[3] || [], meets = (res[4] && res[4].items) || [];
+      panel.innerHTML = '<div class="wrap" style="gap:16px"><p class="hint">' + icon('info', 16) + '<span>지운 일정·조사·자료·도움말·공지·취합 시트(표·시트·양식)·회의록은 구글 시트에서 실제로 지워지지 않고 여기 남아요. 되살리면 원래 화면에 다시 보여요.</span></p>' +
         '<section class="card"><h2>지운 일정</h2>' + (list.length ? list.map(function (e) {
           return '<div class="log-item"><div class="log-top"><span class="chip">' + esc(e.kind) + '</span><b>' + esc(e.title) + '</b>' +
             '<span class="faint">' + esc(e.start === e.end ? e.start : e.start + '~' + e.end) + '</span>' +
@@ -11529,7 +11954,12 @@ function seedTestTables_() {
           return '<div class="log-item"><div class="log-top"><span class="chip">' + { doc: '표', sheet: '시트', tpl: '양식' }[kind] + '</span><b>' + esc(x.title) + (kind === 'sheet' ? ' › ' + esc(x.sheet || '') : '') + '</b>' +
             '<button type="button" class="btn btn-sm print-hide" style="margin-left:auto" data-action="trash-restore-tb" data-kind="' + kind + '" data-id="' + esc(x.id) + '">되살리기</button></div>' +
             '<p class="faint" style="margin-top:4px">지운 사람 ' + esc(x.deletedBy || '알 수 없음') + ' · ' + esc(x.deletedAt || '') + (x.by ? ' · ' + (kind === 'tpl' ? '저장한 사람 ' : '만든 사람 ') + esc(x.by) : '') + '</p></div>';
-        }).join('') : '<p class="empty">지운 표·시트·양식이 없어요.</p>') + '</section></div>';
+        }).join('') : '<p class="empty">지운 표·시트·양식이 없어요.</p>') + '</section>' +
+        '<section class="card"><h2>지운 회의록</h2>' + (meets.length ? meets.map(function (x) {
+          return '<div class="log-item"><div class="log-top"><b>' + esc(x.title) + '</b>' + (x.sub ? '<span class="faint">' + esc(x.sub) + '</span>' : '') +
+            '<button type="button" class="btn btn-sm print-hide" style="margin-left:auto" data-action="trash-restore-mt" data-id="' + esc(x.id) + '">되살리기</button></div>' +
+            '<p class="faint" style="margin-top:4px">지운 사람 ' + esc(x.deletedBy || '알 수 없음') + ' · ' + esc(x.deletedAt || '') + (x.by ? ' · 만든 사람 ' + esc(x.by) : '') + '</p></div>';
+        }).join('') : '<p class="empty">지운 회의록이 없어요.</p>') + '</section></div>';
     }).catch(function (e) { panel.innerHTML = failHtml(e); });
   }
 
@@ -12245,10 +12675,12 @@ function seedTestTables_() {
     libDeptIntoView();
   }
 
-  // 부서 단추 줄(판 2026-10-21d, 교사 요청): [전체] [내 부서] [부서…] [부서 없음]. 숫자는 지금 보기(학년도·보관함·분류·찾기)에 맞는 그 부서 자료 수(공통 자료 포함).
+  // 부서 단추 줄(판 2026-10-21d, 교사 요청): [공통] [전체] [내 부서] [부서…] [부서 없음]. 숫자는 지금 보기(학년도·보관함·분류·찾기)에 맞는 그 단추의 자료 수.
   // 처음은 전체, 고른 단추는 이 창에서만 기억. 휴대폰은 한 줄로 옆으로 민다(끝이 흐려짐, updateTabHints)
+  // [공통] 탭(판 2026-10-22a, 교사 선택): 공통 자료만 모아 보고, 부서 단추는 그 부서 자료만(그 부서의 공통 자료도 함께). [전체]는 공통 자료가 맨 위
   var LIB_NONE = '_none'; // '부서 없음' 단추: 부서가 비었거나 지금은 없는 부서의 자료
-  function libInDept(i, dep, known) { return dep === LIB_NONE ? !known[i.deptId] : i.deptId === dep; }
+  var LIB_COMMON = '_common'; // '공통' 단추: 공통 자료(부서는 따지지 않음)
+  function libInDept(i, dep, known) { return dep === LIB_COMMON ? !!i.common : dep === LIB_NONE ? !known[i.deptId] : i.deptId === dep; }
   function drawLibDepts(scope, base, known) {
     var L = S.lib, d = L.data, row = qs('#lib-depts');
     if (!row) return;
@@ -12266,7 +12698,7 @@ function seedTestTables_() {
     };
     var keep = row.scrollLeft;
     row.hidden = !scope.length; // 이 보기에 자료가 하나도 없으면(빈 보관함 등) 0만 늘어선 줄을 숨긴다
-    row.innerHTML = btn('', '전체', base.length) + list.map(function (dp) {
+    row.innerHTML = btn(LIB_COMMON, '공통', count(LIB_COMMON)) + btn('', '전체', base.length) + list.map(function (dp) {
       return btn(dp.id, dp.name, count(dp.id), dp.id === mine ? '<span class="tg-mine">내 부서</span>' : '');
     }).join('') + (L.dept === LIB_NONE || scope.some(function (i) { return !known[i.deptId]; }) ? btn(LIB_NONE, '부서 없음', count(LIB_NONE)) : '');
     row.scrollLeft = keep;
@@ -12277,11 +12709,18 @@ function seedTestTables_() {
     if (!b || row.scrollWidth <= row.clientWidth) return;
     if (b.offsetLeft < row.scrollLeft || b.offsetLeft + b.offsetWidth > row.scrollLeft + row.clientWidth) row.scrollLeft = Math.max(0, b.offsetLeft - 24);
   }
-  /** 새 자료의 처음 부서: 고른 부서 단추(사용 중인 부서일 때), 아니면 내 부서 */
+  /** 새 자료의 처음 부서: 고른 부서 단추(사용 중인 부서일 때), 아니면 내 부서. [공통] 단추면 내 부서 + 공통 자료 켜기(openLibForm) */
   function libNewDept() {
     var dep = S.lib.dept, d = S.lib.data;
     if (dep && dep !== LIB_NONE && d && d.depts.some(function (dp) { return dp.id === dep && dp.active; })) return dep;
     return (S.me && S.me.deptId) || '';
+  }
+  /** '자료 넣기' 단추·끌어다 놓기 덮개 이름: 고른 단추에 넣는다는 것을 보여 준다('교무부에 자료 넣기'·'공통 자료 넣기') */
+  function libNewLabel() {
+    var dep = S.lib.dept, d = S.lib.data;
+    if (dep === LIB_COMMON) return { btn: '공통 자료 넣기', drop: '공통 자료로' };
+    var hit = dep && dep !== LIB_NONE && d && d.depts.filter(function (dp) { return dp.id === dep && dp.active; })[0];
+    return hit ? { btn: hit.name + '에 자료 넣기', drop: hit.name + ' 자료로' } : { btn: '자료 넣기', drop: '자료로' };
   }
 
   function drawLibList() {
@@ -12300,19 +12739,22 @@ function seedTestTables_() {
     var scope = d.items.filter(function (i) { return L.view === 'now' ? !i.archived : i.archived && i.year === L.year; });
     var known = {};
     d.depts.forEach(function (dp) { known[dp.id] = true; });
-    if (L.dept && L.dept !== LIB_NONE && !known[L.dept]) L.dept = ''; // 고른 부서가 분류에서 지워졌으면 전체로
+    if (L.dept && L.dept !== LIB_NONE && L.dept !== LIB_COMMON && !known[L.dept]) L.dept = ''; // 고른 부서가 분류에서 지워졌으면 전체로
     // 분류·찾기에 맞는 자료(부서 단추의 숫자도 이것으로 센다)
     var base = scope.filter(function (i) {
       if (L.kind && i.kindId !== L.kind) return false;
       return textMatch(L.q, [i.title, i.desc, i.owner, i.dept, i.kind, i.fileName]);
     });
     drawLibDepts(scope, base, known);
-    var list = base.filter(function (i) { return !L.dept || i.common || libInDept(i, L.dept, known); }); // 공통 자료는 부서 단추를 골라도 맨 위에 그대로
-    var own = list.filter(function (i) { return !i.common; }).length, other = base.length - list.length;
-    // 고른 부서에 보일 자료가 없으면 한 줄. 찾는 중에 다른 부서에 있으면 그 수와 '전체에서 보기'(내 부서만 보다가 없는 줄 알지 않게)
-    var note = !L.dept || own ? '' : base.some(function (i) { return i.common && libInDept(i, L.dept, known); }) ? '이 부서 자료는 위 공통 자료에 있어요.'
+    var nb = qs('.page-head [data-action=lib-new]'), lab = libNewLabel();
+    if (nb) nb.innerHTML = icon('plus', 18) + esc(lab.btn);
+    var common = L.dept === LIB_COMMON;
+    var list = L.dept ? base.filter(function (i) { return libInDept(i, L.dept, known); }) : base; // 부서 단추는 그 부서 자료만(공통 자료가 맨 위를 덮지 않게)
+    var other = base.length - list.length;
+    // 고른 단추에 보일 자료가 없으면 한 줄. 찾는 중에 다른 단추에 있으면 그 수와 '전체에서 보기'(내 부서만 보다가 없는 줄 알지 않게)
+    var note = !L.dept || list.length ? '' : common ? (L.q || L.kind ? '공통 자료에는 찾는 자료가 없어요.' : '공통 자료가 아직 없어요. 자료를 넣을 때 "공통 자료"에 체크하면 여기에 모여요.')
       : L.q || L.kind ? '이 부서에는 찾는 자료가 없어요.' : '이 부서 자료는 아직 없어요.';
-    var more = L.dept && L.q && other ? '<p class="hint lib-other">' + icon('info', 16) + '<span>다른 부서에도 찾는 자료가 ' + other + '개 있어요. ' +
+    var more = L.dept && L.q && other ? '<p class="hint lib-other">' + icon('info', 16) + '<span>' + (common ? '공통이 아닌 자료' : '다른 부서') + '에도 찾는 자료가 ' + other + '개 있어요. ' +
       '<button type="button" class="linkish" data-action="lib-dept" data-id="">전체에서 보기</button></span></p>' : '';
     if (!list.length) {
       var msg = L.view === 'archive' && !libYears().length ? '보관함이 비어 있어요. 새 학년도로 넘기면 지난 자료가 여기로 와요.'
@@ -12322,11 +12764,11 @@ function seedTestTables_() {
       box.innerHTML = more + '<div class="card"><p class="empty">' + msg + '</p></div>';
       return;
     }
-    // 공통 자료는 맨 위에 한 번만(부서 칸에는 다시 나오지 않음). 공통 순서 번호 → 제목 순
-    var commons = list.filter(function (i) { return i.common; }).sort(function (a, b) {
+    // [전체]·[공통]: 공통 자료는 맨 위에 한 번만(부서 칸에는 다시 나오지 않음), 공통 순서 번호 → 제목 순. 부서 단추: 그 부서 칸 하나(공통 자료도 '공통' 표시로 함께)
+    var commons = L.dept && !common ? [] : list.filter(function (i) { return i.common; }).sort(function (a, b) {
       return (Number(a.commonOrder) || 999) - (Number(b.commonOrder) || 999) || a.title.localeCompare(b.title, 'ko');
     });
-    var rest = list.filter(function (i) { return !i.common; });
+    var rest = L.dept && !common ? list : list.filter(function (i) { return !i.common; });
     var groups = [{ name: '공통 자료', common: true, items: commons }].concat(d.depts.map(function (dp) {
       return { name: dp.name, items: rest.filter(function (i) { return i.deptId === dp.id; }) };
     }));
@@ -12484,7 +12926,7 @@ function seedTestTables_() {
       cv = document.createElement('div');
       cv.id = 'drop-cover';
       cv.className = 'drop-cover';
-      cv.innerHTML = '<div class="drop-cover-box">' + icon('upload', 36) + '<b>여기에 놓으면 자료로 넣어요</b><span>여러 파일도 한 번에 넣을 수 있어요(' + DROP_MAX + '개까지)</span></div>';
+      cv.innerHTML = '<div class="drop-cover-box">' + icon('upload', 36) + '<b>여기에 놓으면 ' + esc(libNewLabel().drop) + ' 넣어요</b><span>여러 파일도 한 번에 넣을 수 있어요(' + DROP_MAX + '개까지)</span></div>';
       document.body.appendChild(cv);
     } else if (cv) cv.parentNode.removeChild(cv);
   }
@@ -12519,6 +12961,7 @@ function seedTestTables_() {
     var d = S.lib.data;
     if (!d) return;
     var i = edit || {};
+    var common0 = edit ? !!i.common : S.lib.dept === LIB_COMMON; // [공통] 단추를 고른 채 넣으면 처음부터 공통 자료
     var mode = edit && edit.hasFile ? 'file' : 'link';
     var picked = [], wasMulti = false; // { file, title, bad, error, saved }
     openModal('<h2 id="m-title">' + (edit ? '자료 고치기' : '자료 넣기') + '</h2>' +
@@ -12540,9 +12983,9 @@ function seedTestTables_() {
       dropZoneHtml('lf-file', !edit) + '<div class="file-rows" id="lf-rows"></div>' +
       '<p class="hint">' + icon('info', 16) + '<span>' + d.maxMb + 'MB까지 올릴 수 있어요. 올린 파일은 공유하지 않는 드라이브 폴더에 두고, 온라인 교무실에서만 내려받아요.</span></p></div>' +
       '<p class="hint" id="lf-multi-note" hidden>' + icon('info', 16) + '<span>파일마다 자료가 하나씩 생겨요. 부서·분류·설명·담당·공통 자료는 모두 같게 들어가고, 제목은 파일마다 고칠 수 있어요.</span></p>' +
-      '<div class="common-box"><label class="check"><input type="checkbox" id="lf-common"' + (i.common ? ' checked' : '') + '>공통 자료로 자료실 맨 위에 보이기</label>' +
+      '<div class="common-box"><label class="check"><input type="checkbox" id="lf-common"' + (common0 ? ' checked' : '') + '>공통 자료로 넣기 <span class="faint">(자료실 [공통]과 [전체] 맨 위에 보여요)</span></label>' +
       '<p class="hint">' + icon('info', 16) + '<span>비상연락망·출결 양식·가정통신문 양식·표준 기안문처럼 모든 선생님이 함께 보는 자료에 체크해요.</span></p>' +
-      '<div class="field" id="lf-corder-box"' + (i.common ? '' : ' hidden') + ' style="max-width:240px"><label class="label" for="lf-corder">공통 자료 순서</label>' +
+      '<div class="field" id="lf-corder-box"' + (common0 ? '' : ' hidden') + ' style="max-width:240px"><label class="label" for="lf-corder">공통 자료 순서</label>' +
       '<input id="lf-corder" class="input" inputmode="numeric" maxlength="3" value="' + esc(i.commonOrder || '') + '" placeholder="숫자가 작을수록 앞"></div></div>' +
       (d.canManage ? '<label class="check" id="lf-home-box"><input type="checkbox" id="lf-home"' + (i.home ? ' checked' : '') + '>홈 \'자주 찾는 자료\'에 보이기 <span class="faint">(홈에는 6개까지 보여요 · 지금 ' +
         d.items.filter(function (x) { return x.home && !x.archived; }).length + '개)</span></label>' : '') +
@@ -12883,7 +13326,7 @@ function seedTestTables_() {
       sec(2, '홈·검색·공지', [
         '홈에서 오늘 일정, <b>내가 할 일</b>(낼 조사·채울 취합 시트), 이번 주 일정, 지금 걸린 공지를 봐요.',
         '홈 위의 <b>검색창</b>에 낱말을 넣으면 자료·일정·선생님·도움말·조사·공지·취합 시트를 한 번에 찾아요.',
-        '<b>공지</b>는 누구나 써요. 게시 끝일이 지나면 홈에서 내려가고 \'지난 공지\'에 남아요.',
+        '<b>공지</b>는 누구나 써요. 게시 끝일이 지나면 홈에서 내려가고 \'지난 공지\'에 남아요. <b>회의록</b>(공지 › 회의록)은 칸마다 누구나 쓰고, 인쇄·워드로 내려받아요.',
         '홈 맨 아래 <b>학생 수 현황</b>에서 학년을 누르면 반별 남·여 학생 수가 보여요. 바뀌면 누구나 고치고, 고친 분과 바뀌기 전 숫자는 기록에 남아요.',
         "왼쪽 메뉴 아래(휴대폰은 '전체')에서 <b>밝게·어둡게</b>, 화면 디자인(<b>기본·장도·종이색</b>), <b>화면 크기</b>를 골라요. 기기마다 따로 기억해요."
       ]) +
@@ -12908,7 +13351,7 @@ function seedTestTables_() {
         '목록의 찾기 칸·부서로 표를 찾고, 휴대폰은 줄 찾기와 <b>내 이름이 있는 줄</b>로 내 줄만 봐요.'
       ]) +
       sec(6, '자료실·도움말·교직원', [
-        '<b>자료실</b>에 링크나 파일을 넣어요. <b>부서 단추</b>로 부서별로 골라 봐요. PC에서는 파일을 자료실 화면에 <b>끌어다 놓으면</b> 바로 넣어요(여러 개도 한 번에). 지난 학년도 자료는 보관함에 있어요.',
+        '<b>자료실</b>에 링크나 파일을 넣어요. <b>공통·부서 단추</b>로 골라 봐요. PC에서는 파일을 자료실 화면에 <b>끌어다 놓으면</b> 바로 넣어요(여러 개도 한 번에). 지난 학년도 자료는 보관함에 있어요.',
         '<b>도움말</b>에는 복무·인사 처리 안내와 학교 규칙·제규정을 모아요. 학교에서 정한 내용을 그대로 옮겨 적어요.',
         '<b>교직원</b>에서 선생님의 소속·담당 업무·내선을 찾아요.'
       ]) + '</div>' +
@@ -13369,8 +13812,8 @@ function seedTestTables_() {
   function utf8b(s) { return new TextEncoder().encode(s); }
   function xmlEsc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
-  /** 압축하지 않는 zip(엑셀 파일 껍데기) */
-  function zipStore(files) {
+  /** 압축하지 않는 zip(엑셀·워드 파일 껍데기). type: 파일 종류(없으면 엑셀) */
+  function zipStore(files, type) {
     var parts = [], central = [], off = 0;
     files.forEach(function (f) {
       var name = utf8b(f.name), data = utf8b(f.text), crc = crc32(data), n = data.length;
@@ -13387,7 +13830,7 @@ function seedTestTables_() {
     var size = central.reduce(function (a, b) { return a + b.length; }, 0);
     var e = new DataView(new ArrayBuffer(22));
     e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, size, true); e.setUint32(16, off, true);
-    return new Blob(parts.concat(central).concat([new Uint8Array(e.buffer)]), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    return new Blob(parts.concat(central).concat([new Uint8Array(e.buffer)]), { type: type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   }
 
   /** XML 머리 줄. Apps Script 템플릿 표시와 헷갈리지 않게 '<' 와 '?' 를 떼어 적는다 */
@@ -13787,11 +14230,18 @@ function seedTestTables_() {
   }
 
   // ============================================================ 공지
-  S.notice = { data: null, view: 'now', openNew: false };
+  S.notice = { data: null, view: 'now', openNew: false, tab: 'notice' };
 
+  // 공지 화면 위 탭: [공지 | 회의록](회의록 판 2026-10-22a). 고른 탭은 이 창에서 기억
   SCREENS.notice = function ($s) {
-    $s.innerHTML = pageHead('', '공지', '', '<button type="button" class="btn btn-primary print-hide" data-action="notice-new">' + icon('plus', 18) + '공지 쓰기</button>') +
-      '<div id="notice-body" class="stack">' + loadingHtml('공지를 불러오는 중이에요') + '</div>';
+    var meet = S.notice.tab === 'meet';
+    var tab = function (v, label) { return '<button type="button" class="tab" role="tab" data-action="notice-tab" data-v="' + v + '" aria-selected="' + (S.notice.tab === v) + '">' + label + '</button>'; };
+    $s.innerHTML = pageHead('', '공지', '', meet ? '<button type="button" class="btn btn-primary print-hide" data-action="meet-new">' + icon('plus', 18) + '회의 만들기</button>'
+      : '<button type="button" class="btn btn-primary print-hide" data-action="notice-new">' + icon('plus', 18) + '공지 쓰기</button>') +
+      '<div class="tabs print-hide notice-tabs" role="tablist" aria-label="공지·회의록">' + tab('notice', '공지') + tab('meet', '회의록') + '</div>' +
+      (meet ? '<div id="meet-body" class="stack">' + loadingHtml('회의록을 불러오는 중이에요') + '</div>'
+        : '<div id="notice-body" class="stack">' + loadingHtml('공지를 불러오는 중이에요') + '</div>');
+    if (meet) { loadMeet(); return; }
     loadNotices().then(function () {
       if (S.notice.openNew) { S.notice.openNew = false; openNoticeForm(null); }
     });
@@ -13827,9 +14277,9 @@ function seedTestTables_() {
     if (!body || !d) return;
     var now = d.items.filter(function (n) { return n.active; }), past = d.items.filter(function (n) { return !n.active; });
     var list = N.view === 'now' ? now : past;
-    body.innerHTML = '<div class="tabs print-hide" role="tablist">' +
-      '<button type="button" class="tab" role="tab" data-action="notice-view" data-v="now" aria-selected="' + (N.view === 'now') + '">지금 공지 <b class="tab-n">' + now.length + '</b></button>' +
-      '<button type="button" class="tab" role="tab" data-action="notice-view" data-v="past" aria-selected="' + (N.view === 'past') + '">지난 공지 <b class="tab-n">' + past.length + '</b></button></div>' +
+    body.innerHTML = '<div class="seg notice-seg print-hide" role="group" aria-label="공지 보기">' +
+      '<button type="button" data-action="notice-view" data-v="now" aria-pressed="' + (N.view === 'now') + '">지금 공지 <b class="tab-n">' + now.length + '</b></button>' +
+      '<button type="button" data-action="notice-view" data-v="past" aria-pressed="' + (N.view === 'past') + '">지난 공지 <b class="tab-n">' + past.length + '</b></button></div>' +
       (list.length ? list.map(function (n) {
         return '<article class="card notice-item' + (n.pinned && n.active ? ' pinned' : '') + '" id="notice-' + esc(n.id) + '">' +
           '<div class="sv-chips">' + (n.pinned ? '<span class="chip chip-accent-solid">★ 고정</span>' : '') + (n.dept ? '<span class="chip">' + esc(n.dept) + '</span>' : '') +
@@ -13927,6 +14377,313 @@ function seedTestTables_() {
         return srRow('notice-open', n.id, 'info', (n.pinned ? starHtml() : '') + esc(n.title), [n.dept, n.at ? md(n.at.slice(0, 10)) : ''].filter(Boolean).join(' · '));
       }).join('') + '</div>' : '<p class="faint">지금 걸린 공지가 없어요.</p>') +
       '<button type="button" class="btn btn-sm print-hide" data-action="notice-new" style="align-self:flex-start">' + icon('plus', 18) + '공지 쓰기</button></section>';
+  }
+
+  // ============================================================ 회의록 (공지 › 회의록, 판 2026-10-22a 교사 요청)
+  // 회의 목록(학기·종류로 거르기) → 회의 하나('부서 | 내용' 표). 칸·기타 안건은 이름을 고른 누구나 쓴다(교사 선택 '누구나 모든 칸').
+  // 같은 칸을 그사이 다른 분이 고쳤으면 서버가 덮어쓰지 않고 지금 내용을 돌려준다 → 창 안에서 묻는다. 인쇄(A4 세로)·워드(.docx, 브라우저에서 만듦)
+  S.meet = { data: null, term: '', kind: '', openId: '', view: 'list', detail: null };
+
+  function loadMeet() {
+    var M = S.meet;
+    if (M.openId) { openMeet(M.openId); return; }
+    loadMemo('meet.list', {}, function (d) {
+      if (S.screen !== 'notice' || S.notice.tab !== 'meet') return;
+      M.data = d;
+      if (M.view === 'list') drawMeetList();
+    }, function (e) { var b = qs('#meet-body'); if (b) b.innerHTML = failHtml(e); });
+  }
+
+  /** 날짜의 학기(서버 meetTerm_과 같게): 2학기 시작일이 있으면 그날로 나누고, 없으면 3~8월이 1학기 */
+  function meetTermOf(date, sem2) {
+    var y = Number(date.slice(0, 4)), mo = Number(date.slice(5, 7)), sy = mo >= 3 ? y : y - 1, s2 = (sem2 || {})[sy];
+    var n = s2 ? (date >= s2 ? 2 : 1) : (mo >= 3 && mo <= 8 ? 1 : 2);
+    return { key: sy + '-' + n, label: sy + '학년도 ' + n + '학기' };
+  }
+  function meetMeta(m) { return [m.date ? mdw(m.date) : '', m.time, m.place].filter(Boolean).join(' · '); }
+  /** 인쇄·워드 파일용: 날짜에 연도까지(남겨 두는 문서라서) */
+  function meetMetaFull(m) { return [m.date ? Number(m.date.slice(0, 4)) + '년 ' + mdw(m.date) : '', m.time, m.place].filter(Boolean).join(' · '); }
+  /** 종류 칩: 첫 종류(부장회의)는 포인트 색, 나머지는 보통 */
+  function meetChip(m, kinds) {
+    var first = kinds && kinds[0] && kinds[0].id === m.kindId;
+    return '<span class="chip' + (first ? ' chip-accent' : '') + '">' + esc(m.kind || '회의') + '</span>';
+  }
+
+  function drawMeetList() {
+    var M = S.meet, d = M.data, body = qs('#meet-body');
+    if (!body || !d) return;
+    M.view = 'list';
+    if (M.term && !d.terms.some(function (t) { return t.key === M.term; })) M.term = '';
+    var kinds = d.kinds.filter(function (k) { return k.active || d.items.some(function (m) { return m.kindId === k.id; }); });
+    var list = d.items.filter(function (m) { return (!M.term || m.term === M.term) && (!M.kind || m.kindId === M.kind); });
+    body.innerHTML = '<div class="toolbar print-hide meet-tools">' +
+      '<select class="input input-sm" id="meet-term" aria-label="학기로 거르기"><option value="">모든 학기</option>' + d.terms.map(function (t) {
+        return '<option value="' + esc(t.key) + '"' + (t.key === M.term ? ' selected' : '') + '>' + esc(t.label) + '</option>';
+      }).join('') + '</select>' +
+      '<div class="seg" role="group" aria-label="회의 종류">' + [{ id: '', name: '모두' }].concat(kinds).map(function (k) {
+        return '<button type="button" data-action="meet-kind" data-id="' + esc(k.id) + '" aria-pressed="' + (M.kind === k.id) + '">' + esc(k.name) + '</button>';
+      }).join('') + '</div></div>' +
+      (list.length ? '<div class="meet-list">' + list.map(function (m) {
+        return '<button type="button" class="card meet-card" data-action="meet-open" data-id="' + esc(m.id) + '">' +
+          '<span class="sv-chips">' + meetChip(m, d.kinds) + '</span><span class="meet-title">' + esc(m.title) + '</span>' +
+          '<span class="meet-meta">' + esc(meetMeta(m)) + '</span>' +
+          '<span class="meet-fill">' + m.filled + ' / ' + m.total + '칸 씀' + (m.etc ? ' · 기타 안건 ' + m.etc + '개' : '') + '</span></button>';
+      }).join('') + '</div>'
+        : '<div class="card"><p class="empty">' + (d.items.length ? '이 학기·종류의 회의록이 없어요.' : '아직 회의록이 없어요. "회의 만들기"로 첫 회의록을 만들어 보세요.') + '</p></div>') +
+      '<p class="hint">' + icon('info', 16) + '<span>회의록의 칸은 이름을 고른 선생님 누구나 쓸 수 있어요. 칸마다 마지막에 쓴 분이 남아요.</span></p>';
+    qs('#meet-term').addEventListener('change', function (e) { M.term = e.target.value; drawMeetList(); });
+  }
+
+  function openMeet(id) {
+    var M = S.meet, body = qs('#meet-body');
+    M.openId = id;
+    M.view = 'detail';
+    if (body && !(M.detail && M.detail.meeting.id === id)) body.innerHTML = loadingHtml('회의록을 불러오는 중이에요');
+    loadMemo('meet.get', { id: id }, function (d) {
+      if (S.screen !== 'notice' || S.notice.tab !== 'meet' || M.openId !== id) return;
+      M.detail = d;
+      drawMeet();
+    }, function (e) {
+      var b = qs('#meet-body');
+      if (b) b.innerHTML = '<div class="meet-bar print-hide"><button type="button" class="btn btn-sm" data-action="meet-back">' + icon('chevl', 18) + '회의 목록</button></div>' + failHtml(e);
+    });
+  }
+
+  function drawMeet() {
+    var M = S.meet, d = M.detail, body = qs('#meet-body');
+    if (!body || !d) return;
+    var m = d.meeting, can = d.canWrite, kinds = (M.data && M.data.kinds) || d.kinds;
+    var foot = function (by, at, btns) {
+      return '<div class="meet-foot">' + (by ? '<span class="meet-by">' + esc(by) + (at ? ' · ' + esc(atText(at)) : '') + '</span>' : '<span></span>') +
+        (btns ? '<span class="row-btns print-hide">' + btns + '</span>' : '') + '</div>';
+    };
+    var rows = m.rows.map(function (r) {
+      var has = !!String(r.content).trim();
+      return '<div class="meet-row' + (has ? '' : ' blank') + (r.top ? ' top' : '') + '" role="row" data-k="' + esc(r.k) + '">' + // 'empty'는 빈 화면 글 모양과 겹쳐서 blank
+        '<div class="meet-name" role="rowheader">' + esc(r.name) + '</div><div class="meet-cell" role="cell">' +
+        (has ? '<div class="meet-text">' + esc(r.content) + '</div>' : '<p class="meet-none">아직 안 썼어요</p>') +
+        foot(has ? r.by : '', has ? r.at : '', can ? '<button type="button" class="btn btn-sm" data-action="meet-write" data-k="' + esc(r.k) + '">' + (has ? '고치기' : '쓰기') + '</button>' : '') + '</div></div>';
+    }).join('');
+    var etc = m.etcItems.map(function (x, i) {
+      return '<div class="meet-etc"><div class="meet-text">' + (m.etcItems.length > 1 ? '<b>' + (i + 1) + '.</b> ' : '') + esc(x.content) + '</div>' +
+        foot(x.by, x.at, (x.canDelete ? '<button type="button" class="btn btn-sm btn-ghost-danger" data-action="meet-etc-del" data-id="' + esc(x.id) + '">빼기</button>' : '') +
+          (can ? '<button type="button" class="btn btn-sm" data-action="meet-etc-edit" data-id="' + esc(x.id) + '">고치기</button>' : '')) + '</div>';
+    }).join('');
+    body.innerHTML = '<div class="meet-bar print-hide"><button type="button" class="btn btn-sm" data-action="meet-back">' + icon('chevl', 18) + '회의 목록</button>' +
+      '<span class="row-btns">' + (m.canEdit ? '<button type="button" class="btn btn-sm btn-ghost-danger" data-action="meet-del">지우기</button>' +
+        '<button type="button" class="btn btn-sm" data-action="meet-edit">회의 고치기</button>' : '') +
+      '<button type="button" class="btn btn-sm" data-action="meet-print">' + icon('print', 18) + '인쇄</button>' +
+      '<button type="button" class="btn btn-sm" data-action="meet-docx">' + icon('down', 18) + '워드로 내려받기</button></span></div>' +
+      '<article class="card meet-doc"><div class="sv-chips">' + meetChip(m, kinds) + '</div>' +
+      '<h2 class="meet-h">' + esc(m.title) + '</h2><p class="meet-sub">' + esc(meetMeta(m)) + '</p>' +
+      '<div class="meet-table" role="table" aria-label="' + esc(m.title) + '">' +
+      '<div class="meet-row head" role="row"><div class="meet-name" role="columnheader">부서</div><div class="meet-cell" role="columnheader">내용</div></div>' + rows +
+      '<div class="meet-row etc" role="row"><div class="meet-name" role="rowheader">기타 안건</div><div class="meet-cell" role="cell">' +
+      (etc || '<p class="meet-none">아직 없어요</p>') +
+      (can ? '<div class="print-hide"><button type="button" class="btn btn-sm" data-action="meet-etc-add">' + icon('plus', 18) + '안건 더하기</button></div>' : '') + '</div></div></div>' +
+      (can ? '' : '<p class="hint print-hide">' + icon('info', 16) + '<span>이름을 고르면 칸을 쓸 수 있어요.</span></p>') + '</article>';
+  }
+
+  /** 저장한 뒤 회의 다시 그리기(같은 요청으로 받아 둔 회의를 바로 쓴다) */
+  function refreshMeet(id) {
+    if (S.screen !== 'notice' || S.notice.tab !== 'meet') return;
+    openMeet(id);
+  }
+
+  /** 칸 쓰기·기타 안건 더하기·고치기 창. kind: 'row' | 'etc-add' | 'etc-edit' */
+  function openMeetWrite(kind, key) {
+    if (!needMe('회의록을 쓰면')) return;
+    var d = S.meet.detail;
+    if (!d) return;
+    var m = d.meeting, title, value = '', base = 0, force = false;
+    if (kind === 'row') {
+      var row = m.rows.filter(function (r) { return r.k === key; })[0];
+      if (!row) return;
+      title = row.name + ' 칸 ' + (String(row.content).trim() ? '고치기' : '쓰기');
+      value = row.content; base = row.ver;
+    } else if (kind === 'etc-edit') {
+      var it = m.etcItems.filter(function (x) { return x.id === key; })[0];
+      if (!it) return;
+      title = '기타 안건 고치기'; value = it.content; base = it.ver;
+    } else title = '기타 안건 더하기';
+    openModal('<h2 id="m-title">' + esc(title) + '</h2><p class="faint" style="margin:0">' + esc(m.title) + '</p>' +
+      '<form class="form" id="mw-form" novalidate><div class="field"><label class="label" for="mw-text">' + (kind === 'row' ? '내용' : '안건') + '</label>' +
+      '<textarea id="mw-text" class="input meet-ta" rows="9" maxlength="5000" placeholder="' + (kind === 'row' ? '줄을 바꿔 여러 줄로 써요. 전할 것이 없으면 \'전달 사항 없음\'' : '협의할 안건을 적어 주세요') + '">' + esc(value) + '</textarea></div>' +
+      '<div id="mw-conflict"></div><p class="err" id="mw-err" role="alert"></p>' +
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="submit" class="btn btn-primary" id="mw-go">저장</button></div></form>',
+      { noBackdropClose: true });
+    var ta = qs('#mw-text');
+    setTimeout(function () { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 40);
+    var send = function () {
+      var text = ta.value, btn = qs('#mw-go'), err = qs('#mw-err');
+      err.textContent = '';
+      if (kind !== 'row' && !text.trim()) { err.textContent = '안건을 적어 주세요.'; ta.focus(); return; }
+      busy(btn, true, '저장하는 중');
+      var req = kind === 'row' ? ['meet.row', { id: m.id, k: key, content: text, base: base, force: force }]
+        : kind === 'etc-edit' ? ['meet.etc.save', { eid: key, content: text, base: base, force: force }]
+          : ['meet.etc.add', { id: m.id, content: text }];
+      server(req[0], req[1], [['meet.get', { id: m.id }]]).then(function (r) {
+        if (r && r.conflict) { // 그사이 다른 분이 고쳤다 → 먼저 고친 내용을 보여 주고 고르게 한다(쓰던 글은 그대로)
+          busy(btn, false);
+          var c = r.conflict;
+          base = c.ver;
+          qs('#mw-conflict').innerHTML = '<div class="meet-conflict" role="alert"><p><b>' + esc(c.by || '다른 분') + '</b> 선생님이 그사이 먼저 고쳤어요' + (c.at ? ' (' + esc(atText(c.at)) + ')' : '') + '. 먼저 고친 내용이에요.</p>' +
+            '<div class="meet-text meet-theirs">' + (String(c.content).trim() ? esc(c.content) : '(비어 있음)') + '</div>' +
+            '<div class="row-btns"><button type="button" class="btn btn-sm" id="mw-keep">먼저 고친 내용 두기</button>' +
+            '<button type="button" class="btn btn-sm btn-primary" id="mw-mine">내 내용으로 바꾸기</button></div></div>';
+          qs('#mw-keep').addEventListener('click', function () { closeModal(); toast('먼저 고친 내용을 두었어요'); refreshMeet(m.id); });
+          qs('#mw-mine').addEventListener('click', function () { force = true; send(); });
+          return;
+        }
+        closeModal();
+        toast(kind === 'etc-add' ? '안건을 더했어요' : '저장했어요');
+        refreshMeet(m.id);
+      }).catch(function (e) { busy(btn, false); err.textContent = e.message; });
+    };
+    qs('#mw-form').addEventListener('submit', function (ev) { ev.preventDefault(); force = false; send(); });
+  }
+
+  /** 회의 만들기·고치기 창 */
+  function openMeetForm(edit) {
+    if (!needMe('회의를 만들면')) return;
+    var list = S.meet.data || {}, src = edit ? S.meet.detail : list;
+    if (!src || !src.kinds) return;
+    var m = edit || {};
+    var kinds = src.kinds.filter(function (k) { return k.active || (edit && k.id === m.kindId); });
+    // 칸 후보: 고칠 때는 이 회의의 칸(내용이 있으면 뺄 수 없음) + 지금 기본 칸 중 없는 것
+    var rows;
+    if (edit) {
+      rows = m.rows.map(function (r) { return { k: r.k, n: r.name, t: r.top, on: true, locked: !!String(r.content).trim() }; });
+      (src.rowsDefault || []).forEach(function (x) {
+        var have = x.t ? rows.some(function (r) { return r.t && r.n === x.n; }) : rows.some(function (r) { return r.k === x.k; });
+        if (!have) rows.push({ k: x.k, n: x.n, t: !!x.t, on: false });
+      });
+    } else rows = (src.rowsDefault || []).map(function (x) { return { k: x.k, n: x.n, t: !!x.t, on: true }; });
+    rows = rows.filter(function (r) { return r.t; }).concat(rows.filter(function (r) { return !r.t; })); // 맨 위 칸 먼저
+    openModal('<h2 id="m-title">' + (edit ? '회의 고치기' : '회의 만들기') + '</h2><form class="form" id="mt-form" novalidate>' +
+      '<div class="form-grid"><div class="field"><label class="label" for="mt-kind">회의 종류</label><select id="mt-kind" class="input">' + kinds.map(function (k) {
+        return '<option value="' + esc(k.id) + '"' + (k.id === m.kindId ? ' selected' : '') + '>' + esc(k.name) + '</option>';
+      }).join('') + '</select></div>' +
+      '<div class="field"><label class="label" for="mt-date">날짜 <span class="req">*</span></label><input id="mt-date" class="input" type="date" value="' + esc(m.date || localToday()) + '"></div></div>' +
+      '<div class="form-grid"><div class="field"><label class="label" for="mt-time">시간</label><input id="mt-time" class="input" type="time" value="' + esc(edit ? m.time || '' : '15:00') + '"></div>' +
+      '<div class="field"><label class="label" for="mt-place">장소</label><input id="mt-place" class="input" maxlength="40" value="' + esc(m.place || '') + '" placeholder="예: 교무실" autocomplete="off"></div></div>' +
+      '<div class="field"><label class="label" for="mt-title">제목 <span class="req">*</span></label><input id="mt-title" class="input" maxlength="60" value="' + esc(m.title || '') + '" autocomplete="off"></div>' +
+      '<fieldset class="field meet-pick-box"><legend class="label">회의록에 넣을 칸</legend><div class="meet-pick">' + rows.map(function (r, i) {
+        return '<label class="check' + (r.locked ? ' locked' : '') + '"><input type="checkbox" data-mi="' + i + '"' + (r.on ? ' checked' : '') + (r.locked ? ' disabled' : '') + '>' +
+          esc(r.n) + (r.locked ? ' <span class="faint">(내용 있음)</span>' : '') + '</label>';
+      }).join('') + '</div>' +
+      '<p class="hint">' + icon('info', 16) + '<span>맨 위 칸은 관리자 › 설정, 부서 칸은 관리자 › 분류에서 정해요. 회의를 만든 뒤 부서 이름이 바뀌어도 이 회의록은 그대로예요.</span></p></fieldset>' +
+      '<p class="err" id="mt-err" role="alert"></p>' +
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="submit" class="btn btn-primary">' + (edit ? '저장' : '만들기') + '</button></div></form>',
+      { noBackdropClose: true });
+    // 제목은 손으로 고치기 전까지 저절로: '2026학년도 2학기 부장회의 (5)'
+    var touched = !!edit;
+    var suggest = function () {
+      if (touched) return;
+      var k = kinds.filter(function (x) { return x.id === qs('#mt-kind').value; })[0], date = qs('#mt-date').value;
+      if (!k || !/^\d{4}-\d\d-\d\d$/.test(date)) return;
+      var t = meetTermOf(date, list.sem2);
+      var n = (list.items || []).filter(function (x) { return x.kindId === k.id && x.term === t.key; }).length + 1;
+      qs('#mt-title').value = t.label + ' ' + k.name + ' (' + n + ')';
+    };
+    qs('#mt-title').addEventListener('input', function () { touched = true; });
+    qs('#mt-kind').addEventListener('change', suggest);
+    qs('#mt-date').addEventListener('change', suggest);
+    suggest();
+    qs('#mt-form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var err = qs('#mt-err'), btn = ev.target.querySelector('[type=submit]');
+      var pick = rows.filter(function (r, i) { return r.locked || qs('[data-mi="' + i + '"]').checked; }).map(function (r) { return { k: r.k, n: r.n, t: r.t ? 1 : 0 }; });
+      var req = { id: edit ? m.id : '', kindId: qs('#mt-kind').value, title: qs('#mt-title').value.trim(), date: qs('#mt-date').value, time: qs('#mt-time').value, place: qs('#mt-place').value.trim(), rows: pick };
+      if (!req.title) { err.textContent = '제목을 적어 주세요.'; qs('#mt-title').focus(); return; }
+      if (!req.date) { err.textContent = '날짜를 골라 주세요.'; qs('#mt-date').focus(); return; }
+      if (!pick.length) { err.textContent = '칸을 하나 이상 골라 주세요.'; return; }
+      busy(btn, true, '저장하는 중');
+      server('meet.save', req, [['meet.list', {}]]).then(function (r) {
+        closeModal();
+        toast(edit ? '회의를 고쳤어요' : '회의를 만들었어요');
+        S.meet.data = memoGet('meet.list', {}) ? memoGet('meet.list', {}).data : S.meet.data;
+        S.meet.detail = null;
+        if (S.screen === 'notice' && S.notice.tab === 'meet') openMeet(r.id);
+      }).catch(function (e) { busy(btn, false); err.textContent = e.message; });
+    });
+  }
+
+  /** 회의록 인쇄: A4 세로, 쓴 분 이름은 넣지 않는다 */
+  function printMeet() {
+    var m = S.meet.detail && S.meet.detail.meeting;
+    if (!m) return;
+    var school = (S.start && S.start.school) || '';
+    var body = m.rows.map(function (r) { return '<tr><th>' + esc(r.name) + '</th><td>' + esc(r.content) + '</td></tr>'; }).join('') +
+      '<tr><th>기타 안건</th><td>' + m.etcItems.map(function (x, i) { return (m.etcItems.length > 1 ? (i + 1) + '. ' : '') + esc(x.content); }).join('\n') + '</td></tr>';
+    var area = qs('#print-area');
+    area.innerHTML = '<div class="meet-print"><h1>' + esc(m.title) + '</h1><p class="mp-sub">' + esc([m.kind, meetMetaFull(m), school].filter(Boolean).join(' · ')) + '</p>' +
+      '<table><thead><tr><th>부서</th><th>내용</th></tr></thead><tbody>' + body + '</tbody></table></div>';
+    var pg = document.createElement('style');
+    pg.id = 'meet-page';
+    pg.textContent = '@page{size:A4 portrait;margin:12mm}';
+    document.head.appendChild(pg);
+    document.body.classList.add('printing-slips', 'printing-meet');
+    setTimeout(function () {
+      window.print();
+      setTimeout(function () {
+        document.body.classList.remove('printing-slips', 'printing-meet');
+        area.innerHTML = '';
+        if (pg.parentNode) pg.parentNode.removeChild(pg);
+      }, 500);
+    }, 50);
+  }
+
+  /** 회의록 워드 파일(.docx): 바깥 도구 없이 브라우저에서 만든다(엑셀 양식과 같은 zip). A4 세로, 맑은 고딕, '부서 | 내용' 표(머리 줄은 쪽마다) */
+  function meetDocx(m) {
+    var W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+    var clean = function (s) { return xmlEsc(String(s || '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')); };
+    var run = function (text, o) {
+      return '<w:r><w:rPr>' + (o.b ? '<w:b/>' : '') + (o.color ? '<w:color w:val="' + o.color + '"/>' : '') + (o.sz ? '<w:sz w:val="' + o.sz + '"/><w:szCs w:val="' + o.sz + '"/>' : '') +
+        '</w:rPr><w:t xml:space="preserve">' + clean(text) + '</w:t></w:r>';
+    };
+    var para = function (text, o) {
+      o = o || {};
+      return '<w:p><w:pPr>' + (o.after !== undefined ? '<w:spacing w:after="' + o.after + '"/>' : '') + (o.jc ? '<w:jc w:val="' + o.jc + '"/>' : '') + '</w:pPr>' + (text ? run(text, o) : '') + '</w:p>';
+    };
+    var lines = function (text) { return String(text || '').split('\n').map(function (l) { return para(l); }).join(''); };
+    var W1 = 2200, W2 = 7438; // A4 폭 11906 - 여백 1134×2 = 9638
+    var cell = function (w, inner, fill) {
+      return '<w:tc><w:tcPr><w:tcW w:w="' + w + '" w:type="dxa"/>' + (fill ? '<w:shd w:val="clear" w:color="auto" w:fill="' + fill + '"/>' : '') + '</w:tcPr>' + inner + '</w:tc>';
+    };
+    var line = function (side) { return '<w:' + side + ' w:val="single" w:sz="4" w:space="0" w:color="AEB5BC"/>'; };
+    var rows = '<w:tr><w:trPr><w:tblHeader/></w:trPr>' + cell(W1, para('부서', { b: 1 }), 'F2F4F6') + cell(W2, para('내용', { b: 1 }), 'F2F4F6') + '</w:tr>' +
+      m.rows.map(function (r) { return '<w:tr>' + cell(W1, para(r.name, { b: 1 })) + cell(W2, lines(r.content)) + '</w:tr>'; }).join('') +
+      '<w:tr>' + cell(W1, para('기타 안건', { b: 1 })) + cell(W2, m.etcItems.length ? m.etcItems.map(function (x, i) {
+        return lines((m.etcItems.length > 1 ? (i + 1) + '. ' : '') + x.content);
+      }).join('') : para('')) + '</w:tr>';
+    var doc = XMLH + '<w:document ' + W + '><w:body>' +
+      para(m.title, { b: 1, sz: 32, jc: 'center', after: 80 }) +
+      para([m.kind, meetMetaFull(m)].filter(Boolean).join(' · '), { sz: 20, color: '4E5968', jc: 'center', after: 240 }) +
+      '<w:tbl><w:tblPr><w:tblW w:w="' + (W1 + W2) + '" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>' +
+      ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(line).join('') + '</w:tblBorders>' +
+      '<w:tblCellMar><w:top w:w="80" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tblCellMar></w:tblPr>' +
+      '<w:tblGrid><w:gridCol w:w="' + W1 + '"/><w:gridCol w:w="' + W2 + '"/></w:tblGrid>' + rows + '</w:tbl>' + para('') +
+      '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr></w:body></w:document>';
+    var styles = XMLH + '<w:styles ' + W + '><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="맑은 고딕" w:eastAsia="맑은 고딕" w:hAnsi="맑은 고딕" w:cs="맑은 고딕"/>' +
+      '<w:sz w:val="21"/><w:szCs w:val="21"/><w:lang w:val="en-US" w:eastAsia="ko-KR"/></w:rPr></w:rPrDefault>' +
+      '<w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="300" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults></w:styles>';
+    var REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
+    return zipStore([
+      { name: '[Content_Types].xml', text: XMLH + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+        '<Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+        '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>' },
+      { name: '_rels/.rels', text: XMLH + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="' + REL + 'officeDocument" Target="word/document.xml"/></Relationships>' },
+      { name: 'word/_rels/document.xml.rels', text: XMLH + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="' + REL + 'styles" Target="styles.xml"/></Relationships>' },
+      { name: 'word/document.xml', text: doc },
+      { name: 'word/styles.xml', text: styles }
+    ], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  }
+  function meetDocxSave() {
+    var m = S.meet.detail && S.meet.detail.meeting;
+    if (!m) return;
+    saveBlob(meetDocx(m), (String(m.title || '회의록').replace(/[\\/:*?"<>|]+/g, ' ').trim() || '회의록') + '.docx');
+    toast('워드 파일을 내려받았어요');
   }
 
   // ============================================================ 관리자
@@ -14334,6 +15091,7 @@ function seedTestTables_() {
       '<p class="faint">자동 백업: ' + (backup ? '켜져 있어요(백업 폴더가 만들어져 있어요).' : '아직 꺼져 있어요. 전용 시트 메뉴 "4. 매일 자동 백업 켜기"로 켜 주세요.') + '</p></section>' +
       (byKey('파일 크기 한도') ? '<section class="card"><h2>자료실</h2><div class="form-grid">' + input(byKey('파일 크기 한도')) + '</div></section>' : '') +
       (byKey('취합 시트 화면 파일') ? '<section class="card"><h2>취합 시트</h2><div class="form-grid">' + input(byKey('취합 시트 화면 파일')) + '</div></section>' : '') +
+      (byKey('회의록 맨 위 칸') ? '<section class="card"><h2>회의록</h2>' + input(byKey('회의록 맨 위 칸')) + '</section>' : '') +
       '<section class="card"><div class="card-head"><h2>기존 시트 바로가기</h2><span class="chip">홈 아래에 보여요</span></div>' +
       '<p class="faint">특별실 시간표·방학 근무·연수 이수 확인처럼 2차에 옮길 일의 바로가기예요. 주소는 https:// 로 시작해야 해요.</p>' +
       '<div class="form" id="links" style="gap:8px"></div>' +
@@ -14398,7 +15156,7 @@ function seedTestTables_() {
     var tab = S.cache.logTab || '';
     panel.innerHTML = '<div class="wrap" style="gap:16px"><div class="toolbar print-hide"><label class="label" for="log-tab">어느 표</label>' +
       '<select id="log-tab" class="input" style="width:auto;min-width:160px">' +
-      ['', '교직원', '분류', '설정', '학기', '일정', '월별중점', '공지', '학생수', '조사', '응답', '자료', '도움말', '취합 시트', '시트양식'].map(function (t) {
+      ['', '교직원', '분류', '설정', '학기', '일정', '월별중점', '공지', '회의록', '학생수', '조사', '응답', '자료', '도움말', '취합 시트', '시트양식'].map(function (t) {
         return '<option value="' + t + '"' + (t === tab ? ' selected' : '') + '>' + (t ? logTabName(t) : '전체') + '</option>';
       }).join('') + '</select><span class="faint">최근 200개까지 보여요. 전체는 전용 시트의 "기록" 탭에 있어요.</span></div>' +
       '<section class="card" id="log-list">' + loadingHtml('기록을 불러오는 중이에요') + '</section></div>';
@@ -14410,7 +15168,7 @@ function seedTestTables_() {
 
   /** 기록의 탭 이름 → 화면에서 쓰는 이름(예전 이름 '함께표'는 '취합 시트'로) */
   function logTabName(t) {
-    return { '함께표': '취합 시트', '함께표줄': '취합 시트', '시트양식': '시트 양식', '월별중점': '월별 중점지도', '학생수': '학생 수', '학기': '학기 기간' }[t] || t;
+    return { '함께표': '취합 시트', '함께표줄': '취합 시트', '시트양식': '시트 양식', '월별중점': '월별 중점지도', '학생수': '학생 수', '학기': '학기 기간', '회의': '회의록', '회의내용': '회의록' }[t] || t;
   }
 
   function logItem(l) {
@@ -15006,6 +15764,50 @@ function seedTestTables_() {
         break;
       case 'notice-open': openNotice(id); break;
       case 'notice-view': S.notice.view = t.getAttribute('data-v'); drawNotices(); break;
+      case 'notice-tab': S.notice.tab = t.getAttribute('data-v') === 'meet' ? 'meet' : 'notice'; SCREENS.notice(qs('#screen')); break;
+      case 'meet-new':
+        if (S.screen === 'notice' && S.notice.tab === 'meet' && S.meet.data) openMeetForm(null);
+        else if (needMe('회의를 만들면')) { S.notice.tab = 'meet'; S.meet.openId = ''; S.meet.view = 'list'; go('notice'); }
+        break;
+      case 'meet-kind': S.meet.kind = id || ''; drawMeetList(); break;
+      case 'meet-open': openMeet(id); break;
+      case 'meet-back':
+        S.meet.openId = ''; S.meet.view = 'list'; S.meet.detail = null;
+        if (S.meet.data && memoGet('meet.list', {})) drawMeetList(); else loadMeet();
+        break;
+      case 'meet-edit': if (S.meet.detail) openMeetForm(S.meet.detail.meeting); break;
+      case 'meet-del':
+        var md0 = S.meet.detail && S.meet.detail.meeting;
+        if (md0) confirmBox('회의록 지우기', '"' + esc(md0.title) + '" 회의록을 지울까요? 관리자가 휴지통에서 되살릴 수 있어요.', '지우기', function () {
+          return server('meet.delete', { id: md0.id }, [['meet.list', {}]]).then(function () {
+            closeModal();
+            toast('회의록을 지웠어요');
+            S.meet.openId = ''; S.meet.view = 'list'; S.meet.detail = null;
+            loadMeet();
+          });
+        }, true);
+        break;
+      case 'meet-write': openMeetWrite('row', t.getAttribute('data-k')); break;
+      case 'meet-etc-add': openMeetWrite('etc-add'); break;
+      case 'meet-etc-edit': openMeetWrite('etc-edit', id); break;
+      case 'meet-etc-del':
+        var mdm = S.meet.detail && S.meet.detail.meeting;
+        if (mdm) confirmBox('안건 빼기', '이 안건을 뺄까요? 관리자는 수정 기록에서 뺀 내용을 볼 수 있어요.', '빼기', function () {
+          return server('meet.etc.delete', { eid: id }, [['meet.get', { id: mdm.id }]]).then(function () {
+            closeModal();
+            toast('안건을 뺐어요');
+            refreshMeet(mdm.id);
+          });
+        }, true);
+        break;
+      case 'meet-print': printMeet(); break;
+      case 'meet-docx': meetDocxSave(); break;
+      case 'trash-restore-mt':
+        server('admin.trash.restoreMeeting', { id: id }).then(function () {
+          toast('회의록을 되살렸어요');
+          adminTrash(qs('#admin-panel'));
+        }).catch(function (e2) { toast(e2.message, 'error'); });
+        break;
       case 'notice-older': S.notice.older = true; busy(t, true, '불러오는 중'); loadNotices(); break;
       case 'notice-edit': openNoticeForm(noticeById(id)); break;
       case 'notice-del':
@@ -15102,8 +15904,9 @@ function seedTestTables_() {
     drawCal();
   });
 
-  // 화면 폭이 바뀌어 휴대폰/PC 모양이 달라지면 일정 화면을 다시 그린다
-  var lastShape = isPhone() + '/' + isWide();
+  // 화면 폭(또는 화면 크기)이 바뀌어 휴대폰/PC·넓은 화면·홈 사이드바 모양이 달라지면 일정·홈 화면을 다시 그린다
+  function shapeNow() { return isPhone() + '/' + isWide() + '/' + homeSide(); }
+  var lastShape = shapeNow();
   var resizeTimer, shapeDirty = false;
   /** 모양이 바뀐 화면을 다시 그린다. 창이 열려 있거나 입력하는 중이면 끝난 뒤로 미룬다(쓰던 것이 사라지지 않게) */
   function reshape() {
@@ -15113,15 +15916,18 @@ function seedTestTables_() {
     captureEventForm();
     renderApp();
   }
+  function shapeCheck() {
+    var shape = shapeNow();
+    if (shape === lastShape) return;
+    lastShape = shape;
+    if (S.screen === 'schedule' || S.screen === 'home') { shapeDirty = true; reshape(); }
+    updateTabHints();
+  }
   window.addEventListener('resize', function () {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(function () {
       applyZoom(); // 창을 줄이면 화면 크기도 그 폭에서 쓸 수 있는 만큼만
-      var shape = isPhone() + '/' + isWide();
-      if (shape === lastShape) return;
-      lastShape = shape;
-      if (S.screen === 'schedule' || S.screen === 'home') { shapeDirty = true; reshape(); }
-      updateTabHints();
+      shapeCheck();
     }, 200);
   });
 

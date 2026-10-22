@@ -2,7 +2,7 @@
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-19a'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-10-22a'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -25,6 +25,7 @@ function settingDefs_() {
     // 값은 스크립트 속성 TABLE_UI_INLINE에 둔다(웹앱을 열 때 시트를 열지 않고 읽으려고, Code.gs tableUiTag_). 설정 탭에는 기록용으로 함께 적는다
     { key: '취합 시트 화면 파일', def: '열 때 받기', type: 'choice', options: ['열 때 받기', '처음에 함께'], label: '취합 시트 화면 파일',
       note: "'열 때 받기'는 웹앱 첫 화면이 가벼워지고 취합 시트를 처음 열 때 화면 파일을 받아요. 취합 시트가 열리지 않으면 '처음에 함께'로 바꿔 예전처럼 써요(확인 필요). 바꾼 뒤에는 웹앱을 새로 고쳐 주세요" },
+    { key: '회의록 맨 위 칸', def: '교장 선생님, 교감 선생님', type: 'text', max: 100, optional: true, label: '회의록 맨 위 칸', note: '회의를 만들 때 부서 칸 위에 나오는 칸이에요. 쉼표로 나눠 적어요(비우면 부서 칸만). 이미 만든 회의는 그대로예요' },
     { key: '백업 폴더ID', def: '', type: 'readonly', label: '백업 폴더(자동)' },
     { key: '자료 폴더ID', def: '', type: 'readonly', label: '자료실 파일 폴더(자동, 공유하지 않음)' }
   ];
@@ -96,7 +97,7 @@ function adminSettingsSave_(args, actor) {
   defs.forEach(function (d) {
     if (!(d.key in values) || d.type === 'readonly') return;
     var v = values[d.key] === null || values[d.key] === undefined ? '' : String(values[d.key]).trim();
-    if (d.type === 'text') v = cleanText_(v, 40, d.label, true);
+    if (d.type === 'text') v = cleanText_(v, d.max || 40, d.label, !d.optional); // optional: 비워도 됨(회의록 맨 위 칸)
     if (d.type === 'year') {
       if (!/^20\d\d$/.test(v)) throw userError_('학년도는 2026처럼 네 자리로 적어 주세요.');
     }
@@ -151,7 +152,7 @@ function cleanLinks_(v) {
 // ---------------------------------------------------------------- 분류 (부서·자료 분류·도움말 분류)
 
 function categoryKinds_() {
-  return ['부서', '자료 분류', '도움말 분류'];
+  return ['부서', '자료 분류', '도움말 분류', '회의 종류']; // 회의 종류: 회의록(2026-10-22a), 처음에는 부장회의·교직원회의
 }
 
 /** id → 이름 (사용 안 함 포함, 예전 자료에도 이름이 보이게) */
@@ -314,7 +315,7 @@ function adminStaffUnlock_(args, actor) {
 // ---------------------------------------------------------------- 수정 기록
 
 /** 수정 기록 거르기: 화면 이름 하나가 탭 여러 개인 것(취합 시트 = 표 + 줄) */
-var LOG_TAB_GROUPS_ = { '취합 시트': ['함께표', '함께표줄'] };
+var LOG_TAB_GROUPS_ = { '취합 시트': ['함께표', '함께표줄'], '회의록': ['회의', '회의내용'] };
 
 function adminLogList_(args) {
   var tab = String(args.tab || '');
@@ -372,10 +373,11 @@ function adminCheck_(args) {
   var want = function (f) { return builds[f] || APP_BUILD_; };
   // 판 표시가 없어도 이 파일의 함수가 있으면 판 표시를 넣기 전(2026-10-15)의 예전 파일이다
   var probe = { 'Code': 'api', 'Db': 'sheetValues_', 'Auth': 'checkLogin_', 'Admin': 'adminCheck_', 'Schedule': 'apiSchedMonth_',
-    'Survey': 'apiSurveyList_', 'Library': 'apiLibList_', 'Help': 'apiHelpList_', 'Setup': 'setupAll_', 'Table': 'apiTableList_' };
-  ['Code', 'Db', 'Auth', 'Admin', 'Schedule', 'Survey', 'Library', 'Help', 'Setup', 'Table'].forEach(function (f) {
+    'Survey': 'apiSurveyList_', 'Library': 'apiLibList_', 'Help': 'apiHelpList_', 'Setup': 'setupAll_', 'Table': 'apiTableList_', 'Meeting': 'apiMeetList_' };
+  ['Code', 'Db', 'Auth', 'Admin', 'Schedule', 'Survey', 'Library', 'Help', 'Setup', 'Table', 'Meeting'].forEach(function (f) {
     var mark = globalFn_('fileMark_' + f + '_');
     if (!mark && globalFn_(probe[f])) add('코드 파일', f + '.gs', 'warn', '판 표시가 없는 예전 파일이에요(기능은 돌아가요)', paste(f));
+    else if (!mark && f === 'Meeting') add('코드 파일', 'Meeting.gs', 'bad', '파일이 없어요(회의록)', "Apps Script 편집기에서 + → 스크립트로 'Meeting' 파일을 새로 만들고, 설치안내 표의 'Meeting' 파일을 Copy raw file로 붙여 넣어 주세요");
     else if (!mark) add('코드 파일', f + '.gs', 'bad', '파일이 없거나 내용이 비어 있어요', paste(f));
     else if (f === 'Code' && !buildsFn) add('코드 파일', 'Code.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
     else if (mark() !== want(f)) add('코드 파일', f + '.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
@@ -407,7 +409,8 @@ function adminCheck_(args) {
   // 2) 시트 탭·칸 (나중에 더한 탭·칸 중 처음 쓸 때 저절로 생기는 것은 없어도 괜찮다)
   var tabs = tabs_(), bad = 0;
   var autoTabs = { '학생수': '학생 수를 처음 넣을 때 저절로 생겨요', '함께표': '취합 시트를 처음 만들 때 저절로 생겨요', '함께표줄': '취합 시트를 처음 만들 때 저절로 생겨요',
-    '시트양식': '취합 시트의 양식을 처음 저장할 때 저절로 생겨요', '학기': '학기 기간을 처음 넣을 때 저절로 생겨요(그 전에는 예전 설정 값을 써요)' }, notYet = 0;
+    '시트양식': '취합 시트의 양식을 처음 저장할 때 저절로 생겨요', '학기': '학기 기간을 처음 넣을 때 저절로 생겨요(그 전에는 예전 설정 값을 써요)',
+    '회의': '회의록을 처음 만들 때 저절로 생겨요', '회의내용': '회의록을 처음 만들 때 저절로 생겨요' }, notYet = 0;
   var autoCols = { // 저장할 때 ensureCols_가 붙이는 칸
     '학생수': { cols: ['반별'], when: '학생 수를 저장할 때' },
     '일정': { cols: ['중요'], when: '일정을 저장할 때' },

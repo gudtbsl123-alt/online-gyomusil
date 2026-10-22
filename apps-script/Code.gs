@@ -14,6 +14,7 @@
  *   Library.gs  자료실(자료 카드, 파일 올리기·내려받기), 새 학년도 넘기기
  *   Help.gs   도움말, 교직원 명단, 홈 검색, 공지
  *   Table.gs  취합 시트(예전 이름 '함께 쓰는 표'. 구글 시트처럼 여럿이 함께 채우는 표: 붙여 넣기, 칸 고치기, 10초마다 새로 받기, 시트 양식)
+ *   Meeting.gs  회의록(공지 › 회의록: 부서마다 칸을 채우는 회의록, 기타 안건, 휴지통)
  *   Setup.gs  시트 메뉴, 처음 설정, 매일 백업, 테스트 데이터
  *   Index.html / Styles.html / App.html  화면
  */
@@ -63,8 +64,8 @@ function tableUiFileBuild_() {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-21d';
-function fileMark_Code_() { return '2026-10-21d'; }
+var APP_BUILD_ = '2026-10-22a';
+function fileMark_Code_() { return '2026-10-22a'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -72,9 +73,9 @@ function fileMark_Code_() { return '2026-10-21d'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-21d', 'Db': '2026-10-21b', 'Auth': '2026-10-21b', 'Admin': '2026-10-19a', 'Schedule': '2026-10-21b',
+    'Code': '2026-10-22a', 'Db': '2026-10-22a', 'Auth': '2026-10-21b', 'Admin': '2026-10-22a', 'Schedule': '2026-10-21b',
     'Survey': '2026-10-21b', 'Library': '2026-10-21b', 'Help': '2026-10-21b', 'Setup': '2026-10-21b', 'Table': '2026-10-21b',
-    'App': '2026-10-21d', 'Styles': '2026-10-21d', 'Index': '2026-10-21c', 'TableUi': '2026-10-21b'
+    'Meeting': '2026-10-22a', 'App': '2026-10-22a', 'Styles': '2026-10-22a', 'Index': '2026-10-21c', 'TableUi': '2026-10-21b'
   };
 }
 
@@ -136,6 +137,14 @@ function routes_() {
     'notice.list': { need: 'login', fn: 'apiNoticeList_' },
     'notice.save': { need: 'identity', fn: 'apiNoticeSave_' },
     'notice.delete': { need: 'identity', fn: 'apiNoticeDelete_' },
+    'meet.list': { need: 'login', fn: 'apiMeetList_' }, // 회의록(Meeting.gs, 2026-10-22a)
+    'meet.get': { need: 'login', fn: 'apiMeetGet_' },
+    'meet.save': { need: 'identity', fn: 'apiMeetSave_' },
+    'meet.delete': { need: 'identity', fn: 'apiMeetDelete_' },
+    'meet.row': { need: 'identity', fn: 'apiMeetRow_' },
+    'meet.etc.add': { need: 'identity', fn: 'apiMeetEtcAdd_' },
+    'meet.etc.save': { need: 'identity', fn: 'apiMeetEtcSave_' },
+    'meet.etc.delete': { need: 'identity', fn: 'apiMeetEtcDelete_' },
 
     'table.list': { need: 'login', fn: 'apiTableList_' },
     'table.get': { need: 'login', fn: 'apiTableGet_' },
@@ -184,6 +193,8 @@ function routes_() {
     'admin.trash.restoreLibrary': { need: 'admin', fn: 'adminLibRestore_' },
     'admin.trash.tables': { need: 'admin', fn: 'adminTableTrash_' },
     'admin.trash.restoreTable': { need: 'admin', fn: 'adminTableRestore_' },
+    'admin.trash.meetings': { need: 'admin', fn: 'adminMeetTrash_' },
+    'admin.trash.restoreMeeting': { need: 'admin', fn: 'adminMeetRestore_' },
     'admin.year.preview': { need: 'admin', fn: function () { return adminYearPreview_(); } },
     'admin.year.check': { need: 'admin', fn: 'adminYearCheck_' },
     'admin.year.start': { need: 'admin', fn: 'adminYearStart_' },
@@ -201,7 +212,7 @@ function routes_() {
  * 쓰기 뒤 같은 요청 안에서 이어 읽을 수 있는 화면(로그인만 있으면 되는 읽기만).
  * 저장한 다음 목록을 다시 부르느라 서버를 한 번 더 다녀오지 않게 한다(속도).
  */
-var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'sched.range': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1, 'table.list': 1, 'table.get': 1, 'table.tpl.list': 1 };
+var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'sched.range': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'meet.list': 1, 'meet.get': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1, 'table.list': 1, 'table.get': 1, 'table.tpl.list': 1 };
 
 /**
  * 요청마다 읽는 탭(서버 기억에서 한 번에 꺼내 두기, 속도). 로그인·본인 확인에서 늘 설정·교직원·분류를 읽는다.
@@ -219,6 +230,8 @@ var ROUTE_TABS_ = {
   'survey.get': ['조사', '응답', '알림'],
   'lib.list': ['자료'],
   'notice.list': ['공지'],
+  'meet.list': ['회의', '회의내용', '학기'],
+  'meet.get': ['회의', '회의내용'],
   'help.list': ['도움말'],
   'table.list': ['함께표', '함께표줄'],
   'table.get': ['함께표', '함께표줄'],

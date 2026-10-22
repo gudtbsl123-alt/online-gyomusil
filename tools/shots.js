@@ -231,7 +231,9 @@ async function libraryFlow(page, kind) {
   const firstGroup = await page.locator('.lib-group').first().evaluate((el) => ({ common: el.classList.contains('common'), n: el.querySelectorAll('.lib-card').length, first: el.querySelector('.lib-title').textContent }));
   if (!firstGroup.common || firstGroup.n !== 3 || firstGroup.first !== '가정통신문 양식(가짜)') problems.push(kind + ': 공통 자료가 맨 위에 순서대로 안 보임 ' + JSON.stringify(firstGroup));
   await page.locator('#lib-depts .tg', { hasText: '정보부' }).click();
-  if ((await page.locator('.lib-group.common .lib-card').count()) !== 3) problems.push(kind + ': 부서로 거르면 공통 자료가 사라짐');
+  if ((await page.locator('.lib-group.common').count()) || (await page.locator('.lib-group .lib-h').allInnerTexts()).some((t) => !/^정보부/.test(t))) problems.push(kind + ': 부서 단추를 고르면 그 부서 자료만 보여야 함(판 2026-10-22a)');
+  await page.locator('#lib-depts .tg', { hasText: '공통' }).click();
+  if ((await page.locator('.lib-group.common .lib-card').count()) !== 3 || (await page.locator('.lib-group:not(.common)').count())) problems.push(kind + ': 공통 단추를 고르면 공통 자료 3개만 보여야 함');
   await page.click('#lib-depts .tg[data-id=""]');
   // 파일 올리기
   await page.click('[data-action=lib-new]');
@@ -860,6 +862,7 @@ function pdfPages(file) {
   return (fs.readFileSync(file).toString('latin1').match(/\/Type\s*\/Page(?![s\w])/g) || []).length;
 }
 let planInfo = '';
+let meetInfo = ''; // 회의록 인쇄·워드 파일(판 2026-10-22a)
 
 async function printCheck(browser) {
   const ctx = await newCtx(browser, { viewport: { width: 1280, height: 900 } });
@@ -3776,36 +3779,60 @@ async function libDeptCheck(browser) {
   if (!s) { P('단추 줄이 없음'); await ctx.close(); return; }
   if (s.sel) P("예전 '모든 부서' 고르는 칸이 남아 있음");
   const names = (st) => st.btns.map((b) => b.name + b.n).join(',');
-  if (names(s) !== '전체9,정보부1,교무부4,연구부2,인성안전부2') P('단추·숫자가 다름: ' + names(s));
-  if (!s.btns[0].on) P('처음에 전체가 골라져 있지 않음');
-  if (!s.btns[1].mine) P("내 부서(정보부)가 전체 바로 뒤에 '내 부서' 표시와 함께 있지 않음");
+  if (names(s) !== '공통3,전체9,정보부1,교무부4,연구부2,인성안전부2') P('단추·숫자가 다름: ' + names(s));
+  const on = (st, nm) => (st.btns.find((b) => b.name === nm) || {}).on;
+  if (!on(s, '전체')) P('처음에 전체가 골라져 있지 않음');
+  if (!s.btns[2].mine) P("내 부서(정보부)가 전체 바로 뒤에 '내 부서' 표시와 함께 있지 않음");
+  if (s.commons !== 3 || s.cards !== 9) P('전체에서 공통 자료가 맨 위에 없거나 자료 수가 다름 ' + JSON.stringify({ c: s.commons, n: s.cards }));
+  const newLabel = () => page.$eval('.page-head [data-action=lib-new]', (b) => b.textContent.trim());
+  if ((await newLabel()) !== '자료 넣기') P("전체에서 '자료 넣기' 단추 이름이 다름: " + (await newLabel()));
   if (new Set(s.btns.map((b) => b.top)).size !== 1) P('PC에서 단추가 한 줄이 아님');
   await check(page, 'PC 자료실 부서 단추');
   await shot(page, 'PC_자료실_부서단추_전체');
-  // 인성안전부: 공통 자료 3개는 맨 위에 그대로, 그 아래 인성안전부 2개
+  // [공통]: 공통 자료 3개만(부서 칸 없음), 자료 넣기 단추는 '공통 자료 넣기'·처음부터 공통 자료 체크(판 2026-10-22a)
+  await pick(page, '공통');
+  s = await state(page);
+  if (!on(s, '공통') || s.commons !== 3 || s.groups.length || !/^3개/.test(s.count)) P('공통을 골랐을 때 목록이 다름 ' + JSON.stringify({ c: s.commons, g: s.groups, n: s.count }));
+  if ((await newLabel()) !== '공통 자료 넣기') P("공통에서 자료 넣기 단추 이름이 다름: " + (await newLabel()));
+  await page.click('[data-action=lib-new]');
+  await page.locator('#lib-form').waitFor();
+  if (!(await page.isChecked('#lf-common')) || (await page.locator('#lf-corder-box').isHidden())) P('공통에서 자료 넣기를 열었는데 공통 자료가 켜져 있지 않음');
+  await page.click('.modal [data-action=close-modal]');
+  await page.locator('.modal').waitFor({ state: 'detached' }).catch(() => {});
+  await shot(page, 'PC_자료실_공통');
+  // 인성안전부: 그 부서 자료 2개만(공통 자료가 맨 위를 덮지 않게, 교사 선택 2026-10-22a)
   await pick(page, '인성안전부');
   s = await state(page);
-  if (!s.btns.find((b) => b.name === '인성안전부').on) P('누른 단추가 골라지지 않음');
-  if (s.commons !== 3 || s.groups.join() !== '인성안전부' || !/^5개/.test(s.count)) P('인성안전부를 골랐을 때 목록이 다름 ' + JSON.stringify({ c: s.commons, g: s.groups, n: s.count }));
+  if (!on(s, '인성안전부')) P('누른 단추가 골라지지 않음');
+  if (s.commons || s.groups.join() !== '인성안전부' || !/^2개/.test(s.count)) P('인성안전부를 골랐을 때 목록이 다름 ' + JSON.stringify({ c: s.commons, g: s.groups, n: s.count }));
+  if ((await newLabel()) !== '인성안전부에 자료 넣기') P("인성안전부에서 자료 넣기 단추 이름이 다름: " + (await newLabel()));
   await shot(page, 'PC_자료실_부서단추_인성안전부');
+  // 교무부: 그 부서의 공통 자료도 '공통' 표시로 함께
+  await pick(page, '교무부');
+  s = await state(page);
+  const gyomuCommon = await page.locator('.lib-group:not(.common) .lib-card.common').count();
+  if (s.groups.join() !== '교무부' || !/^4개/.test(s.count) || s.commons) P('교무부를 골랐을 때 목록이 다름 ' + JSON.stringify({ c: s.commons, g: s.groups, n: s.count }));
+  if (!gyomuCommon) P('교무부의 공통 자료가 교무부 칸에 함께 나오지 않음');
+  await shot(page, 'PC_자료실_부서단추_교무부');
+  await pick(page, '인성안전부');
   // 찾기: 인성안전부를 고른 채 '학적'(교무부 자료) → 단추 숫자가 찾은 것으로, 다른 부서에 1개 · 전체에서 보기
   await page.fill('#lib-q', '학적');
   await page.waitForFunction(() => !!document.querySelector('.lib-other'), null, { timeout: 3000 }).catch(() => {});
   s = await state(page);
   if (!/다른 부서에도 찾는 자료가 1개/.test(s.more)) P('찾는 중 다른 부서에 있는데 안내가 없음: ' + s.more);
   if (!/이 부서에는 찾는 자료가 없어요/.test(s.note)) P('고른 부서에 찾는 자료가 없다는 글이 없음: ' + s.note);
-  if (names(s) !== '전체1,정보부0,교무부1,연구부0,인성안전부0') P('찾는 중 단추 숫자가 다름: ' + names(s));
+  if (!/^공통[01],전체1,정보부0,교무부1,연구부0,인성안전부0$/.test(names(s))) P('찾는 중 단추 숫자가 다름: ' + names(s));
   if (!s.btns.find((b) => b.name === '정보부').zero) P('0개 단추가 흐리지 않음');
   await shot(page, 'PC_자료실_부서단추_찾기_다른부서');
   await page.click('.lib-other [data-action=lib-dept]');
   s = await state(page);
-  if (!s.btns[0].on || !(await page.locator('.lib-title', { hasText: '학적 업무 안내' }).count())) P("'전체에서 보기'를 눌러도 찾은 자료가 안 보임");
+  if (!on(s, '전체') || !(await page.locator('.lib-title', { hasText: '학적 업무 안내' }).count())) P("'전체에서 보기'를 눌러도 찾은 자료가 안 보임");
   await page.fill('#lib-q', '');
   await page.waitForFunction(() => document.querySelectorAll('.lib-card').length === 9, null, { timeout: 3000 }).catch(() => P('찾기를 지워도 9개로 돌아오지 않음'));
   // 분류로 거르면 숫자도 함께. 0개 부서를 고르면 '이 부서에는 찾는 자료가 없어요'
   await page.selectOption('#lib-kind', { label: '연수 자료' });
   s = await state(page);
-  if (names(s) !== '전체2,정보부0,교무부0,연구부1,인성안전부1') P('분류로 거를 때 단추 숫자가 다름: ' + names(s));
+  if (!/^공통\d,전체2,정보부0,교무부0,연구부1,인성안전부1$/.test(names(s))) P('분류로 거를 때 단추 숫자가 다름: ' + names(s));
   await pick(page, '정보부');
   s = await state(page);
   if (s.cards || !/이 부서에는 찾는 자료가 없어요/.test(s.note)) P('0개 부서를 골랐는데 빈 글이 다름 ' + JSON.stringify({ cards: s.cards, note: s.note }));
@@ -3820,6 +3847,7 @@ async function libDeptCheck(browser) {
     await page.locator('.modal').waitFor({ state: 'detached' }).catch(() => {});
     return v;
   };
+  if ((await newLabel()) !== '연구부에 자료 넣기') P("연구부에서 자료 넣기 단추 이름이 다름: " + (await newLabel()));
   let dep = await newDept();
   if (dep !== '연구부') P('연구부를 고른 채 자료 넣기를 열었는데 부서가 ' + dep);
   // 이 창에서 기억: 홈에 갔다 와도 연구부
@@ -3836,7 +3864,8 @@ async function libDeptCheck(browser) {
   await page.locator('#lib-list .lib-card, #lib-list .empty').first().waitFor();
   await page.waitForFunction(() => !document.querySelector('#lib-list .spin'), null, { timeout: 5000 }).catch(() => {});
   s = await state(page);
-  if (!s || s.btns[0].n !== s.cards) P('보관함에서 전체 숫자와 보이는 자료 수가 다름 ' + JSON.stringify(s && { n: s.btns[0].n, cards: s.cards }));
+  const allN = (st) => (st.btns.find((b) => b.name === '전체') || {}).n;
+  if (!s || allN(s) !== s.cards) P('보관함에서 전체 숫자와 보이는 자료 수가 다름 ' + JSON.stringify(s && { n: allN(s), cards: s.cards }));
   await shot(page, 'PC_자료실_부서단추_보관함');
   await page.click('[data-action=lib-view][data-v=now]');
   // 어둡게 + 종이색
@@ -3873,6 +3902,402 @@ async function libDeptCheck(browser) {
   s = await state(page);
   if (!s.btns.find((b) => b.name === '인성안전부').on || s.groups.join() !== '인성안전부') P('휴대폰에서 단추를 눌러도 거르지 않음');
   await shot(page, '휴대폰_자료실_부서단추_인성안전부');
+  await ctx.close();
+}
+
+/**
+ * 홈 '내가 할 일' 오른쪽 사이드바(판 2026-10-22a, 교사 요청 '스크롤 내려도 따라오게', 교사 선택 '넓은 모니터에서만'·'오늘 일정을 넓게'):
+ * 본문 폭 1264 이상(100%면 창 폭 약 1600 이상)에서만 오른쪽에 붙고 스크롤을 따라온다. 오늘 학교 일정은 가운데 기둥 폭을 모두 쓴다.
+ * 노트북(1366·1440·1536)과 휴대폰은 예전 그대로. 창 크기·화면 크기를 바꾸면 다시 그린다. 인쇄는 한 줄로, 찾기 결과가 지나가도 그대로
+ */
+async function homeSideCheck(browser) {
+  const P = (m) => problems.push('홈 사이드바: ' + m);
+  const look = (page) => page.evaluate(() => {
+    const r = (el) => el ? el.getBoundingClientRect() : null;
+    const aside = document.querySelector('.home-aside'), todo = document.querySelector('.todo-card'), today = document.querySelector('.today-card');
+    const main = document.querySelector('.home-main');
+    return {
+      side: !!aside, cls: document.querySelector('#screen').className, inTop: !!document.querySelector('.home-top .todo-card'),
+      todoTop: todo ? Math.round(r(todo).top) : null, todoBottom: todo ? Math.round(r(todo).bottom) : null, todoW: todo ? Math.round(r(todo).width) : 0,
+      todayW: today ? Math.round(r(today).width) : 0, mainW: main ? Math.round(r(main).width) : 0, vh: window.innerHeight,
+      maxH: todo ? getComputedStyle(todo).maxHeight : '', ovf: todo ? getComputedStyle(todo).overflowY : '', pos: aside ? getComputedStyle(aside).position : ''
+    };
+  });
+  const homeReady = (page) => page.waitForFunction(() => !!document.querySelector('.today-card') && !!document.querySelector('.todo-card'), null, { timeout: 8000 });
+  const ctx = await newCtx(browser, { viewport: { width: 1920, height: 1080 } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('홈 사이드바 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '이몽룡');
+  await homeReady(page);
+  await page.waitForFunction(() => !document.querySelector('#toast.show'), null, { timeout: 6000 }).catch(() => {});
+  let s = await look(page);
+  if (!s.side || !/home-side/.test(s.cls) || s.inTop) P('1920에서 오른쪽 사이드바가 아님 ' + JSON.stringify(s));
+  if (Math.abs(s.todayW - s.mainW) > 2) P('오늘 학교 일정이 가운데 기둥 폭을 모두 쓰지 않음 ' + JSON.stringify({ today: s.todayW, main: s.mainW }));
+  if (s.mainW < 1100) P('1920에서 가운데 기둥이 예전(1120)보다 좁음: ' + s.mainW);
+  if (s.pos !== 'sticky' || s.maxH === 'none' || s.ovf !== 'auto') P('사이드바가 스크롤을 따라오는 모양이 아님 ' + JSON.stringify({ pos: s.pos, maxH: s.maxH, ovf: s.ovf }));
+  await check(page, '홈 사이드바 1920');
+  await shot(page, 'PC1920_홈_사이드바');
+  // 스크롤해도 따라온다(위에서 24px), 아래로 끝까지 가도 화면 안에
+  await page.evaluate(() => window.scrollTo(0, 900));
+  await page.waitForTimeout(300);
+  s = await look(page);
+  if (Math.abs(s.todoTop - 24) > 3 || s.todoBottom > s.vh) P('스크롤해도 내가 할 일이 따라오지 않음 ' + JSON.stringify({ top: s.todoTop, bottom: s.todoBottom, vh: s.vh }));
+  await shot(page, 'PC1920_홈_사이드바_스크롤');
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await page.waitForTimeout(300);
+  s = await look(page);
+  if (s.todoTop < 0 || s.todoBottom > s.vh) P('맨 아래까지 내려도 내가 할 일이 화면 안에 있어야 함 ' + JSON.stringify({ top: s.todoTop, bottom: s.todoBottom }));
+  await page.evaluate(() => window.scrollTo(0, 0));
+  // 인쇄는 한 줄로(옆 칸 없이)
+  await page.emulateMedia({ media: 'print' });
+  const pr = await page.evaluate(() => ({ d: getComputedStyle(document.querySelector('.home-cols')).display, p: getComputedStyle(document.querySelector('.home-aside')).position }));
+  if (pr.d !== 'flex' || pr.p !== 'static') P('인쇄할 때 두 칸이 그대로 ' + JSON.stringify(pr));
+  await page.emulateMedia({ media: 'screen' });
+  // 찾기 결과를 보고 지우면 사이드바 모양으로 돌아온다
+  await page.fill('#home-q', '협의');
+  await page.press('#home-q', 'Enter');
+  await page.locator('.search-res').waitFor({ timeout: 6000 }).catch(() => P('찾기 결과가 나오지 않음'));
+  await check(page, '홈 사이드바 찾기 결과');
+  await page.click('[data-action=search-clear]');
+  await homeReady(page).catch(() => P('찾기를 지운 뒤 홈이 돌아오지 않음'));
+  if (!(await look(page)).side) P('찾기를 지운 뒤 사이드바가 아님');
+  // 찾기 칸에 글쓰기 자리가 있는 동안은 모양 바꾸기를 미룬다(쓰던 글이 사라지지 않게, 예전 그대로) → 칸을 벗어난 뒤 창 폭을 바꾼다
+  await page.evaluate(() => document.activeElement && document.activeElement.blur());
+  // 창 폭: 1600은 사이드바, 1590·1536·1440·1366은 예전처럼(오늘 일정 옆). 창을 바꾸면 곧바로 다시 그린다
+  for (const [w, h, want] of [[1600, 900, true], [1590, 900, false], [1536, 864, false], [1440, 900, false], [1366, 768, false], [1920, 1080, true]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await page.waitForFunction((on) => !!document.querySelector('.home-aside') === on && !!document.querySelector('.todo-card'), want, { timeout: 4000 })
+      .catch(() => P(w + 'x' + h + '에서 사이드바가 ' + (want ? '없음' : '남음')));
+    s = await look(page);
+    if (!want && !s.inTop) P(w + '에서 내가 할 일이 오늘 일정 옆이 아님');
+    await check(page, '홈 ' + w + 'x' + h);
+    if (w === 1600 || w === 1366) await shot(page, 'PC' + w + '_홈_' + (want ? '사이드바' : '예전처럼'));
+  }
+  // 화면 크기: 1920에서 130%로 키우면 본문이 좁아져 예전처럼, 100%로 돌리면 다시 사이드바
+  for (let i = 0; i < 3; i++) await page.click('.side [data-action=zoom-in]');
+  await page.waitForFunction(() => !document.querySelector('.home-aside') && !!document.querySelector('.home-top .todo-card'), null, { timeout: 4000 })
+    .catch(() => P('1920에서 화면 크기를 130%로 키웠는데 사이드바가 남음'));
+  await shot(page, 'PC1920_홈_화면크기130');
+  for (let i = 0; i < 3; i++) await page.click('.side [data-action=zoom-out]');
+  await page.waitForFunction(() => !!document.querySelector('.home-aside'), null, { timeout: 4000 }).catch(() => P('화면 크기를 100%로 돌렸는데 사이드바가 아님'));
+  // 어둡게 + 장도
+  await page.evaluate(() => { localStorage.setItem('gy.theme', 'dark'); localStorage.setItem('gy.design', 'jangdo'); });
+  await page.reload();
+  await waitText(page, '어서 오세요').catch(() => {});
+  if (await page.locator('#login-pw').count()) { await login(page); await verify(page, '이몽룡'); }
+  await homeReady(page);
+  await page.waitForFunction(() => !document.querySelector('#toast.show'), null, { timeout: 6000 }).catch(() => {});
+  await page.evaluate(() => window.scrollTo(0, 700));
+  await page.waitForTimeout(300);
+  await shot(page, 'PC1920_홈_사이드바_어둡게_장도');
+  await ctx.close();
+  // 휴대폰은 예전 그대로
+  const pctx = await newCtx(browser, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  const pp = await pctx.newPage();
+  await pp.goto(FILE);
+  await waitText(pp, '어서 오세요');
+  await login(pp);
+  await verify(pp, '이몽룡');
+  await homeReady(pp);
+  if ((await look(pp)).side) P('휴대폰에 사이드바가 생김');
+  await pctx.close();
+}
+
+/**
+ * 회의록(판 2026-10-22a, 교사 요청 '공지에서 회의록 입력·인쇄·독스 내려받기'): 공지 화면 위 [공지 | 회의록] 탭, 목록·학기·종류 거르기,
+ * 누구나 칸 쓰기(쓴 분이 남음)·그사이 다른 분이 고쳤으면 묻기(내 내용으로 바꾸기·먼저 고친 내용 두기), 기타 안건 더하기·빼기(더한 분),
+ * 인쇄(A4 세로 한 장, 쓴 분 이름 없음, 날짜에 연도), 워드 파일(.docx: 내려받은 바이트에 칸 글, LibreOffice로 열어 A4 한 장),
+ * 회의 만들기(제목 저절로·칸 고르기)·고치기(내용 있는 칸은 못 뺌)·지우기·관리자 휴지통에서 되살리기, 어둡게·장도, 휴대폰
+ */
+async function meetCheck(browser) {
+  const P = (m) => problems.push('회의록: ' + m);
+  const toastHas = (page, re) => page.waitForFunction((src) => {
+    const t = document.querySelector('#toast');
+    return !!t && t.classList.contains('show') && new RegExp(src).test(t.textContent);
+  }, re.source, { timeout: 4000 }).then(() => true, () => false);
+  const as = (page, name, action, args) => page.evaluate(async ([nm, a, ar]) => {
+    const login = localStorage.getItem('gy.login') || sessionStorage.getItem('gy.login');
+    const call = (x, y, tok) => window.__previewServer(JSON.stringify({ action: x, args: y || {}, tokens: tok })).then((t) => JSON.parse(t));
+    const staff = (await call('staffPicker', {}, { login })).data;
+    const who = staff.find((x) => x.name === nm);
+    const identity = (await call('verify', { staffId: who.id, pin: '1111', remember: false }, { login })).data.identity;
+    return call(a, ar, { login, identity });
+  }, [name, action, args]);
+  const detail = (page) => page.evaluate(() => {
+    const d = window.__gy.S.meet.detail;
+    return {
+      m: d && d.meeting, names: [...document.querySelectorAll('.meet-row:not(.head):not(.etc) .meet-name')].map((e) => e.textContent),
+      edit: !!document.querySelector('[data-action=meet-edit]'), del: !!document.querySelector('[data-action=meet-del]'),
+      etc: [...document.querySelectorAll('.meet-etc')].map((e) => ({ text: e.querySelector('.meet-text').textContent, del: !!e.querySelector('[data-action=meet-etc-del]') }))
+    };
+  });
+  const rowText = (page, name) => page.evaluate((nm) => {
+    const r = [...document.querySelectorAll('.meet-row')].find((x) => (x.querySelector('.meet-name') || {}).textContent === nm);
+    return r ? { text: (r.querySelector('.meet-text') || {}).textContent || '', by: (r.querySelector('.meet-by') || {}).textContent || '', k: r.getAttribute('data-k') } : null;
+  }, name);
+  const writeOpen = async (page, name) => {
+    await page.locator('.meet-row', { has: page.locator('.meet-name', { hasText: name }) }).locator('[data-action=meet-write]').click();
+    await page.locator('#mw-text').waitFor();
+    await modalSettled(page);
+  };
+  const closed = (page) => page.locator('.modal').waitFor({ state: 'detached', timeout: 6000 }).catch(() => P('창이 닫히지 않음'));
+  const toMeet = async (page) => {
+    await page.evaluate(() => window.__gy.go('notice'));
+    await page.locator('.notice-tabs').waitFor();
+    if (!(await page.locator('[data-action=notice-tab][data-v=meet][aria-selected=true]').count())) await page.click('[data-action=notice-tab][data-v=meet]');
+    await page.locator('#meet-body .meet-card, #meet-body .empty').first().waitFor();
+  };
+  const openCard = async (page, title) => {
+    await page.locator('.meet-card', { hasText: title }).first().click();
+    await page.locator('.meet-doc').waitFor();
+    await page.waitForFunction((t) => (document.querySelector('.meet-h') || {}).textContent === t, title, { timeout: 5000 }).catch(() => P(title + ' 회의가 열리지 않음'));
+  };
+  // ---------- PC: 이몽룡 선생님(예시 회의를 만든 분이 아님)
+  let ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 }, acceptDownloads: true });
+  let page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('회의록 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '이몽룡');
+  await page.evaluate(() => window.__gy.go('notice'));
+  await page.locator('.notice-tabs').waitFor();
+  const tabs = await page.$$eval('.notice-tabs .tab', (b) => b.map((x) => x.textContent));
+  if (tabs.join() !== '공지,회의록') P('공지 화면 위 탭이 다름: ' + tabs.join());
+  await page.click('[data-action=notice-tab][data-v=meet]');
+  await page.locator('.meet-card').first().waitFor();
+  await page.waitForFunction(() => !document.querySelector('#toast.show'), null, { timeout: 6000 }).catch(() => {});
+  if (!(await page.locator('.page-head [data-action=meet-new]').count())) P("회의록 탭인데 위 단추가 '회의 만들기'가 아님");
+  const kinds = await page.$$eval('.meet-tools [data-action=meet-kind]', (b) => b.map((x) => x.textContent));
+  if (kinds.join() !== '모두,부장회의,교직원회의') P('종류 단추가 다름: ' + kinds.join());
+  if ((await page.locator('.meet-card').count()) !== 2) P('예시 회의 2개가 목록에 없음');
+  if ((await page.$$eval('#meet-term option', (o) => o.length)) < 2) P('학기 고르는 칸에 학기가 없음');
+  await check(page, 'PC 회의록 목록');
+  await shot(page, 'PC_회의록_목록');
+  await page.click('.meet-tools [data-action=meet-kind]:has-text("교직원회의")');
+  const only = await page.$$eval('.meet-card .meet-title', (t) => t.map((x) => x.textContent));
+  if (only.join() !== '(예시) 교직원회의') P('교직원회의로 거른 목록이 다름: ' + only.join());
+  await page.click('.meet-tools [data-action=meet-kind][data-id=""]');
+  // 공지 탭으로 갔다 오기: 단추가 '공지 쓰기'로, 다른 화면에 갔다 와도 고른 탭은 그대로
+  await page.click('[data-action=notice-tab][data-v=notice]');
+  await page.locator('#notice-body').waitFor();
+  if (!(await page.locator('.page-head [data-action=notice-new]').count())) P("공지 탭인데 위 단추가 '공지 쓰기'가 아님");
+  await page.click('[data-action=notice-tab][data-v=meet]');
+  await page.locator('.meet-card').first().waitFor();
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.today-card').waitFor();
+  await page.evaluate(() => window.__gy.go('notice'));
+  await page.locator('#meet-body .meet-card').first().waitFor({ timeout: 6000 }).catch(() => P('다른 화면에 갔다 오면 회의록 탭을 잊음'));
+
+  // 회의 보기: 맨 위 칸(교장·교감) → 부서 칸 → 기타 안건, 만든 분이 아니면 고치기·지우기 없음
+  await openCard(page, '(예시) 부장회의');
+  let d = await detail(page);
+  if (d.names.join() !== '교장 선생님,교감 선생님,교무부,연구부,정보부,인성안전부') P('칸 이름·순서가 다름: ' + d.names.join());
+  if (d.edit || d.del) P('만든 분이 아닌데 회의 고치기·지우기가 보임');
+  if (d.etc.length !== 1 || d.etc[0].del) P('다른 분이 더한 기타 안건에 빼기가 보이거나 안건이 없음 ' + JSON.stringify(d.etc));
+  const blankAlign = await page.evaluate(() => { const e = document.querySelector('.meet-row.blank .meet-none'); return e ? getComputedStyle(e).textAlign : ''; });
+  if (blankAlign && blankAlign !== 'left' && blankAlign !== 'start') P('빈 칸 글이 가운데로 감(빈 화면 글 모양과 겹침): ' + blankAlign);
+  await shot(page, 'PC_회의록_보기', true);
+  // 칸 쓰기 → 쓴 분 이름이 남는다
+  await writeOpen(page, '정보부');
+  await page.fill('#mw-text', '1. 태블릿 충전 점검\n2. 정보실 사용 신청은 금요일까지');
+  await shot(page, 'PC_회의록_칸쓰기');
+  await page.click('#mw-go');
+  await closed(page);
+  await page.locator('.meet-row', { hasText: '태블릿 충전 점검' }).waitFor({ timeout: 6000 }).catch(() => P('쓴 내용이 보이지 않음'));
+  let r = await rowText(page, '정보부');
+  if (!r || !/^이몽룡 · /.test(r.by)) P('쓴 분이 남지 않음: ' + JSON.stringify(r));
+  // 그사이 다른 분(성춘향)이 같은 칸을 고쳤으면 덮어쓰지 않고 묻는다 → 내 내용으로 바꾸기
+  await writeOpen(page, '정보부');
+  d = await detail(page);
+  const row = d.m.rows.find((x) => x.name === '정보부');
+  const other = await as(page, '성춘향', 'meet.row', { id: d.m.id, k: row.k, content: '정보실 열쇠는 교무실에 있어요', base: row.ver });
+  if (!other.ok) P('다른 분 저장이 안 됨: ' + JSON.stringify(other));
+  await page.fill('#mw-text', '1. 태블릿 충전 점검(고침)\n2. 정보실 사용 신청은 목요일까지');
+  await page.click('#mw-go');
+  await page.locator('.meet-conflict').waitFor({ timeout: 6000 }).catch(() => P('그사이 다른 분이 고쳤는데 묻지 않음'));
+  if (!/성춘향/.test(await page.locator('.meet-conflict').innerText().catch(() => ''))) P('묻는 창에 먼저 고친 분이 없음');
+  if (!/목요일까지/.test(await page.inputValue('#mw-text'))) P('묻는 동안 쓰던 글이 사라짐');
+  await shot(page, 'PC_회의록_먼저고침_묻기');
+  await page.click('#mw-mine');
+  await closed(page);
+  await page.locator('.meet-row', { hasText: '목요일까지' }).waitFor({ timeout: 6000 }).catch(() => P('내 내용으로 바꾸기가 안 됨'));
+  // 기타 안건: 고칠 때 그사이 고쳤으면 → 먼저 고친 내용 두기
+  await page.locator('.meet-etc [data-action=meet-etc-edit]').first().click();
+  await page.locator('#mw-text').waitFor();
+  await modalSettled(page);
+  d = await detail(page);
+  const e0 = d.m.etcItems[0];
+  await as(page, '심청', 'meet.etc.save', { eid: e0.id, content: '(예시) 체육대회 날 우천 시 계획 — 강당으로', base: e0.ver });
+  await page.fill('#mw-text', '이 글은 저장되지 않아야 해요');
+  await page.click('#mw-go');
+  await page.locator('#mw-keep').waitFor({ timeout: 6000 }).catch(() => P('기타 안건도 그사이 고쳤으면 물어야 함'));
+  await page.click('#mw-keep');
+  await closed(page);
+  await page.locator('.meet-etc', { hasText: '강당으로' }).waitFor({ timeout: 6000 }).catch(() => P('먼저 고친 내용 두기가 안 됨'));
+  // 기타 안건 더하기(더한 분은 빼기도) → 빼기
+  await page.click('[data-action=meet-etc-add]');
+  await page.locator('#mw-text').waitFor();
+  await modalSettled(page);
+  await page.fill('#mw-text', '학년말 행사 준비 협의');
+  await page.click('#mw-go');
+  await closed(page);
+  await page.locator('.meet-etc', { hasText: '학년말 행사 준비 협의' }).waitFor({ timeout: 6000 }).catch(() => P('안건 더하기가 안 됨'));
+  d = await detail(page);
+  const mine = d.etc.find((x) => /학년말/.test(x.text));
+  if (!mine || !mine.del) P('내가 더한 안건에 빼기가 없음');
+  await shot(page, 'PC_회의록_쓴뒤', true);
+  // 인쇄: A4 세로, 쓴 분 이름 없음, 날짜에 연도
+  await page.evaluate(() => { window.__printed = null; window.print = () => { window.__printed = { html: document.querySelector('#print-area').innerHTML, cls: document.body.className, page: (document.querySelector('#meet-page') || {}).textContent || '' }; }; });
+  await page.click('[data-action=meet-print]');
+  await page.waitForFunction(() => !!window.__printed, null, { timeout: 4000 }).catch(() => P('인쇄를 부르지 않음'));
+  const pr = await page.evaluate(() => window.__printed || {});
+  const year = d.m.date.slice(0, 4);
+  if (!/meet-print/.test(pr.html || '') || !/printing-meet/.test(pr.cls || '')) P('인쇄 모양이 다름 ' + JSON.stringify({ cls: pr.cls }));
+  if (!/A4 portrait/.test(pr.page || '')) P('인쇄 쪽이 A4 세로가 아님: ' + pr.page);
+  if (/이몽룡|성춘향|심청/.test(pr.html || '')) P('인쇄에 쓴 분 이름이 들어감');
+  if (!(pr.html || '').includes(Number(year) + '년 ')) P('인쇄 날짜에 연도가 없음');
+  for (const w of ['교장 선생님', '정보부', '목요일까지', '기타 안건', '강당으로', '학년말 행사 준비 협의']) if (!(pr.html || '').includes(w)) P('인쇄에 "' + w + '"이(가) 없음');
+  await page.waitForTimeout(700);
+  if (await page.evaluate(() => document.body.classList.contains('printing-meet') || !!document.querySelector('#print-area').innerHTML || !!document.querySelector('#meet-page'))) P('인쇄 뒤 인쇄 모양이 남음');
+  // 인쇄 모양을 다시 붙여 PDF로: 쪽수·쪽 크기
+  await page.evaluate((h) => {
+    document.querySelector('#print-area').innerHTML = h;
+    const st = document.createElement('style'); st.id = 'meet-page'; st.textContent = '@page{size:A4 portrait;margin:12mm}'; document.head.appendChild(st);
+    document.body.classList.add('printing-slips', 'printing-meet');
+  }, pr.html || '');
+  await page.emulateMedia({ media: 'print' });
+  const pdf = path.join(OUT, '인쇄_회의록.pdf');
+  await page.pdf({ path: pdf, preferCSSPageSize: true, printBackground: true });
+  await page.emulateMedia({ media: 'screen' });
+  await page.evaluate(() => { document.body.classList.remove('printing-slips', 'printing-meet'); document.querySelector('#print-area').innerHTML = ''; const st = document.querySelector('#meet-page'); if (st) st.remove(); });
+  let size = '';
+  try { size = /Page size:\s+([\d.]+) x ([\d.]+)/.exec(require('child_process').execFileSync('pdfinfo', [pdf]).toString()).slice(1, 3).map((x) => Math.round(Number(x))).join('x'); } catch (e) { size = '?'; }
+  const pages = pdfPages(pdf);
+  if (pages !== 1) P('인쇄가 ' + pages + '쪽(한 장이어야 함)');
+  if (size !== '?' && size !== '595x842') P('인쇄 쪽 크기가 A4 세로가 아님: ' + size);
+  // 워드 파일(.docx)
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('[data-action=meet-docx]')]);
+  const docx = path.join(OUT, '회의록_워드.docx');
+  await dl.saveAs(docx);
+  if (dl.suggestedFilename() !== '(예시) 부장회의.docx') P('워드 파일 이름이 다름: ' + dl.suggestedFilename());
+  const buf = fs.readFileSync(docx);
+  if (buf.slice(0, 2).toString() !== 'PK') P('워드 파일이 zip이 아님');
+  for (const w of ['word/document.xml', '교장 선생님', '정보부', '목요일까지', '강당으로', '학년말 행사 준비 협의', year + '년 ']) if (!buf.includes(Buffer.from(w))) P('워드 파일에 "' + w + '"이(가) 없음');
+  if (/이몽룡|성춘향|심청/.test(buf.toString('utf8'))) P('워드 파일에 쓴 분 이름이 들어감');
+  let docInfo = '워드 ' + buf.length + '바이트';
+  const soffice = ['/usr/bin/soffice', '/usr/local/bin/soffice'].find((f) => fs.existsSync(f));
+  if (soffice) { // LibreOffice로 열어 PDF로: 열리는지·A4 한 장
+    const tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'meetdocx-'));
+    try {
+      require('child_process').execFileSync(soffice, ['--headless', '--convert-to', 'pdf', '--outdir', tmp, docx], { timeout: 120000, stdio: 'ignore' });
+      const out = path.join(tmp, '회의록_워드.pdf');
+      if (!fs.existsSync(out)) P('워드 파일을 LibreOffice가 열지 못함');
+      else {
+        fs.copyFileSync(out, path.join(OUT, '회의록_워드를_PDF로.pdf'));
+        const dp = pdfPages(out);
+        let ds = '?';
+        try { ds = /Page size:\s+([\d.]+) x ([\d.]+)/.exec(require('child_process').execFileSync('pdfinfo', [out]).toString()).slice(1, 3).map((x) => Math.round(Number(x))).join('x'); } catch (e) { /* 그대로 */ }
+        if (dp !== 1) P('워드 파일이 ' + dp + '쪽(예시 회의는 한 장)');
+        if (ds !== '?' && ds !== '595x842') P('워드 파일 쪽 크기가 A4 세로가 아님: ' + ds);
+        docInfo += ' · LibreOffice로 열어 ' + dp + '쪽 ' + ds;
+      }
+    } catch (e) { P('워드 파일을 LibreOffice로 바꾸다 멈춤: ' + e.message); }
+  } else docInfo += ' · LibreOffice 없음(열어 보기는 건너뜀)';
+  meetInfo = '회의록 인쇄 ' + pages + '쪽 ' + size + ' · ' + docInfo;
+
+  // 회의 만들기: 제목 저절로, 칸 고르기(교감 빼기) → 만든 분은 고치기·지우기
+  await page.click('[data-action=meet-back]');
+  await page.locator('.meet-card').first().waitFor();
+  if (!/3 \/ 6칸 씀|4 \/ 6칸 씀/.test(await page.locator('.meet-card', { hasText: '(예시) 부장회의' }).innerText())) P('목록 카드의 쓴 칸 수가 바뀌지 않음');
+  await page.click('.page-head [data-action=meet-new]');
+  await page.locator('#mt-form').waitFor();
+  await modalSettled(page);
+  const title = await page.inputValue('#mt-title');
+  if (!/^\d{4}학년도 [12]학기 부장회의 \(\d+\)$/.test(title)) P('제목이 저절로 채워지지 않음: ' + title);
+  const picks = await page.$$eval('#mt-form .meet-pick input', (x) => x.map((i) => i.checked));
+  if (picks.length !== 6 || picks.some((c) => !c)) P('칸 고르기가 다름 ' + JSON.stringify(picks));
+  await page.selectOption('#mt-kind', { label: '교직원회의' });
+  if (!/교직원회의 \(\d+\)$/.test(await page.inputValue('#mt-title'))) P('종류를 바꿔도 제목이 따라 바뀌지 않음');
+  await page.selectOption('#mt-kind', { label: '부장회의' });
+  await page.fill('#mt-place', '교무실');
+  await page.locator('#mt-form .meet-pick label', { hasText: '교감 선생님' }).click();
+  await shot(page, 'PC_회의록_만들기');
+  await page.click('#mt-form [type=submit]');
+  await closed(page);
+  await page.locator('.meet-doc').waitFor();
+  await page.waitForFunction((t) => (document.querySelector('.meet-h') || {}).textContent === t, title, { timeout: 5000 }).catch(() => P('만든 회의가 열리지 않음'));
+  d = await detail(page);
+  if (d.names.includes('교감 선생님') || d.names.length !== 5) P('뺀 칸이 남음: ' + d.names.join());
+  if (!d.edit || !d.del) P('만든 분인데 회의 고치기·지우기가 없음');
+  await writeOpen(page, '교무부');
+  await page.fill('#mw-text', '전달 사항 없음');
+  await page.click('#mw-go');
+  await closed(page);
+  await page.click('[data-action=meet-edit]');
+  await page.locator('#mt-form').waitFor();
+  await modalSettled(page);
+  const lock = await page.evaluate(() => [...document.querySelectorAll('#mt-form .meet-pick label')].map((l) => l.textContent.trim() + (l.querySelector('input').disabled ? '(잠김)' : '') + (l.querySelector('input').checked ? '' : '(꺼짐)')));
+  if (lock.join() !== '교장 선생님,교감 선생님(꺼짐),교무부 (내용 있음)(잠김),연구부,정보부,인성안전부') P('회의 고치기의 칸이 다름: ' + lock.join());
+  await page.fill('#mt-place', '도서실');
+  await page.click('#mt-form [type=submit]');
+  await closed(page);
+  await page.waitForFunction(() => /도서실/.test((document.querySelector('.meet-sub') || {}).textContent || ''), null, { timeout: 5000 }).catch(() => P('회의 고치기(장소)가 반영되지 않음'));
+  // 지우기 → 목록에서 빠짐 → 관리자 › 휴지통에서 되살리기
+  await page.click('[data-action=meet-del]');
+  await page.locator('#cf-ok').waitFor();
+  await page.click('#cf-ok');
+  await closed(page);
+  await page.locator('.meet-card').first().waitFor();
+  if (await page.locator('.meet-card', { hasText: title }).count()) P('지운 회의가 목록에 남음');
+  await page.evaluate(() => window.__gy.go('admin'));
+  await page.fill('#admin-pw', 'admin1');
+  await page.click('#admin-form [type=submit]');
+  await page.click('[data-admin-tab=trash]');
+  await page.locator('section.card h2', { hasText: '지운 회의록' }).waitFor({ timeout: 8000 }).catch(() => P("관리자 › 휴지통에 '지운 회의록'이 없음"));
+  const sec = page.locator('section.card', { has: page.locator('h2', { hasText: '지운 회의록' }) });
+  if (!(await sec.innerText().catch(() => '')).includes(title)) P('휴지통에 지운 회의가 없음');
+  if (!/회의록은/.test(await page.locator('#admin-panel').innerText())) P('휴지통 안내 글에 회의록이 없음');
+  await shot(page, 'PC_관리자_휴지통_회의록', true);
+  await sec.locator('[data-action=trash-restore-mt]').first().click();
+  if (!(await toastHas(page, /회의록을 되살렸어요/))) P('되살리기 알림이 없음');
+  await page.click('[data-admin-tab=settings]');
+  await page.waitForFunction(() => /회의록 맨 위 칸/.test(document.querySelector('#admin-panel').textContent), null, { timeout: 6000 }).catch(() => P("설정에 '회의록 맨 위 칸'이 없음"));
+  await toMeet(page);
+  if (!(await page.locator('.meet-card', { hasText: title }).count())) P('되살린 회의가 목록에 없음');
+  // 어둡게 + 장도
+  await page.evaluate(() => { localStorage.setItem('gy.theme', 'dark'); localStorage.setItem('gy.design', 'jangdo'); });
+  await page.reload();
+  await waitText(page, '어서 오세요').catch(() => {});
+  if (await page.locator('#login-pw').count()) { await login(page); await verify(page, '이몽룡'); }
+  await page.locator('.main').waitFor();
+  await toMeet(page);
+  await openCard(page, '(예시) 부장회의');
+  await shot(page, 'PC_회의록_보기_어둡게_장도', true);
+  await ctx.close();
+
+  // ---------- 휴대폰: 칸이 위아래로, 옆으로 넘치지 않음
+  ctx = await newCtx(browser, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('회의록 휴대폰 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '흥부');
+  await toMeet(page);
+  await page.waitForFunction(() => !document.querySelector('#toast.show'), null, { timeout: 6000 }).catch(() => {});
+  await check(page, '휴대폰 회의록 목록');
+  await shot(page, '휴대폰_회의록_목록');
+  await openCard(page, '(예시) 부장회의');
+  const cols = await page.evaluate(() => getComputedStyle(document.querySelector('.meet-row:not(.head)')).gridTemplateColumns.split(' ').length);
+  if (cols !== 1) P('휴대폰에서 칸 이름과 내용이 위아래로 쌓이지 않음(열 ' + cols + '개)');
+  await check(page, '휴대폰 회의록 보기');
+  await shot(page, '휴대폰_회의록_보기', true);
+  await writeOpen(page, '연구부');
+  await shot(page, '휴대폰_회의록_칸쓰기');
   await ctx.close();
 }
 
@@ -3992,6 +4417,23 @@ async function introGapCheck(browser) {
   if (process.env.ONLY === 'lib') {
     await libDeptCheck(browser);
     await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
+  // ONLY=home: 홈 '내가 할 일' 오른쪽 사이드바(판 2026-10-22a) 점검만
+  if (process.env.ONLY === 'home') {
+    await homeSideCheck(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
+  // ONLY=meet: 회의록(판 2026-10-22a) 점검만
+  if (process.env.ONLY === 'meet') {
+    await meetCheck(browser);
+    await browser.close();
+    if (meetInfo) console.log(meetInfo);
     console.log('사진 ' + n + '장 → ' + OUT);
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
@@ -4161,6 +4603,8 @@ async function introGapCheck(browser) {
   await batCheck(browser);
   await dropCheck(browser);
   await libDeptCheck(browser);
+  await meetCheck(browser);
+  await homeSideCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser), await introGapCheck(browser)];
   await browser.close();
@@ -4171,6 +4615,7 @@ async function introGapCheck(browser) {
   if (table2Info) console.log(table2Info);
   if (tplInfo) console.log(tplInfo);
   if (guideInfo) console.log(guideInfo);
+  if (meetInfo) console.log(meetInfo);
   console.log('사진 ' + n + '장 → ' + OUT);
   if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; }
   else console.log('넘침·오류 없음');

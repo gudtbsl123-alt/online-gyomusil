@@ -11,7 +11,7 @@
 :root[data-design="paper"]{--c-bg:#F4EEE3;--c-sub:#FFFBF4;--c-card:#FFFDF8;--c-card2:#F4EEE3;--c-pill:#F1E9DB;--c-line:#E6DBC9;--c-line2:#D3C4AD;--c-seg:#F1E9DB;--c-avatar:#E6DBC9;--c-t0:#2A231C;--c-t1:#2A231C;--c-t2:#5A4F42;--c-t3:#6B6052;--c-dot:#B5A792;--c-radio:#B5A792;--c-warnBg:#FCEED6;--c-warnFg:#864809;--c-okBg:#E5F1E1;--c-okFg:#2E6A32;--c-red:#BE321C;--c-onAccent:#FFFFFF;--accent:#A0502A;--accent-soft:rgba(160, 80, 42, 0.1);--accent-ring:rgba(160, 80, 42, 0.35);--accent-glow:rgba(160, 80, 42, 0.22);--hero-a:rgba(214, 140, 70, 0.20);--hero-b:rgba(160, 80, 42, 0.06);--scheme:light;--seg-light-bg:#FFFDF8;--seg-light-fg:#2A231C;--seg-dark-bg:transparent;--seg-dark-fg:#6B6052;--sun-display:none;--moon-display:block;--stage:#E6DBC9}
 :root[data-design="paper"][data-theme="dark"]{--c-bg:#15120E;--c-sub:#1B1712;--c-card:#211C16;--c-card2:#28221B;--c-pill:#2B241C;--c-line:#2F281F;--c-line2:#3C3328;--c-seg:#3C3328;--c-avatar:#3C3328;--c-t0:#FBF6EE;--c-t1:#F3EBDF;--c-t2:#CFC1AF;--c-t3:#A89986;--c-dot:#A89986;--c-radio:#5E5243;--c-warnBg:#2E1F0A;--c-warnFg:#F2B36B;--c-okBg:#162814;--c-okFg:#86D080;--c-red:#FF7A66;--c-onAccent:#15120E;--accent:#E89C64;--accent-soft:rgba(232, 156, 100, 0.14);--accent-ring:rgba(232, 156, 100, 0.32);--accent-glow:rgba(232, 156, 100, 0.18);--hero-a:rgba(232, 156, 100, 0.26);--hero-b:rgba(232, 156, 100, 0.10);--scheme:dark;--seg-light-bg:transparent;--seg-light-fg:#A89986;--seg-dark-bg:#3C3328;--seg-dark-fg:#F3EBDF;--sun-display:block;--moon-display:none;--stage:#0B0907}
 html{background:var(--c-bg)}
-:root{--gy-build:"2026-10-21d"} /* 판 표시(관리자 › 점검) */
+:root{--gy-build:"2026-10-22a"} /* 판 표시(관리자 › 점검) */
 body{margin:0;word-break:keep-all;background:var(--c-bg);color:var(--c-t1);font-family:Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased}
 a{color:inherit}
 input::placeholder,textarea::placeholder{color:currentColor;opacity:.7}
@@ -234,6 +234,16 @@ select.input{appearance:auto}
 .week-print .wp-day{width:92px;font-weight:700;white-space:nowrap}
 .week-print .wp-time{width:64px;white-space:nowrap}
 .week-print .wp-meta{width:34%;color:#4E5968}
+/* 회의록 A4 인쇄(App.html printMeet): '부서 | 내용' 표, 쓴 분 이름은 넣지 않는다 */
+.meet-print{color:#191F28}
+.meet-print h1{margin:0 0 4px;font-size:20px;font-weight:800;text-align:center}
+.meet-print .mp-sub{margin:0 0 12px;font-size:12.5px;color:#4E5968;text-align:center}
+.meet-print table{width:100%;border-collapse:collapse;font-size:12.5px;line-height:1.55}
+.meet-print th,.meet-print td{border:1px solid #AEB5BC;padding:6px 8px;text-align:left;vertical-align:top}
+.meet-print thead th{background:#F2F4F6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.meet-print tbody th{width:110px;font-weight:700;white-space:nowrap}
+.meet-print td{white-space:pre-wrap;overflow-wrap:anywhere}
+.meet-print tr{break-inside:avoid}
 
 @media (hover:hover){
   .nav-item:hover{background:var(--c-card2);color:var(--c-t1)}
@@ -281,6 +291,7 @@ select.input{appearance:auto}
 
 /* ---------- 인쇄: 흰 바탕·검은 글씨, 메뉴·단추 숨김 (시안 규칙) ---------- */
 @media print{
+  html,body{background:#FFFFFF!important} /* 인쇄 창에서 '배경 그래픽'을 켜도 화면 바탕(회색·어두운 화면은 검정)이 찍히지 않게(판 2026-10-22a) */
   .print-root{background:#FFFFFF!important;min-height:0!important}
   .print-root *{color:#191F28!important;background-color:transparent!important;border-color:#D1D6DB!important;box-shadow:none!important}
   .print-root .print-keep{background-color:#606B78!important}
@@ -755,6 +766,55 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .notice-item{gap:10px}
 .notice-item.pinned{border:2px solid var(--accent-ring)}
 .notice-item h2{margin:0}
+/* 공지 화면 위 탭 [공지 | 회의록]과 회의록(판 2026-10-22a) */
+.notice-tabs{margin-bottom:4px}
+.notice-seg{align-self:flex-start}
+.notice-seg button{padding:0 16px}
+.meet-tools .seg{flex:none}
+.meet-tools .seg button{padding:0 14px;white-space:nowrap}
+.meet-tools select{width:auto;min-width:180px}
+.meet-list{display:flex;flex-direction:column;gap:12px}
+.meet-card{display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;padding:20px 24px;text-align:left;font:inherit;color:var(--c-t1);cursor:pointer}
+.meet-title{font-size:19px;font-weight:800;line-height:1.35}
+.meet-meta{font-size:15px;color:var(--c-t2)}
+.meet-fill{font-size:13px;font-weight:600;color:var(--c-t3)}
+@media (hover:hover){ .meet-card:hover{border-color:var(--accent-ring)} }
+.meet-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.meet-doc{gap:6px}
+.meet-h{margin:4px 0 0;font-size:22px;font-weight:800}
+.meet-sub{margin:0 0 12px;font-size:15px;color:var(--c-t3)}
+.meet-table{border:1px solid var(--c-line);border-radius:14px;overflow:hidden}
+.meet-row{display:grid;grid-template-columns:minmax(120px,180px) minmax(0,1fr);border-top:1px solid var(--c-line)}
+.meet-row:first-child{border-top:0}
+.meet-row.head{background:var(--c-card2);font-size:14px;font-weight:700;color:var(--c-t3)}
+.meet-row.head .meet-name,.meet-row.head .meet-cell{padding-top:10px;padding-bottom:10px;font-weight:700;color:var(--c-t3)}
+.meet-name{padding:14px 18px;font-weight:800;color:var(--c-t1);background:var(--c-card2)}
+.meet-row.blank .meet-name{color:var(--c-t3)}
+.meet-cell{display:flex;flex-direction:column;gap:8px;min-width:0;padding:14px 18px}
+.meet-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;color:var(--c-t1)}
+.meet-none{margin:0;font-size:14px;color:var(--c-t3)}
+.meet-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px}
+.meet-by{font-size:13px;color:var(--c-t3)}
+.meet-etc{display:flex;flex-direction:column;gap:6px}
+.meet-etc+.meet-etc{padding-top:10px;border-top:1px dashed var(--c-line2)}
+.meet-ta{min-height:220px;resize:vertical;line-height:1.6}
+.meet-conflict{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:12px;background:var(--c-warnBg);color:var(--c-warnFg)}
+.meet-conflict p{margin:0}
+.meet-theirs{max-height:180px;overflow:auto;padding:10px 12px;border-radius:10px;background:var(--c-card);color:var(--c-t1)}
+.meet-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 12px}
+.meet-pick .check.locked{color:var(--c-t3)}
+.meet-pick-box{border:0;padding:0;margin:0}
+@media (max-width:899px){
+  .meet-card{padding:16px 18px}
+  .meet-title{font-size:17px}
+  .meet-row{grid-template-columns:minmax(0,1fr)}
+  .meet-row.head{display:none}
+  .meet-name{padding:10px 14px;background:var(--c-card2)}
+  .meet-cell{padding:10px 14px 14px}
+  .meet-tools select{flex:1 1 100%}
+  .meet-tools .seg{flex:1 1 100%}
+  .meet-tools .seg button{flex:1 1 0}
+}
 .err-detail{margin:8px 0 0;font-size:13px;color:var(--c-t3);overflow-wrap:anywhere}
 .err-detail code{font-family:ui-monospace,Consolas,monospace;font-size:12px}
 .check-list{display:flex;flex-direction:column}
@@ -887,6 +947,20 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
   .wday{min-height:0;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:6px 12px;padding:12px 14px}
   .wday-head{width:100%}
   .wday .wev{flex:1 1 100%}
+}
+
+/* ---------- 홈: 넓은 모니터는 오른쪽에 '내가 할 일'(스크롤을 따라옴, 판 2026-10-22a 교사 요청) ---------- */
+/* App.html homeSide()가 정한다(본문 폭 1264 이상, 100%로 보면 창 폭 약 1600 이상). 홈만 본문을 넓혀 가운데 기둥은 예전 폭(1120)까지, 오른쪽 300px에 붙인다 */
+#screen.home-side{max-width:1444px}
+.wrap.home-cols{display:grid;grid-template-columns:minmax(0,1fr) 300px;align-items:start;gap:24px;max-width:none}
+.home-main{display:flex;flex-direction:column;gap:24px;min-width:0;container:home / inline-size}
+.home-aside{position:sticky;top:24px;min-width:0}
+.home-aside>.card{max-height:calc((100vh - 48px) / var(--gy-zoom,1));max-height:calc((100dvh - 48px) / var(--gy-zoom,1));overflow:auto;overscroll-behavior:contain}
+@media print{
+  #screen.home-side{max-width:none}
+  .wrap.home-cols{display:flex;flex-direction:column}
+  .home-aside{position:static}
+  .home-aside>.card{max-height:none;overflow:visible}
 }
 
 /* ---------- 홈 맨 아래: 중점지도(왼쪽) · 학생 수 현황(오른쪽) ---------- */
