@@ -63,6 +63,7 @@
 .tb-local{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 12px 10px 14px;border-bottom:1px solid var(--c-line);background:var(--accent-soft);color:var(--c-t1);font-size:15px;line-height:1.45}
 .tb-local svg{flex:none;color:var(--accent)}
 .tb-local .btn{margin-left:auto}
+.tb-print-note{display:none}
 .tb-find{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--c-line);background:var(--c-card)}
 .tb-fi{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 10px;border:1px solid var(--c-line2);border-radius:10px;background:var(--c-card);color:var(--c-t3)}
 .tb-fi:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -118,6 +119,10 @@
 .tb-unsaved{display:inline-flex;align-items:center;gap:8px;padding:4px 6px 4px 12px;border-radius:9999px;background:var(--c-warnBg);color:var(--c-red);font-size:14px;font-weight:800}
 .tb-unsaved .btn{min-height:32px}
 .tb-grid td.flash{position:relative;box-shadow:inset 0 0 0 9999px var(--accent-soft)}
+.tb-grid tr.tb-out td{opacity:.5}
+.tb-grid tr.tb-out td.cur,.tb-grid tr.tb-out td.sel{opacity:.8}
+.tb-grid td.tb-go{animation:tbGo 1.6s ease-out}
+@keyframes tbGo{0%,40%{box-shadow:inset 0 0 0 3px var(--accent),inset 0 0 0 9999px var(--accent-soft)}100%{box-shadow:inset 0 0 0 2px var(--accent)}}
 .tb-tip{position:absolute;right:4px;top:3px;padding:1px 8px;border-radius:9999px;background:var(--accent);color:var(--c-onAccent);font-size:12px;font-weight:700;line-height:1.5;white-space:nowrap;pointer-events:none;font-style:normal;text-decoration:none}
 .tb-grid .tb-who{position:relative;padding-right:40px;font-size:13px;color:var(--c-t3);white-space:nowrap;text-overflow:ellipsis;cursor:default}
 .tb-rowbtn{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:var(--c-t3);cursor:pointer}
@@ -230,6 +235,8 @@ body.tb-resizing.rows,body.tb-resizing.rows *{cursor:row-resize!important}
 .tb-conf b{font-size:16px;white-space:pre-line;overflow-wrap:anywhere}
 .tb-conf small{font-size:13px;color:var(--c-t3)}
 .tb-conf-h{margin:4px 0 0;font-size:14px;font-weight:700;color:var(--c-t2)}
+.tb-conf-list{display:flex;flex-direction:column;gap:6px;max-height:min(52vh,460px);overflow-y:auto;padding-right:4px}
+.tb-conf-h.check{display:flex;align-items:center;gap:8px;min-height:36px;cursor:pointer}
 /* 새 표 만들기·시트 더하기: 붙여 넣는 곳·미리보기·열 정하기 */
 .tb-steps{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none;font-size:14px;font-weight:700;color:var(--c-t3)}
 .tb-steps li{padding:4px 12px;border-radius:9999px;background:var(--c-pill)}
@@ -358,6 +365,8 @@ body.tb-resizing.rows,body.tb-resizing.rows *{cursor:row-resize!important}
 @media print{
   .tb-box{border:0!important}
   .tb-tools,.tb-tabs,.tb-find,.tb-local,.tb-msheets,.tb-hb,.tb-cr,.tb-rr,.tb-ed{display:none!important}
+  .tb-print-note{display:block!important;margin:0 0 6px;font-size:11pt;color:#000}
+  .tb-grid tr.tb-out td{opacity:1}
   .tb-grid-wrap{overflow:visible!important;max-height:none!important;border:0!important;border-radius:0!important}
   .tb-grid{width:100%!important;font-size:11px;line-height:1.35}
   .tb-grid th,.tb-grid td{position:static!important;padding:3px 5px}
@@ -400,7 +409,7 @@ body.tb-resizing.rows,body.tb-resizing.rows *{cursor:row-resize!important}
  * - 웹앱은 이 파일을 취합 시트를 처음 열 때 받아 붙인다(App.html tableUiLoad, 서버 ui.table). 설정 '처음에 함께'면 예전처럼 처음부터 들어 있다
  * - 화면 코드에 U+2028·U+2029를 그대로 쓰지 않는다(\u2028처럼 적는다)
  */
-window.__gyTableUiBuild = '2026-10-21b';
+window.__gyTableUiBuild = '2026-10-28a';
 window.__gyTableUi = function (core) {
   'use strict';
   var S = core.S, SCREENS = core.SCREENS, $modal = core.$modal;
@@ -468,6 +477,9 @@ window.__gyTableUi = function (core) {
     lq: '', ldept: '', rf: { id: '', q: '', mine: false } // 목록 찾기·부서(이 창에서만), 휴대폰 줄 찾기·내 이름이 있는 줄(시트마다)
   };
   var TB_POLL_MS = 10000, TB_FLASH_MS = 8000, TB_RN_W = 44, TB_WHO_W = 128;
+  // 손을 대지 않으면 새로 받기를 늦춘다(5분 넘으면 1분마다, 30분 넘으면 멈추고 '다시 받기', 2026-10-28a). 누르거나 쓰면 곧바로 10초마다로
+  var TB_SLOW_AFTER = window.__gyTbSlowAfter || 5 * 60000, TB_STOP_AFTER = window.__gyTbStopAfter || 30 * 60000, TB_SLOW_MS = 60000;
+  var tbLastAct = Date.now();
   var TB_TOUCH = !!(window.matchMedia && window.matchMedia('(hover: none)').matches); // 터치만 되는 기기: 칸을 고칠 때만 글자판을 띄운다
   // 글꼴: 학교 PC(윈도우)에 있는 글꼴. 휴대폰·맥처럼 없는 기기에서는 비슷한 글꼴로 보인다
   var TB_FF = { malgun: "'Malgun Gothic','맑은 고딕',sans-serif", gulim: "Gulim,'굴림',sans-serif", dotum: "Dotum,'돋움',sans-serif", batang: "Batang,'바탕',serif", gungsuh: "Gungsuh,'궁서',serif" };
@@ -490,6 +502,8 @@ window.__gyTableUi = function (core) {
   var TB_RETRY_MS = window.__gyTbRetryMs || [2000, 5000, 10000]; // 저장이 막히면(차례 기다림·연결 끊김) 저절로 다시 보내는 간격(자동 점검은 짧게)
   var TB_CHUNK = 4000;  // 큰 서식 작업은 줄째로 이만큼씩 나눠 보낸다(서버는 한 번에 5000칸까지)
   var tbFailed = [];    // 끝내 저장하지 못한 저장: [{ id: 시트ID, tok, list }](쓴 글은 칸에 그대로, 표 위 '다시 보내기')
+  var TB_MAX_CELL = 2000; // 한 칸 글자 수(서버 Table.gs TB_MAX_CELL_과 같게). 넘으면 보내기 전에 알린다
+  var tbEditorDirty = null; // 줄 고치기 창이 떠 있으면 쓴 것이 있는지 알려 주는 함수(나가기·바깥 누르기 전에 묻는다)
   var tbFailTok = {};   // 그 저장의 번호(tok) → 1(칸의 pending·fpending이 이 번호면 빨간 테두리)
   var tbRs = null;   // 열 너비·줄 높이를 끄는 중
   var tbPlain = 0;   // Ctrl+Shift+V(값만 붙여 넣기)를 누른 시각
@@ -781,16 +795,20 @@ window.__gyTableUi = function (core) {
     $s.classList.add('tb-full');
     $s.innerHTML = '<div id="tb-detail" class="tb-page">' + loadingHtml('표를 불러오는 중이에요') + '</div>';
     if (!T.sheet && T.last[id]) T.sheet = T.last[id]; // 이 창에서 마지막에 본 시트
-    if (T.d && T.d.table.doc === id && (!T.sheet || T.d.table.id === T.sheet)) { tbDrawDetail(); tbPollNow(); return; } // 다른 메뉴에 다녀왔으면 들고 있던 그대로 + 바뀐 것만 받기
+    var draw = function () { // 홈 '채우기'로 열었으면 내 이름이 있는 줄로(2026-10-28a)
+      tbDrawDetail();
+      if (T.goMine) { T.goMine = false; setTimeout(tbGoMine, 0); }
+    };
+    if (T.d && T.d.table.doc === id && (!T.sheet || T.d.table.id === T.sheet)) { draw(); tbPollNow(); return; } // 다른 메뉴에 다녀왔으면 들고 있던 그대로 + 바뀐 것만 받기
     var m = memoGet('table.get', tbArgs());
-    if (m) { tbSetData(JSON.parse(m.json)); tbDrawDetail(); tbPollNow(); return; }
+    if (m) { tbSetData(JSON.parse(m.json)); draw(); tbPollNow(); return; }
     T.d = null;
     var args = tbArgs();
     server('table.get', args).then(function (d) {
       memoPut('table.get', args, d);
       if (S.screen !== 'table' || S.table.sel !== id) return;
       tbSetData(d);
-      tbDrawDetail();
+      draw();
       tbPollStart();
     }, function (e) {
       if (S.screen !== 'table' || S.table.sel !== id) return;
@@ -885,7 +903,7 @@ window.__gyTableUi = function (core) {
       (s ? s.options.map(function (o, k) { return '<span class="chip' + (k === 0 ? ' chip-ok' : '') + '">' + esc(o) + ' ' + (s.counts[o] || 0) + '</span>'; }).join('') +
       (s.other ? '<span class="chip">기타 ' + s.other + '</span>' : '') + (s.empty ? '<span class="chip">비어 있음 ' + s.empty + '</span>' : '') : '') +
       '<span class="chip">전체 ' + d.rows.length + '줄</span>' + tbSumsHtml(d) + tbTodoBarHtml(d) +
-      '<span class="tb-live print-hide' + (S.table.live === 'off' ? ' off' : '') + '" id="tb-live" role="status"><i class="dot" aria-hidden="true"></i>' + tbLiveText() + '</span>';
+      '<span class="tb-live print-hide' + (S.table.live === 'off' || S.table.live === 'paused' ? ' off' : '') + '" id="tb-live" role="status"><i class="dot" aria-hidden="true"></i>' + tbLiveText() + '</span>';
   }
   /** 숫자 열: 보이는 줄의 합계·평균(걸러 보면 보이는 줄만) */
   function tbSumsHtml(d) {
@@ -903,7 +921,37 @@ window.__gyTableUi = function (core) {
     var tip = "'" + left.col.name + "' 열에 이름이 있는 분 홈 '내가 할 일'에 끝나지 않은 줄이 떠요(늦어도 10분 안에)";
     return '<span class="tb-todo"><span class="chip' + (left.rows ? ' chip-accent' : ' chip-ok') + '" title="' + esc(tip) + '">' + ti('todo', 15) +
       (left.rows ? '할 일 남은 줄 ' + left.rows + ' · ' + left.names.length + '명' : '할 일 모두 끝남') + '</span>' +
+      (left.mine ? '<button type="button" class="btn btn-sm btn-primary print-hide" data-action="tb-mine-go">' + ti('todo', 16) + '내 줄로 가기 ' + left.mine + '</button>' : '') +
       (d.table.canEdit && left.rows ? '<button type="button" class="btn btn-sm print-hide" data-action="tb-todo-copy">' + icon('copy', 16) + '안 채운 분 문구 복사</button>' : '') + '</span>';
+  }
+  /**
+   * 내 이름이 할 일 열에 있는 끝나지 않은 줄로 간다(누를 때마다 다음 줄). 휴대폰은 '내 이름이 있는 줄'만 보이게
+   */
+  function tbGoMine() {
+    var T = S.table, d = T.d, col = d ? tbTodoCol(d.table.cols) : null, me = S.me ? S.me.name : '';
+    if (!col || !me) return;
+    var mineRow = function (r) { return !tbRowDone(d.table.cols, r) && tbTodoNames(tbEff(r, col.id)).indexOf(me) >= 0; };
+    if (isPhone()) {
+      if (!d.rows.some(mineRow)) return;
+      T.rf = { id: d.table.id, q: '', mine: true };
+      tbDrawMain();
+      return;
+    }
+    var rows = (T.vrows || []).filter(mineRow);
+    if (!rows.length) { toast(d.rows.some(mineRow) ? '걸러 보는 줄에는 내 이름이 있는 남은 줄이 없어요. 위의 "모두 풀기"를 눌러 주세요' : '내 이름이 있는 남은 줄이 없어요'); return; }
+    var curI = T.cur ? tbRowIdx(T.cur.r) : -1;
+    var pick = rows.filter(function (r) { return tbRowIdx(r.id) > curI; })[0] || rows[0];
+    var c = d.table.cols.filter(function (x) { return x.id !== col.id && tbCanCell(pick, x); })[0] || col; // 내가 채울 첫 칸
+    T.cur = T.anchor = { r: pick.id, c: c.id };
+    tbPaintSel();
+    var td = tbTdAt(tbRowIdx(pick.id), tbColIdx(c.id));
+    if (td) {
+      try { td.scrollIntoView({ block: 'center', inline: 'nearest' }); } catch (x) { /* 그대로 */ }
+      td.classList.add('tb-go');
+      setTimeout(function () { td.classList.remove('tb-go'); }, 1600);
+    }
+    tbFocusEd();
+    toast('내 이름이 있는 남은 줄 ' + rows.length + '개 중 ' + (rows.indexOf(pick) + 1) + '번째예요' + (rows.length > 1 ? '. 한 번 더 누르면 다음 줄로 가요' : ''));
   }
   /** 안 채운 분께 보낼 메신저 문구(할 일 열의 이름, 마감) */
   function tbTodoCopy() {
@@ -918,12 +966,14 @@ window.__gyTableUi = function (core) {
   }
   function tbLiveText() {
     if (S.table.live === 'off') return '연결이 잠시 끊겼어요 · 다시 받는 중';
+    if (S.table.live === 'paused') return '오래 손대지 않아 새로 받기를 멈췄어요 <button type="button" class="linkish" data-action="tb-live-resume">다시 받기</button>';
+    if (S.table.live === 'slow') return isPhone() ? '함께 고치는 중 · 1분마다' : '함께 고치는 중 · 손대지 않아 1분마다 새로 받아요';
     return isPhone() ? '함께 고치는 중' : '함께 고치는 중 · 10초마다 새로 받아요';
   }
   function tbDrawLive() {
     var el = qs('#tb-live');
     if (!el) return;
-    el.classList.toggle('off', S.table.live === 'off');
+    el.classList.toggle('off', S.table.live === 'off' || S.table.live === 'paused');
     el.innerHTML = '<i class="dot" aria-hidden="true"></i>' + tbLiveText();
   }
 
@@ -951,7 +1001,7 @@ window.__gyTableUi = function (core) {
     }
     main.innerHTML = seg + '<div class="tb-box" id="tb-box">' + (phone ? '' : tbToolsHtml()) + '<div id="tb-findbox">' + tbFindHtml() + '</div>' + tbLocalHtml() +
       '<div class="tb-grid-wrap" id="tb-wrap">' + (T.loading ? '<p class="tb-loading">' + esc(T.loading) + '</p>' : tbGridHtml()) +
-      '<textarea class="tb-ed print-hide" id="tb-ed" rows="1" aria-label="칸 고치기" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea></div>' +
+      '<textarea class="tb-ed print-hide" id="tb-ed" rows="1" maxlength="' + TB_MAX_CELL + '" aria-label="칸 고치기" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea></div>' +
       (phone ? '' : tbTabsHtml()) + '</div>';
     tbIndex();
     tbBindGrid();
@@ -976,7 +1026,7 @@ window.__gyTableUi = function (core) {
   // ------------------------------------------------------------ 보이는 줄: 정렬·걸러 보기(이 화면에서만, 저장하지 않음)
   function tbLocal() {
     var T = S.table, id = T.d ? T.d.table.id : '';
-    return T.loc[id] || (T.loc[id] = { sort: null, filter: {} });
+    return T.loc[id] || (T.loc[id] = { sort: null, filter: {}, keep: {} });
   }
   function tbLocalOn() { var L = tbLocal(); return !!(L.sort || Object.keys(L.filter).length); }
   /**
@@ -1031,10 +1081,15 @@ window.__gyTableUi = function (core) {
       }
     });
     T.eff = eff;
-    if (!tbLocalOn()) { T.vrows = rows.slice(); tbLay = tbLayout(); return; }
+    if (!tbLocalOn()) { T.vrows = rows.slice(); T.outRows = {}; tbLay = tbLayout(); return; }
+    // 이번에 걸러 보는 동안 내가 고친 줄은 값이 걸러 보기에서 벗어나도 흐리게 남긴다(고치자마자 사라지지 않게, 2026-10-28a)
+    var keep = L.keep || {}, out = {};
     var list = rows.filter(function (r) {
-      return Object.keys(L.filter).every(function (cid) { var f = L.filter[cid]; return !f || !tbCol(cid) || f[tbEff(r, cid).trim()] === 1; });
+      var ok = Object.keys(L.filter).every(function (cid) { var f = L.filter[cid]; return !f || !tbCol(cid) || f[tbEff(r, cid).trim()] === 1; });
+      if (!ok && keep[r.id]) out[r.id] = 1;
+      return ok || !!keep[r.id];
     });
+    T.outRows = out;
     if (L.sort && tbCol(L.sort.c)) {
       var pos = {};
       rows.forEach(function (r, i) { pos[r.id] = i; });
@@ -1131,7 +1186,7 @@ window.__gyTableUi = function (core) {
         (t.canWrite ? '<span class="tb-cr print-hide" data-j="' + j + '" aria-hidden="true"></span>' : '') + '</th>';
     }).join('') + '<th scope="col" class="tb-who">마지막 고친 분</th></tr>';
     var body = rows.map(function (r, i) {
-      var tr = '<tr data-i="' + i + '"' + (r.h ? ' style="height:' + r.h + 'px"' : '') + '><td class="rn" data-ri="' + i + '">' + (pos[r.id] || '') +
+      var tr = '<tr data-i="' + i + '"' + (T.outRows && T.outRows[r.id] ? ' class="tb-out" title="걸러 보는 값에서 벗어났어요(걸러 보기를 바꾸면 사라져요)"' : '') + (r.h ? ' style="height:' + r.h + 'px"' : '') + '><td class="rn" data-ri="' + i + '">' + (pos[r.id] || '') +
         (t.canWrite ? '<span class="tb-rr print-hide" data-i="' + i + '" aria-hidden="true"></span>' : '') + '</td>';
       cols.forEach(function (c, j) {
         var o = lay.occ[i + ':' + j];
@@ -2102,13 +2157,21 @@ window.__gyTableUi = function (core) {
   function tbSave(list, adds, opts) {
     var T = S.table, d = T.d;
     if (!d) return Promise.resolve();
+    var long = list.filter(function (x) { return x.value !== undefined && String(x.value).replace(/\r\n?/g, '\n').trim().length > TB_MAX_CELL; })
+      .concat((adds || []).filter(function (a) { return a && Object.keys(a.cells || {}).some(function (k) { return String(a.cells[k]).length > TB_MAX_CELL; }); }));
+    if (long.length) { // 보내면 서버가 거절해 쓴 글이 사라지므로 보내기 전에 알린다(칸은 그대로)
+      toast('한 칸에는 ' + TB_MAX_CELL + '자까지 쓸 수 있어요. 긴 글은 줄여서 다시 넣어 주세요' + (long.length > 1 ? '(' + long.length + '칸)' : ''), 'error');
+      return Promise.resolve();
+    }
     var id = d.table.id, tok = ++tbTok;
     adds = adds || [];
     opts = opts || {};
     var vals = [], fmts = [];
+    var Lk = Object.keys(tbLocal().filter).length ? tbLocal() : null;
     list.forEach(function (x) {
       var r = tbRow(x.r);
       if (!r) return;
+      if (Lk && x.value !== undefined) (Lk.keep = Lk.keep || {})[x.r] = 1;
       if (x.value !== undefined) {
         x.old = tbVal(r, x.c);
         r.cells[x.c] = String(x.value).replace(/\r\n?/g, '\n').replace(/^\s+|\s+$/g, '');
@@ -2217,11 +2280,28 @@ window.__gyTableUi = function (core) {
           throw err;
         });
       };
-      var parts = adds.length || cells.length <= TB_CHUNK ? [cells] : tbChunks(cells), k = 0;
+      // 줄을 더하는 큰 붙여 넣기도 TB_CHUNK칸씩 나눠 보낸다(합친 칸이 든 붙여 넣기는 새 줄끼리 이어져 있어 한 번에, 2026-10-28a)
+      var addN = function (a) { return Math.max(1, Object.keys((a && a.cells) || {}).length); };
+      var addTotal = adds.reduce(function (n, a) { return n + addN(a); }, 0);
+      var hasMerge = adds.some(function (a) { return a && a.fmt && JSON.stringify(a.fmt).indexOf('"m"') >= 0; });
+      var steps;
+      if (adds.length && !hasMerge && cells.length + addTotal > TB_CHUNK) {
+        steps = (cells.length ? tbChunks(cells) : []).map(function (p) { return [p, []]; });
+        var cur = [], cn = 0;
+        adds.forEach(function (a) {
+          if (cur.length && cn + addN(a) > TB_CHUNK) { steps.push([[], cur]); cur = []; cn = 0; }
+          cur.push(a); cn += addN(a);
+        });
+        if (cur.length) steps.push([[], cur]);
+      } else {
+        var ps = adds.length || cells.length <= TB_CHUNK ? [cells] : tbChunks(cells);
+        steps = ps.map(function (p, i) { return [p, i === ps.length - 1 ? adds : []]; });
+      }
+      var k = 0;
       var next = function () {
-        if (k >= parts.length) return Promise.resolve();
-        var part = parts[k++];
-        return one(part, k === parts.length ? adds : []).then(function (r) {
+        if (k >= steps.length) return Promise.resolve();
+        var st = steps[k++];
+        return one(st[0], st[1]).then(function (r) {
           acc.rows = acc.rows.concat(r.rows); acc.conflicts = acc.conflicts.concat(r.conflicts); acc.changed += r.changed; acc.skipLocked += r.skipLocked;
           if (live()) tbMerge(r.rows, { own: tok }); // 나눠 보낸 것은 받는 대로 넣는다
           return next();
@@ -2259,7 +2339,7 @@ window.__gyTableUi = function (core) {
           toast('저장하지 못한 칸이 있어요. 쓴 글은 칸에 그대로 두었어요. 표 위의 "다시 보내기"를 눌러 주세요', 'error');
         } else {
           tbSettle(list, tok);
-          toast(err.message, 'error');
+          tbRejected(list, err);
           if (/^(STALE|NOTFOUND|CLOSED|LOCKED)$/.test(err.code || '')) tbReload();
         }
         tbRedraw();
@@ -2267,6 +2347,25 @@ window.__gyTableUi = function (core) {
       });
     }).then(function () { tbBusy--; }, function () { tbBusy--; });
   }
+  /**
+   * 서버가 저장을 거절했을 때(마감·잠금·지워진 줄 등): 칸은 옛 값으로 돌아가지만, 쓴 글은 창에 남겨 복사할 수 있게 한다(2026-10-28a)
+   */
+  function tbRejected(list, err) {
+    var d = S.table.d, mine = list.filter(function (x) { return x.value !== undefined && String(x.value).trim() && x.value !== x.old; });
+    if (!mine.length || !d) { toast(err.message, 'error'); return; }
+    var text = mine.slice(0, 50).map(function (x) {
+      var c = tbCol(x.c), r = tbRow(x.r);
+      return (mine.length > 1 ? (r ? tbRowLabel(r) + ' · ' : '') + (c ? c.name : '') + ': ' : '') + String(x.value).replace(/\r\n?/g, '\n');
+    }).join('\n');
+    openModal('<h2 id="m-title">저장하지 못했어요</h2><p class="muted" style="margin:0">' + esc(err.message) + '</p>' +
+      '<p class="faint" style="margin:0">쓴 글은 아래에 남겨 두었어요. 복사해 두었다가 다시 넣어 주세요.</p>' +
+      '<label class="sr-only" for="tb-rej">쓴 글</label><textarea id="tb-rej" class="input" rows="' + Math.min(8, Math.max(3, text.split('\n').length)) + '" readonly>' + esc(text) + '</textarea>' +
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="button" class="btn btn-primary" id="tb-rej-copy">' + icon('copy', 18) + '복사</button></div>', { noBackdropClose: true });
+    qs('#tb-rej-copy').addEventListener('click', function () {
+      copyText(text).then(function (ok) { toast(ok ? '복사했어요' : '복사하지 못했어요. 글을 길게 눌러 복사해 주세요', ok ? '' : 'error'); });
+    });
+  }
+
   /** 저장하지 못한 칸 다시 보내기(이 시트) */
   function tbResend() {
     var d = S.table.d;
@@ -2280,6 +2379,16 @@ window.__gyTableUi = function (core) {
   }
   /** 저장하지 못한 칸을 두고 떠날 때: 괜찮으면 true, 아니면 묻고 false(나가기를 고르면 proceed) */
   function tbLeaveOk(proceed) {
+    if (tbEditorDirty && tbEditorDirty()) {
+      confirmBox('쓰던 줄이 있어요', '줄 고치기 창에 저장하지 않은 글이 있어요. 나가면 사라져요.', '그래도 나가기', function () {
+        tbEditorDirty = null;
+        closeModal();
+        closeSheet();
+        proceed();
+        return Promise.resolve();
+      }, true);
+      return false;
+    }
     var n = tbFailedCount();
     if (!n) return true;
     confirmBox('저장하지 못한 칸이 있어요', '저장하지 못한 칸 ' + n + '개의 글은 나가면 사라져요. 먼저 표 위의 "다시 보내기"를 눌러 보세요.', '그래도 나가기', function () {
@@ -2395,7 +2504,21 @@ window.__gyTableUi = function (core) {
 
   function tbPollStart(ms) {
     clearTimeout(tbTimer);
-    tbTimer = setTimeout(tbPollTick, ms === undefined ? TB_POLL_MS : ms);
+    if (ms === undefined) {
+      var idle = Date.now() - tbLastAct;
+      if (idle > TB_STOP_AFTER) { S.table.live = 'paused'; tbDrawLive(); tbTimer = null; return; }
+      var slow = idle > TB_SLOW_AFTER;
+      ms = slow ? Math.min(TB_SLOW_MS, Math.max(1000, TB_STOP_AFTER - idle + 50)) : TB_POLL_MS; // 멈출 때가 되면 그때 바로 멈춤 표시
+      if (slow !== (S.table.live === 'slow') && S.table.live !== 'off') { S.table.live = slow ? 'slow' : 'ok'; tbDrawLive(); }
+    }
+    tbTimer = setTimeout(tbPollTick, ms);
+  }
+  /** 표 화면에서 누르거나 쓰면: 쉬던 새로 받기를 곧바로 다시 */
+  function tbActive() {
+    var was = Date.now() - tbLastAct;
+    tbLastAct = Date.now();
+    if (S.screen !== 'table' || !S.table.d) return;
+    if (S.table.live === 'paused' || (S.table.live === 'slow' && was > TB_SLOW_AFTER)) { S.table.live = 'ok'; tbDrawLive(); tbPollNow(); }
   }
   function tbPollNow() { tbPollStart(0); }
   function tbPollTick() {
@@ -2408,7 +2531,7 @@ window.__gyTableUi = function (core) {
     server('table.poll', { id: id, since: since, dsince: dsince }, null, true).then(function (p) {
       T.polling = false;
       if (!S.table.d || S.table.d.table.id !== id) return 'stop';
-      T.live = 'ok';
+      if (T.live === 'off') T.live = 'ok';
       if (p.gone) { memoForget('table.'); toast('이 표가 지워졌어요', 'error'); tbBackToList(true); return 'stop'; }
       if (p.sheetGone) {
         memoForget('table.');
@@ -2515,23 +2638,33 @@ window.__gyTableUi = function (core) {
     tbConfShown = list;
     var label = function (x) { var r = tbRow(x.row), c = tbCol(x.col); return (r ? tbRowLabel(r) : '') + ' · ' + (c ? c.name : ''); };
     var one = list.length === 1;
-    var boxes = list.slice(0, 4).map(function (x) {
-      return (one ? '' : '<p class="tb-conf-h">' + esc(label(x)) + '</p>') + '<div class="tb-conf">' +
+    // 여러 칸이면 칸마다 고른다(처음은 모두 '내 값', 2026-10-28a). 모든 칸을 보여 주고 창 안에서 내려 본다
+    var boxes = list.map(function (x, k) {
+      return (one ? '' : '<label class="tb-conf-h check"><input type="checkbox" class="tb-conf-pick" data-k="' + k + '" checked>' + esc(label(x)) + ' <span class="faint">· 내 값으로</span></label>') + '<div class="tb-conf">' +
         '<div><span class="chip">먼저 고친 값</span><b>' + (x.value ? esc(x.value) : '<span class="faint">(빈칸)</span>') + '</b>' +
         '<small>' + esc(x.by ? x.by + ' 선생님' + (x.at ? ' · ' + x.at.slice(11, 16) : '') : '') + '</small></div>' +
         '<div><span class="chip chip-accent">내가 쓴 값</span><b>' + (String(x.mine).trim() ? esc(String(x.mine).trim()) : '<span class="faint">(빈칸)</span>') + '</b><small>지금 저장하려던 값</small></div></div>';
     }).join('');
     openModal('<div id="tb-conf-box"><h2 id="m-title">다른 선생님이 먼저 고쳤어요</h2>' +
-      '<p class="muted" style="margin:0">' + (one ? esc(label(list[0])) : list.length + '칸을 그사이 다른 선생님이 고쳤어요. 어느 값으로 둘까요?') + '</p>' + boxes +
-      (list.length > 4 ? '<p class="faint">…그리고 ' + (list.length - 4) + '칸 더</p>' : '') +
-      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">먼저 고친 값 두기</button>' +
-      '<button type="button" class="btn btn-primary" id="tb-mine">' + (one ? '내 값으로 바꾸기' : '모두 내 값으로 바꾸기') + '</button></div></div>', { noBackdropClose: true });
-    qs('#tb-mine').addEventListener('click', function () {
-      var mine = tbConfShown || [];
+      '<p class="muted" style="margin:0">' + (one ? esc(label(list[0])) : list.length + '칸을 그사이 다른 선생님이 고쳤어요. 내 값으로 바꿀 칸만 골라 주세요.') + '</p>' +
+      (one ? boxes : '<div class="tb-conf-list">' + boxes + '</div>') +
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">' + (one ? '먼저 고친 값 두기' : '모두 먼저 고친 값 두기') + '</button>' +
+      '<button type="button" class="btn btn-primary" id="tb-mine">' + (one ? '내 값으로 바꾸기' : '고른 ' + list.length + '칸을 내 값으로') + '</button></div></div>', { noBackdropClose: true });
+    var mineBtn = qs('#tb-mine');
+    qsa('.tb-conf-pick').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        var n = qsa('.tb-conf-pick').filter(function (x) { return x.checked; }).length;
+        mineBtn.textContent = '고른 ' + n + '칸을 내 값으로';
+        mineBtn.disabled = !n;
+      });
+    });
+    mineBtn.addEventListener('click', function () {
+      var all = tbConfShown || [], picks = qsa('.tb-conf-pick');
+      var mine = one || !picks.length ? all : all.filter(function (x, k) { var cb = picks[k]; return !cb || cb.checked; });
       tbConfShown = null;
       closeModal();
       if (!S.table.d || S.table.d !== d) return;
-      tbSave(mine.filter(function (x) { return tbRow(x.row) && tbCol(x.col); }).map(function (x) { return { r: x.row, c: x.col, value: x.mine, base: x.base }; }), null, { done: '내 값으로 바꿨어요' });
+      tbSave(mine.filter(function (x) { return tbRow(x.row) && tbCol(x.col); }).map(function (x) { return { r: x.row, c: x.col, value: x.mine, base: x.base }; }), null, { done: mine.length === all.length ? '내 값으로 바꿨어요' : mine.length + '칸을 내 값으로 바꿨어요(' + (all.length - mine.length) + '칸은 먼저 고친 값 그대로)' });
     });
   }
 
@@ -2867,13 +3000,17 @@ window.__gyTableUi = function (core) {
       toast("'위아래 합침' 열이에요. 만든 분이 '열 고치기'에서 위아래 합침을 끌 수 있어요");
       return;
     }
-    var set = {}, order = [], hidden = 0;
+    var set = {}, order = [], hidden = 0, others = 0;
+    // 그 줄을 마지막에 고친 분(없으면 더한 분)이 내가 아니면 '다른 선생님 글'로 본다(칸마다 쓴 분은 따로 없음)
+    var mine = function (r) { return !!S.me && (r.by ? r.by === S.me.name : !r.addedById || r.addedById === S.me.id); };
     var add = function (i1, j1, i2, j2) {
       if (i1 === i2 && j1 === j2) return;
       var k = rows[i1].id + '|' + cols[j1].id;
       if (!set[k]) order.push(k);
       set[k] = { r: rows[i1].id, c: cols[j1].id, f: { m: [rows[i2].id, cols[j2].id] } };
-      for (var a = i1; a <= i2; a++) for (var b = j1; b <= j2; b++) if ((a !== i1 || b !== j1) && tbVal(rows[a], cols[b].id)) hidden++;
+      for (var a = i1; a <= i2; a++) for (var b = j1; b <= j2; b++) {
+        if ((a !== i1 || b !== j1) && tbVal(rows[a], cols[b].id)) { hidden++; if (!mine(rows[a])) others++; }
+      }
     };
     hits.forEach(function (m) {
       if (m.run || !rows[m.i] || !cols[m.j]) return;
@@ -2885,8 +3022,19 @@ window.__gyTableUi = function (core) {
     else if (kind === 'v') for (var j = rg.j1; j <= rg.j2; j++) add(rg.i1, j, rg.i2, j);
     var list = order.map(function (k) { return set[k]; }).filter(function (x) { return tbCanCell(tbRow(x.r), tbCol(x.c)); });
     if (!list.length) { tbLockedToast(null); return; }
-    tbSave(list, null, { done: kind === 'un' ? '합치기를 풀었어요' : hidden ? '합쳤어요. 덮인 칸의 글 ' + hidden + '개는 숨겨 두었어요(합치기를 풀면 다시 보여요)' : '합쳤어요' });
-    tbFocusEd();
+    var go = function () {
+      tbSave(list, null, { done: kind === 'un' ? '합치기를 풀었어요' : hidden ? '합쳤어요. 덮인 칸의 글 ' + hidden + '개는 숨겨 두었어요(합치기를 풀면 다시 보여요)' : '합쳤어요' });
+      tbFocusEd();
+    };
+    if (kind !== 'un' && others) { // 다른 선생님이 쓴 글이 가려질 때는 한 번 묻는다(교사 결정 63번 ②)
+      confirmBox('다른 선생님 글이 가려져요', '합치면 다른 선생님이 쓴 칸 ' + others + '개의 글이 합친 칸 아래로 숨어요. 지우지는 않고, 합치기를 풀면 다시 보여요. 합칠까요?', '합치기', function () {
+        closeModal();
+        go();
+        return Promise.resolve();
+      });
+      return;
+    }
+    go();
   }
   function tbAlignMenu(btn, k) {
     var cc = tbCurCell(), f = cc ? cc.f : {};
@@ -2997,10 +3145,13 @@ window.__gyTableUi = function (core) {
     if (L.sort) { var c = tbCol(L.sort.c); if (c) parts.push("'" + c.name + "' " + (L.sort.dir > 0 ? '가나다순' : '거꾸로')); }
     return '<div id="tb-localbox"><div class="tb-local print-hide" role="status">' + ti('filter', 18, 2) +
       '<span><b>내 화면에서만</b> 정렬·걸러 보기 중이에요: ' + esc(parts.join(' · ')) + ' (' + d.rows.length + '줄 중 ' + T.vrows.length + '줄). 다른 선생님 화면은 그대로예요.</span>' +
-      '<button type="button" class="btn btn-sm" data-action="tb-local-clear">모두 풀기</button></div></div>';
+      '<button type="button" class="btn btn-sm" data-action="tb-local-clear">모두 풀기</button></div>' +
+      // 인쇄에는 보이는 줄만 나가므로 인쇄한 종이에도 걸러 본 것임을 적는다(2026-10-28a)
+      '<p class="tb-print-note">걸러 본 줄만 인쇄했어요: ' + esc(parts.join(' · ')) + ' (' + d.rows.length + '줄 중 ' + T.vrows.length + '줄)</p></div>';
   }
   function tbLocalChanged() {
     var T = S.table;
+    tbLocal().keep = {}; // 걸러 보기를 바꾸면 남겨 둔 줄도 다시 거른다
     tbRedraw();
     tbDrawBar(); // 숫자 열 합계·평균은 보이는 줄만
     if (T.cur && tbRowIdx(T.cur.r) < 0) { T.cur = T.anchor = null; tbPaintSel(); }
@@ -3465,7 +3616,7 @@ window.__gyTableUi = function (core) {
           opts.map(function (o, k) { return '<button type="button" data-v="' + esc(o) + '" aria-pressed="' + (o === v) + '"' + (k === 0 ? ' class="first"' : '') + '>' + esc(o) + '</button>'; }).join('') +
           '</div></div>';
       }
-      return '<div class="field"><label class="label" for="' + fid + '">' + name + '</label><textarea class="input tb-ta" id="' + fid + '" data-col="' + esc(c.id) + '" rows="1"' +
+      return '<div class="field"><label class="label" for="' + fid + '">' + name + '</label><textarea class="input tb-ta" id="' + fid + '" data-col="' + esc(c.id) + '" rows="1" maxlength="' + TB_MAX_CELL + '"' +
         (c.type === 'num' ? ' inputmode="decimal"' : '') + '>' + esc(v) + '</textarea></div>';
     }).join('');
     var html = '<h2 id="' + hid + '" class="tb-sheet-h">' + esc(tbRowLabel(r)) + ' 줄 ' + (t.canWrite ? '고치기' : '보기') + '</h2>' +
@@ -3474,7 +3625,22 @@ window.__gyTableUi = function (core) {
       '<div class="modal-btns">' + (tbCanDelRow(r) ? '<button type="button" class="btn btn-ghost btn-danger tb-del-row" id="tbf-del">줄 빼기</button>' : '') +
       '<button type="button" class="btn" data-action="' + (phone ? 'close-sheet' : 'close-modal') + '">닫기</button>' +
       (t.canWrite ? '<button type="button" class="btn btn-primary" id="tbf-save">저장</button>' : '') + '</div>';
-    var host = tbPanel(html, hid);
+    // 쓴 것이 있는지(바깥 누르기·다른 화면으로 옮기기·창 닫기 전에 묻는다, 2026-10-28a)
+    var changes = function () {
+      var list = [];
+      if (!host || !host.isConnected) return list;
+      qsa('.tb-ta', host).forEach(function (ta) {
+        var cid = ta.getAttribute('data-col');
+        if (ta.value.replace(/\r\n?/g, '\n').trim() !== orig[cid].trim()) list.push({ r: rowId, c: cid, value: ta.value, base: bases[cid] });
+      });
+      qsa('.tb-seg', host).forEach(function (sg) {
+        var cid = sg.getAttribute('data-col'), b = qs('button[aria-pressed="true"]', sg), v = b ? b.getAttribute('data-v') : '';
+        if (v !== orig[cid]) list.push({ r: rowId, c: cid, value: v, base: bases[cid] });
+      });
+      return list;
+    };
+    var host = tbPanel(html, hid, function () { return changes().length > 0; });
+    tbEditorDirty = function () { return changes().length > 0; };
     qsa('.tb-seg', host).forEach(function (sg) {
       sg.addEventListener('click', function (e) {
         var b = e.target.closest('button');
@@ -3493,27 +3659,33 @@ window.__gyTableUi = function (core) {
     if (del) del.addEventListener('click', function () { tbRowDelete(rowId); });
     var save = qs('#tbf-save', host);
     if (save) save.addEventListener('click', function () {
-      var list = [];
-      qsa('.tb-ta', host).forEach(function (ta) {
-        var cid = ta.getAttribute('data-col');
-        if (ta.value.replace(/\r\n?/g, '\n').trim() !== orig[cid].trim()) list.push({ r: rowId, c: cid, value: ta.value, base: bases[cid] });
-      });
-      qsa('.tb-seg', host).forEach(function (sg) {
-        var cid = sg.getAttribute('data-col'), b = qs('button[aria-pressed="true"]', sg), v = b ? b.getAttribute('data-v') : '';
-        if (v !== orig[cid]) list.push({ r: rowId, c: cid, value: v, base: bases[cid] });
-      });
+      var list = changes();
+      tbEditorDirty = null;
       if (phone) closeSheet(); else closeModal();
       if (list.length && tbRow(rowId)) tbSave(list, null, { done: '저장했어요' });
     });
   }
-  function tbPanel(html, hid) {
-    if (!isPhone()) { openModal(html); return qs('.modal', $modal); }
+  /** 줄 고치기 창. dirty가 있으면 PC는 바깥을 눌러도 닫히지 않고, 휴대폰은 바깥을 누르면 쓴 것을 버릴지 묻는다 */
+  function tbPanel(html, hid, dirty) {
+    if (!isPhone()) { openModal(html, dirty ? { noBackdropClose: true } : undefined); return qs('.modal', $modal); }
     closeSheet();
     var el = document.createElement('div');
     el.className = 'sheet-back';
     el.id = 'sheet';
     el.innerHTML = '<div class="sheet tb-sheet" role="dialog" aria-modal="true" aria-labelledby="' + hid + '"><span class="sheet-grab" aria-hidden="true"></span>' + html + '</div>';
-    el.addEventListener('click', function (e) { if (e.target === el) closeSheet(); });
+    el.addEventListener('click', function (e) {
+      if (e.target !== el) return;
+      if (dirty && dirty()) {
+        confirmBox('쓴 내용을 버릴까요?', '저장하지 않은 글은 사라져요. 저장하려면 창 아래 "저장"을 눌러 주세요.', '버리고 닫기', function () {
+          closeModal();
+          tbEditorDirty = null;
+          closeSheet();
+          return Promise.resolve();
+        }, true);
+        return;
+      }
+      closeSheet();
+    });
     document.body.appendChild(el);
     return qs('.sheet', el);
   }
@@ -3730,10 +3902,11 @@ window.__gyTableUi = function (core) {
     var csv = [cols.map(function (c) { return cell(c.name); }).join(',')].concat(tbExportRows().map(function (line) { return line.map(cell).join(','); })).join('\r\n');
     var name = (t.title + (d.doc.sheets.length > 1 ? ' - ' + t.name : '')).replace(/[\\\/:*?"<>|]/g, '_') + '.csv';
     openModal('<h2 id="m-title">엑셀로 받기</h2>' +
-      '<p class="muted" style="margin:0">' + esc(name) + ' · ' + d.rows.length + '줄' + (d.doc.sheets.length > 1 ? ' · 지금 시트만' : '') + '</p>' +
+      '<p class="muted" style="margin:0">' + esc(name) + ' · ' + d.rows.length + '줄 모두' + (d.doc.sheets.length > 1 ? ' · 지금 시트만' : '') + '</p>' +
+      (tbLocalOn() ? '<p class="hint">' + ti('filter', 16, 2) + '<span>걸러 보는 중이어도 파일에는 <b>모든 줄</b>이 들어가요. 지금 보이는 ' + S.table.vrows.length + '줄만 필요하면 "보이는 줄 복사"를 눌러 주세요.</span></p>' : '') +
       '<p class="hint">' + icon('info', 16) + '<span>파일이 내려받아지지 않으면 "표 복사"를 누른 뒤 엑셀이나 구글 시트에 붙여 넣으세요(서식도 함께 가요).</span></p>' +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
-      '<button type="button" class="btn" id="tbx-copy">' + icon('copy', 18) + '표 복사</button>' +
+      '<button type="button" class="btn" id="tbx-copy">' + icon('copy', 18) + (tbLocalOn() ? '보이는 줄 복사' : '표 복사') + '</button>' +
       '<button type="button" class="btn btn-primary" id="tbx-dl">' + icon('down', 18) + '파일 내려받기</button></div>');
     qs('#tbx-dl').addEventListener('click', function () {
       try { saveBlob(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }), name); toast('파일을 내려받았어요'); }
@@ -3747,7 +3920,8 @@ window.__gyTableUi = function (core) {
     if (!d) return;
     var out = T.vrows.length && d.table.cols.length ? tbClipOut({ i1: 0, i2: T.vrows.length - 1, j1: 0, j2: d.table.cols.length - 1 }, true)
       : { tsv: d.table.cols.map(function (c) { return tbTsvCell(c.name); }).join('\t'), html: '' };
-    (out.html ? tbCopyRich(out) : copyText(out.tsv)).then(function (ok) { toast(ok ? '표를 복사했어요. 구글 시트나 엑셀에 붙여 넣으세요' : '복사하지 못했어요', ok ? '' : 'error'); });
+    var part = tbLocalOn() && T.vrows.length < d.rows.length;
+    (out.html ? tbCopyRich(out) : copyText(out.tsv)).then(function (ok) { toast(ok ? (part ? '걸러 본 ' + T.vrows.length + '줄을 복사했어요' : '표를 복사했어요') + '. 구글 시트나 엑셀에 붙여 넣으세요' : '복사하지 못했어요', ok ? '' : 'error'); });
   }
 
   // ------------------------------------------------------------ 새 표 만들기·시트 더하기(구글 시트에서 붙여 넣기)
@@ -4353,6 +4527,8 @@ window.__gyTableUi = function (core) {
       case 'tb-sheet-add': tbNew('sheet'); break;
       case 'tb-sheet-list': tbToggleMenu(t, function () { tbSheetList(t); }); break;
       case 'tb-todo-copy': tbTodoCopy(); break;
+      case 'tb-mine-go': tbGoMine(); break;
+      case 'tb-live-resume': S.table.live = 'ok'; tbLastAct = Date.now(); tbDrawLive(); tbPollNow(); break;
       case 'tb-rmine': T.rf.mine = !T.rf.mine; tbDrawMain(); break;
     }
   }
@@ -4405,10 +4581,11 @@ window.__gyTableUi = function (core) {
   });
   document.addEventListener('focusout', function (e) { if (e.target && e.target.id === 'tt-fs') setTimeout(tbSyncTools, 0); });
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && S.screen === 'table' && S.table.sel && S.table.d) tbPollNow();
+    if (!document.hidden && S.screen === 'table' && S.table.sel && S.table.d) { tbLastAct = Date.now(); if (S.table.live === 'paused' || S.table.live === 'slow') S.table.live = 'ok'; tbDrawLive(); tbPollNow(); }
   });
+  ['pointerdown', 'keydown', 'input', 'wheel'].forEach(function (ev) { document.addEventListener(ev, tbActive, { capture: true, passive: true }); });
   window.addEventListener('beforeunload', function (e) {
-    if (!tbBusy && !S.table.edit && !tbFailed.length) return;
+    if (!tbBusy && !S.table.edit && !tbFailed.length && !(tbEditorDirty && tbEditorDirty())) return;
     e.preventDefault();
     e.returnValue = '';
   });
@@ -4433,7 +4610,7 @@ window.__gyTableUi = function (core) {
     /** 메뉴에서 '취합 시트'를 누르면 목록부터 */
     reset: function () { S.table.sel = ''; S.table.sheet = ''; S.table.d = null; S.table.find = null; S.table.lq = ''; S.table.ldept = ''; },
     /** 홈(내가 할 일·검색)에서 표를 바로 연다. sheet: 시트ID(없으면 이 창에서 마지막에 본 시트) */
-    open: function (doc, sheet) { S.table.sel = doc; S.table.sheet = sheet || S.table.last[doc] || ''; S.table.d = null; S.table.find = null; },
+    open: function (doc, sheet, mine) { S.table.sel = doc; S.table.sheet = sheet || S.table.last[doc] || ''; S.table.d = null; S.table.find = null; S.table.goMine = !!mine; },
     /** 누구로 보는지가 바뀌면 들고 있던 표를 버린다 */
     forget: function () {
       S.table.list = null; S.table.d = null; S.table.edit = null; S.table.find = null; S.table.loc = {}; S.table.last = {};
@@ -4446,7 +4623,7 @@ window.__gyTableUi = function (core) {
     leaving: function (proceed) { return S.screen !== 'table' || tbLeaveOk(proceed); },
     /** 휴지통에서 되살린 뒤 목록을 새로 받게 */
     listDirty: function () { S.table.list = null; },
-    busy: function () { return tbBusy > 0 || !!S.table.edit; }
+    busy: function () { return tbBusy > 0 || !!S.table.edit || !!(tbEditorDirty && tbEditorDirty()); }
   };
 };
 </script>

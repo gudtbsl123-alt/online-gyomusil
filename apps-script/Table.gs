@@ -30,7 +30,7 @@
  *   (줄의 행 번호는 잠금 밖에서 서버 기억으로 먼저 찾아 두고, 잠금 안에서 그 줄이 맞는지 다시 본다)
  */
 
-function fileMark_Table_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
+function fileMark_Table_() { return '2026-10-28a'; } // 판 표시(관리자 › 점검)
 
 var TB_MAX_ROWS_ = 500;       // 한 시트의 줄
 var TB_MAX_COLS_ = 30;        // 한 시트의 열
@@ -1259,7 +1259,9 @@ function apiTableCell_(args, actor, ctx) {
 function apiTableCells_(args, actor, ctx) {
   var id = String(args.id || '');
   var list = Array.isArray(args.cells) ? args.cells : [], adds = Array.isArray(args.add) ? args.add : [];
-  if (list.length + adds.length * TB_MAX_COLS_ > TB_MAX_CELLS_) throw userError_('한 번에 ' + TB_MAX_CELLS_ + '칸까지 바꿀 수 있어요. 나눠서 해 주세요.');
+  // 더하는 줄은 실제로 채운 칸 수만큼 센다(예전에는 줄마다 30칸으로 세어 3열×200줄 붙여 넣기도 막혔다, 2026-10-28a)
+  var addCells = adds.reduce(function (n, a) { return n + Math.max(1, Object.keys((a && a.cells) || {}).length); }, 0);
+  if (list.length + addCells > TB_MAX_CELLS_) throw userError_('한 번에 ' + TB_MAX_CELLS_ + '칸까지 바꿀 수 있어요. 나눠서 해 주세요.');
   var hasFmt = list.some(function (x) { return x && (x.f || x.clear || x.fill !== undefined); }) || adds.some(function (a) { return a && (a.fmt || a.h || a.ms); });
   if (hasFmt) tbEnsureCols_();
   var rowIds = [], given = {};

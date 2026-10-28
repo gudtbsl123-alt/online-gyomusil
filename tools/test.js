@@ -2853,6 +2853,12 @@ test('함께 쓰는 표: 여러 칸 붙여 넣기는 한 번에(잠근 칸은 �
   assert.strictEqual(JSON.parse(logs[0]['바뀐 뒤'])['1층 교장실 · 배출이 어려운 가구'], '책상');
   assert.match(call(g, 'table.cells', { id, cells: Array.from({ length: 5001 }, () => ({ row: 'x', col: 'c1', value: '' })) }, a).error, /5000칸까지/);
   assert.strictEqual(call(g, 'table.cells', { id, cells: [at(0, 'c4', 'x')] }, { login: a.login }).code, 'IDENTITY');
+  // 더하는 줄은 채운 칸 수만큼 센다(2026-10-28a): 2열 × 200줄 = 400칸은 된다(예전에는 200줄 × 30칸으로 세어 막혔다)
+  const add200 = Array.from({ length: 200 }, (_, k) => ({ cells: { c3: '미완료', c4: '물품 ' + k } }));
+  const big2 = call(g, 'table.cells', { id, cells: [], add: add200 }, a);
+  assert.strictEqual(big2.ok, true, big2.error);
+  assert.strictEqual(tbGet(g, id, a).rows.length, 206);
+  assert.match(call(g, 'table.cells', { id, cells: [], add: Array.from({ length: 170 }, () => ({ cells: { c1: '1', c2: '2', c3: '완료', c4: 'x', c5: 'y', c6: 'z', c7: 'a', c8: 'b', c9: 'c', c10: 'd', c11: 'e', c12: 'f', c13: 'g', c14: 'h', c15: 'i', c16: 'j', c17: 'k', c18: 'l', c19: 'm', c20: 'n', c21: 'o', c22: 'p', c23: 'q', c24: 'r', c25: 's', c26: 't', c27: 'u', c28: 'v', c29: 'w', c30: 'x' } })) }, a).error, /5000칸까지/, '채운 칸이 5000을 넘으면 막는다');
 });
 
 test('함께 쓰는 표: 지우기는 만든 분·관리만, 지우면 목록에서 사라지고 관리자 › 휴지통에서 되살린다', () => {
