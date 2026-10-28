@@ -3,6 +3,8 @@
  * node tools/shots.js [사진 폴더]
  */
 'use strict';
+// 브라우저 시각을 학교(한국) 시각으로: 가짜 서버(Asia/Seoul)와 화면의 '오늘'이 어긋나지 않게
+if (!process.env.TZ) process.env.TZ = 'Asia/Seoul';
 const path = require('path');
 const fs = require('fs');
 let chromium;
@@ -3906,6 +3908,74 @@ async function libDeptCheck(browser) {
 }
 
 /**
+ * 회의록 보완(판 2026-10-28a): 홈 '내가 할 일'의 내 부서 칸(정보부 심청) → 쓰기 창까지, 홈 검색의 회의록, 회의 만들기 '일정에도 넣기' → 일정 창 '회의록 열기',
+ * 회의 종류가 많아도 휴대폰 목록이 넘치지 않음, '공지 쓰기'는 회의록 탭을 보던 창에서도 공지 탭으로
+ */
+async function meet2Check(browser) {
+  const P = (m) => problems.push('회의록 보완: ' + m);
+  const ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('회의록 보완 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '심청');
+  await page.locator('.todo-card').waitFor();
+  const row = page.locator('.todo-card .todo-row', { hasText: '정보부 칸을 아직 안 썼어요' });
+  if (!(await row.count())) P("홈 '내가 할 일'에 정보부 칸 알림이 없음");
+  else {
+    await shot(page, 'PC_홈_할일_회의록');
+    await row.locator('[data-action=meet-goto]').click();
+    await page.locator('#mw-text').waitFor({ timeout: 6000 }).catch(() => P("'쓰기'를 눌러도 정보부 칸 쓰기 창이 열리지 않음"));
+    if (!/정보부 칸/.test(await page.locator('#m-title').innerText().catch(() => ''))) P('쓰기 창이 정보부 칸이 아님');
+    await page.click('.modal [data-action=close-modal]');
+  }
+  // 공지 쓰기: 회의록 탭을 보던 창에서도 공지 탭과 쓰기 창
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.today-card').waitFor();
+  await page.locator('[data-action=notice-new]').first().click();
+  await page.locator('#nf-title, #notice-form, .modal form').first().waitFor({ timeout: 6000 }).catch(() => P("회의록 탭을 보던 창에서 홈 '공지 쓰기'가 쓰기 창을 열지 않음"));
+  if (!(await page.locator('[data-action=notice-tab][data-v=notice][aria-selected=true]').count())) P("'공지 쓰기'가 공지 탭으로 가지 않음");
+  await page.keyboard.press('Escape');
+  await page.locator('.modal [data-action=close-modal]').click().catch(() => {});
+  // 홈 검색
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.fill('#home-q', '우천');
+  await page.press('#home-q', 'Enter');
+  await page.locator('.search-res').waitFor();
+  const hit = page.locator('.sr-row[data-action=meet-goto]');
+  if (!(await hit.count())) P('홈 검색에 회의록이 나오지 않음(기타 안건 "우천")');
+  else {
+    await shot(page, 'PC_검색_회의록');
+    await hit.first().click();
+    await page.locator('.meet-doc').waitFor({ timeout: 6000 }).catch(() => P('검색 결과를 눌러도 회의록이 열리지 않음'));
+  }
+  // 회의 만들기(일정에도 넣기 기본 켬) → 일정 창의 '회의록 열기'
+  await page.evaluate(() => { const b = document.querySelector('[data-action=meet-back]'); if (b) b.click(); });
+  await page.locator('.meet-card').first().waitFor();
+  await page.click('.page-head [data-action=meet-new]');
+  await page.locator('#mt-form').waitFor();
+  await modalSettled(page);
+  if (!(await page.isChecked('#mt-sched'))) P("회의 만들기의 '일정에도 넣기'가 처음에 켜져 있지 않음");
+  await page.fill('#mt-newrow', '1학년');
+  await page.click('#mt-addrow');
+  if (!(await page.locator('#mt-pick label', { hasText: '1학년' }).count())) P('칸 추가가 안 됨');
+  await shot(page, 'PC_회의록_만들기_칸추가');
+  const title = await page.inputValue('#mt-title');
+  await page.click('#mt-form [type=submit]');
+  await page.locator('.meet-doc').waitFor();
+  if (!(await page.locator('.meet-name', { hasText: '1학년' }).count())) P('추가한 칸이 회의록에 없음');
+  if (!(await page.locator('.meet-doc .chip', { hasText: '일정에 있음' }).count())) P("만든 회의에 '일정에 있음' 표시가 없음");
+  await page.evaluate(() => window.__gy.go('schedule'));
+  await page.locator('.ev', { hasText: title }).first().click({ timeout: 8000 }).catch(() => P('달력에 회의 일정이 없음: ' + title));
+  await page.locator('.modal [data-action=meet-goto]').waitFor({ timeout: 4000 }).catch(() => P("일정 창에 '회의록 열기'가 없음"));
+  await shot(page, 'PC_일정창_회의록열기');
+  await page.locator('.modal [data-action=meet-goto]').click().catch(() => {});
+  await page.waitForFunction((t) => (document.querySelector('.meet-h') || {}).textContent === t, title, { timeout: 6000 }).catch(() => P("'회의록 열기'로 그 회의가 열리지 않음"));
+  await ctx.close();
+}
+
+/**
  * 홈 '내가 할 일' 오른쪽 사이드바(판 2026-10-22a, 교사 요청 '스크롤 내려도 따라오게', 교사 선택 '넓은 모니터에서만'·'오늘 일정을 넓게'):
  * 본문 폭 1264 이상(100%면 창 폭 약 1600 이상)에서만 오른쪽에 붙고 스크롤을 따라온다. 오늘 학교 일정은 가운데 기둥 폭을 모두 쓴다.
  * 노트북(1366·1440·1536)과 휴대폰은 예전 그대로. 창 크기·화면 크기를 바꾸면 다시 그린다. 인쇄는 한 줄로, 찾기 결과가 지나가도 그대로
@@ -4029,7 +4099,7 @@ async function meetCheck(browser) {
   const detail = (page) => page.evaluate(() => {
     const d = window.__gy.S.meet.detail;
     return {
-      m: d && d.meeting, names: [...document.querySelectorAll('.meet-row:not(.head):not(.etc) .meet-name')].map((e) => e.textContent),
+      m: d && d.meeting, names: [...document.querySelectorAll('.meet-row:not(.head):not(.etc) .meet-name')].map((e) => e.childNodes[0].textContent), // '내 부서' 표시는 빼고
       edit: !!document.querySelector('[data-action=meet-edit]'), del: !!document.querySelector('[data-action=meet-del]'),
       etc: [...document.querySelectorAll('.meet-etc')].map((e) => ({ text: e.querySelector('.meet-text').textContent, del: !!e.querySelector('[data-action=meet-etc-del]') }))
     };
@@ -4432,6 +4502,7 @@ async function introGapCheck(browser) {
   // ONLY=meet: 회의록(판 2026-10-22a) 점검만
   if (process.env.ONLY === 'meet') {
     await meetCheck(browser);
+    await meet2Check(browser);
     await browser.close();
     if (meetInfo) console.log(meetInfo);
     console.log('사진 ' + n + '장 → ' + OUT);
@@ -4607,6 +4678,7 @@ async function introGapCheck(browser) {
   await dropCheck(browser);
   await libDeptCheck(browser);
   await meetCheck(browser);
+  await meet2Check(browser);
   await homeSideCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser), await introGapCheck(browser)];

@@ -8,7 +8,7 @@
  * 고치기·지우기: 처음 넣은 사람, 역할이 '관리'인 분, 관리자 화면을 연 분만.
  */
 
-function fileMark_Schedule_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
+function fileMark_Schedule_() { return '2026-10-28a'; } // 판 표시(관리자 › 점검)
 
 function schedKinds_() {
   return ['행사', '교육활동', '회의', '휴업일', '공휴일', '근무']; // 회의·근무는 2026-10-19a(교사 요청·검토 55번)
@@ -154,7 +154,8 @@ function eventView_(e, ctx, depts, names, repeats) {
     editedAt: e['수정 시각'],
     canEdit: canEditEvent_(e, ctx) && (!isManageKind_(e['구분']) || canManage_(ctx)), // 휴업일·공휴일·근무는 관리만(저장도 서버가 막는다)
     repeat: e['반복 묶음ID'] || '',
-    repeatN: e['반복 묶음ID'] && repeats ? repeats[e['반복 묶음ID']] || 0 : 0
+    repeatN: e['반복 묶음ID'] && repeats ? repeats[e['반복 묶음ID']] || 0 : 0,
+    meetId: e['회의ID'] || '' // 회의록에서 함께 넣은 일정 → 일정 창의 '회의록 열기'(2026-10-28a)
   };
 }
 
@@ -256,6 +257,7 @@ function apiHome_(args, actor, ctx) {
     depts: deptOptions_(), // 홈에서 일정을 고칠 때 부서 목록
     todos: optional_('todoList_', [])(ctx),
     tableTodos: optional_('tbTodosFor_', [])(ctx), // 취합 시트 할 일 열에 내 이름이 있는 끝나지 않은 줄(서버 기억 10분)
+    meetTodos: optional_('meetTodosFor_', [])(ctx), // 7일 안의 회의록에서 내 부서 칸이 아직 빈 것(Meeting.gs, 2026-10-28a)
     library: homeLib.slice(0, 6), // 홈에는 6개까지
     libraryTotal: homeLib.length,
     notices: optional_('homeNotices_', { items: [], total: 0 })(ctx),

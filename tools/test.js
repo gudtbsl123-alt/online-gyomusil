@@ -1921,7 +1921,7 @@ test('속도 재기(관리자): 화면마다 서버 처리·시트 열기·탭 �
     assert.strictEqual(x.memo.reads, 0, x.label + ' 기억에서 잴 때는 시트를 읽지 않음');
     assert.strictEqual(x.memo.hits, x.sheet.reads, x.label + ' 같은 탭을 기억에서');
   }
-  assert.strictEqual(r.data.items[0].sheet.reads, 12, '홈은 탭 12개(비상 시 이것부터의 도움말 탭 포함, 2026-10-19a)');
+  assert.strictEqual(r.data.items[0].sheet.reads, 13, '홈은 탭 13개(비상 시 이것부터의 도움말 탭, 회의록 할 일의 회의 탭 포함. 7일 안에 내 부서 칸이 있는 회의가 있을 때만 회의내용도, 2026-10-28a)');
   assert.strictEqual(r.data.memoOn, true);
 });
 
@@ -4678,6 +4678,59 @@ test('회의록: 학기 나누기(학기 기간이 있으면 2학기 시작일�
   assert.ok(call(g, 'admin.settings.save', { values: { '회의록 맨 위 칸': '' } }, t).ok);
   assert.ok(!call(g, 'meet.list', {}, { login: L }).data.rowsDefault.some((x) => x.t));
   assert.ok(!call(g, 'admin.settings.save', { values: { '학교명': '' } }, t).ok, '다른 글 설정은 여전히 비울 수 없다');
+});
+
+test('회의록(2026-10-28a): 일정에도 넣기 → 회의를 고치면 일정도 함께, 지우면 함께 지우고 되살리면 함께 · 홈 할 일(내 부서 칸, 부서 전원) · 홈 검색 · 칸 추가', () => {
+  const g = freshName();
+  const { L, who, boss } = ids(g);
+  const ls = call(g, 'meet.list', {}, who('이몽룡')).data;
+  const gyomu = ls.rowsDefault.find((x) => x.n === '교무부');
+  const member = g.liveRows_('교직원').find((x) => x['부서ID'] === gyomu.k && x['사용 여부'] !== '사용 안 함');
+  assert.ok(member, '교무부 가짜 교직원이 있어야 함');
+  // 일정에도 넣기 + 이 회의에만 쓸 칸(1학년)
+  const rows = ls.rowsDefault.concat([{ k: '', n: '1학년', t: 1 }]);
+  let r = call(g, 'meet.save', { kindId: ls.kinds[0].id, title: '부장회의 (1)', date: g.addDays_(g.todayYmd_(), 2), time: '15:00', place: '교무실', rows, addSched: true }, who('이몽룡'));
+  assert.ok(r.ok, r.error);
+  const id = r.data.id;
+  assert.ok(r.data.sched, '일정ID를 돌려준다');
+  let ev = g.findRow_('일정', r.data.sched);
+  assert.strictEqual(ev['구분'], '회의');
+  assert.strictEqual(ev['회의ID'], id);
+  assert.strictEqual(ev['대상 학년'], '교직원');
+  assert.strictEqual(ev['행사명'], '부장회의 (1)');
+  let m = mtGet(g, id, { login: L });
+  assert.strictEqual(m.schedId, r.data.sched);
+  assert.ok(m.rows.some((x) => x.name === '1학년' && x.top), '직접 추가한 칸');
+  // 일정 화면에도 회의ID가 보인다(회의록 열기)
+  const mon = call(g, 'sched.month', { year: Number(ev['시작일'].slice(0, 4)), month: Number(ev['시작일'].slice(5, 7)) }, { login: L }).data;
+  assert.strictEqual(mon.events.find((e) => e.id === ev['일정ID']).meetId, id);
+  // 고치면 일정도 함께(날짜·시간·장소·제목)
+  r = call(g, 'meet.save', { id, kindId: ls.kinds[0].id, title: '부장회의 (1) 바뀜', date: g.addDays_(g.todayYmd_(), 3), time: '16:00', place: '도서실', rows: m.rows.map((x) => ({ k: x.k, n: x.name, t: x.top ? 1 : 0 })) }, who('이몽룡'));
+  assert.ok(r.ok, r.error);
+  ev = g.findRow_('일정', ev['일정ID']);
+  assert.deepStrictEqual([ev['행사명'], ev['시작일'], ev['시간'], ev['장소']], ['부장회의 (1) 바뀜', g.addDays_(g.todayYmd_(), 3), '16:00', '도서실']);
+  // 홈 할 일: 교무부 선생님에게 '교무부 칸 아직 안 씀', 다른 부서는 없음
+  const memberTok = { login: L, identity: call(g, 'verify', { staffId: member['교직원ID'] }, { login: L }).data.identity };
+  let home = call(g, 'home', {}, memberTok).data;
+  assert.ok(home.meetTodos.some((x) => x.id === id && x.k === gyomu.k && x.name === '교무부'), JSON.stringify(home.meetTodos));
+  const other = g.liveRows_('교직원').find((x) => x['부서ID'] && x['부서ID'] !== gyomu.k && x['사용 여부'] !== '사용 안 함');
+  home = call(g, 'home', {}, { login: L, identity: call(g, 'verify', { staffId: other['교직원ID'] }, { login: L }).data.identity }).data;
+  assert.ok(!home.meetTodos.some((x) => x.id === id && x.k === gyomu.k), '다른 부서에는 교무부 칸 알림이 없다');
+  // 한 분이 쓰면 모두에게서 사라짐
+  assert.ok(call(g, 'meet.row', { id, k: gyomu.k, content: '우천 시 체육관 사용', base: 0 }, who('성춘향')).ok);
+  home = call(g, 'home', {}, memberTok).data;
+  assert.ok(!home.meetTodos.some((x) => x.id === id), '쓴 뒤에는 알림이 없다');
+  // 검색: 칸 내용으로 찾는다
+  const sr = call(g, 'search', { q: '체육관' }, { login: L }).data;
+  assert.ok(sr.meetings.items.some((x) => x.id === id), JSON.stringify(sr.meetings));
+  // 지우면 일정도 함께 지우고, 관리자 휴지통에서 되살리면 함께
+  assert.ok(call(g, 'meet.delete', { id }, who('이몽룡')).ok);
+  assert.ok(g.findRow_('일정', ev['일정ID'])['삭제 여부'], '이어진 일정도 지운다');
+  assert.ok(call(g, 'admin.trash.restoreMeeting', { id }, boss()).ok);
+  assert.ok(!g.findRow_('일정', ev['일정ID'])['삭제 여부'], '되살리면 일정도');
+  // 일정에 넣지 않은 회의는 일정 없음
+  const id2 = mtMake(g, who('이몽룡'));
+  assert.strictEqual(mtGet(g, id2, { login: L }).schedId, '');
 });
 
 test('회의록: 점검(Meeting.gs 판·탭이 아직 없어도 괜찮음)·예시 데이터(가짜 교직원 이름만)', () => {

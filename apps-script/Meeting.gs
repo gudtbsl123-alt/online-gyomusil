@@ -13,7 +13,7 @@
  * - 지운 회의는 관리자 › 휴지통에서 되살린다. 모든 바꿈은 기록 탭에. 탭은 처음 회의를 만들 때 저절로 생긴다
  */
 
-function fileMark_Meeting_() { return '2026-10-22a'; } // 판 표시(관리자 › 점검)
+function fileMark_Meeting_() { return '2026-10-28a'; } // 판 표시(관리자 › 점검)
 
 var MEET_ETC_ = '_etc'; // 기타 안건 칸
 var MEET_KIND_DEFAULTS_ = ['부장회의', '교직원회의'];
@@ -90,7 +90,7 @@ function meetView_(r, ctx, kinds, names, pieces, termCache) {
     year: r['학년도'], term: term.key, termLabel: term.label,
     total: rows.length, filled: rows.filter(function (x) { return filled[x.k]; }).length,
     etc: pieces.filter(function (p) { return p['칸'] === MEET_ETC_; }).length,
-    by: names[r['입력자ID']] || '', at: r['입력 시각'], canEdit: canEditMeet_(r, ctx)
+    by: names[r['입력자ID']] || '', at: r['입력 시각'], canEdit: canEditMeet_(r, ctx), schedId: r['일정ID'] || ''
   };
 }
 
@@ -190,7 +190,8 @@ function apiMeetSave_(args, actor, ctx) {
     }
     var rec = { '학년도': String(schoolYearOf_(date)), '종류ID': kindId, '제목': title, '날짜': date, '시간': time, '장소': place, '칸': JSON.stringify(rows.map(function (x) { return x.t ? { k: x.k, n: x.n, t: 1 } : { k: x.k, n: x.n }; })) };
     var saved = old ? updateRow_('회의', old['회의ID'], rec, actor, '회의록 고침: ' + title) : insertRow_('회의', rec, actor, '회의록 만듦: ' + title);
-    return { id: saved['회의ID'] };
+    var sched = meetSyncSched_(old, saved['회의ID'], rec, !!args.addSched, actor);
+    return { id: saved['회의ID'], sched: sched };
   });
 }
 
@@ -199,7 +200,62 @@ function apiMeetDelete_(args, actor, ctx) {
     var r = findMeet_(args && args.id);
     if (!canEditMeet_(r, ctx)) throw userError_('회의를 만든 분과 관리자만 지울 수 있어요.', 'FORBIDDEN');
     softDelete_('회의', r['회의ID'], actor, '회의록 지움: ' + r['제목']);
+    var ev = r['일정ID'] ? findRow_('일정', r['일정ID']) : null; // 함께 넣은 일정도 지운다(관리자 › 휴지통에서 회의록을 되살리면 함께 돌아옴)
+    if (ev && !ev['삭제 여부']) softDelete_('일정', ev['일정ID'], actor, '회의록과 함께 일정 지움: ' + r['제목']);
     return { done: true };
+  });
+}
+
+/**
+ * 회의와 이어진 일정(구분 '회의', 대상 교직원, 2026-10-28a 교사 결정 '함께 바뀜'): 만들기·고치기 창의 '일정에도 넣기'면 넣고 회의에 일정ID를 적는다.
+ * 이어진 일정이 있으면 회의를 고칠 때 그 일정의 날짜·시간·장소·이름도 함께 바꾼다(대상·부서·메모·중요는 일정 화면에서 고친 그대로). 잠금 안에서 부른다
+ */
+function meetSyncSched_(old, mid, rec, add, actor) {
+  var eid = old && old['일정ID'], ev = eid ? findRow_('일정', eid) : null;
+  var f = { '시작일': rec['날짜'], '끝일': '', '시간': rec['시간'], '행사명': rec['제목'], '장소': rec['장소'] };
+  if (ev && !ev['삭제 여부']) {
+    var same = Object.keys(f).every(function (k) { return String(ev[k] || '') === String(f[k] || ''); });
+    if (!same) updateRow_('일정', eid, f, actor, '회의록과 함께 일정 고침: ' + rec['제목']);
+    return eid;
+  }
+  if (!add) return '';
+  ensureCols_('일정');
+  ensureCols_('회의');
+  f['대상 학년'] = '교직원'; f['구분'] = '회의'; f['담당 부서ID'] = ''; f['메모'] = ''; f['중요'] = ''; f['회의ID'] = mid;
+  var e = insertRow_('일정', f, actor, '회의록과 함께 일정 추가: ' + rec['제목']);
+  updateRow_('회의', mid, { '일정ID': e['일정ID'] }, actor, '회의록에 일정 이음: ' + rec['제목']);
+  return e['일정ID'];
+}
+
+/** 홈 '내가 할 일': 오늘부터 7일 안의 회의 중 내 부서 칸이 아직 빈 것(교사 결정 '부서 전원', 한 분이 쓰면 모두에게서 사라짐) */
+function meetTodosFor_(ctx) {
+  var dept = ctx && ctx.identity && ctx.identity['부서ID'];
+  if (!dept) return [];
+  var today = todayYmd_(), until = addDays_(today, 7);
+  var ms = meetRows_('회의').filter(function (m) {
+    return m['날짜'] >= today && m['날짜'] <= until && meetParseRows_(m['칸']).some(function (x) { return x.k === dept; });
+  });
+  if (!ms.length) return [];
+  var kinds = meetKindNames_(), filled = {};
+  meetRows_('회의내용').forEach(function (p) { if (p['칸'] === dept && String(p['내용']).trim()) filled[p['회의ID']] = true; });
+  return ms.filter(function (m) { return !filled[m['회의ID']]; })
+    .sort(function (a, b) { return (a['날짜'] + a['시간']) < (b['날짜'] + b['시간']) ? -1 : 1; })
+    .map(function (m) {
+      var row = meetParseRows_(m['칸']).filter(function (x) { return x.k === dept; })[0];
+      return { id: m['회의ID'], title: m['제목'], kind: kinds[m['종류ID']] || '', date: m['날짜'], time: m['시간'], k: dept, name: row.n };
+    });
+}
+
+/** 홈 검색: 회의 제목·종류·장소·칸 이름·칸 내용·기타 안건(새 회의 먼저) */
+function meetSearch_(terms, ctx) {
+  var ms = meetRows_('회의');
+  if (!ms.length) return [];
+  var kinds = meetKindNames_(), texts = {};
+  meetRows_('회의내용').forEach(function (p) { (texts[p['회의ID']] = texts[p['회의ID']] || []).push(p['내용']); });
+  return ms.filter(function (m) {
+    return matchAll_(terms, [m['제목'], kinds[m['종류ID']] || '', m['장소']].concat(meetParseRows_(m['칸']).map(function (x) { return x.n; })).concat(texts[m['회의ID']] || []));
+  }).sort(function (a, b) { return a['날짜'] < b['날짜'] ? 1 : a['날짜'] > b['날짜'] ? -1 : 0; }).map(function (m) {
+    return { id: m['회의ID'], title: m['제목'], kind: kinds[m['종류ID']] || '', date: m['날짜'], time: m['시간'], place: m['장소'] };
   });
 }
 
@@ -284,6 +340,8 @@ function adminMeetRestore_(args, actor) {
   var r = meetRows_('회의', true).filter(function (x) { return x['회의ID'] === String(args.id || ''); })[0];
   if (!r || !r['삭제 여부']) throw userError_('되살릴 회의록을 찾지 못했어요.');
   restoreRow_('회의', r['회의ID'], actor, '회의록 되살림: ' + r['제목']);
+  var ev = r['일정ID'] ? findRow_('일정', r['일정ID']) : null;
+  if (ev && ev['삭제 여부']) restoreRow_('일정', ev['일정ID'], actor, '회의록과 함께 일정 되살림: ' + r['제목']);
   return { done: true };
 }
 

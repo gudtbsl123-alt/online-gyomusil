@@ -64,8 +64,8 @@ function tableUiFileBuild_() {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-22a';
-function fileMark_Code_() { return '2026-10-22a'; }
+var APP_BUILD_ = '2026-10-28a';
+function fileMark_Code_() { return '2026-10-28a'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -73,9 +73,9 @@ function fileMark_Code_() { return '2026-10-22a'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-22a', 'Db': '2026-10-22a', 'Auth': '2026-10-21b', 'Admin': '2026-10-22a', 'Schedule': '2026-10-21b',
-    'Survey': '2026-10-21b', 'Library': '2026-10-21b', 'Help': '2026-10-21b', 'Setup': '2026-10-21b', 'Table': '2026-10-21b',
-    'Meeting': '2026-10-22a', 'App': '2026-10-22a', 'Styles': '2026-10-22a', 'Index': '2026-10-21c', 'TableUi': '2026-10-21b'
+    'Code': '2026-10-28a', 'Db': '2026-10-28a', 'Auth': '2026-10-21b', 'Admin': '2026-10-22a', 'Schedule': '2026-10-28a',
+    'Survey': '2026-10-21b', 'Library': '2026-10-21b', 'Help': '2026-10-28a', 'Setup': '2026-10-21b', 'Table': '2026-10-21b',
+    'Meeting': '2026-10-28a', 'App': '2026-10-28a', 'Styles': '2026-10-28a', 'Index': '2026-10-21c', 'TableUi': '2026-10-21b'
   };
 }
 
@@ -222,7 +222,7 @@ var BASE_TABS_ = ['설정', '교직원', '분류'];
 var ROUTE_TABS_ = {
   'start': [], 'staffPicker': [], 'staff.list': [],
   'session': ['응답', '알림', '조사', '공지'],
-  'home': ['일정', '월별중점', '학생수', '응답', '알림', '조사', '자료', '공지', '도움말', '@gy:tbtodo'], // '@키': 탭이 아닌 서버 기억(취합 시트 할 일 목록, Table.gs)
+  'home': ['일정', '월별중점', '학생수', '응답', '알림', '조사', '자료', '공지', '도움말', '회의', '회의내용', '@gy:tbtodo'], // '@키': 탭이 아닌 서버 기억(취합 시트 할 일 목록, Table.gs)
   'sched.month': ['일정', '월별중점', '학기'],
   'sched.year': ['일정', '학기'],
   'sched.range': ['일정'],
@@ -239,7 +239,7 @@ var ROUTE_TABS_ = {
   'table.find': ['함께표', '함께표줄'],
   'table.tpl.list': ['시트양식', '학기', '일정', '학생수'], // 기본 양식의 줄(방학 근무·대피 훈련 재적)
   'table.tpl.get': ['시트양식', '학기', '일정', '학생수'],
-  'search': ['일정', '자료', '도움말', '공지', '조사', '응답', '알림', '함께표']
+  'search': ['일정', '자료', '도움말', '공지', '조사', '응답', '알림', '함께표', '회의', '회의내용']
 };
 
 /** 요청이 읽을 탭 목록. boot·batch·이어 읽기(then)는 합친다 */
