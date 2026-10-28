@@ -874,6 +874,7 @@ async function printCheck(browser) {
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
   await login(page);
   await verify(page, '홍길동');
+  await page.locator('.today-card').waitFor(); // 홈을 다 불러온 뒤에 찍는다('불러오는 중'만 찍히지 않게)
   await page.emulateMedia({ media: 'print' });
   const bg = await page.evaluate(() => getComputedStyle(document.querySelector('.app')).backgroundColor);
   const sideShown = await page.evaluate(() => getComputedStyle(document.querySelector('.side')).display);
@@ -3911,6 +3912,155 @@ async function libDeptCheck(browser) {
  * 회의록 보완(판 2026-10-28a): 홈 '내가 할 일'의 내 부서 칸(정보부 심청) → 쓰기 창까지, 홈 검색의 회의록, 회의 만들기 '일정에도 넣기' → 일정 창 '회의록 열기',
  * 회의 종류가 많아도 휴대폰 목록이 넘치지 않음, '공지 쓰기'는 회의록 탭을 보던 창에서도 공지 탭으로
  */
+// 묶음 2 홈·일정(판 2026-10-28a): 오늘 카드(근무는 개수에서 빼고 표시), 홈 '이번 주 전체 보기' → 그 주, 연간 이전·다음은 달력 달을 안 바꿈,
+// 거르는 중 표시·인쇄에 접힌 행사도, 반복 격주·날짜 빼기, 바뀐 내용 보기, 학생 수 기준일, 돌아오면 새로 받기, 자주 찾는 자료 홈에서 열기
+async function sched2Check(browser) {
+  const P = (m) => problems.push('일정 보완: ' + m);
+  const ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('일정 보완 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  await page.locator('.today-card').waitFor();
+  // 오늘 카드
+  const tc = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('.today-card .ev-row')];
+    return { n: rows.length, duty: rows.filter((r) => r.classList.contains('duty')).length, chip: rows.some((r) => /관리자 근무/.test(r.textContent)), big: document.querySelector('.today-card .big-num').textContent };
+  });
+  if (tc.duty && !tc.chip) P("오늘 카드의 근무 줄에 '관리자 근무' 표시가 없음");
+  if (tc.duty && tc.n - tc.duty > 0 && !tc.big.includes((tc.n - tc.duty) + '개')) P('오늘 카드 개수에 근무가 들어감: ' + tc.big + ' / 줄 ' + tc.n + ' 근무 ' + tc.duty);
+  await shot(page, 'PC_홈_오늘카드');
+  // 자주 찾는 자료: 홈에서 창
+  const q = page.locator('.quick-card [data-action=sr-lib]').first();
+  if (await q.count()) {
+    await q.click();
+    await page.locator('.modal h2').waitFor({ timeout: 4000 }).catch(() => P('홈 자주 찾는 자료를 눌러도 창이 열리지 않음'));
+    if ((await page.evaluate(() => window.__gy.S.screen)) !== 'home') P('자주 찾는 자료를 누르면 홈을 떠남');
+    await shot(page, 'PC_홈_자주찾는자료_창');
+    await page.click('.modal [data-action=close-modal]');
+  } else P('홈에 자주 찾는 자료가 없어 점검 못 함');
+  // 일정에서 두 달 앞으로 → 홈 '이번 주 전체 보기'는 그 주로
+  await page.evaluate(() => window.__gy.go('schedule'));
+  await page.locator('.cal').waitFor();
+  await page.click('[data-action=m-next]');
+  await page.click('[data-action=m-next]');
+  await page.waitForTimeout(400);
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('[data-action=home-week]').click();
+  await page.locator('.cal').waitFor();
+  const wk = await page.evaluate(() => {
+    const S = window.__gy.S, mon = S.home.monday;
+    const d = new Date(Date.UTC(+mon.slice(0, 4), +mon.slice(5, 7) - 1, +mon.slice(8, 10) + 3));
+    return { y: S.sched.y, m: S.sched.m, wy: d.getUTCFullYear(), wm: d.getUTCMonth() + 1, week: S.sched.week, mon: mon, view: S.sched.view };
+  });
+  if (wk.y !== wk.wy || wk.m !== wk.wm || wk.week !== wk.mon || wk.view !== 'cal') P("홈 '이번 주 전체 보기'가 그 주로 가지 않음 " + JSON.stringify(wk));
+  // 연간 이전·다음은 달력 달을 바꾸지 않음
+  await page.click('[data-sched-view=year]');
+  await page.locator('[data-action=y-prev]').waitFor();
+  await page.click('[data-action=y-prev]');
+  await page.waitForTimeout(500);
+  await page.click('[data-sched-view=cal]');
+  await page.locator('.cal').waitFor();
+  const after = await page.evaluate(() => ({ y: window.__gy.S.sched.y, m: window.__gy.S.sched.m }));
+  if (after.y !== wk.y || after.m !== wk.m) P('연간 이전 학년도를 누른 뒤 달력의 달이 바뀜 ' + JSON.stringify(after) + ' ' + JSON.stringify(wk));
+  // 거르기 표시 + 인쇄에 접힌 행사
+  await page.selectOption('#f-grade', '3');
+  await page.locator('.filter-note').waitFor({ timeout: 3000 }).catch(() => P('거르는 중 표시가 없음'));
+  if (!/3학년/.test(await page.locator('.filter-note').innerText().catch(() => ''))) P('거르는 중 표시에 3학년이 없음');
+  await shot(page, 'PC_달력_거르는중');
+  await page.click('[data-action=filter-clear]');
+  await page.evaluate(() => {
+    const S = window.__gy.S, d = S.sched.data, day = d.from > d.today ? d.from : d.today;
+    const dd = new Date(Date.UTC(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8, 10)));
+    while (dd.getUTCDay() === 0 || dd.getUTCDay() === 6) dd.setUTCDate(dd.getUTCDate() + 1);
+    const ymd = dd.toISOString().slice(0, 10);
+    for (let i = 0; i < 5; i++) d.events.push({ id: 'X' + i, start: ymd, end: ymd, title: '많은 행사 ' + (i + 1), kind: '행사', target: '전체' });
+    window.__gy.S.sched.view = 'cal';
+    window.__gy.go('schedule');
+  });
+  await page.locator('.cal-more').first().waitFor({ timeout: 4000 }).catch(() => P("'+n개 더'가 없음"));
+  const hiddenScreen = await page.evaluate(() => [...document.querySelectorAll('.ev.cal-extra')].filter((x) => getComputedStyle(x).display !== 'none').length);
+  if (hiddenScreen) P('화면에서 접힌 행사가 보임');
+  await page.emulateMedia({ media: 'print' });
+  const pr = await page.evaluate(() => ({ all: document.querySelectorAll('.ev.cal-extra').length, shown: [...document.querySelectorAll('.ev.cal-extra')].filter((x) => getComputedStyle(x).display !== 'none').length }));
+  if (!pr.all || pr.shown !== pr.all) P('인쇄에 접힌 행사가 다 찍히지 않음 ' + JSON.stringify(pr));
+  await page.pdf({ path: path.join(OUT, '인쇄_달력_많은날.pdf'), format: 'A4', landscape: true });
+  await page.emulateMedia({ media: 'screen' });
+  // 반복: 격주 + 날짜 빼기
+  await page.click('.bar [data-action=ev-add]');
+  await page.locator('#ev-form').waitFor();
+  await page.check('#ef-rep');
+  await page.click('[data-rep=week2]');
+  await page.locator('[data-rep-x]').first().waitFor({ timeout: 6000 }).catch(() => P('반복 날짜 단추가 없음'));
+  const ds = await page.evaluate(() => [...document.querySelectorAll('.rep-days .chip')].map((c) => c.getAttribute('data-rep-x') || ''));
+  const real = ds.filter(Boolean);
+  if (real.length >= 2 && (Date.parse(real[1]) - Date.parse(real[0])) / 86400000 % 14 !== 0) P('격주 간격이 14일이 아님 ' + real.slice(0, 3));
+  const n0 = await page.evaluate(() => (document.querySelector('.rep-sum b') || {}).textContent);
+  await page.locator('[data-rep-x]').nth(1).click();
+  const sum = await page.locator('.rep-sum').innerText();
+  if (!/1개는 뺐어요/.test(sum)) P("날짜를 눌러도 '1개는 뺐어요'가 없음: " + sum);
+  if (parseInt(sum, 10) !== parseInt(n0, 10) - 1) P('뺀 뒤 넣을 수가 1 줄지 않음 ' + n0 + ' → ' + sum);
+  await shot(page, 'PC_반복_격주_빼기');
+  await page.fill('#ef-title', '격주 점검 회의');
+  await page.click('#ev-form [type=submit]');
+  await page.locator('.toast', { hasText: '번 넣었어요' }).waitFor({ timeout: 8000 }).catch(() => P('격주 반복을 넣지 못함'));
+  // 바뀐 내용 보기: 고친 행사
+  const evId = await page.evaluate(async () => {
+    const S = window.__gy.S, d = S.sched.data;
+    const r = await window.__gy.server('sched.save', { fields: { start: d.today, title: '바뀜 점검 행사', kind: '행사', target: ['전체'] } });
+    const m = await window.__gy.server('sched.month', { year: S.sched.y, month: S.sched.m });
+    const e = m.events.filter((x) => x.id === r.id)[0];
+    await window.__gy.server('sched.save', { id: r.id, base: e.editedAt || e.at, fields: { start: d.today, title: '바뀜 점검 행사', kind: '행사', target: ['전체'], place: '강당' } });
+    return r.id;
+  });
+  await page.evaluate(() => { window.__gy.memoClear(); window.__gy.go('schedule'); });
+  await page.locator('.cal').waitFor();
+  const chg = page.locator('.ev.ev-chg[data-ev="' + evId + '"]');
+  if (!(await chg.count())) P('고친 행사에 최근 바뀜 점이 없음');
+  else {
+    await chg.first().click();
+    await page.locator('.modal .chip', { hasText: '최근 바뀜' }).waitFor({ timeout: 3000 }).catch(() => P("일정 창에 '최근 바뀜'이 없음"));
+    await page.click('[data-action=ev-hist]');
+    await page.locator('.ev-hist-list').waitFor({ timeout: 6000 }).catch(() => P('바뀐 내용 목록이 없음'));
+    if (!/장소/.test(await page.locator('#ev-hist').innerText().catch(() => ''))) P('바뀐 내용에 장소가 없음');
+    await shot(page, 'PC_일정창_바뀐내용');
+    await page.click('.modal [data-action=close-modal]');
+  }
+  // 학생 수: 숫자를 바꾸면 기준일이 오늘로
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.today-card').waitFor();
+  const today = await page.evaluate(() => { const S = window.__gy.S; S.home.students = Object.assign({}, S.home.students, { date: S.home.today.slice(0, 8) + '01' === S.home.today ? '' : S.home.today.slice(0, 8) + '01' }); return S.home.today; });
+  await page.evaluate(() => { const b = document.createElement('button'); b.setAttribute('data-action', 'students-edit'); b.id = 'tmp-stu'; document.querySelector('#screen').appendChild(b); b.click(); });
+  await page.locator('#stu-form').waitFor();
+  await page.fill('#stu-1-1-0', '12');
+  if ((await page.inputValue('#stu-date')) !== today) P('학생 수를 바꿔도 기준일이 오늘로 바뀌지 않음');
+  if (await page.locator('#stu-date-note').isHidden()) P('기준일을 바꿨다는 안내가 없음');
+  await shot(page, 'PC_학생수_기준일');
+  await page.click('.modal [data-action=close-modal]');
+  // 돌아오면 새로 받기: 1분 넘게 숨겼다 보이면 지금 화면을 다시 그린다(표시를 넣어 두고 사라지는지 본다)
+  const wake = await page.evaluate(async () => {
+    const mark = () => { const m = document.createElement('i'); m.id = 'wake-mark'; document.querySelector('#home-body').appendChild(m); };
+    const setHidden = (v) => Object.defineProperty(document, 'hidden', { configurable: true, get: () => v });
+    const t0 = Date.now;
+    mark();
+    setHidden(true); document.dispatchEvent(new Event('visibilitychange'));
+    setHidden(false); document.dispatchEvent(new Event('visibilitychange')); // 바로 돌아오면 그대로
+    const short = !!document.querySelector('#wake-mark');
+    setHidden(true); document.dispatchEvent(new Event('visibilitychange'));
+    Date.now = () => t0() + 120000;
+    setHidden(false); document.dispatchEvent(new Event('visibilitychange'));
+    Date.now = t0;
+    await new Promise((r) => setTimeout(r, 300));
+    delete document.hidden;
+    return { short: short, long: !document.querySelector('#wake-mark'), home: !!document.querySelector('.today-card') };
+  });
+  if (!wake.short) P('잠깐 다른 창에 다녀와도 화면을 다시 그림');
+  if (!wake.long || !wake.home) P('1분 넘게 다른 창에 있다 돌아와도 홈을 새로 받지 않음 ' + JSON.stringify(wake));
+  await ctx.close();
+}
+
 async function meet2Check(browser) {
   const P = (m) => problems.push('회의록 보완: ' + m);
   const ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
@@ -4499,6 +4649,14 @@ async function introGapCheck(browser) {
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
   }
+  // ONLY=sched2: 홈·일정 보완(판 2026-10-28a) 점검만
+  if (process.env.ONLY === 'sched2') {
+    await sched2Check(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
   // ONLY=meet: 회의록(판 2026-10-22a) 점검만
   if (process.env.ONLY === 'meet') {
     await meetCheck(browser);
@@ -4679,6 +4837,7 @@ async function introGapCheck(browser) {
   await libDeptCheck(browser);
   await meetCheck(browser);
   await meet2Check(browser);
+  await sched2Check(browser);
   await homeSideCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser), await introGapCheck(browser)];

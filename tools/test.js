@@ -4755,5 +4755,76 @@ test('회의록: 점검(Meeting.gs 판·탭이 아직 없어도 괜찮음)·예�
   assert.ok(by.length >= 3 && by.every((n) => ['홍길동', '성춘향', '이몽룡', '심청', '흥부', '놀부', '장화', '홍련'].includes(n)), by.join(','));
 });
 
+test('화면 READS(읽기 목록)가 서버의 읽기 요청과 같다(빠지면 읽기를 저장으로 보고 화면 기억을 모두 지움, 2026-10-28a)', () => {
+  const app = fs.readFileSync(path.join(GAS_DIR, 'App.html'), 'utf8');
+  const m = /var READS = \{([\s\S]*?)\};/.exec(app);
+  assert.ok(m, 'READS');
+  const reads = new Set([...m[1].matchAll(/'?([\w.]+)'?\s*:\s*1/g)].map((x) => x[1]));
+  const g = freshName();
+  const routes = Object.keys(plain(Object.fromEntries(Object.keys(g.routes_()).map((k) => [k, 1]))));
+  const TOP = new Set(['start', 'ping', 'boot', 'batch', 'session', 'staffPicker', 'home', 'search']);
+  const LAST = new Set(['list', 'get', 'poll', 'find', 'csv', 'check', 'preview', 'info', 'range', 'month', 'year', 'url', 'table', 'speed', 'importCheck', 'surveys', 'library', 'tables', 'meetings', 'history']);
+  const isRead = (k) => TOP.has(k) || (k.indexOf('.') > 0 && LAST.has(k.split('.').pop()));
+  for (const k of routes) {
+    if (isRead(k)) assert.ok(reads.has(k), '읽기인데 READS에 없음: ' + k);
+    else assert.ok(!reads.has(k), '쓰기인데 READS에 있음: ' + k);
+  }
+  for (const k of reads) assert.ok(routes.includes(k), 'READS에만 있는 이름: ' + k);
+});
+
+test('일정(2026-10-28a): 대상을 안 고르면 전체 · 다시 올리기에서 파일에 없는 전에 올린 행사 숨기기·되돌리기 · 바뀐 내용 보기', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  const { who } = ids(g);
+  // 대상 없이 넣으면 '전체'
+  const e0 = call(g, 'sched.save', { fields: { start: '2026-11-12', title: '대상 없는 행사', kind: '행사', target: [] } }, who('심청'));
+  assert.strictEqual(e0.ok, true, e0.error);
+  assert.strictEqual(g.findRow_('일정', e0.data.id)['대상 학년'], '전체');
+  // 다시 올리기: 첫 파일 3개 → 둘째 파일은 하나 이름이 바뀌고 하나 빠짐
+  const dept = call(g, 'sched.save', { fields: { start: '2026-11-10', title: '부서 행사', kind: '행사' } }, who('심청')).data;
+  const grid1 = [HEAD, ['2026-11-09', '', '', '학예회', '전체', '', '', '행사'], ['2026-11-11', '', '', '독서 주간', '전체', '', '', '행사'], ['2026-11-13', '', '', '체육 대회', '전체', '', '', '행사'], ['2026-12-20', '', '', '범위 밖 행사', '전체', '', '', '행사']];
+  const c1 = call(g, 'sched.upload.check', { grid: grid1 }, t).data;
+  assert.strictEqual(c1.counts.gone, 0);
+  const s1 = call(g, 'sched.upload.save', { rows: c1.rows.map((r) => r.raw), mode: 'skip' }, t).data;
+  assert.strictEqual(s1.added, 4);
+  g.__clock.offset += 2000;
+  const grid2 = [HEAD, ['2026-11-09', '', '', '학예회', '전체', '', '', '행사'], ['2026-11-12', '', '', '독서 주간 행사', '전체', '', '', '행사'], ['2026-11-13', '', '', '새 행사', '전체', '', '', '행사']];
+  const c2 = call(g, 'sched.upload.check', { grid: grid2 }, t).data;
+  assert.deepStrictEqual(plain(c2.gone.map((x) => x.title)), ['독서 주간', '체육 대회'], '파일 날짜 범위(11/9~11/13) 안의 전에 올린 행사만, 부서 행사·범위 밖은 빼고');
+  const before = c2.days.after.total;
+  const c2b = call(g, 'sched.upload.check', { grid: grid2, hideGone: true }, t).data;
+  assert.strictEqual(c2b.counts.gone, 2);
+  assert.ok(c2b.days.after.total >= before);
+  const s2 = call(g, 'sched.upload.save', { rows: c2.rows.map((r) => r.raw), mode: 'skip', hideGone: true }, t);
+  assert.strictEqual(s2.ok, true, s2.error);
+  assert.strictEqual(s2.data.hidden, 2);
+  let month = call(g, 'sched.month', { year: 2026, month: 11 }, t).data.events.map((e) => e.title);
+  assert.ok(!month.includes('독서 주간') && !month.includes('체육 대회'), '숨김');
+  assert.ok(month.includes('부서 행사') && month.includes('독서 주간 행사') && month.includes('새 행사'));
+  assert.ok(call(g, 'sched.month', { year: 2026, month: 12 }, t).data.events.some((e) => e.title === '범위 밖 행사'));
+  const u = call(g, 'sched.upload.undo', { batch: s2.data.batch }, t).data;
+  assert.deepStrictEqual(plain(u), { removed: 2, restored: 2 });
+  month = call(g, 'sched.month', { year: 2026, month: 11 }, t).data.events.map((e) => e.title);
+  assert.ok(month.includes('독서 주간') && month.includes('체육 대회') && !month.includes('새 행사'), '되돌리면 숨긴 것도 다시');
+  assert.ok(month.includes('부서 행사'), dept.id);
+  // 숨기지 않고 올리면 그대로
+  g.__clock.offset += 2000;
+  const s3 = call(g, 'sched.upload.save', { rows: c2.rows.map((r) => r.raw), mode: 'skip' }, t).data;
+  assert.strictEqual(s3.hidden, 0);
+  // 바뀐 내용 보기
+  g.__clock.offset += 2000;
+  const ev = call(g, 'sched.month', { year: 2026, month: 11 }, who('심청')).data.events.filter((e) => e.id === e0.data.id)[0];
+  const ed = call(g, 'sched.save', { id: e0.data.id, base: ev.editedAt || ev.at, fields: { start: '2026-11-13', title: '대상 있는 행사', kind: '행사', target: ['3'], place: '강당' } }, who('심청'));
+  assert.strictEqual(ed.ok, true, ed.error);
+  const h = call(g, 'sched.history', { id: e0.data.id }, who('홍길동'));
+  assert.strictEqual(h.ok, true, h.error);
+  const ch = plain(h.data.list.filter((x) => x.changes.length)[0].changes);
+  const names = ch.map((c) => c[0]);
+  ['날짜', '이름', '대상', '장소'].forEach((n) => assert.ok(names.includes(n), n + ' ' + JSON.stringify(ch)));
+  assert.deepStrictEqual(ch.filter((c) => c[0] === '날짜')[0], ['날짜', '2026-11-12', '2026-11-13']);
+  assert.strictEqual(h.data.list[0].by, '심청');
+  assert.deepStrictEqual(plain(call(g, 'sched.history', { id: 'E없음' }, who('홍길동')).data), { list: [] });
+});
+
 console.log(results.join('\n'));
 console.log('\n' + passed + '/' + results.length + ' 통과');

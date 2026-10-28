@@ -159,6 +159,33 @@ function eventView_(e, ctx, depts, names, repeats) {
   };
 }
 
+/**
+ * 일정 하나가 바뀐 내용(기록 탭 끝 5000줄에서 최근 5번, 2026-10-28a). 로그인한 누구나(일정은 모두 보는 정보).
+ * 바뀐 칸만 [이름, 전, 뒤]로 돌려준다(부서는 이름으로)
+ */
+function apiSchedHistory_(args) {
+  var id = String(args.id || '');
+  if (!id) return { list: [] };
+  var depts = categoryNames_('부서');
+  var FIELDS = ['시작일', '끝일', '시간', '행사명', '대상 학년', '담당 부서ID', '장소', '구분', '메모', '중요'];
+  var LABEL = { '시작일': '날짜', '끝일': '끝나는 날', '행사명': '이름', '대상 학년': '대상', '담당 부서ID': '담당 부서' };
+  var parse = function (t) { try { return t ? JSON.parse(t) : null; } catch (e) { return null; } };
+  var rows = tailRows_('기록', 5000), out = [];
+  for (var i = rows.length - 1; i >= 0 && out.length < 5; i--) {
+    var r = rows[i];
+    if (r['탭'] !== '일정' || r['대상ID'] !== id) continue;
+    var b = parse(r['바뀌기 전']), a = parse(r['바뀐 뒤']), ch = [];
+    if (b && a) FIELDS.forEach(function (k) {
+      var x = b[k] == null ? '' : String(b[k]), y = a[k] == null ? '' : String(a[k]);
+      if (x === y) return;
+      if (k === '담당 부서ID') { x = depts[x] || x; y = depts[y] || y; }
+      ch.push([LABEL[k] || k, x, y]);
+    });
+    out.push({ at: r['시각'], by: r['이름'], action: r['동작'], changes: ch });
+  }
+  return { list: out };
+}
+
 function staffNames_() {
   var m = {};
   readRows_('교직원').forEach(function (r) { m[r['교직원ID']] = r['이름']; });
@@ -276,7 +303,7 @@ function cleanEvent_(f) {
   if (end === start) end = '';
   var kind = String(f.kind || '행사');
   if (schedKinds_().indexOf(kind) < 0) throw userError_('구분을 다시 골라 주세요.');
-  var target = cleanTarget_(f.target);
+  var target = cleanTarget_(f.target) || '전체'; // 대상을 하나도 안 고르면 '전체'(빈칸은 모든 거르기에 걸려 헷갈림, 올리기와 같게)
   var deptId = cleanText_(f.deptId, 20, '담당 부서');
   if (deptId && !categoryNames_('부서')[deptId]) throw userError_('담당 부서를 다시 골라 주세요.');
   return {
@@ -1107,6 +1134,26 @@ function uploadPlan_(checked, mode) {
   return { add: add, replace: replace, skipped: skipped };
 }
 
+/**
+ * 다시 올리기: 이번 파일의 날짜 범위(첫 행사 ~ 마지막 행사) 안에 있는데 이번 파일에는 없는, 전에 올린 행사.
+ * 날짜·이름이 바뀐 행사가 옛것으로 남지 않게 미리보기에서 보여 주고 '함께 숨기기'를 고를 수 있다. 부서가 직접 넣은 행사는 넣지 않는다
+ */
+function uploadGone_(checked) {
+  var ok = checked.filter(function (r) { return r.start && r.status !== 'error'; });
+  if (!ok.length) return [];
+  var from = ok[0].start, to = ok[0].end || ok[0].start, keys = {};
+  ok.forEach(function (r) {
+    if (r.start < from) from = r.start;
+    var e = r.end || r.start;
+    if (e > to) to = e;
+    keys[r.start + '|' + titleKey_(r.title)] = 1;
+  });
+  return liveRows_('일정').filter(function (e) {
+    return e['올린 묶음ID'] && e['시작일'] >= from && e['시작일'] <= to && !keys[e['시작일'] + '|' + titleKey_(e['행사명'])];
+  }).map(function (e) { return { id: e['일정ID'], start: e['시작일'], end: e['끝일'] || '', title: e['행사명'], kind: e['구분'] || '행사' }; })
+    .sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : a.title < b.title ? -1 : 1; });
+}
+
 function uploadRec_(r, batch) {
   var rec = cleanEvent_({ start: r.start, end: r.end, time: r.time, title: r.title, target: r.target, deptId: r.deptId, place: r.place, kind: r.kind, memo: r.memo, important: r.important });
   rec['올린 묶음ID'] = batch;
@@ -1123,8 +1170,10 @@ function apiUploadCheck_(args, actor, ctx) {
   var checked = uploadCheck_(rows);
   var plan = uploadPlan_(checked, args.mode);
   var sy = uploadYear_(checked) || Number(setting_('학년도')) || Number(todayYmd_().slice(0, 4)); // 올리는 줄들의 학년도(새 학년도 일정을 미리 올릴 때)
+  var gone = uploadGone_(checked);
   var skip = {};
   plan.replace.forEach(function (id) { skip[id] = true; });
+  if (args.hideGone) gone.forEach(function (g) { skip[g.id] = true; });
   var addOff = plan.add.filter(function (r) { return r.kind === '휴업일' || r.kind === '공휴일'; })
     .map(function (r) { return { '시작일': r.start, '끝일': r.end, '구분': r.kind, '행사명': r.title }; });
   return {
@@ -1135,8 +1184,10 @@ function apiUploadCheck_(args, actor, ctx) {
       error: checked.filter(function (r) { return r.status === 'error'; }).length,
       dupUpload: checked.filter(function (r) { return r.dup === 'upload'; }).length,
       add: plan.add.length,
-      replace: plan.replace.length
+      replace: plan.replace.length,
+      gone: gone.length
     },
+    gone: gone.slice(0, 200),
     days: { now: semesterDays_(sy), after: semesterDays_(sy, { add: addOff, skip: skip }), year: sy },
     last: lastUpload_()
   };
@@ -1162,15 +1213,18 @@ function apiUploadSave_(args, actor, ctx) {
   var mode = args.mode === 'replace' ? 'replace' : 'skip';
   return withLock_(function () {
     ensureCols_('일정');
-    var plan = uploadPlan_(uploadCheck_(rows), mode);
+    var checked = uploadCheck_(rows);
+    var plan = uploadPlan_(checked, mode);
     if (!plan.add.length) throw userError_('올릴 행사가 없어요. 미리보기에서 넣을 줄을 골라 주세요.');
     var batch = 'B' + Utilities.formatDate(new Date(), tz_(), 'yyyyMMddHHmmss');
     var recs = plan.add.map(function (r) { return uploadRec_(r, batch); });
+    var hide = args.hideGone ? uploadGone_(checked).map(function (g) { return g.id; }).filter(function (id) { return plan.replace.indexOf(id) < 0; }) : [];
     if (plan.replace.length) updateRowsSame_('일정', plan.replace, { '삭제 여부': '삭제' }, actor, '학사일정 올리기(' + batch + '): 전에 올린 같은 행사 ' + plan.replace.length + '개를 바꿈', '삭제');
+    if (hide.length) updateRowsSame_('일정', hide, { '삭제 여부': '삭제' }, actor, '학사일정 올리기(' + batch + '): 이번 파일에 없는 전에 올린 행사 ' + hide.length + '개를 숨김', '삭제');
     insertRows_('일정', recs, actor, '학사일정 올리기(' + batch + '): 행사 ' + recs.length + '개');
-    var info = { batch: batch, count: recs.length, replaced: plan.replace, at: nowText_(), by: actor.name || '' };
+    var info = { batch: batch, count: recs.length, replaced: plan.replace.concat(hide), hidden: hide.length, at: nowText_(), by: actor.name || '' };
     saveLastUpload_(info);
-    return { batch: batch, added: recs.length, replaced: plan.replace.length, skipped: plan.skipped, last: info };
+    return { batch: batch, added: recs.length, replaced: plan.replace.length, hidden: hide.length, skipped: plan.skipped, last: info };
   });
 }
 

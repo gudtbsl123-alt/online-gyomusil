@@ -103,6 +103,7 @@ function routes_() {
     'sched.delete': { need: 'identity', fn: 'apiSchedDelete_' },
     'sched.move': { need: 'identity', fn: 'apiSchedMove_' },
     'sched.range': { need: 'login', fn: 'apiSchedRange_' },
+    'sched.history': { need: 'login', fn: 'apiSchedHistory_' }, // 일정 창 '바뀐 내용 보기'(기록 탭)
     'sched.saveRepeat': { need: 'identity', fn: 'apiSchedSaveRepeat_' },
     'sched.deleteRepeat': { need: 'identity', fn: 'apiSchedDeleteRepeat_' }, // 달력에서 끌어 옮기기(날짜만)
     'focus.save': { need: 'identity', fn: 'apiFocusSave_' },
@@ -226,6 +227,7 @@ var ROUTE_TABS_ = {
   'sched.month': ['일정', '월별중점', '학기'],
   'sched.year': ['일정', '학기'],
   'sched.range': ['일정'],
+  'sched.history': ['분류'],
   'survey.list': ['조사', '응답', '알림'],
   'survey.get': ['조사', '응답', '알림'],
   'lib.list': ['자료'],

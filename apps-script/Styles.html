@@ -314,6 +314,7 @@ select.input{appearance:auto}
 .ev-row{display:flex;align-items:flex-start;gap:16px;width:100%;min-height:52px;padding:12px 18px;border:1px solid var(--c-line);border-radius:14px;background:var(--c-card);color:var(--c-t1);font:inherit;text-align:left;cursor:pointer}
 .ev-row.off .ev-title,.ev-row.off .ev-time{color:var(--c-red)}
 .ev-time{flex:none;min-width:64px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
+.ev-row.duty .ev-time{color:var(--c-t3)}
 .ev-main{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-width:0;flex:1 1 auto}
 .ev-title{font-weight:700}
 .ev-meta{margin-left:auto;font-size:14px;color:var(--c-t3)}
@@ -336,6 +337,15 @@ select.input{appearance:auto}
 .month-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .month-title{margin:0 4px;font-size:22px;font-weight:800;letter-spacing:-0.03em}
 .filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-left:auto}
+.filter-note{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0;padding:10px 14px;border-radius:12px;background:var(--accent-soft);color:var(--c-t1);font-size:14px}
+.filter-note svg{flex:none;color:var(--accent)}
+.ev.cal-extra{display:none}
+.ev.ev-chg{position:relative;padding-right:16px}
+.ev.ev-chg::after{content:'';position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;background:var(--c-warnFg)}
+.ev-hist{margin-top:4px}
+.ev-hist-list{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.ev-hist-list li{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:10px;background:var(--c-card2)}
+.ev-hist-ch{overflow-wrap:anywhere}
 .input-sm{width:auto;min-height:40px;padding:0 10px;border-radius:10px;font-size:15px}
 .check-box{min-height:40px;padding:0 12px;border:1px solid var(--c-line2);border-radius:10px;font-size:15px}
 .stats{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,2fr);gap:16px}
@@ -362,13 +372,17 @@ select.input{appearance:auto}
 .ev-duty{background:transparent;color:var(--c-t2);box-shadow:inset 0 0 0 1px var(--c-line2)} /* 관리자 근무 */
 .kind-tag{display:inline-block;margin-right:4px;padding:0 5px;border-radius:4px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700;line-height:1.5;vertical-align:1px}
 .seg.seg-kinds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))} /* 구분 6개: 행사·교육활동·회의 / 휴업일·공휴일·근무(관리) */
-.seg.seg-rep{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.seg.seg-rep{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))} /* 매주·격주 / 매월 날짜·매월 몇째 요일 */
 .seg.seg-rep button{padding:0 6px;white-space:normal;line-height:1.25;font-size:14px}
 .rep-box{display:flex;flex-direction:column;gap:12px;padding:14px;border:1px solid var(--c-line);border-radius:12px;background:var(--c-card2)}
 .rep-skip{align-self:end;min-height:48px}
 .rep-sum{margin:0 0 6px}
 .rep-days{display:flex;flex-wrap:wrap;gap:6px;max-height:156px;overflow-y:auto}
 .rep-days .chip.rep-off{text-decoration:line-through;opacity:.55}
+.rep-tip{margin:0 0 6px;font-size:13px}
+.rep-chip{border:1px solid var(--c-line2);background:var(--c-card);font-family:inherit;cursor:pointer}
+.rep-chip.rep-off{border-style:dashed;background:none}
+@media (hover:hover){.rep-chip:hover{border-color:var(--accent)}}
 .ev-off{background:transparent;color:var(--c-red);font-weight:700;padding-left:4px}
 .ev-pre{margin-right:4px;padding:0 4px;border-radius:4px;background:var(--c-pill);color:var(--c-t3);font-size:11px}
 .cal-more{align-self:flex-start;padding:2px 4px;border:0;background:none;color:var(--c-t3);font:inherit;font-size:13px;font-weight:700;cursor:pointer}
@@ -485,6 +499,9 @@ select.input{appearance:auto}
 }
 @media print{
   .fab,.filters,.cal-more{display:none!important}
+  .ev.ev-chg::after{display:none}
+  .ev.cal-extra{display:-webkit-box!important}
+  .filter-note{background:none!important;padding:0 0 4px!important;color:#000!important}
   .ev-imp,.plan-ev.imp,.wev.imp .wev-title{font-weight:800!important}
   .table-wrap{overflow:visible;border:0}
   .plan{min-width:0;font-size:12px}
@@ -748,6 +765,10 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .up-steps .step-no.done{background:var(--c-okBg);color:var(--c-okFg)}
 .up-last,.up-mode{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px}
 .up-last>span{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.up-gone{display:flex;flex-direction:column;gap:10px}
+.up-gone details{margin-top:6px}
+.up-gone summary{cursor:pointer;color:var(--accent);font-weight:700;font-size:14px}
+.up-gone-list{margin:8px 0 0;padding-left:20px;max-height:220px;overflow-y:auto;font-size:14px;line-height:1.6}
 .up-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
 .up-stats .stat-num{font-size:26px;font-weight:800;line-height:1.2}
 .err-num{color:var(--c-red)}
