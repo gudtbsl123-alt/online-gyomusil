@@ -330,7 +330,7 @@ function api(reqText) {
       ctx.login = checkLogin_(t.login);
       if (!ctx.login) throw userError_('다시 로그인해 주세요.', 'LOGIN');
       ctx.identity = t.identity ? checkIdentity_(t.identity) : null;
-      if (route.need === 'identity' && !ctx.identity) throw userError_('먼저 이름을 고르고 개인 번호를 넣어 주세요.', 'IDENTITY');
+      if (route.need === 'identity' && !ctx.identity) throw userError_(pinMode_() ? '먼저 이름을 고르고 개인 번호를 넣어 주세요.' : '먼저 이름을 골라 주세요.', 'IDENTITY');
       if (route.need === 'admin') {
         ctx.admin = checkAdmin_(t.admin);
         if (!ctx.admin) throw userError_('관리자 비밀번호를 다시 넣어 주세요.', 'ADMIN');

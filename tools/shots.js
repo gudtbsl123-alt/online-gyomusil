@@ -44,9 +44,13 @@ const problems = [];
 /** 인터넷 없는 곳에서 사진을 찍을 때: PRETENDARD_DIR(npm pretendard 패키지 폴더)이 있으면 글꼴을 거기서 읽는다 */
 const FONT_DIR = process.env.PRETENDARD_DIR;
 async function newCtx(browser, opts, intro) {
-  const ctx = await browser.newContext(opts);
+  const o2 = Object.assign({}, opts || {});
+  delete o2.sideFolded;
+  const ctx = await browser.newContext(o2);
   // 여는 그림(인트로)은 화면을 4초쯤 가리니 끄고 찍는다. 인트로 점검(introFlow)만 켠 채로 연다
   if (!intro) await ctx.addInitScript(() => { try { localStorage.setItem('gy.introOff', '1'); } catch (e) { /* 그대로 */ } });
+  // 메뉴 아래 '화면 설정'(창이 낮으면 접힘, 2026-10-28a)은 펼친 채로 찍는다. 접힌 모양은 sideSetCheck가 본다
+  if (!(opts && opts.sideFolded)) await ctx.addInitScript(() => { try { if (!sessionStorage.getItem('gy.sideSetTest')) { localStorage.setItem('gy.sideSet', '1'); sessionStorage.setItem('gy.sideSetTest', '1'); } } catch (e) { /* 그대로 */ } });
   if (FONT_DIR) {
     await ctx.route('https://cdn.jsdelivr.net/npm/pretendard@1.3.9/**', (route) => {
       const rel = new URL(route.request().url()).pathname.replace('/npm/pretendard@1.3.9/', '');
@@ -404,7 +408,7 @@ async function studentsFlow(page, kind) {
   if (counts.join() !== '1,1,2,1,1,2') problems.push(kind + ': 넣기 창의 처음 반 수가 ' + counts.join());
   // 4학년에 반 하나 더하고 빼 보기
   await page.click('[data-stu-add="4"]');
-  if ((await page.locator('#stu-rows-4 .stu-row').count()) !== 2) problems.push(kind + ': 반 더하기가 안 됨');
+  if ((await page.locator('#stu-rows-4 .stu-row').count()) !== 2) problems.push(kind + ': 반 추가가 안 됨');
   await page.click('[data-stu-del="4"]');
   if ((await page.locator('#stu-rows-4 .stu-row').count()) !== 1) problems.push(kind + ': 마지막 반 빼기가 안 됨');
   // 미리보기용 가짜 숫자: 칸마다 10~16
@@ -1334,7 +1338,7 @@ async function designCheck(browser) {
 
 /**
  * 함께 쓰는 표(판 2026-10-17h): 다른 분 화면(잠근 열·고르고 쓰기·이어 쓰기·되돌리기·고르기 열), 다른 분이 고친 칸(10초 새로 받기),
- * 같은 칸 동시에(묻는 창), 여러 칸 고르기·복사·붙여 넣기(넘치면 묻고 줄 더하기), 줄 더하기·빼기, 만든 분(열·마감·엑셀·인쇄 A4 가로),
+ * 같은 칸 동시에(묻는 창), 여러 칸 고르기·복사·붙여 넣기(넘치면 묻고 줄 추가), 줄 추가·빼기, 만든 분(열·마감·엑셀·인쇄 A4 가로),
  * 새 표(구글 시트 붙여 넣기: 합친 칸·바탕색·열 너비·고르기 열), 휴대폰(줄 목록·줄 고치기·표로 보기), 어둡게·장도
  * 다른 선생님은 같은 가짜 서버에 그분 이름으로 바로 요청해 흉내 낸다(as)
  */
@@ -1521,11 +1525,11 @@ async function tableCheck(browser) {
   await page.keyboard.press('Delete');
   await saved(page, '비우기');
   if ((await text(page, 5, 4)) !== '') problems.push('표: Delete로 비우지 못함');
-  // 줄 메뉴: 아래에 줄 더하기(층은 위 줄 값을 이어 받아 합친 칸이 커짐) → 내가 더한 줄은 잠근 칸도 고침 → 빼기
+  // 줄 메뉴: 아래에 줄 추가(층은 위 줄 값을 이어 받아 합친 칸이 커짐) → 내가 더한 줄은 잠근 칸도 고침 → 빼기
   await page.click('#tb-wrap tbody tr:nth-child(1) .tb-rowbtn');
   await page.locator('.tb-menu').waitFor();
-  await page.locator('.tb-menu button', { hasText: '아래에 줄 더하기' }).click();
-  await page.waitForFunction(() => window.__gy.S.table.d.rows.length === 13, null, { timeout: 5000 }).catch(() => problems.push('표: 아래에 줄 더하기가 안 됨'));
+  await page.locator('.tb-menu button', { hasText: '아래에 줄 추가' }).click();
+  await page.waitForFunction(() => window.__gy.S.table.d.rows.length === 13, null, { timeout: 5000 }).catch(() => problems.push('표: 아래에 줄 추가가 안 됨'));
   await page.waitForTimeout(200);
   if ((await page.locator(cell(0, 0)).getAttribute('rowspan')) !== '4') problems.push('표: 아래에 더한 줄이 층 칸에 합쳐지지 않음');
   if (await page.locator(cell(1, 1) + '.ro').count()) problems.push('표: 내가 더한 줄의 잠근 칸을 고칠 수 없음');
@@ -1590,7 +1594,7 @@ async function tableCheck(browser) {
   await page.locator('#tbc-list .tb-cn').last().fill('비고');
   await shot(page, '표_열고치기');
   await page.click('#tbc-save');
-  await page.waitForFunction(() => window.__gy.S.table.d && window.__gy.S.table.d.table.cols.length === 6, null, { timeout: 5000 }).catch(() => problems.push('표: 열 더하기가 안 됨'));
+  await page.waitForFunction(() => window.__gy.S.table.d && window.__gy.S.table.d.table.cols.length === 6, null, { timeout: 5000 }).catch(() => problems.push('표: 열 추가가 안 됨'));
   await page.locator('#tb-wrap th', { hasText: '비고' }).waitFor({ timeout: 3000 }).catch(() => problems.push('표: 더한 열이 보이지 않음'));
   await page.click('[data-action=tb-menu]');
   await page.locator('.tb-menu button', { hasText: '지금 마감' }).click();
@@ -1767,7 +1771,7 @@ async function table2Check(browser) {
   if (look.span !== 3) P('합친 칸(1층, 3줄)이 ' + look.span);
   if (look.bd !== '2px') P('굵은 아래 테두리가 ' + look.bd);
   if (look.tools > 52) P('도구 막대가 두 줄(1440) ' + look.tools);
-  if (!look.own) P('만든 분인데 시트 더하기·시트 메뉴가 없음');
+  if (!look.own) P('만든 분인데 시트 추가·시트 메뉴가 없음');
   await shot(page, '표2_시트여러개_PC');
 
   // 서식: 굵게(Ctrl+B)·글꼴·크기·글자 색·채우기 → 도구 막대가 고른 칸의 서식을 보여 줌 → 되돌리기·다시 하기
@@ -1994,7 +1998,7 @@ async function table2Check(browser) {
   await page.click('#cf-ok');
   await page.waitForFunction(() => { const T = window.__gy.S.table; return T.d && T.d.doc.sheets.length === 3 && !T.loading; }, null, { timeout: 5000 }).catch(() => P('시트 지우기가 안 됨'));
 
-  // 시트 더하기(+): 빈 시트 → 모든 시트(☰)에서 고르기
+  // 시트 추가(+): 빈 시트 → 모든 시트(☰)에서 고르기
   await page.click('#tb-tabs [data-action=tb-sheet-add]');
   await page.locator('#tbm-sheet').waitFor();
   await page.click('#tbm-how [data-how="blank"]');
@@ -2038,7 +2042,7 @@ async function table2Check(browser) {
   const did2 = await openTable(page, '업무 협의');
   await page.locator(cell(0, 0)).waitFor();
   const lk = await page.evaluate(() => ({ add: !!document.querySelector('#tb-tabs [data-action=tb-sheet-add]'), menu: !!document.querySelector('#tb-tabs .tchv'), tools: document.querySelector('#tb-tools').offsetHeight }));
-  if (lk.add) P('다른 분인데 시트 더하기가 보임');
+  if (lk.add) P('다른 분인데 시트 추가가 보임');
   if (!lk.menu) P('다른 분에게 시트 메뉴(양식으로 저장)가 없음');
   else { // 다른 분의 시트 메뉴는 '양식으로 저장'만(판 2026-10-18b)
     await page.click('#tb-tabs .tb-tab[aria-selected="true"] .tchv');
@@ -2112,7 +2116,7 @@ async function table2Check(browser) {
 
 /**
  * 취합 시트(예전 이름 함께 쓰는 표)·시트 양식(판 2026-10-18b): 메뉴·제목 이름, 새 표 만들기 › 양식에서 고르기(기본 양식 10개(2026-10-19a), 교직원 소속으로 채운 학년·반),
- * 시트 메뉴 › 양식으로 저장(잠근 열 글만), 시트 더하기 › 우리 학교 양식(이름 고치기·고르기·지우기), 관리자 › 휴지통 되살리기,
+ * 시트 메뉴 › 양식으로 저장(잠근 열 글만), 시트 추가 › 우리 학교 양식(이름 고치기·고르기·지우기), 관리자 › 휴지통 되살리기,
  * 다른 분의 시트 메뉴('양식으로 저장'만), 휴대폰에서 양식으로 새 표
  */
 let tplInfo = '';
@@ -2205,11 +2209,11 @@ async function tplCheck(browser) {
   await page.click('#tbt-save');
   if (!(await toastHas(page, /"방과후 제출 확인" 양식으로 저장했어요/))) P('양식으로 저장했다는 안내가 없음');
 
-  // ---------- 3) 시트 더하기 › 양식에서 고르기 › 우리 학교 양식: 이름 고치기 → 고르기 → 시트 더하기(잠근 열 글만 남음)
+  // ---------- 3) 시트 추가 › 양식에서 고르기 › 우리 학교 양식: 이름 고치기 → 고르기 → 시트 추가(잠근 열 글만 남음)
   await page.click('#tb-tabs [data-action=tb-sheet-add]');
   await page.locator('#tbm-sheet').waitFor();
   const seg2 = (await page.locator('#tbm-how button').allInnerTexts()).map((x) => x.trim());
-  if (seg2.join('|') !== '구글 시트에서 붙여 넣기|양식에서 고르기|빈 시트|지금 시트의 열만 복사') P('시트 더하기 시작 단추가 ' + JSON.stringify(seg2));
+  if (seg2.join('|') !== '구글 시트에서 붙여 넣기|양식에서 고르기|빈 시트|지금 시트의 열만 복사') P('시트 추가 시작 단추가 ' + JSON.stringify(seg2));
   await page.click('#tbm-how [data-how="tpl"]');
   await page.locator('#tbm-tplbox [data-tplm]').first().waitFor({ timeout: 6000 }).catch(() => P('우리 학교 양식이 보이지 않음'));
   const mine = await page.locator('#tbm-tplbox .tb-tpl:has([data-tplm]) .tb-tplb').innerText().catch(() => '');
@@ -2774,7 +2778,7 @@ async function svFixCheck(browser) {
     if (!(await page.locator('.notice-item', { hasText: '보완 지난 날 공지' }).first().waitFor({ timeout: 4000 }).then(() => true, () => false))) problems.push('보완 공지: 그대로 올린 공지가 지난 공지에 없음');
   }
 
-  // 6) 설정의 '자료실' 칸(파일 크기 한도 20MB까지)과 자료 넣기 창의 '홈에는 6개까지' 안내
+  // 6) 설정의 '자료실' 칸(파일 크기 한도 20MB까지)과 자료 추가 창의 '홈에는 6개까지' 안내
   await page.evaluate(() => window.__gy.go('admin'));
   await page.fill('#admin-pw', 'admin1');
   await page.click('#admin-form [type=submit]');
@@ -2795,7 +2799,7 @@ async function svFixCheck(browser) {
   await page.locator('.lib-card').first().waitFor();
   await page.click('[data-action=lib-new]');
   await page.locator('#lib-form').waitFor();
-  if (!/홈에는 6개까지/.test(await page.locator('#lib-form').innerText())) problems.push('보완 자료실: 자료 넣기 창에 홈 6개 안내가 없음');
+  if (!/홈에는 6개까지/.test(await page.locator('#lib-form').innerText())) problems.push('보완 자료실: 자료 추가 창에 홈 6개 안내가 없음');
   await page.click('#lib-form [data-action=close-modal]');
   await page.evaluate(() => { window.__gy.S.home = null; window.__gy.go('home'); });
   await page.locator('.quick-card').waitFor();
@@ -3344,14 +3348,14 @@ async function dropCheck(browser) {
     { name: '학년 협의록 양식.hwp', text: '가짜 한글 1' }, { name: '출결 확인 양식.xlsx', text: '가짜 엑셀' },
     { name: '현장체험학습 안내.pdf', text: '가짜 PDF' }, { name: '아주 큰 동영상.mp4', big: maxMb + 1 }]);
   if (!r2.drop) P('놓을 때 브라우저가 파일을 여는 것을 막지 않음');
-  await page.locator('#lib-form').waitFor({ timeout: 3000 }).catch(() => P('놓아도 자료 넣기 창이 안 열림'));
+  await page.locator('#lib-form').waitFor({ timeout: 3000 }).catch(() => P('놓아도 자료 추가 창이 안 열림'));
   if (await page.locator('#drop-cover').count()) P('놓은 뒤에도 덮개가 남음');
   let rows = await rowsOf(page);
   if (rows.length !== 4 || rows[0].t !== '학년 협의록 양식' || rows[2].t !== '현장체험학습 안내' || !rows[3].bad || rows.slice(0, 3).some((x) => x.bad)) P('여러 파일 줄 ' + JSON.stringify(rows));
   if (!(await page.locator('#lf-title-box').isHidden())) P('여러 파일인데 제목 칸이 보임');
   if (!(await page.locator('#lib-form [data-mode=file][aria-pressed=true]').count())) P('파일 올리기로 바뀌지 않음');
   if (!(await page.locator('#lib-form [data-mode=link]').isDisabled())) P('여러 파일인데 링크로 바꿀 수 있음');
-  if ((await page.locator('#lf-go').innerText()).trim() !== '4개 넣기') P('단추 글: ' + (await page.locator('#lf-go').innerText()));
+  if ((await page.locator('#lf-go').innerText()).trim() !== '4개 추가') P('단추 글: ' + (await page.locator('#lf-go').innerText()));
   await page.waitForTimeout(150);
   if (!(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-fr-t') === '0'))) P('첫 파일의 제목 칸으로 커서가 가지 않음');
   await shot(page, '끌어놓기_여러파일_창');
@@ -3362,7 +3366,7 @@ async function dropCheck(browser) {
   if (!/빼 주세요/.test(await page.locator('#lf-err').innerText())) P('한도를 넘는 파일이 있는데 막지 않음');
   await page.click('#lf-rows .file-row:nth-child(4) [data-fr-x]');
   await page.fill('[data-fr-t="1"]', '출결 확인 양식(2학기)');
-  if ((await page.locator('#lf-go').innerText()).trim() !== '3개 넣기') P('뺀 뒤 단추 글: ' + (await page.locator('#lf-go').innerText()));
+  if ((await page.locator('#lf-go').innerText()).trim() !== '3개 추가') P('뺀 뒤 단추 글: ' + (await page.locator('#lf-go').innerText()));
   await page.click('#lf-go');
   if (!(await toastHas(page, /3개 자료를 넣었어요/))) P('여러 파일을 넣었다는 알림이 없음');
   await page.locator('#lib-form').waitFor({ state: 'detached', timeout: 8000 }).catch(() => P('다 넣었는데 창이 닫히지 않음'));
@@ -3786,18 +3790,18 @@ async function libDeptCheck(browser) {
   if (!s.btns[2].mine) P("내 부서(정보부)가 전체 바로 뒤에 '내 부서' 표시와 함께 있지 않음");
   if (s.commons !== 3 || s.cards !== 9) P('전체에서 공통 자료가 맨 위에 없거나 자료 수가 다름 ' + JSON.stringify({ c: s.commons, n: s.cards }));
   const newLabel = () => page.$eval('.page-head [data-action=lib-new]', (b) => b.textContent.trim());
-  if ((await newLabel()) !== '자료 넣기') P("전체에서 '자료 넣기' 단추 이름이 다름: " + (await newLabel()));
+  if ((await newLabel()) !== '자료 추가') P("전체에서 '자료 추가' 단추 이름이 다름: " + (await newLabel()));
   if (new Set(s.btns.map((b) => b.top)).size !== 1) P('PC에서 단추가 한 줄이 아님');
   await check(page, 'PC 자료실 부서 단추');
   await shot(page, 'PC_자료실_부서단추_전체');
-  // [공통]: 공통 자료 3개만(부서 칸 없음), 자료 넣기 단추는 '공통 자료 넣기'·처음부터 공통 자료 체크(판 2026-10-22a)
+  // [공통]: 공통 자료 3개만(부서 칸 없음), 자료 추가 단추는 '공통 자료 추가'·처음부터 공통 자료 체크(판 2026-10-22a)
   await pick(page, '공통');
   s = await state(page);
   if (!on(s, '공통') || s.commons !== 3 || s.groups.length || !/^3개/.test(s.count)) P('공통을 골랐을 때 목록이 다름 ' + JSON.stringify({ c: s.commons, g: s.groups, n: s.count }));
-  if ((await newLabel()) !== '공통 자료 넣기') P("공통에서 자료 넣기 단추 이름이 다름: " + (await newLabel()));
+  if ((await newLabel()) !== '공통 자료 추가') P("공통에서 자료 추가 단추 이름이 다름: " + (await newLabel()));
   await page.click('[data-action=lib-new]');
   await page.locator('#lib-form').waitFor();
-  if (!(await page.isChecked('#lf-common')) || (await page.locator('#lf-corder-box').isHidden())) P('공통에서 자료 넣기를 열었는데 공통 자료가 켜져 있지 않음');
+  if (!(await page.isChecked('#lf-common')) || (await page.locator('#lf-corder-box').isHidden())) P('공통에서 자료 추가를 열었는데 공통 자료가 켜져 있지 않음');
   await page.click('.modal [data-action=close-modal]');
   await page.locator('.modal').waitFor({ state: 'detached' }).catch(() => {});
   await shot(page, 'PC_자료실_공통');
@@ -3806,7 +3810,7 @@ async function libDeptCheck(browser) {
   s = await state(page);
   if (!on(s, '인성안전부')) P('누른 단추가 골라지지 않음');
   if (s.commons || s.groups.join() !== '인성안전부' || !/^2개/.test(s.count)) P('인성안전부를 골랐을 때 목록이 다름 ' + JSON.stringify({ c: s.commons, g: s.groups, n: s.count }));
-  if ((await newLabel()) !== '인성안전부에 자료 넣기') P("인성안전부에서 자료 넣기 단추 이름이 다름: " + (await newLabel()));
+  if ((await newLabel()) !== '인성안전부에 자료 추가') P("인성안전부에서 자료 추가 단추 이름이 다름: " + (await newLabel()));
   await shot(page, 'PC_자료실_부서단추_인성안전부');
   // 교무부: 그 부서의 공통 자료도 '공통' 표시로 함께
   await pick(page, '교무부');
@@ -3848,9 +3852,9 @@ async function libDeptCheck(browser) {
     await page.locator('.modal').waitFor({ state: 'detached' }).catch(() => {});
     return v;
   };
-  if ((await newLabel()) !== '연구부에 자료 넣기') P("연구부에서 자료 넣기 단추 이름이 다름: " + (await newLabel()));
+  if ((await newLabel()) !== '연구부에 자료 추가') P("연구부에서 자료 추가 단추 이름이 다름: " + (await newLabel()));
   let dep = await newDept();
-  if (dep !== '연구부') P('연구부를 고른 채 자료 넣기를 열었는데 부서가 ' + dep);
+  if (dep !== '연구부') P('연구부를 고른 채 자료 추가를 열었는데 부서가 ' + dep);
   // 이 창에서 기억: 홈에 갔다 와도 연구부
   await page.evaluate(() => window.__gy.go('home'));
   await page.locator('.today-card').waitFor();
@@ -3859,7 +3863,7 @@ async function libDeptCheck(browser) {
   if (!s.btns.find((b) => b.name === '연구부').on) P('다른 화면에 갔다 오면 고른 부서를 잊음');
   await page.click('#lib-depts .tg[data-id=""]');
   dep = await newDept();
-  if (dep !== '정보부') P('전체에서 자료 넣기를 열었는데 처음 부서가 내 부서가 아님: ' + dep);
+  if (dep !== '정보부') P('전체에서 자료 추가를 열었는데 처음 부서가 내 부서가 아님: ' + dep);
   // 보관함도 같은 단추 줄(그 학년도 자료 수)
   await page.click('[data-action=lib-view][data-v=archive]');
   await page.locator('#lib-list .lib-card, #lib-list .empty').first().waitFor();
@@ -4229,7 +4233,7 @@ async function b4Check(browser) {
   await modalSettled(page);
   if (!(await page.locator('#lib-form .more-fields').count()) || (await page.locator('#lf-desc').isVisible())) P("설명·담당이 '더 적기' 안에 접혀 있지 않음");
   const order = await page.evaluate(() => [...document.querySelectorAll('#lib-form .field .label, #lib-form .field>.label')].map((x) => x.textContent.trim().slice(0, 4)).join('|'));
-  if (!/^넣는 방/.test(order)) P('자료 넣기 창 맨 위가 넣는 방법이 아님: ' + order);
+  if (!/^넣는 방/.test(order)) P('자료 추가 창 맨 위가 넣는 방법이 아님: ' + order);
   await page.click('#lib-form [data-mode=link]');
   await page.fill('#lf-link', 'https://example.com/b4');
   await page.fill('#lf-title', '묶음4 점검 자료');
@@ -4373,6 +4377,63 @@ async function admin5Check(browser) {
   await shot(page, '관리자_점검_칸수');
   await ctx.close();
 }
+
+// 묶음 6 화면 공통(판 2026-10-28a): 휴대폰 위쪽(첫 내용이 내려가 있던 것), 노트북 메뉴 아래 '화면 설정' 접기, 포커스 테두리
+async function ui6Check(browser) {
+  const P = (m) => problems.push('화면 공통: ' + m);
+  // 1) 휴대폰: 일정·자료실·취합 시트 첫 내용의 높이
+  const ctx = await newCtx(browser, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('화면 공통 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '심청');
+  const firstY = async (sel) => page.evaluate((q) => { const el = document.querySelector(q); return el ? Math.round(el.getBoundingClientRect().top) : -1; }, sel);
+  const ys = {};
+  await page.evaluate(() => window.__gy.go('schedule'));
+  await page.locator('.ev-rows .ev-row, .pweek .empty').first().waitFor({ timeout: 8000 }).catch(() => {});
+  ys.일정 = await firstY('.ev-rows .ev-row');
+  await shot(page, '화면공통_휴대폰_일정');
+  if (await page.locator('[data-action=filters-toggle]').count()) {
+    await page.click('[data-action=filters-toggle]');
+    await page.locator('#f-grade').waitFor({ timeout: 3000 }).catch(() => P('거르기를 눌러도 거르는 칸이 안 나옴'));
+    await shot(page, '화면공통_휴대폰_일정_거르기');
+    await page.click('[data-action=filters-toggle]');
+  } else P("휴대폰 일정에 '거르기' 단추가 없음");
+  await page.evaluate(() => window.__gy.go('library'));
+  await page.locator('.lib-card').first().waitFor();
+  ys.자료실 = await firstY('.lib-card');
+  await shot(page, '화면공통_휴대폰_자료실');
+  await page.evaluate(() => window.__gy.go('table'));
+  await page.locator('.tb-card').first().waitFor({ timeout: 15000 }).catch(() => {});
+  ys.취합시트 = await firstY('.tb-card');
+  await shot(page, '화면공통_휴대폰_취합시트');
+  ui6Info = '휴대폰 첫 내용 높이 ' + JSON.stringify(ys);
+  if (ys.일정 > 520 || ys.일정 < 0) P('휴대폰 일정 첫 행사가 너무 아래 ' + ys.일정);
+  if (ys.자료실 > 430 || ys.자료실 < 0) P('휴대폰 자료실 첫 카드가 너무 아래 ' + ys.자료실);
+  await ctx.close();
+  // 2) 노트북(1366×768): 메뉴 아래 '화면 설정'은 접혀 있고 펼치면 밝게·디자인·화면 크기
+  const c2 = await newCtx(browser, { viewport: { width: 1366, height: 768 }, sideFolded: true });
+  const p2 = await c2.newPage();
+  await p2.goto(FILE);
+  await waitText(p2, '어서 오세요');
+  await login(p2);
+  await verify(p2, '심청');
+  if (!(await p2.locator('.side [data-action=side-set]').isVisible())) P("노트북 높이에서 '화면 설정' 줄이 없음");
+  if (await p2.locator('.side [data-design-btn]').first().isVisible()) P('노트북 높이에서 디자인 단추가 접혀 있지 않음');
+  const out = await p2.evaluate(() => { const b = document.querySelector('.side [data-action=side-set]').getBoundingClientRect(); return b.bottom <= innerHeight; });
+  if (!out) P("'화면 설정' 줄이 화면 밖");
+  await p2.click('.side [data-action=side-set]');
+  if (!(await p2.locator('.side [data-design-btn]').first().isVisible())) P("'화면 설정'을 눌러도 디자인 단추가 안 보임");
+  await shot(p2, '화면공통_노트북_화면설정');
+  // 포커스 테두리: 진한 색(3:1 이상)
+  await p2.keyboard.press('Tab');
+  const oc = await p2.evaluate(() => getComputedStyle(document.activeElement).outlineColor);
+  if (/rgba\(.*0\.3/.test(oc)) P('포커스 테두리가 옅은 색 ' + oc);
+  await c2.close();
+}
+let ui6Info = '';
 
 async function meet2Check(browser) {
   const P = (m) => problems.push('회의록 보완: ' + m);
@@ -4541,7 +4602,7 @@ async function homeSideCheck(browser) {
 
 /**
  * 회의록(판 2026-10-22a, 교사 요청 '공지에서 회의록 입력·인쇄·독스 내려받기'): 공지 화면 위 [공지 | 회의록] 탭, 목록·학기·종류 거르기,
- * 누구나 칸 쓰기(쓴 분이 남음)·그사이 다른 분이 고쳤으면 묻기(내 내용으로 바꾸기·먼저 고친 내용 두기), 기타 안건 더하기·빼기(더한 분),
+ * 누구나 칸 쓰기(쓴 분이 남음)·그사이 다른 분이 고쳤으면 묻기(내 내용으로 바꾸기·먼저 고친 내용 두기), 기타 안건 추가·빼기(더한 분),
  * 인쇄(A4 세로 한 장, 쓴 분 이름 없음, 날짜에 연도), 워드 파일(.docx: 내려받은 바이트에 칸 글, LibreOffice로 열어 A4 한 장),
  * 회의 만들기(제목 저절로·칸 고르기)·고치기(내용 있는 칸은 못 뺌)·지우기·관리자 휴지통에서 되살리기, 어둡게·장도, 휴대폰
  */
@@ -4671,14 +4732,14 @@ async function meetCheck(browser) {
   await page.click('#mw-keep');
   await closed(page);
   await page.locator('.meet-etc', { hasText: '강당으로' }).waitFor({ timeout: 6000 }).catch(() => P('먼저 고친 내용 두기가 안 됨'));
-  // 기타 안건 더하기(더한 분은 빼기도) → 빼기
+  // 기타 안건 추가(더한 분은 빼기도) → 빼기
   await page.click('[data-action=meet-etc-add]');
   await page.locator('#mw-text').waitFor();
   await modalSettled(page);
   await page.fill('#mw-text', '학년말 행사 준비 협의');
   await page.click('#mw-go');
   await closed(page);
-  await page.locator('.meet-etc', { hasText: '학년말 행사 준비 협의' }).waitFor({ timeout: 6000 }).catch(() => P('안건 더하기가 안 됨'));
+  await page.locator('.meet-etc', { hasText: '학년말 행사 준비 협의' }).waitFor({ timeout: 6000 }).catch(() => P('안건 추가가 안 됨'));
   d = await detail(page);
   const mine = d.etc.find((x) => /학년말/.test(x.text));
   if (!mine || !mine.del) P('내가 더한 안건에 빼기가 없음');
@@ -4995,6 +5056,15 @@ async function introGapCheck(browser) {
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
   }
+  // ONLY=ui6: 화면 공통(판 2026-10-28a) 점검만
+  if (process.env.ONLY === 'ui6') {
+    await ui6Check(browser);
+    await browser.close();
+    if (ui6Info) console.log(ui6Info);
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
   // ONLY=meet: 회의록(판 2026-10-22a) 점검만
   if (process.env.ONLY === 'meet') {
     await meetCheck(browser);
@@ -5118,7 +5188,7 @@ async function introGapCheck(browser) {
     await page.click('[data-action=lib-new]');
     await page.locator('#lib-form').waitFor();
     await page.click('#lib-form [data-mode=file]');
-    await check(page, vp.width + ' 자료 넣기 창');
+    await check(page, vp.width + ' 자료 추가 창');
     await page.click('#lib-form [data-action=close-modal]');
     await page.evaluate(() => window.__gy.go('admin'));
     await page.fill('#admin-pw', 'admin1');
@@ -5179,6 +5249,7 @@ async function introGapCheck(browser) {
   await table3Check(browser);
   await b4Check(browser);
   await admin5Check(browser);
+  await ui6Check(browser);
   await homeSideCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser), await introGapCheck(browser)];
@@ -5191,6 +5262,7 @@ async function introGapCheck(browser) {
   if (tplInfo) console.log(tplInfo);
   if (guideInfo) console.log(guideInfo);
   if (meetInfo) console.log(meetInfo);
+  if (ui6Info) console.log(ui6Info);
   console.log('사진 ' + n + '장 → ' + OUT);
   if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; }
   else console.log('넘침·오류 없음');

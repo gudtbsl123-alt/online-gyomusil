@@ -374,7 +374,8 @@
     ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path>',
     shield: '<path d="M12 3.5 19 6v5.5c0 4.2-3 7.7-7 9-4-1.3-7-4.8-7-9V6z"></path><path d="m9 12 2 2 4-4"></path>',
     grid: '<rect x="4" y="4.5" width="16" height="15" rx="2"></rect><path d="M4 9.5h16M4 14.5h16M10 4.5v15"></path>',
-    dots: '<circle cx="5.5" cy="12" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="18.5" cy="12" r="1.2"></circle>'
+    dots: '<circle cx="5.5" cy="12" r="1.2"></circle><circle cx="12" cy="12" r="1.2"></circle><circle cx="18.5" cy="12" r="1.2"></circle>',
+    filter: '<path d="M4 6h16M7 12h10M10 18h4"></path>'
   };
   function icon(name, size, extra) {
     size = size || 22;
@@ -518,6 +519,7 @@
 
   // ============================================================ 시작
   function init() {
+    S.sideSet = stGet('gy.sideSet') === '1';
     setTheme(stGet('gy.theme') === 'dark' ? 'dark' : 'light');
     setDesign(designNow());
     applyZoom();
@@ -776,9 +778,12 @@
       '<span class="brand-text"><span class="brand-sub">' + esc(school) + '</span><span class="brand-name">온라인 교무실</span></span></button>' +
       '<div class="nav">' + MENU.map(function (x) { return navButton(x); }).join('') + '</div>' +
       '<div class="nav-group"><span class="nav-label">관리</span>' + ADMIN_MENU.map(function (x) { return navButton(x); }).join('') + '</div>' +
-      '<div class="side-foot">' + themeSeg() +
+      // 밝게·디자인·화면 크기: 창이 낮으면(높이 900 이하, 노트북) '화면 설정' 한 줄로 접는다(메뉴 아래가 가려지지 않게, 2026-10-28a)
+      '<div class="side-foot side-set' + (S.sideSet ? ' open' : '') + '"><button type="button" class="nav-item small side-set-btn" data-action="side-set" aria-expanded="' + !!S.sideSet + '">' +
+      icon('textsize', 20) + '화면 설정<span class="side-set-now">' + esc((root.getAttribute('data-theme') === 'dark' ? '어둡게' : '밝게') + ' · ' + (DESIGNS.filter(function (x) { return x.id === designNow(); })[0] || { label: '' }).label + ' · ' + zoomNow() + '%') + '</span>' + icon('chevd', 16) + '</button>' +
+      '<div class="side-set-body">' + themeSeg() +
       designSeg() +
-      zoomControl() + '</div></div>' +
+      zoomControl() + '</div></div></div>' +
       // 내 이름 카드·나가기는 메뉴 맨 아래에 붙여 늘 보이게(창이 낮아 메뉴가 밀려도, 공용 PC에서 나가기를 찾게)
       '<div class="side-me">' + meCard() +
       '<button type="button" class="nav-item small" data-action="logout">' + icon('out', 20) + '나가기</button></div>' +
@@ -1055,7 +1060,7 @@
     var today = '<section class="card today-card"><span class="glow" aria-hidden="true"></span>' +
       '<div class="card-head"><div><p class="kicker">오늘 학교 일정</p>' +
       '<p class="big-num">' + (nToday ? nToday + '개 있어요' : '오늘은 일정이 없어요') + '</p></div>' +
-      '<button type="button" class="btn btn-sm print-hide" data-action="home-week" data-from="' + esc(h.monday) + '">' + (h.weekNext ? '다음 주' : '이번 주') + ' 전체 보기 ' + icon('chev', 18) + '</button></div>' +
+      '<button type="button" class="more-link print-hide" data-action="home-week" data-from="' + esc(h.monday) + '">' + (h.weekNext ? '다음 주' : '이번 주') + ' 모두 보기' + icon('chev', 18) + '</button></div>' +
       (todays.length ? '<div class="ev-rows">' + todays.map(evRowOn(h.today)).join('') + '</div>' : '') +
       '<p class="tomorrow"><b>' + esc(h.nextLabel || '내일') + ' 미리 보기</b> ' + (tomorrow.length
         ? tomorrow.map(function (e) { return esc(e.title) + (e.time ? ' ' + esc(e.time) : ''); }).join(' · ')
@@ -1185,7 +1190,7 @@
       }
     }
     function rowsHtml(g) {
-      if (!model[g].length) return '<p class="faint">반이 없어요. \'반 더하기\'를 눌러 주세요.</p>';
+      if (!model[g].length) return '<p class="faint">반이 없어요. \'반 추가\'를 눌러 주세요.</p>';
       return model[g].map(function (c, i) {
         var base = 'stu-' + g + '-' + (i + 1);
         var cell = function (k, label) {
@@ -1202,7 +1207,7 @@
         '<div class="stu-sec-head"><h3 id="stu-h-' + g + '">' + g + '학년</h3><span class="stu-sec-sum" id="stu-gsum-' + g + '">–</span></div>' +
         (oldTotals && oldTotals[g - 1] !== null && oldTotals[g - 1] !== undefined ? '<p class="faint">지난번에 넣은 ' + g + '학년 전체: ' + numText(oldTotals[g - 1]) + '명</p>' : '') +
         '<div class="stu-rows" id="stu-rows-' + g + '">' + rowsHtml(g) + '</div>' +
-        '<div class="row-btns"><button type="button" class="btn btn-sm" data-stu-add="' + g + '">' + icon('plus', 16) + '반 더하기</button>' +
+        '<div class="row-btns"><button type="button" class="btn btn-sm" data-stu-add="' + g + '">' + icon('plus', 16) + '반 추가</button>' +
         '<button type="button" class="btn btn-sm btn-ghost" data-stu-del="' + g + '">' + icon('minus', 16) + '마지막 반 빼기</button></div></section>';
     }
     openModal('<h2 id="m-title">' + (st.year ? esc(st.year) + '학년도 ' : '') + '학생 수 ' + (st.id ? '고치기' : '넣기') + '</h2>' +
@@ -1396,7 +1401,7 @@
         '<button type="button" class="btn btn-sm" data-action="meet-goto" data-id="' + esc(x.id) + '" data-k="' + esc(x.k) + '">쓰기</button></div>';
     }).join('') + (meets.length > 3 ? '<p class="faint">회의록 ' + (meets.length - 3) + '개 더 있어요</p>' : '');
     return '<section class="card todo-card"><div class="card-head"><h2>내가 할 일 <span class="accent-num">' + (list.length + tables.length + meets.length) + '</span></h2>' +
-      '<button type="button" class="linkish" data-go="survey">전체 보기</button></div>' +
+      '<button type="button" class="more-link print-hide" data-go="survey">조사 모두 보기' + icon('chev', 18) + '</button></div>' +
       (first ? '<div class="todo-first"><div class="sv-chips">' + daysLeftChip(first, h.today) + (first.reminded ? '<span class="chip chip-warn">다시 알림</span>' : '') +
         (first.dept ? '<span class="faint">' + esc(first.dept) + '</span>' : '') + '</div>' +
         '<p class="todo-title">' + esc(first.title) + '</p><p class="faint">질문 ' + first.qCount + '개 · ' + esc(first.deadlineText) + '까지</p>' +
@@ -1417,14 +1422,16 @@
     var sc = S.sched;
     if (!sc.y) { var t = localToday(); sc.y = +t.slice(0, 4); sc.m = +t.slice(5, 7); }
     var views = [['cal', '달력'], ['plan', '월별 계획'], ['year', '연간 학사일정']];
+    var phoneBar = isPhone(); // 휴대폰: 인쇄·주간 안내·올리기는 '더 보기'로 모아 위쪽을 줄인다(2026-10-28a)
     $s.innerHTML = pageHead('', '일정') +
-      '<div class="toolbar print-hide">' +
+      '<div class="toolbar print-hide' + (phoneBar ? ' sched-tools-phone' : '') + '">' +
       '<div class="seg" role="group" aria-label="일정 보기">' + views.map(function (v) {
         return '<button type="button" data-sched-view="' + v[0] + '" aria-pressed="' + (sc.view === v[0]) + '">' + v[1] + '</button>';
       }).join('') + '</div>' +
+      (phoneBar ? '<button type="button" class="icon-btn sched-more" data-action="sched-more" aria-label="더 보기(인쇄·주간 안내)">' + icon('dots', 22) + '</button>' :
       '<button type="button" class="btn btn-sm" data-action="print">' + icon('print', 18) + '인쇄</button>' +
       '<button type="button" class="btn btn-sm" data-action="week-notice">' + icon('copy', 18) + '주간 안내</button>' +
-      (canManageMe() ? '<button type="button" class="btn btn-sm" data-go="upload">' + icon('upload', 18) + '학사일정 올리기</button>' : '') + '</div>' +
+      (canManageMe() ? '<button type="button" class="btn btn-sm" data-go="upload">' + icon('upload', 18) + '학사일정 올리기</button>' : '')) + '</div>' +
       '<div id="sched-body">' + loadingHtml('일정을 불러오는 중이에요') + '</div>' +
       (isPhone() && sc.view === 'cal' ? '<button type="button" class="fab print-hide" data-action="ev-add">' + icon('plus', 20) + '행사 추가</button>' : '');
     loadSched();
@@ -1556,8 +1563,14 @@
     var shown = d.events.filter(function (e) { return passFilter(e, f); });
     var formSide = sc.form && isWide();
     var phone = isPhone();
-    var html = '<div class="card bar">' + monthNav(sc.y + '년 ' + sc.m + '월') + filterBar() +
-      (phone ? '' : '<button type="button" class="btn btn-sm btn-primary print-hide" data-action="ev-add">' + icon('plus', 18) + '행사 추가</button>') + '</div>' + filterNote();
+    // 휴대폰: 이번 주 보기에서는 달 이동을 빼고(주 이동이 아래에 있음), 거르는 칸은 '거르기' 단추로 접는다(첫 행사가 화면 위쪽에 오게)
+    var nf = ['grade', 'dept', 'mine', 'imp'].filter(function (k) { return f[k]; }).length;
+    var html = phone
+      ? '<div class="card bar bar-phone">' + (sc.phoneMonth ? monthNav(sc.y + '년 ' + sc.m + '월') : '') +
+        '<button type="button" class="btn btn-sm print-hide" data-action="filters-toggle" aria-expanded="' + !!sc.showFilters + '">' + icon('filter', 18) + '거르기' + (nf ? ' <b class="tab-n">' + nf + '</b>' : '') + '</button>' +
+        (sc.showFilters ? filterBar() : '') + '</div>' + filterNote()
+      : '<div class="card bar">' + monthNav(sc.y + '년 ' + sc.m + '월') + filterBar() +
+        '<button type="button" class="btn btn-sm btn-primary print-hide" data-action="ev-add">' + icon('plus', 18) + '행사 추가</button>' + '</div>' + filterNote();
     // 휴대폰은 이번 주·달력을 먼저 보여 주고, 수업일수·중점지도 카드는 아래로
     if (!phone) html += statCards();
 
@@ -2064,11 +2077,7 @@
   // ------------------------------------------------------------ 행사 넣기·고치기
   function startEventForm(init) {
     if (!S.me) {
-      confirmBox('본인 확인이 필요해요', '행사를 넣으면 누가 넣었는지 남아요. 이름을 고르고 개인 번호를 넣어 주세요.', '본인 확인하기', function () {
-        closeModal();
-        showIdentity();
-        return Promise.resolve();
-      });
+      needMe('행사를 넣으면'); // 다른 화면과 같은 말(개인 번호 방식이면 번호도 묻는다)
       return;
     }
     S.sched.form = init;
@@ -2144,7 +2153,7 @@
       '<p class="faint">입력하는 사람: ' + esc(S.me.name) + ' 선생님' + (S.me.group ? '(' + esc(S.me.group) + ')' : '') + ' · <button type="button" class="linkish" data-action="switch">바꾸기</button></p>' +
       '<p class="err" id="ef-err" role="alert"></p>' +
       '<div class="modal-btns">' + (init.id ? '<button type="button" class="btn btn-danger" data-action="ev-del" data-ev="' + esc(init.id) + '" style="margin-right:auto">지우기</button>' : '') +
-      '<button type="button" class="btn" data-action="ev-cancel">취소</button><button type="submit" class="btn btn-primary">저장하기</button></div></form>';
+      '<button type="button" class="btn" data-action="ev-cancel">닫기</button><button type="submit" class="btn btn-primary">저장하기</button></div></form>';
 
     var form = qs('#ev-form', box);
     function selKind() { return qs('[data-kind][aria-pressed=true]', form).getAttribute('data-kind'); }
@@ -2425,7 +2434,8 @@
 
   function needMe(what) {
     if (S.me) return true;
-    confirmBox('이름을 먼저 골라 주세요', what + ' 누가 했는지 남아요. 명단에서 이름을 골라 주세요.', '이름 고르기', function () {
+    var pin = S.start && S.start.pinMode;
+    confirmBox('이름을 먼저 골라 주세요', what + ' 누가 했는지 남아요. 명단에서 이름을 ' + (pin ? '고르고 개인 번호를 넣어 주세요.' : '골라 주세요.'), '이름 고르기', function () {
       closeModal();
       showIdentity();
       return Promise.resolve();
@@ -2816,13 +2826,13 @@
       '<div class="field"><span class="label">질문</span>' +
       (locked ? '<p class="note warn">' + icon('info', 18) + '<span>이미 낸 답이 있어서 질문은 고칠 수 없어요. 제목·마감·대상·안내 문구는 고칠 수 있어요.</span></p>' : '') +
       '<div id="svf-qs" class="qs-edit"></div>' +
-      (locked ? '' : '<button type="button" class="btn btn-sm" id="svf-addq" style="align-self:flex-start">' + icon('plus', 18) + '질문 더하기</button>') + '</div>' +
+      (locked ? '' : '<button type="button" class="btn btn-sm" id="svf-addq" style="align-self:flex-start">' + icon('plus', 18) + '질문 추가</button>') + '</div>' +
       '<label class="check"><input type="checkbox" id="svf-public"' + (c.showResults ? ' checked' : '') + '>답을 대상 교직원 모두에게 보여 주기 <span class="faint">(참석 여부처럼 함께 봐야 할 때)</span></label>' +
       (edit && d.hasResponses && !c.showResults ? '<div class="note warn pub-ask" id="svf-pub-ask" hidden>' + icon('info', 18) + '<div><p>벌써 낸 답이 ' + ((d.responses || []).length ? d.responses.length + '개 ' : '') + '있어요. 켜면 지금까지 낸 답도 대상 선생님 모두에게 보여요. 낸 분들은 공개될 줄 모르고 냈을 수 있어요.</p>' +
         '<div class="row-btns"><button type="button" class="btn btn-sm" data-pub-ask="0">그만두기</button><button type="button" class="btn btn-sm btn-primary" data-pub-ask="1">그래도 보여 주기</button></div></div></div>' : '') +
       '<div class="field"><label class="label" for="svf-msg">메신저 안내 문구 (선택)</label><textarea id="svf-msg" class="input" rows="2" maxlength="500" placeholder="비워 두면 제목과 마감으로 알아서 만들어요">' + esc(edit ? d.messenger : copyFrom && copyFrom.messengerCustom ? d.messenger : '') + '</textarea></div>' +
       '<p class="err" id="svf-err" role="alert"></p>' +
-      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">취소</button><button type="submit" class="btn btn-primary">' + (edit ? '저장' : '만들기') + '</button></div>' +
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="submit" class="btn btn-primary">' + (edit ? '저장' : '만들기') + '</button></div>' +
       '</form>', { wide: true, noBackdropClose: true });
 
     var form = qs('#svf');
@@ -3105,7 +3115,7 @@
   function libArgs() { return S.lib.view === 'archive' ? { archive: 1 } : {}; }
 
   SCREENS.library = function ($s) {
-    $s.innerHTML = pageHead('', '자료실', '', '<button type="button" class="btn btn-primary print-hide" data-action="lib-new">' + icon('plus', 18) + '자료 넣기</button>') +
+    $s.innerHTML = pageHead('', '자료실', '', '<button type="button" class="btn btn-primary print-hide" data-action="lib-new">' + icon('plus', 18) + '자료 추가</button>') +
       '<div id="lib-body" class="stack">' + loadingHtml('자료를 불러오는 중이에요') + '</div>';
     loadMemo('lib.list', libArgs(), function (d) {
       if (S.screen !== 'library') return;
@@ -3192,12 +3202,12 @@
     if (dep && dep !== LIB_NONE && d && d.depts.some(function (dp) { return dp.id === dep && dp.active; })) return dep;
     return (S.me && S.me.deptId) || '';
   }
-  /** '자료 넣기' 단추·끌어다 놓기 덮개 이름: 고른 단추에 넣는다는 것을 보여 준다('교무부에 자료 넣기'·'공통 자료 넣기') */
+  /** '자료 추가' 단추·끌어다 놓기 덮개 이름: 고른 단추에 넣는다는 것을 보여 준다('교무부에 자료 추가'·'공통 자료 추가') */
   function libNewLabel() {
     var dep = S.lib.dept, d = S.lib.data;
-    if (dep === LIB_COMMON) return { btn: '공통 자료 넣기', drop: '공통 자료로' };
+    if (dep === LIB_COMMON) return { btn: '공통 자료 추가', drop: '공통 자료로' };
     var hit = dep && dep !== LIB_NONE && d && d.depts.filter(function (dp) { return dp.id === dep && dp.active; })[0];
-    return hit ? { btn: hit.name + '에 자료 넣기', drop: hit.name + ' 자료로' } : { btn: '자료 넣기', drop: '자료로' };
+    return hit ? { btn: hit.name + '에 자료 추가', drop: hit.name + ' 자료로' } : { btn: '자료 추가', drop: '자료로' };
   }
 
   function drawLibList() {
@@ -3237,7 +3247,7 @@
       var msg = L.view === 'archive' && !libYears().length ? '보관함이 비어 있어요. 새 학년도로 넘기면 지난 자료가 여기로 와요.'
         : note && scope.length ? note
         : scope.length ? '찾는 자료가 없어요.' + (L.view === 'now' ? ' 보관함에서도 찾아보세요.' : '')
-        : '아직 자료가 없어요. "자료 넣기"로 첫 자료를 넣어 보세요.';
+        : '아직 자료가 없어요. "자료 추가"로 첫 자료를 넣어 보세요.';
       box.innerHTML = more + '<div class="card"><p class="empty">' + msg + '</p></div>';
       return;
     }
@@ -3352,7 +3362,7 @@
   }
 
   // ------------------------------------------------------------ 끌어다 놓기로 파일 올리기(판 2026-10-21b, 교사 요청)
-  // 자료 넣기 창·도움말 창의 파일 칸은 끌어다 놓는 상자, 자료실 화면은 어디에 놓아도 자료 넣기 창이 열린다(여러 파일은 파일마다 자료 하나).
+  // 자료 추가 창·도움말 창의 파일 칸은 끌어다 놓는 상자, 자료실 화면은 어디에 놓아도 자료 추가 창이 열린다(여러 파일은 파일마다 자료 하나).
   // 다른 화면에 떨어뜨려도 브라우저가 그 파일을 열어 웹앱을 떠나지 않게 막는다. 휴대폰은 상자 안의 '파일 고르기'를 쓴다
   var DROP_MAX = 20; // 한 번에 넣는 파일 수(폴더째 끌어 온 수백 개를 막으려고)
   function dragHasFiles(e) {
@@ -3468,7 +3478,7 @@
     if (r.files.length || r.dirs) t.fn(r.files, r.dirs);
   });
 
-  /** 자료 넣기·고치기 창. files·dirs = 자료실 화면에 끌어다 놓은 것(여러 파일이면 파일마다 자료 하나, 고치기는 파일 하나만) */
+  /** 자료 추가·고치기 창. files·dirs = 자료실 화면에 끌어다 놓은 것(여러 파일이면 파일마다 자료 하나, 고치기는 파일 하나만) */
   function openLibForm(edit, files0, dirs0) {
     if (!needMe('자료를 넣으면')) return;
     var d = S.lib.data;
@@ -3477,7 +3487,7 @@
     var common0 = edit ? !!i.common : S.lib.dept === LIB_COMMON; // [공통] 단추를 고른 채 넣으면 처음부터 공통 자료
     var mode = edit ? (edit.hasFile ? 'file' : 'link') : stGet('gy.libMode') === 'file' ? 'file' : 'link'; // 새 자료는 지난번에 고른 넣는 방법(이 기기)
     var picked = [], wasMulti = false; // { file, title, bad, error, saved }
-    openModal('<h2 id="m-title">' + (edit ? '자료 고치기' : '자료 넣기') + '</h2>' +
+    openModal('<h2 id="m-title">' + (edit ? '자료 고치기' : '자료 추가') + '</h2>' +
       // 순서(2026-10-28a): 넣는 방법 → 파일·링크 → 제목 → 부서·분류 → 공통 자료 → (더 적기: 설명·담당). 단추 줄은 창 아래에 붙어 있다
       '<form class="form lib-form" id="lib-form" novalidate>' +
       '<div class="field"><span class="label">넣는 방법</span><div class="seg" role="group" aria-label="넣는 방법" style="max-width:360px">' +
@@ -3506,7 +3516,7 @@
       '<div class="field"><label class="label" for="lf-owner">담당</label><input id="lf-owner" class="input" maxlength="20" value="' + esc(edit ? i.owner || '' : S.me.name) + '" autocomplete="off"></div></details>' +
       '<p class="err" id="lf-err" role="alert"></p>' +
       '<div class="modal-btns sticky-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
-      '<button type="submit" class="btn btn-primary" id="lf-go">' + (edit ? '저장' : '넣기') + '</button></div></form>');
+      '<button type="submit" class="btn btn-primary" id="lf-go">' + (edit ? '저장' : '추가') + '</button></div></form>');
     var form = qs('#lib-form'), err = qs('#lf-err');
     var setMode = function (m, byHand) {
       mode = m;
@@ -3530,7 +3540,7 @@
       linkBtn.title = multi ? '여러 파일을 넣는 동안에는 링크로 바꿀 수 없어요' : '';
       qs('#lf-rows').innerHTML = picked.map(function (p, k) { return fileRowHtml(p, k, multi); }).join('');
       var go = qs('#lf-go');
-      if (!go.disabled) go.textContent = edit ? '저장' : multi ? picked.length + '개 넣기' : '넣기';
+      if (!go.disabled) go.textContent = edit ? '저장' : multi ? picked.length + '개 추가' : '추가';
     };
     var addFiles = function (files, dirs) {
       err.textContent = '';
@@ -3786,7 +3796,7 @@
       '<div class="field" style="max-width:240px"><label class="label" for="hf-order">분류 안 순서</label><input id="hf-order" class="input" inputmode="numeric" maxlength="3" value="' + esc(i.order || '') + '" placeholder="숫자가 작을수록 위"></div>' +
       '<p class="err" id="hf-err" role="alert"></p>' +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
-      '<button type="submit" class="btn btn-primary">' + (edit ? '저장' : '넣기') + '</button></div></form>', { wide: true });
+      '<button type="submit" class="btn btn-primary">' + (edit ? '저장' : '추가') + '</button></div></form>', { wide: true });
     var form = qs('#help-form'), hfPick = null; // 붙일 파일 하나(끌어다 놓기·고르기, 판 2026-10-21b)
     var drawHf = function () { qs('#hf-rows').innerHTML = hfPick ? fileRowHtml(hfPick, 0, false) : ''; };
     bindDropZone('hf-file', function (files, dirs) {
@@ -3880,7 +3890,7 @@
         '목록의 찾기 칸·부서로 표를 찾고, 휴대폰은 줄 찾기와 <b>내 이름이 있는 줄</b>로 내 줄만 봐요.'
       ]) +
       sec(6, '자료실·도움말·교직원', [
-        '<b>자료실</b>에 링크나 파일을 넣어요. <b>공통·부서 단추</b>로 골라 봐요. PC에서는 파일을 자료실 화면에 <b>끌어다 놓으면</b> 바로 넣어요(여러 개도 한 번에). 지난 학년도 자료는 보관함에 있어요.',
+        '<b>자료실</b>에 링크나 파일을 넣어요. <b>공통·부서 단추</b>로 골라 봐요. PC에서는 파일을 자료실 화면에 <b>끌어다 놓으면</b> 자료 추가 창이 열려요(여러 개도 한 번에, 제목만 보고 넣기). 지난 학년도 자료는 보관함에 있어요.',
         '<b>도움말</b>에는 복무·인사 처리 안내와 학교 규칙·제규정을 모아요. 학교에서 정한 내용을 그대로 옮겨 적어요.',
         '<b>교직원</b>에서 선생님의 소속·담당 업무·내선을 찾아요.'
       ]) + '</div>' +
@@ -3906,7 +3916,7 @@
         '넘긴 뒤 설정에서 새 학년도 학기 기간을 넣어요. 일정·조사·공지는 날짜로 나뉘어서 그대로 있어요(지난 학년도 것은 \'이전 학년도 보기\'로 봐요).'
       ]) +
       sec(10, '데이터 지키기', [
-        '지운 일정·조사·자료·도움말·공지·취합 시트(표·시트·양식)는 <b>관리자 › 휴지통</b>에서 되살릴 수 있어요.',
+        '지운 일정·조사·자료·도움말·공지·회의록·취합 시트(표·시트·양식)는 <b>관리자 › 휴지통</b>에서 되살릴 수 있어요.',
         '누가 언제 무엇을 바꿨는지는 <b>관리자 › 수정 기록</b>에서 바뀌기 전·뒤까지 볼 수 있어요.',
         "전용 시트 메뉴 '온라인 교무실 › 4. 매일 자동 백업 켜기'를 켜 두면 매일 사본을 만들고 정한 개수만큼 남겨요. 사본에서 되살리는 방법은 설치 안내서의 <b>'백업에서 되살리기'</b>에 있어요.",
         '전용 시트를 직접 고칠 때는 1행(머리글)을 바꾸지 말고, 줄을 지우지 말아 주세요. 웹앱에서 지우면 되살릴 수 있어요.',
@@ -4259,7 +4269,7 @@
 
   function quickLibCard(list, total) {
     var more = (total || 0) - list.length; // 홈에는 6개까지(서버가 고른 수를 함께 보냄)
-    return '<section class="card quick-card"><div class="card-head"><h2>자주 찾는 자료</h2><button type="button" class="linkish" data-go="library">자료실 가기</button></div>' +
+    return '<section class="card quick-card"><div class="card-head"><h2>자주 찾는 자료</h2><button type="button" class="more-link print-hide" data-go="library">자료실 가기' + icon('chev', 18) + '</button></div>' +
       (list.length ? '<div class="sr-list">' + list.map(function (i) {
         return srRow('sr-lib', i.id, i.hasFile ? 'doc' : 'link', esc(i.title), i.dept);
       }).join('') + '</div>' : '<p class="faint">관리자가 자료를 고르면 여기에 보여요.</p>') +
@@ -4930,7 +4940,7 @@
   function homeNoticeCard(h) {
     var nt = h.notices || { items: [], total: 0 };
     return '<section class="card notice-card"><div class="card-head"><h2>공지 <span class="accent-num">' + nt.total + '</span></h2>' +
-      '<div class="row-btns"><button type="button" class="linkish" data-action="notice-all">전체 보기</button></div></div>' +
+      '<button type="button" class="more-link print-hide" data-action="notice-all">공지 모두 보기' + icon('chev', 18) + '</button></div>' +
       (nt.items.length ? '<div class="sr-list">' + nt.items.map(function (n) {
         return srRow('notice-open', n.id, 'info', (n.pinned ? starHtml() : '') + esc(n.title), [n.dept, n.at ? md(n.at.slice(0, 10)) : ''].filter(Boolean).join(' · '));
       }).join('') + '</div>' : '<p class="faint">지금 걸린 공지가 없어요.</p>') +
@@ -5110,7 +5120,7 @@
     openMeet(id);
   }
 
-  /** 칸 쓰기·기타 안건 더하기·고치기 창. kind: 'row' | 'etc-add' | 'etc-edit' */
+  /** 칸 쓰기·기타 안건 추가·고치기 창. kind: 'row' | 'etc-add' | 'etc-edit' */
   function openMeetWrite(kind, key) {
     if (!needMe('회의록을 쓰면')) return;
     var d = S.meet.detail;
@@ -5125,7 +5135,7 @@
       var it = m.etcItems.filter(function (x) { return x.id === key; })[0];
       if (!it) return;
       title = '기타 안건 고치기'; value = it.content; base = it.ver;
-    } else title = '기타 안건 더하기';
+    } else title = '기타 안건 추가';
     openModal('<h2 id="m-title">' + esc(title) + '</h2><p class="faint" style="margin:0">' + esc(m.title) + '</p>' +
       '<form class="form" id="mw-form" novalidate><div class="field"><label class="label" for="mw-text">' + (kind === 'row' ? '내용' : '안건') + '</label>' +
       '<textarea id="mw-text" class="input meet-ta" rows="9" maxlength="5000" placeholder="' + (kind === 'row' ? '줄을 바꿔 여러 줄로 써요. 전할 것이 없으면 \'전달 사항 없음\'' : '협의할 안건을 적어 주세요') + '">' + esc(value) + '</textarea></div>' +
@@ -5532,7 +5542,7 @@
 
   function confirmBox(title, body, okText, onOk, danger) {
     openModal('<h2 id="m-title">' + title + '</h2><p class="muted" style="margin:0">' + body + '</p><p class="err" id="cf-err" role="alert"></p>' +
-      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">그만두기</button>' +
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button>' +
       '<button type="button" class="btn ' + (danger ? 'btn-danger' : 'btn-primary') + '" id="cf-ok">' + okText + '</button></div>');
     var ok = qs('#cf-ok');
     ok.addEventListener('click', function () {
@@ -5985,7 +5995,7 @@
     start: '시작', boot: '처음 열기', session: '로그인 확인', login: '로그인', verify: '이름 고르기', home: '홈',
     'sched.month': '일정(달력)', 'sched.year': '연간 학사일정', 'sched.save': '일정 저장', 'sched.delete': '일정 지우기', 'focus.save': '중점지도 저장',
     'students.save': '학생 수 저장', 'survey.list': '조사 목록', 'survey.get': '조사 보기', 'survey.respond': '조사 응답', 'survey.save': '조사 만들기·고치기',
-    'lib.list': '자료실', 'lib.save': '자료 넣기·고치기', 'lib.delete': '자료 지우기', 'notice.list': '공지', 'notice.save': '공지 쓰기·고치기',
+    'lib.list': '자료실', 'lib.save': '자료 추가·고치기', 'lib.delete': '자료 지우기', 'notice.list': '공지', 'notice.save': '공지 쓰기·고치기',
     'help.list': '도움말', 'help.save': '도움말 쓰기·고치기', 'staff.list': '교직원', search: '찾기', 'admin.check': '점검', adminLogin: '관리자 들어가기', 'admin.staff.list': '교직원 표(관리자)', 'admin.staff.import': '명단 한 번에 넣기', 'admin.staff.importCheck': '명단 미리보기', batch: '미리 받기(뒤에서)',
     'sched.upload.info': '학사일정 올리기 화면', 'sched.upload.check': '학사일정 미리보기', 'sched.upload.save': '학사일정 올리기',
     'admin.cache.clear': '시트 새로 읽기', 'admin.settings.get': '설정(관리자)', 'admin.log.list': '수정 기록', 'survey.remind': '다시 알리기'
@@ -6267,6 +6277,12 @@
         t.setAttribute('aria-label', show ? '비밀번호 가리기' : '비밀번호 보이기');
         break;
       case 'identity': closeSheet(); showIdentity(); break;
+      case 'side-set':
+        S.sideSet = !S.sideSet;
+        if (S.sideSet) stSet('gy.sideSet', '1', true); else stDel('gy.sideSet'); // 펼쳐 둔 것은 이 기기에서 기억
+        var ss = t.closest('.side-set');
+        if (ss) { ss.classList.toggle('open', S.sideSet); t.setAttribute('aria-expanded', S.sideSet); }
+        break;
       case 'switch':
         if (TB && TB.leaving && !TB.leaving(function () { t.click(); })) break; // 취합 시트에 저장하지 못한 칸이 있으면 먼저 묻는다
         closeSheet();
@@ -6335,6 +6351,14 @@
         sc3.day = td3 >= hm && td3 <= addD(hm, 6) ? (wd(td3) === 0 || wd(td3) === 6 ? addD(hm, 5) : td3) : hm;
         go('schedule');
         break;
+      case 'filters-toggle': S.sched.showFilters = !S.sched.showFilters; drawCal(); break;
+      case 'sched-more':
+        openModal('<h2 id="m-title">일정 더 보기</h2><div class="stack">' +
+          '<button type="button" class="btn btn-block" data-action="print">' + icon('print', 18) + '인쇄</button>' +
+          '<button type="button" class="btn btn-block" data-action="week-notice">' + icon('copy', 18) + '주간 안내</button>' +
+          (canManageMe() ? '<button type="button" class="btn btn-block" data-go="upload">' + icon('upload', 18) + '학사일정 올리기</button>' : '') +
+          '</div><div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button></div>');
+        break;
       case 'filter-clear': S.sched.filter = { grade: '', dept: '', mine: false, imp: false }; drawCal(); break;
       case 'y-prev': S.sched.yy = schedYear() - 1; loadSched(); break;
       case 'y-next': S.sched.yy = schedYear() + 1; loadSched(); break;
@@ -6347,7 +6371,7 @@
         var row = qs('#chk-' + t.getAttribute('data-i'));
         if (row) { row.scrollIntoView({ block: 'center' }); row.classList.add('flash'); setTimeout(function () { row.classList.remove('flash'); }, 1600); }
         break;
-      case 'print': window.print(); break;
+      case 'print': closeModal(); setTimeout(function () { window.print(); }, 30); break; // '더 보기' 창에서 눌렀으면 창을 닫고 찍는다
       case 'print-guide-teacher': if (guideTeacherStart()) window.print(); break; // 인쇄 창을 닫으면(afterprint) 되돌린다
       case 'focus-edit': editFocus(); break;
       case 'sv-open': S.survey.sel = id; S.survey.showResults = false; drawSurvey(); if (isPhone()) window.scrollTo(0, 0); break;

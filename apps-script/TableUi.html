@@ -237,7 +237,7 @@ body.tb-resizing.rows,body.tb-resizing.rows *{cursor:row-resize!important}
 .tb-conf-h{margin:4px 0 0;font-size:14px;font-weight:700;color:var(--c-t2)}
 .tb-conf-list{display:flex;flex-direction:column;gap:6px;max-height:min(52vh,460px);overflow-y:auto;padding-right:4px}
 .tb-conf-h.check{display:flex;align-items:center;gap:8px;min-height:36px;cursor:pointer}
-/* 새 표 만들기·시트 더하기: 붙여 넣는 곳·미리보기·열 정하기 */
+/* 새 표 만들기·시트 추가: 붙여 넣는 곳·미리보기·열 정하기 */
 .tb-steps{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none;font-size:14px;font-weight:700;color:var(--c-t3)}
 .tb-steps li{padding:4px 12px;border-radius:9999px;background:var(--c-pill)}
 .tb-steps li.on{background:var(--accent-soft);color:var(--accent)}
@@ -883,7 +883,7 @@ window.__gyTableUi = function (core) {
       (phone ? tbPhoneSheetsHtml() : '') + desc +
       '<div class="tb-bar" id="tb-bar"></div>' +
       '<div id="tb-main"></div>' +
-      (t.canWrite ? '<div class="row-btns print-hide"><button type="button" class="btn btn-sm" data-action="tb-row-add">' + icon('plus', 18) + '줄 더하기</button></div>' : '') +
+      (t.canWrite ? '<div class="row-btns print-hide"><button type="button" class="btn btn-sm" data-action="tb-row-add">' + icon('plus', 18) + '줄 추가</button></div>' : '') +
       (phone ? '' : '<p class="tb-hint print-hide">구글 시트처럼 칸을 누르고 바로 쓰면 바뀌고, 한 번 더 누르면(또는 Enter) 쓰던 글에 이어 써요. 잘못 고쳤으면 Ctrl+Z로 되돌려요. ' +
         (t.cols.some(function (c) { return c.lock; }) ? '자물쇠 열은 만든 분과 관리자(그 줄을 더한 분도)만 고칠 수 있어요. ' : '') +
         '여러 칸을 골라 복사(Ctrl+C)하면 구글 시트에 그대로 붙여 넣을 수 있고, 구글 시트에서 복사한 칸도 서식과 함께 붙여 넣을 수 있어요(값만은 Ctrl+Shift+V).</p>');
@@ -1198,7 +1198,7 @@ window.__gyTableUi = function (core) {
     }).join('');
     if (!rows.length) {
       body = '<tr><td class="tb-none" colspan="' + (cols.length + 2) + '">' + (d.rows.length ? '걸러 보는 값에 맞는 줄이 없어요. 위의 "모두 풀기"를 눌러 주세요.'
-        : '아직 줄이 없어요.' + (t.canWrite ? ' 아래 "줄 더하기"를 눌러 주세요.' : '')) + '</td></tr>';
+        : '아직 줄이 없어요.' + (t.canWrite ? ' 아래 "줄 추가"를 눌러 주세요.' : '')) + '</td></tr>';
     }
     var gap = t.view && t.view.gap === 's' ? ' gap-s' : t.view && t.view.gap === 'w' ? ' gap-w' : '';
     return '<table class="tb-grid' + gap + '" style="width:' + total + 'px"><colgroup>' + colg + '</colgroup><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
@@ -3345,7 +3345,7 @@ window.__gyTableUi = function (core) {
     var T = S.table, d = T.d, t = d.table, own = t.canEdit, menu = own || !!S.me, F = T.find, sheets = d.doc.sheets, active = T.pendingSheet || t.id;
     var cnt = function (s) { return !F || !F.q.trim() ? 0 : s.id === t.id ? F.hits.length : (F.counts[s.id] || 0); };
     return '<div class="tb-tabs print-hide" id="tb-tabs" role="tablist" aria-label="시트">' +
-      (own ? '<button type="button" class="icon-btn" data-action="tb-sheet-add" title="시트 더하기" aria-label="시트 더하기">' + icon('plus', 20) + '</button>' : '') +
+      (own ? '<button type="button" class="icon-btn" data-action="tb-sheet-add" title="시트 추가" aria-label="시트 추가">' + icon('plus', 20) + '</button>' : '') +
       '<button type="button" class="icon-btn" data-action="tb-sheet-list" title="모든 시트" aria-label="모든 시트 보기" aria-haspopup="menu" aria-expanded="false">' + icon('menu', 20) + '</button>' +
       '<div class="tb-tabs-in" id="tb-tabs-in">' + sheets.map(function (s) {
         var on = s.id === active, n = cnt(s);
@@ -3383,7 +3383,7 @@ window.__gyTableUi = function (core) {
       (sheets.length > 3 ? '<button type="button" data-action="tb-sheet-list" aria-haspopup="menu" aria-expanded="false" aria-label="모든 시트 ' + sheets.length + '개">' + icon('menu', 18) + sheets.length + '</button>' : '') +
       sheets.map(function (s) { return '<button type="button" role="tab" data-action="tb-sheet" data-id="' + esc(s.id) + '" aria-selected="' + (s.id === active) + '">' + esc(s.name) + '</button>'; }).join('') +
       (menu ? '<button type="button" data-action="tb-sheet-menu" aria-haspopup="menu" aria-expanded="false" aria-label="시트 메뉴">' + icon('dots', 18) + '</button>' : '') +
-      (own ? '<button type="button" data-action="tb-sheet-add" aria-label="시트 더하기">' + icon('plus', 18) + '</button>' : '') + '</div>';
+      (own ? '<button type="button" data-action="tb-sheet-add" aria-label="시트 추가">' + icon('plus', 18) + '</button>' : '') + '</div>';
   }
   function tbSwitchSheet(sid, force) {
     var T = S.table, d = T.d;
@@ -3512,7 +3512,7 @@ window.__gyTableUi = function (core) {
     }, true);
   }
 
-  // ------------------------------------------------------------ 줄 더하기·빼기
+  // ------------------------------------------------------------ 줄 추가·빼기
   /** afterId: 그 줄 바로 아래에(없으면 표 끝에). 위 줄의 '위아래 합침' 값·채우기 색·서식(합친 칸·테두리 빼고)을 이어 받는다 */
   function tbRowAdd(afterId) {
     var T = S.table, d = T.d;
@@ -3715,7 +3715,7 @@ window.__gyTableUi = function (core) {
     var T = S.table, r = tbRow(rowId);
     if (!r) return;
     var t = T.d.table, items = [];
-    if (t.canWrite) items.push({ key: 'below', label: '아래에 줄 더하기', icon: icon('plus', 16) });
+    if (t.canWrite) items.push({ key: 'below', label: '아래에 줄 추가', icon: icon('plus', 16) });
     items.push({ key: 'edit', label: t.canWrite ? '이 줄 한 번에 고치기' : '이 줄 보기', icon: icon('doc', 16) });
     if (t.canWrite && r.h) items.push({ key: 'fit', label: '줄 높이를 글에 맞추기', icon: ti('rows' in TP ? 'rows' : 'fit', 16) });
     if (tbCanDelRow(r)) items.push({ key: 'del', label: '줄 빼기', icon: icon('x', 16), danger: true });
@@ -3731,7 +3731,7 @@ window.__gyTableUi = function (core) {
     tbMenu(btn, [
       { key: 'meta', label: '표 이름·마감 고치기' },
       { key: 'cols', label: '열 고치기(이 시트)' },
-      { key: 'sheet', label: '시트 더하기' },
+      { key: 'sheet', label: '시트 추가' },
       { key: 'open', label: t.closedByHand ? '다시 열기' : t.closed ? '마감 날짜 바꾸기' : '지금 마감' },
       { key: 'del', label: '표 지우기(시트 모두)', danger: true }
     ], function (x) {
@@ -3779,7 +3779,7 @@ window.__gyTableUi = function (core) {
       '<p class="hint">' + icon('info', 16) + '<span>잠근 열은 만든 분과 관리자(그 줄을 더한 분도)만 고쳐요. 고르기 열은 정해 둔 값 중 하나를 고르고, 맨 앞 값이 표 위에 "끝난 것"으로 세어져요(예: 완료, 미완료). 숫자 열은 표 위에 합계·평균이 나와요. \'위아래 합침\'을 켜면 위아래로 같은 값이 이어지는 칸을 한 칸처럼 보여 줘요. 뺀 열의 내용은 시트에 남아요.</span></p>' +
       '<p class="hint">' + ti('todo', 16) + '<span><b>할 일 열</b>(글 열 하나, 예: 담임)에 이름이 있는 분은 홈 \'내가 할 일\'에 끝나지 않은 줄이 떠요(늦어도 10분 안에). 첫 고르기 열이 맨 앞 값이 되면 끝난 줄이에요. 고르기 열이 없으면 숫자 열이, 숫자 열도 없으면 잠그지 않은 글 열이 모두 채워지면 끝난 줄이에요.</span></p>' +
       '<div class="tb-cols" id="tbc-list"></div>' +
-      '<button type="button" class="btn btn-sm" id="tbc-add" style="align-self:flex-start">' + icon('plus', 18) + '열 더하기</button>' +
+      '<button type="button" class="btn btn-sm" id="tbc-add" style="align-self:flex-start">' + icon('plus', 18) + '열 추가</button>' +
       '<p class="err" id="tbc-err" role="alert"></p>' +
       '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="button" class="btn btn-primary" id="tbc-save">저장</button></div>', { wide: true, noBackdropClose: true });
     var box = qs('#tbc-list');
@@ -3931,7 +3931,7 @@ window.__gyTableUi = function (core) {
     (out.html ? tbCopyRich(out) : copyText(out.tsv)).then(function (ok) { toast(ok ? (part ? '걸러 본 ' + T.vrows.length + '줄을 복사했어요' : '표를 복사했어요') + '. 구글 시트나 엑셀에 붙여 넣으세요' : '복사하지 못했어요', ok ? '' : 'error'); });
   }
 
-  // ------------------------------------------------------------ 새 표 만들기·시트 더하기(구글 시트에서 붙여 넣기)
+  // ------------------------------------------------------------ 새 표 만들기·시트 추가(구글 시트에서 붙여 넣기)
   var TB_NEG = /^(미|안 ?|아니|불|비|X$|x$|N$|n$|FALSE$|×$)/;
   var TB_STATUS = /^(O|o|X|x|V|v|✓|✔|●|○|△|완료|미완료|신청|미신청|확인|미확인|제출|미제출|예|아니요|아니오|참석|불참|동의|비동의|가능|불가|불가능|있음|없음|해당|미해당|진행|대기|보류|TRUE|FALSE|Y|N)$/;
   /** 고를 값 차례: '끝난 것'(완료·제출·O)이 앞, 미완료·X 같은 값은 뒤로 */
@@ -3956,8 +3956,8 @@ window.__gyTableUi = function (core) {
   }
 
   /**
-   * mode: 'doc'(새 표 만들기) · 'sheet'(지금 표에 시트 더하기).
-   * 어떻게 시작할지: 구글 시트에서 붙여 넣기 · 양식에서 고르기(판 2026-10-18b) · 빈 표(시트) · 지금 시트의 열만 복사(시트 더하기)
+   * mode: 'doc'(새 표 만들기) · 'sheet'(지금 표에 시트 추가).
+   * 어떻게 시작할지: 구글 시트에서 붙여 넣기 · 양식에서 고르기(판 2026-10-18b) · 빈 표(시트) · 지금 시트의 열만 복사(시트 추가)
    */
   function tbNew(mode) {
     if (!needMe(mode === 'sheet' ? '시트를 더하면' : '표를 만들면')) return;
@@ -3974,7 +3974,7 @@ window.__gyTableUi = function (core) {
       segBtn('paste', '구글 시트에서 붙여 넣기', '붙여 넣기') + segBtn('tpl', '양식에서 고르기', '양식') +
       segBtn('blank', sheet ? '빈 시트' : '빈 표', sheet ? '빈 시트' : '빈 표') + (sheet ? segBtn('copy', '지금 시트의 열만 복사', '열만 복사') : '') + '</div></div>';
     var head = sheet
-      ? '<h2 id="m-title">시트 더하기</h2><p class="muted" style="margin:0">「' + esc(T.d.table.title) + '」에 새 시트(탭)를 더해요.</p>' +
+      ? '<h2 id="m-title">시트 추가</h2><p class="muted" style="margin:0">「' + esc(T.d.table.title) + '」에 새 시트(탭)를 더해요.</p>' +
         '<div class="field"><label class="label" for="tbm-sheet">시트 이름</label><input class="input" id="tbm-sheet" maxlength="40" value="' + esc(tbNextSheetName()) + '"></div>' + seg
       : '<h2 id="m-title">새 표 만들기</h2><ol class="tb-steps" id="tbm-steps"></ol>' +
         '<div class="form-grid2"><div class="field"><label class="label" for="tbm-title">표 이름</label><input class="input" id="tbm-title" maxlength="80" placeholder="예: 2학기 업무 협의"></div>' +
@@ -3990,7 +3990,7 @@ window.__gyTableUi = function (core) {
           depts.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === myDept ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join('') + '</select></div>' +
           '<div class="field"><label class="label" for="tbm-deadline">마감 (안 정해도 돼요)</label><input class="input" type="date" id="tbm-deadline"></div></div>') +
       '<p class="err" id="tbm-err" role="alert"></p>' +
-      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="button" class="btn btn-primary" id="tbm-go">' + (sheet ? '시트 더하기' : '표 만들기') + '</button></div>',
+      '<div class="modal-btns"><button type="button" class="btn" data-action="close-modal">닫기</button><button type="button" class="btn btn-primary" id="tbm-go">' + (sheet ? '시트 추가' : '표 만들기') + '</button></div>',
     { wide: true, noBackdropClose: true });
     var modal = qs('.modal', $modal), ta = qs('#tbm-paste');
     var take = function (g, blank) {
@@ -4108,13 +4108,13 @@ window.__gyTableUi = function (core) {
       return '<div class="tb-tpl edit"' + data + '><div class="tb-tplf"><label class="label" for="tbt-name">양식 이름</label>' +
         '<input class="input" id="tbt-name" maxlength="40" value="' + esc(x.name) + '">' +
         '<input class="input" id="tbt-desc" maxlength="200" value="' + esc(x.desc || '') + '" placeholder="설명 (안 써도 돼요)" aria-label="양식 설명">' +
-        '<p class="err" id="tbt-err" role="alert"></p><div class="btns"><button type="button" class="btn btn-sm" data-tple="cancel">그만두기</button>' +
+        '<p class="err" id="tbt-err" role="alert"></p><div class="btns"><button type="button" class="btn btn-sm" data-tple="cancel">닫기</button>' +
         '<button type="button" class="btn btn-sm btn-primary" data-tple="save">저장</button></div></div></div>';
     }
     if (E && E.mode === 'del') {
       return '<div class="tb-tpl ask"' + data + '><div class="tb-tplf"><b>"' + esc(x.name) + '" 양식을 지울까요?</b>' +
         '<small>지운 양식은 관리자가 관리자 › 휴지통에서 되살릴 수 있어요.</small>' +
-        '<p class="err" id="tbt-err" role="alert"></p><div class="btns"><button type="button" class="btn btn-sm" data-tple="cancel">그만두기</button>' +
+        '<p class="err" id="tbt-err" role="alert"></p><div class="btns"><button type="button" class="btn btn-sm" data-tple="cancel">닫기</button>' +
         '<button type="button" class="btn btn-sm btn-danger" data-tple="del">지우기</button></div></div></div>';
     }
     return '<div class="tb-tpl' + (on ? ' on' : '') + '"' + data + '><button type="button" class="tb-tplb" data-tpl="' + esc(x.id) + '" aria-pressed="' + on + '"' +
@@ -4365,7 +4365,7 @@ window.__gyTableUi = function (core) {
         (c.type === 'text' && !copyMode ? '<button type="button" class="tb-chip' + (c.todo ? ' on' : '') + '" data-mk="todo" data-k="' + k + '" aria-pressed="' + !!c.todo + '" title="이 열에 이름이 있는 분 홈 \'내가 할 일\'에 끝나지 않은 줄이 떠요">' + ti('todo', 12) + '할 일</button>' : '') +
         (M.cols.length > 1 && !copyMode ? '<button type="button" class="tb-chip x" data-mk="del" data-k="' + k + '" aria-label="' + esc(c.name) + ' 열 빼기">' + icon('x', 12) + '</button>' : '') +
         '</span></th>';
-    }).join('') + (copyMode ? '' : '<th class="tb-addcol"><button type="button" class="tb-chip" data-mk="add" aria-label="열 더하기">' + icon('plus', 12) + '열</button></th>');
+    }).join('') + (copyMode ? '' : '<th class="tb-addcol"><button type="button" class="tb-chip" data-mk="add" aria-label="열 추가">' + icon('plus', 12) + '열</button></th>');
     var rowsHtml = show.map(function (line, i) {
       return '<tr>' + M.cols.map(function (c, k) {
         var o = occ[i + ':' + k];

@@ -1677,7 +1677,7 @@ test('화면 디자인: 장도·종이색은 시안과 같은 변수 이름을 �
   }
   // 장도 밝게의 남색 메뉴·위 막대: 글자와 초록 점이 남색 바탕에서 잘 보이게
   const side = block(':root[data-design="jangdo"]:not([data-theme="dark"]) .side,:root[data-design="jangdo"]:not([data-theme="dark"]) .topbar');
-  for (const a of ['--c-t1', '--c-t2', '--c-t3', '--accent', '--c-okFg']) assert.ok(cr(side[a], side['--c-sub']) >= 4.5, '남색 메뉴 ' + a + ' 대비 ' + cr(side[a], side['--c-sub']).toFixed(2));
+  for (const a of ['--c-t1', '--c-t2', '--c-t3', '--accent', '--c-okFg', '--seg-dark-fg']) assert.ok(cr(side[a], side['--c-sub']) >= 4.5, '남색 메뉴 ' + a + ' 대비 ' + cr(side[a], side['--c-sub']).toFixed(2));
   assert.strictEqual((read('App.html').match(/designSeg\(\) \+/g) || []).length, 2, '메뉴 아래·휴대폰 전체 메뉴');
   assert.ok(/getItem\('gy\.design'\)|g\('gy\.design'\)/.test(read('Index.html')), '처음 그릴 때 고른 디자인을 먼저 정함(깜빡이지 않게)');
 });
@@ -2726,7 +2726,7 @@ test('함께 쓰는 표: 10초마다 새로 받기는 바뀐 줄만 받고, 바�
   assert.strictEqual(call(g, 'table.poll', { id, since: p.ver, dsince: p.dver }, a).data.gone, true);
 });
 
-test('함께 쓰는 표: 줄 더하기는 누구나(아래에 더하면 그 자리에), 줄 빼기는 만든 분·관리·그 줄을 더한 분만', () => {
+test('함께 쓰는 표: 줄 추가는 누구나(아래에 더하면 그 자리에), 줄 빼기는 만든 분·관리·그 줄을 더한 분만', () => {
   const g = freshName();
   const { who, boss } = ids(g);
   const owner = who('흥부'), a = who('심청'), b = who('장화');
@@ -2954,7 +2954,7 @@ function tbMakeDoc(g, by) {
   return id;
 }
 
-test('함께 쓰는 표 2: 시트 더하기·이름·옮기기·사본·지우기는 만든 분·관리만, 목록·열기·새로 받기에 시트가 보인다', () => {
+test('함께 쓰는 표 2: 시트 추가·이름·옮기기·사본·지우기는 만든 분·관리만, 목록·열기·새로 받기에 시트가 보인다', () => {
   const g = freshName();
   const { who, boss } = ids(g);
   const owner = who('흥부'), a = who('심청');
