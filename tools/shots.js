@@ -521,10 +521,11 @@ async function reviewFlow(page, kind) {
   await page.locator('#side-form #ev-form').waitFor();
   await page.fill('#ef-title', '쓰던 행사');
   await page.fill('#ef-place', '도서관');
+  await page.click('[data-tg="전체"]'); // 새 행사는 '전체'가 켜진 채 시작한다(2026-10-28a) → 끄고 3학년만
   await page.click('[data-tg="3"]');
   await page.selectOption('#f-grade', '3');
   await page.waitForTimeout(200);
-  if ((await val('#ef-title')) !== '쓰던 행사' || (await val('#ef-place')) !== '도서관' || (await page.getAttribute('[data-tg="3"]', 'aria-pressed')) !== 'true') problems.push(kind + ': 필터를 바꾸면 옆 행사 칸에 쓰던 것이 지워짐');
+  if ((await val('#ef-title')) !== '쓰던 행사' || (await val('#ef-place')) !== '도서관' || (await page.getAttribute('[data-tg="3"]', 'aria-pressed')) !== 'true') problems.push(kind + ': 필터를 바꾸면 옆 행사 칸에 쓰던 것이 지워짐 ' + JSON.stringify([await val('#ef-title'), await val('#ef-place'), await page.getAttribute('[data-tg="3"]', 'aria-pressed')]));
   await page.click('[data-action=m-next]');
   await page.locator('#side-form #ev-form').waitFor();
   if ((await val('#ef-title')) !== '쓰던 행사') problems.push(kind + ': 달을 옮기면 옆 행사 칸이 닫히거나 지워짐');
@@ -4975,6 +4976,14 @@ async function introGapCheck(browser) {
     await printCheck(browser);
     await browser.close();
     if (planInfo) console.log(planInfo);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
+  // ONLY=pc: PC 흐름만(고치는 동안 빨리 돌려 보기)
+  if (process.env.ONLY === 'pc') {
+    await flow(browser, 'PC', { width: 1440, height: 900 });
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
   }
