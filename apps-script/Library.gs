@@ -11,7 +11,7 @@
  * - 파일은 지우지 않는다. 자료를 지우거나 파일을 바꿔도 드라이브 파일은 그대로 남고, 기록 탭에 파일ID가 남는다.
  */
 
-function fileMark_Library_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
+function fileMark_Library_() { return '2026-10-28a'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 도구
 
@@ -148,6 +148,7 @@ function libView_(r, ctx, c) {
     by: c.names[r['입력자ID']] || '',
     byId: r['입력자ID'],
     updated: (r['수정 시각'] || r['입력 시각'] || '').slice(0, 10),
+    added: String(r['입력 시각'] || '').slice(0, 10), // 처음 넣은 날(7일 안이면 '새 자료', 2026-10-28a)
     archived: r['보관 여부'] === '보관' || (!!r['학년도'] && r['학년도'] !== c.year),
     home: r['홈에 보이기'] === '예',
     common: r['공통'] === '예',
@@ -355,8 +356,8 @@ function adminYearCheck_() {
   items.push({ key: 'stu', state: st.id ? 'ok' : 'info', label: next + '학년도 학생 수',
     detail: st.id ? '들어 있어요.' : '3월 1일 뒤에 홈의 학생 수 현황에서 반마다 넣어 주세요.' });
   // 6) 공통 비밀번호: 새 학년도에 바꾸고 메신저로 알리기(마지막으로 바꾼 날은 기록에서)
-  var last = '';
-  tailRows_('기록', 5000).forEach(function (x) { if (x['동작'] === '비밀번호 바꿈' && /공통 비밀번호/.test(x['요약'] || '') && x['시각'] > last) last = x['시각']; });
+  var last = String(PropertiesService.getScriptProperties().getProperty('COMMON_PW_AT') || ''); // 2026-10-28a부터 바꿀 때 적어 둔다
+  if (!last) tailRows_('기록', 5000).forEach(function (x) { if (x['동작'] === '비밀번호 바꿈' && /공통 비밀번호/.test(x['요약'] || '') && x['시각'] > last) last = x['시각']; });
   items.push({ key: 'pw', state: 'info', label: '공통 비밀번호 바꾸기',
     detail: (last ? '마지막으로 바꾼 때: ' + last.slice(0, 10) + '. ' : '웹앱에서 바꾼 기록이 없어요. ') + '새 학년도에는 관리자 › 비밀번호에서 바꾸고, 새 비밀번호를 메신저로 알려 주세요(모든 기기가 다시 로그인해요).' });
   return { year: String(cur), next: String(next), items: items };

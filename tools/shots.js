@@ -242,6 +242,7 @@ async function libraryFlow(page, kind) {
   await page.locator('#lib-form').waitFor();
   await modalSettled(page);
   await page.fill('#lf-title', '학급 운영 계획 양식');
+  await page.click('#lib-form .more-fields > summary'); // 설명·담당은 '더 적기' 안(2026-10-28a)
   await page.fill('#lf-desc', '새 학년 학급 운영 계획을 적는 양식이에요.');
   await page.check('#lf-common');
   await page.fill('#lf-corder', '4');
@@ -3281,17 +3282,14 @@ async function batCheck(browser) {
   if (!copied || !copied.includes('온라인 교무실 등록.bat') || !copied.includes(URL0) || !/3번: 저절로 열기 끄기/.test(copied)) P('안내 글 ' + JSON.stringify(copied));
   await shot(page, '등록파일_안내글복사');
   await ctx.close();
-  // 휴대폰: 단추와 창이 화면 안에
+  // 휴대폰: PC용 바로가기·등록 파일 단추 대신 '홈 화면에 추가' 한 줄(2026-10-28a, 검토 43번)
   ({ ctx, page } = await open({ width: 390, height: 844 }, '심청', true));
   await page.evaluate(() => window.__gy.go('guide'));
-  await page.locator('[data-action=bat-file]').waitFor();
-  await page.locator('[data-action=bat-file]').scrollIntoViewIfNeeded();
-  await shot(page, '등록파일_휴대폰_단추');
-  await page.click('[data-action=bat-file]');
-  await page.locator('#bat-url').waitFor();
-  const over = await page.evaluate(() => { const r = document.querySelector('.modal').getBoundingClientRect(); return r.right > innerWidth + 1 || r.left < -1 || document.documentElement.scrollWidth > innerWidth + 1; });
-  if (over) P('휴대폰에서 창이 넘침');
-  await shot(page, '등록파일_휴대폰_창');
+  await page.locator('.guide-h').first().waitFor();
+  if (await page.locator('[data-action=bat-file],[data-action=shortcut-file]').count()) P('휴대폰 안내서에 PC용 바로가기·등록 파일 단추가 보임');
+  if (!(await page.getByText('홈 화면에 추가').count())) P("휴대폰 안내서에 '홈 화면에 추가' 안내가 없음");
+  await page.getByText('홈 화면에 추가').first().scrollIntoViewIfNeeded().catch(() => {});
+  await shot(page, '등록파일_휴대폰_홈화면추가');
   await ctx.close();
 }
 
@@ -3756,7 +3754,7 @@ async function libDeptCheck(browser) {
       mine: !!b.querySelector('.tg-mine'), zero: b.classList.contains('zero'), top: Math.round(b.getBoundingClientRect().top)
     }));
     return {
-      btns, sel: !!document.querySelector('#lib-dept'), count: (document.querySelector('#lib-list > p.faint') || {}).textContent || '',
+      btns, sel: !!document.querySelector('#lib-dept'), count: (document.querySelector('#lib-tail .faint') || document.querySelector('#lib-list > p.faint') || {}).textContent || '',
       cards: document.querySelectorAll('.lib-card').length, commons: document.querySelectorAll('.lib-group.common .lib-card').length,
       groups: [...document.querySelectorAll('.lib-group:not(.common) .lib-h')].map((h) => h.childNodes[0].textContent.trim()),
       more: (document.querySelector('.lib-other') || {}).textContent || '', note: [...document.querySelectorAll('#lib-list .card .empty')].map((e) => e.textContent).join(' / '),
@@ -4058,6 +4056,321 @@ async function sched2Check(browser) {
   });
   if (!wake.short) P('잠깐 다른 창에 다녀와도 화면을 다시 그림');
   if (!wake.long || !wake.home) P('1분 넘게 다른 창에 있다 돌아와도 홈을 새로 받지 않음 ' + JSON.stringify(wake));
+  await ctx.close();
+}
+
+// 묶음 3 취합 시트(판 2026-10-28a): 줄 고치기 창이 쓴 글을 지킴, 긴 글은 보내기 전에 알림, 칸마다 고르는 묻는 창, 내 줄로 가기,
+// 걸러 보는 동안 고친 줄은 흐리게 남김, 엑셀·복사·인쇄 안내, 남의 글을 가리는 합치기는 묻기, 손대지 않으면 새로 받기를 늦춤·멈춤
+async function table3Check(browser) {
+  const P = (m) => problems.push('취합 시트 보완: ' + m);
+  const { cell, text, saved, toastHas, as, open, openTable } = tbKit(browser);
+  let { ctx, page } = await open({ width: 1440, height: 900 }, '심청', false, () => { window.__gyTbStopAfter = 4000; window.__gyTbSlowAfter = 2000; });
+  await openTable(page, '2026 폐기');
+  const tid = await page.evaluate(() => window.__gy.S.table.d.table.id);
+  // 1) 줄 고치기 창: 쓴 글이 있으면 바깥을 눌러도 닫히지 않음
+  await page.click('#tb-wrap [data-action=tb-rowmenu]');
+  await page.locator('.tb-menu button', { hasText: '이 줄 한 번에 고치기' }).click();
+  await page.locator('.modal .tb-ta').first().waitFor();
+  await page.locator('.modal .tb-ta').first().fill('줄 고치기에 쓰던 글');
+  await page.mouse.click(10, 450); // 창 바깥
+  await page.waitForTimeout(300);
+  if (!(await page.locator('.modal .tb-ta').count())) P('줄 고치기 창이 바깥을 누르자 닫혀 쓴 글이 사라짐');
+  else {
+    if ((await page.locator('.modal .tb-ta').first().inputValue()) !== '줄 고치기에 쓰던 글') P('줄 고치기 창의 글이 바뀜');
+    const ml = await page.locator('.modal .tb-ta').first().getAttribute('maxlength');
+    if (ml !== '2000') P('줄 고치기 칸에 2000자 제한이 없음: ' + ml);
+    await page.click('.modal [data-action=close-modal]');
+  }
+  // 2) 긴 글(2000자 넘게)은 보내기 전에 알림(서버가 거절해 사라지지 않게)
+  const tooLong = 'ㄱ'.repeat(2100);
+  await page.click(cell(1, 4));
+  await page.evaluate((v) => { const d = new DataTransfer(); d.setData('text/plain', v); const ed = document.querySelector('#tb-ed'); ed.focus(); ed.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })); }, tooLong);
+  if (!(await toastHas(page, /2000자까지/))) P('2000자 넘는 글을 붙여 넣었는데 알리지 않음');
+  // 3) 칸마다 고르는 묻는 창(두 칸 중 하나만 내 값으로)
+  let srv = (await as(page, '장화', 'table.get', { id: tid })).data;
+  for (const i of [2, 3]) {
+    const r = srv.rows[i];
+    await as(page, '장화', 'table.cell', { id: tid, row: r.id, n: r.n, col: 'c5', value: '장화 먼저 ' + i, base: (r.stamps.c5 || [0])[0] });
+  }
+  await page.evaluate(() => {
+    const orig = window.__previewServer;
+    window.__previewServer = (req) => (JSON.parse(req).action === 'table.cell' ? orig(req).then((t) => new Promise((res) => setTimeout(() => res(t), 600))) : orig(req));
+    window.__unwrap = () => { window.__previewServer = orig; };
+  });
+  await page.click(cell(2, 4));
+  await page.keyboard.type('심청 둘');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('심청 셋');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(1800);
+  await page.evaluate(() => window.__unwrap());
+  if ((await page.locator('#tb-conf-box .tb-conf-pick').count()) !== 2) P('묻는 창에 칸마다 고르는 칸이 없음');
+  else {
+    await page.locator('#tb-conf-box .tb-conf-pick').nth(1).uncheck();
+    if (!/고른 1칸을 내 값으로/.test(await page.locator('#tb-mine').innerText())) P('고른 칸 수가 단추에 보이지 않음');
+    await shot(page, '보완3_표_묻는창_칸마다');
+    await page.click('#tb-mine');
+    await saved(page, '고른 칸만 내 값으로');
+    srv = (await as(page, '흥부', 'table.get', { id: tid })).data;
+    if (srv.rows[2].cells.c5 !== '심청 둘' || srv.rows[3].cells.c5 !== '장화 먼저 3') P('고른 칸만 내 값으로 바뀌지 않음 ' + srv.rows[2].cells.c5 + ' / ' + srv.rows[3].cells.c5);
+  }
+  // 4) 걸러 보는 동안 고친 줄은 흐리게 남음 + 엑셀·인쇄 안내
+  await page.click('#tb-wrap [data-action=tb-head][data-j="3"]');
+  await page.locator('.tb-menu .tb-fl').waitFor();
+  const vals = await page.locator('.tb-menu .tb-fl label').allInnerTexts();
+  const keepVal = vals.map((x) => x.trim()).filter(Boolean)[0];
+  await page.click('.tb-menu [data-all="0"]');
+  await page.locator('.tb-menu .tb-fl label').first().locator('input').check();
+  await page.click('.tb-menu [data-apply="1"]');
+  await page.waitForTimeout(250);
+  const before = await page.evaluate(() => window.__gy.S.table.vrows.length);
+  const other = await page.evaluate(() => { const d = window.__gy.S.table.d, c = d.table.cols[3]; const v = d.rows.map((r) => (r.cells[c.id] || '').trim()); return v.find((x) => x && x !== v[window.__gy.S.table.d.rows.indexOf(window.__gy.S.table.vrows[0])]) || '바뀐 값'; });
+  await page.click(cell(0, 3));
+  await page.keyboard.type(other);
+  await page.keyboard.press('Enter');
+  await saved(page, '걸러 보며 고치기');
+  const after = await page.evaluate(() => ({ n: window.__gy.S.table.vrows.length, out: document.querySelectorAll('#tb-wrap tr.tb-out').length }));
+  if (after.n !== before || after.out < 1) P('걸러 보는 중에 고친 줄이 사라짐 ' + JSON.stringify({ before, after, keepVal, other }));
+  await shot(page, '보완3_표_걸러보며고친줄');
+  await page.emulateMedia({ media: 'print' });
+  if (!(await page.locator('.tb-print-note').isVisible())) P('걸러 본 표를 인쇄할 때 안내 줄이 없음');
+  await page.emulateMedia({ media: 'screen' });
+  await page.click('[data-action=tb-csv]');
+  await page.locator('#tbx-copy').waitFor();
+  const csvBox = (await page.locator('.modal').innerText()).replace(/\s+/g, ' ');
+  if (!/모든 줄/.test(csvBox) || !/보이는 줄 복사/.test(csvBox)) P('걸러 보는 중 엑셀 창 안내가 ' + csvBox.slice(0, 160));
+  await shot(page, '보완3_표_엑셀창_걸러보는중');
+  await page.click('.modal [data-action=close-modal]');
+  await page.click('[data-action=tb-local-clear]');
+  await page.waitForTimeout(200);
+  // 5) 남의 글을 가리는 합치기는 묻는다(장화가 고친 줄)
+  srv = (await as(page, '흥부', 'table.get', { id: tid })).data;
+  const r6 = srv.rows[6];
+  const wr = await as(page, '장화', 'table.cell', { id: tid, row: r6.id, n: r6.n, col: 'c5', value: '장화가 쓴 글', base: (r6.stamps.c5 || [0])[0] });
+  if (!wr.ok) P('장화 쓰기 실패 ' + wr.error);
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await page.waitForFunction(() => (window.__gy.S.table.d.rows[6].cells.c5 || '') === '장화가 쓴 글', null, { timeout: 5000 }).catch(() => P('장화가 쓴 글을 새로 받지 못함'));
+  await page.click(cell(5, 4));
+  await page.keyboard.down('Shift');
+  await page.click(cell(6, 4));
+  await page.keyboard.up('Shift');
+  await page.click('#tt-mg').catch(() => P('합치기 단추가 없음'));
+  await page.locator('.tb-menu button').first().click().catch(() => {});
+  if (!(await page.getByText('다른 선생님 글이 가려져요').waitFor({ timeout: 3000 }).then(() => true, () => false))) P('남의 글을 가리는 합치기를 묻지 않음');
+  else { await shot(page, '보완3_표_합치기_묻기'); await page.click('.modal [data-action=close-modal]'); }
+  // 6) 내 줄로 가기(할 일 열에 내 이름이 있는 줄)
+  await page.evaluate(() => {
+    const d = window.__gy.S.table.d, c = d.table.cols[1], pick = d.table.cols.find((x) => x.type === 'pick');
+    c.todo = true;
+    d.rows[7].cells[c.id] = '심청';
+    if (pick) d.rows[7].cells[pick.id] = pick.options[pick.options.length - 1]; // 끝나지 않은 줄
+    window.__gy.go('home');
+  });
+  await page.locator('.today-card').waitFor();
+  await page.evaluate(() => window.__gy.go('table'));
+  await page.locator('[data-action=tb-mine-go]').waitFor({ timeout: 4000 }).catch(() => P("'내 줄로 가기'가 없음"));
+  await page.click('[data-action=tb-mine-go]').catch(() => {});
+  await page.waitForTimeout(250);
+  const cur = await page.evaluate(() => { const T = window.__gy.S.table; return T.cur ? T.d.rows.findIndex((r) => r.id === T.cur.r) : -1; });
+  if (cur !== 7) P('내 줄로 가기가 내 줄로 가지 않음: ' + cur);
+  await shot(page, '보완3_표_내줄로가기');
+  // 7) 손대지 않으면 새로 받기를 멈추고 '다시 받기'
+  await page.waitForTimeout(16000);
+  const live = await page.locator('#tb-live').innerText().catch(() => '');
+  if (!/멈췄어요/.test(live)) P("오래 손대지 않아도 새로 받기를 멈추지 않음: " + live);
+  else {
+    await shot(page, '보완3_표_새로받기_멈춤');
+    await page.click('[data-action=tb-live-resume]');
+    await page.waitForTimeout(300);
+    if (/멈췄어요/.test(await page.locator('#tb-live').innerText())) P("'다시 받기'를 눌러도 그대로");
+  }
+  await ctx.close();
+  // 8) 휴대폰: 줄 고치기 창 바깥을 누르면 버릴지 묻는다
+  ({ ctx, page } = await open({ width: 390, height: 844 }, '심청', true));
+  await openTable(page, '2026 폐기').catch(() => P('휴대폰에서 표가 열리지 않음'));
+  const card = page.locator('.tb-rowcard').first();
+  if (await card.count()) {
+    await card.click();
+    await page.locator('#sheet .tb-ta').first().waitFor();
+    await page.locator('#sheet .tb-ta').first().fill('휴대폰에서 쓰던 글');
+    await page.mouse.click(195, 30);
+    if (!(await page.getByText('쓴 내용을 버릴까요?').waitFor({ timeout: 3000 }).then(() => true, () => false))) P('휴대폰 줄 고치기 바깥을 눌렀는데 묻지 않음');
+    else {
+      await shot(page, '보완3_표_휴대폰_버릴까묻기');
+      await page.click('.modal [data-action=close-modal]');
+      if ((await page.locator('#sheet .tb-ta').first().inputValue()) !== '휴대폰에서 쓰던 글') P('그만두기 뒤 휴대폰 줄 고치기 글이 사라짐');
+    }
+  } else P('휴대폰 줄 목록이 없음');
+  await ctx.close();
+}
+
+// 묶음 4 자료실·도움말·교직원·조사(판 2026-10-28a)
+async function b4Check(browser) {
+  const P = (m) => problems.push('묶음4: ' + m);
+  const ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('묶음4 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '심청');
+  await page.evaluate(() => { window.__copied = null; Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: (t) => { window.__copied = t; return Promise.resolve(); } }); });
+  // 자료실: 끝 줄(개수·순서), 공통 칸 안 '공통' 표시 없음
+  await page.evaluate(() => window.__gy.go('library'));
+  await page.locator('.lib-card').first().waitFor();
+  if (!/개/.test(await page.locator('#lib-tail').innerText().catch(() => ''))) P('자료실 단추 줄 끝에 개수가 없음');
+  if (await page.locator('.lib-group.common .chip-accent-solid', { hasText: '공통' }).count()) P("공통 자료 칸 안에 '공통' 표시가 또 있음");
+  await page.click('[data-action=lib-sort][data-v=recent]');
+  if (!(await page.locator('[data-action=lib-sort][data-v=recent][aria-pressed=true]').count())) P('최근 순이 눌리지 않음');
+  // [공통] 탭에서 공통이 아닌 자료를 넣으면 보이는 곳으로
+  await page.click('[data-action=lib-dept][data-id=_common]');
+  await page.click('[data-action=lib-new]');
+  await page.locator('#lib-form').waitFor();
+  await modalSettled(page);
+  if (!(await page.locator('#lib-form .more-fields').count()) || (await page.locator('#lf-desc').isVisible())) P("설명·담당이 '더 적기' 안에 접혀 있지 않음");
+  const order = await page.evaluate(() => [...document.querySelectorAll('#lib-form .field .label, #lib-form .field>.label')].map((x) => x.textContent.trim().slice(0, 4)).join('|'));
+  if (!/^넣는 방/.test(order)) P('자료 넣기 창 맨 위가 넣는 방법이 아님: ' + order);
+  await page.click('#lib-form [data-mode=link]');
+  await page.fill('#lf-link', 'https://example.com/b4');
+  await page.fill('#lf-title', '묶음4 점검 자료');
+  await page.uncheck('#lf-common');
+  // 긴 글 붙여 넣기 안내
+  await page.click('#lib-form .more-fields > summary');
+  await page.evaluate(() => {
+    const t = document.querySelector('#lf-desc'); t.focus(); t.value = 'ㄱ'.repeat(480);
+    const d = new DataTransfer(); d.setData('text/plain', 'ㄴ'.repeat(60));
+    t.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true }));
+  });
+  await page.waitForTimeout(100);
+  if (!/들어가지 않았어요/.test(await page.locator('#lf-desc-len').innerText().catch(() => ''))) P('잘리는 붙여 넣기를 알리지 않음');
+  await shot(page, '묶음4_자료넣기_창');
+  await page.evaluate(() => { document.querySelector('#lf-desc').value = '짧은 설명'; });
+  await page.click('#lf-go');
+  await page.locator('#toast.show', { hasText: '보이게' }).waitFor({ timeout: 6000 }).catch(() => P("공통이 아닌 자료를 [공통] 탭에서 넣었는데 보이는 곳으로 옮기지 않음"));
+  const card = page.locator('.lib-card', { hasText: '묶음4 점검 자료' });
+  if (!(await card.count())) P('넣은 자료가 목록에 안 보임');
+  else if (!(await card.locator('.chip', { hasText: '새 자료' }).count())) P("넣은 자료에 '새 자료' 표시가 없음");
+  await shot(page, '묶음4_자료실_넣은뒤');
+  // 공지에 자료 붙이기
+  await page.evaluate(() => { window.__gy.S.notice.tab = 'notice'; window.__gy.go('notice'); });
+  await page.locator('.page-head [data-action=notice-new]').click();
+  await page.locator('#nf-lib option', { hasText: '묶음4 점검 자료' }).waitFor({ state: 'attached', timeout: 6000 }).catch(() => P('공지 쓰기에 자료실 자료 목록이 없음'));
+  await page.fill('#nf-title', '묶음4 공지(자료 붙임)');
+  await page.selectOption('#nf-lib', { label: await page.locator('#nf-lib option', { hasText: '묶음4 점검 자료' }).first().innerText() }).catch(() => {});
+  await page.fill('#nf-body', '자세한 것은 https://example.com/guide. 를 봐 주세요');
+  await page.click('#notice-form [type=submit]');
+  await page.locator('.modal').waitFor({ state: 'detached', timeout: 6000 }).catch(() => {});
+  const nItem = page.locator('.notice-item', { hasText: '묶음4 공지' }).first();
+  await nItem.waitFor({ timeout: 5000 }).catch(() => P('올린 공지가 목록에 없음'));
+  if (!(await nItem.locator('[data-action=sr-lib]', { hasText: '묶음4 점검 자료' }).count())) P("공지에 '자료 열기'가 없음");
+  const href = await nItem.locator('.help-text a').first().getAttribute('href').catch(() => '');
+  if (href !== 'https://example.com/guide') P('공지 글 속 주소가 링크가 아님(끝의 마침표 빼기): ' + href);
+  await shot(page, '묶음4_공지_자료붙임');
+  await nItem.locator('[data-action=sr-lib]').click().catch(() => {});
+  await page.waitForFunction(() => window.__gy.S.screen === 'library', null, { timeout: 4000 }).catch(() => P("'자료 열기'가 자료실로 가지 않음"));
+  // 교직원 명단 인쇄: A4에서도 한 줄 표
+  await page.evaluate(() => window.__gy.go('staff'));
+  await page.locator('.dir-row').first().waitFor();
+  await page.emulateMedia({ media: 'print' });
+  const pr = await page.evaluate(() => ({ head: getComputedStyle(document.querySelector('.dir-row.head')).display, h: getComputedStyle(document.querySelector('.dir-print-h')).display, grp: getComputedStyle(document.querySelector('.d-group')).display }));
+  if (pr.head !== 'grid' || pr.h === 'none' || pr.grp === 'none') P('교직원 명단 인쇄가 표 모양이 아님 ' + JSON.stringify(pr));
+  await page.pdf({ path: path.join(OUT, '인쇄_교직원명단.pdf'), format: 'A4' });
+  await page.emulateMedia({ media: 'screen' });
+  // 조사: 안 낸 분 명단 복사(만든 분 화면이 있으면)
+  await page.evaluate(() => { window.__gy.S.survey.tab = 'mine'; window.__gy.S.survey.sel = ''; window.__gy.go('survey'); });
+  await page.waitForTimeout(800);
+  const svCard = page.locator('#screen [data-action=sv-open], #screen .sv-item').first();
+  if (await svCard.count()) {
+    await svCard.click().catch(() => {});
+    const cp = page.locator('[data-action=sv-copy-left]');
+    if (await cp.count()) {
+      await cp.click();
+      await page.waitForTimeout(200);
+      const c = await page.evaluate(() => window.__copied || '');
+      if (!/아직 안 내신 분: .+ \(\d+명\)/.test(c)) P('안 낸 분 명단 복사 글이 ' + JSON.stringify(c));
+      await shot(page, '묶음4_조사_명단복사');
+    }
+  }
+  // 도움말: 글 속 https 주소는 링크
+  await page.evaluate(async () => {
+    const d = await window.__gy.server('help.list', {});
+    const k = (d.kinds.find((x) => x.active) || {}).id;
+    await window.__gy.server('help.save', { id: '', fields: { '분류ID': k, '제목': '묶음4 도움말', '내용': '서식은 https://example.com/form 에서 받아요' } });
+    window.__gy.memoClear();
+    window.__gy.go('help');
+  });
+  await page.locator('.help-item', { hasText: '묶음4 도움말' }).locator('summary').click().catch(() => P('넣은 도움말이 없음'));
+  if (!(await page.locator('.help-item', { hasText: '묶음4 도움말' }).locator('.help-text a[href="https://example.com/form"]').count())) P('도움말 글 속 주소가 링크가 아님');
+  await shot(page, '묶음4_도움말_링크');
+  await ctx.close();
+  // 휴대폰: 파일 상자에 '끌어다 놓거나' 없음
+  const c2 = await newCtx(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const p2 = await c2.newPage();
+  await p2.goto(FILE);
+  await waitText(p2, '어서 오세요');
+  await login(p2);
+  await verify(p2, '심청');
+  await p2.evaluate(() => window.__gy.go('library'));
+  await p2.locator('.lib-card').first().waitFor();
+  await p2.evaluate(() => document.querySelector('[data-action=lib-new]').click());
+  await p2.locator('#lib-form').waitFor();
+  await p2.click('#lib-form [data-mode=file]');
+  if (/끌어다/.test(await p2.locator('#lf-file-zone').innerText())) P("휴대폰 파일 상자에 '끌어다 놓거나'가 보임");
+  await shot(p2, '묶음4_휴대폰_자료넣기');
+  await c2.close();
+}
+
+// 묶음 5 관리자·서버(판 2026-10-28a): 설정 저장 줄·나가기 전에 묻기·마지막 백업, 수정 기록 찾기, 점검의 칸 수·서버 오류·빈 열 지우기
+async function admin5Check(browser) {
+  const P = (m) => problems.push('관리자 보완: ' + m);
+  const ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push('관리자 보완 페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  await page.evaluate(() => window.__gy.go('admin'));
+  await page.fill('#admin-pw', 'admin1');
+  await page.click('#admin-form [type=submit]');
+  await page.click('[data-admin-tab=settings]');
+  await page.locator('#set-form').waitFor();
+  const save = page.locator('.set-save');
+  const box = await save.boundingBox();
+  if (!box || box.y + box.height > 901 || box.y < 0) P('설정 저장 단추가 화면 안에 붙어 있지 않음 ' + JSON.stringify(box));
+  if (!/마지막 백업/.test(await page.locator('#set-form').innerText())) P("설정에 '마지막 백업' 줄이 없음");
+  await page.locator('#set-form [data-set]').first().fill('인천장도초등학교 ');
+  if (await page.locator('#set-dirty').isHidden()) P("고쳤는데 '저장하지 않은 바꿈' 표시가 없음");
+  await shot(page, '관리자_설정_저장줄');
+  await page.click('[data-admin-tab=log]');
+  if (!(await page.getByText('저장하지 않은 설정이 있어요').waitFor({ timeout: 3000 }).then(() => true, () => false))) P('저장하지 않은 설정을 두고 다른 탭으로 갈 때 묻지 않음');
+  else {
+    await page.click('.modal [data-action=close-modal]');
+    if (!(await page.locator('#set-form').count())) P('그만두기를 눌렀는데 설정을 떠남');
+    await page.click('[data-admin-tab=log]');
+    await page.click('#cf-ok');
+  }
+  // 수정 기록: 찾기·날짜
+  await page.locator('#log-q').waitFor();
+  await page.fill('#log-q', '홍길동');
+  await page.click('#log-form [type=submit]');
+  await page.locator('#log-note').waitFor();
+  await page.waitForFunction(() => /줄 중 최근/.test((document.querySelector('#log-note') || {}).textContent || ''), null, { timeout: 5000 }).catch(() => P('수정 기록에 찾은 범위 안내가 없음'));
+  await shot(page, '관리자_수정기록_찾기');
+  // 점검: 칸 수·서버 오류·빈 열 지우기
+  await page.click('[data-admin-tab=check]');
+  await page.locator('.check-sum').waitFor({ timeout: 8000 });
+  const txt = await page.locator('#admin-panel').innerText();
+  if (!/전체 칸 수/.test(txt) || !/서버 오류/.test(txt)) P('점검에 칸 수·서버 오류 줄이 없음');
+  if (!(await page.locator('[data-action=sheet-trim]').count())) P("점검에 '빈 열 지우기'가 없음");
+  else {
+    await page.click('[data-action=sheet-trim]');
+    await page.click('#cf-ok');
+    await page.locator('#toast.show', { hasText: '빈 열' }).waitFor({ timeout: 6000 }).catch(() => P('빈 열 지우기가 끝나지 않음'));
+    await page.locator('.check-sum').waitFor();
+    if (await page.locator('[data-action=sheet-trim]').count()) P('빈 열을 지운 뒤에도 단추가 남음');
+  }
+  await shot(page, '관리자_점검_칸수');
   await ctx.close();
 }
 
@@ -4657,6 +4970,31 @@ async function introGapCheck(browser) {
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
   }
+  // ONLY=table3: 취합 시트 보완(판 2026-10-28a) 점검만
+  if (process.env.ONLY === 'table3') {
+    await table3Check(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
+  // ONLY=b4: 자료실·도움말·교직원·조사 보완(판 2026-10-28a) 점검만
+  if (process.env.ONLY === 'b4') {
+    await b4Check(browser);
+    await batCheck(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
+  // ONLY=admin5: 관리자·서버 보완(판 2026-10-28a) 점검만
+  if (process.env.ONLY === 'admin5') {
+    await admin5Check(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
   // ONLY=meet: 회의록(판 2026-10-22a) 점검만
   if (process.env.ONLY === 'meet') {
     await meetCheck(browser);
@@ -4838,6 +5176,9 @@ async function introGapCheck(browser) {
   await meetCheck(browser);
   await meet2Check(browser);
   await sched2Check(browser);
+  await table3Check(browser);
+  await b4Check(browser);
+  await admin5Check(browser);
   await homeSideCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser), await introGapCheck(browser)];

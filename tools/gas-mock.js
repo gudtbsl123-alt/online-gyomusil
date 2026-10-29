@@ -155,6 +155,7 @@
   };
   Sheet.prototype.insertRowsAfter = function (after, n) { this.maxRows = this.getMaxRows() + n; return this; };
   Sheet.prototype.insertColumnsAfter = function (after, n) { this.maxCols = this.getMaxColumns() + n; return this; };
+  Sheet.prototype.deleteColumns = function (c, n) { this.data.forEach(function (line) { line.splice(c - 1, n); }); this.maxCols = Math.max(1, this.getMaxColumns() - n); return this; };
   /** 진짜 시트처럼: ' 로 시작하면 글자로 저장하고 ' 는 뺀다. 아니면 숫자처럼 보이면 숫자로 바꾼다. */
   Sheet.prototype.put = function (r, c, v) {
     while (this.data.length < r) this.data.push([]);

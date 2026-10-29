@@ -2,7 +2,7 @@
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-22a'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-10-28a'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -83,6 +83,8 @@ function adminSettingsGet_() {
   // 학기 기간: 학년도마다 따로('학기' 탭, 2026-10-19 교사 결정). 지금 학년도와 다음 학년도를 함께 보여 준다
   var sy = Number(m['학년도']) || schoolYearOf_(todayYmd_());
   list.push({ key: '학기 기간', label: '학기 기간', type: 'semesters', value: [semesterView_(sy), semesterView_(sy + 1)] });
+  // 마지막 백업 시각(손 백업도 폴더가 생겨 '폴더가 있으면 켜짐'으로 보면 틀리므로 마지막 백업 때로 본다, 2026-10-28a)
+  list.push({ key: '마지막 백업', label: '마지막 백업', type: 'readonly', value: Number(PropertiesService.getScriptProperties().getProperty('LAST_BACKUP_AT') || 0) });
   return list;
 }
 
@@ -317,20 +319,32 @@ function adminStaffUnlock_(args, actor) {
 /** 수정 기록 거르기: 화면 이름 하나가 탭 여러 개인 것(취합 시트 = 표 + 줄) */
 var LOG_TAB_GROUPS_ = { '취합 시트': ['함께표', '함께표줄'], '회의록': ['회의', '회의내용'] };
 
+/**
+ * 수정 기록(최근 것부터 200개). args = { tab, q(찾는 말), from, to(날짜) }
+ * 기록은 계속 늘어서 끝에서 5000줄씩 거슬러 읽는다. 거르기·찾기가 있으면 4만 줄까지 거슬러 찾는다(취합 시트를 많이 고쳐도 설정·교직원 기록을 찾게, 2026-10-28a)
+ */
 function adminLogList_(args) {
-  var tab = String(args.tab || '');
+  var tab = String(args.tab || ''), q = String(args.q || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  var from = isDate_(args.from) ? String(args.from) : '', to = isDate_(args.to) ? String(args.to) : '';
   var want = LOG_TAB_GROUPS_[tab] || (tab ? [tab] : null);
-  var rows = tailRows_('기록', 5000); // 기록은 계속 늘어서 끝 5000줄만 본다(최근 200개를 보여 준다)
-  var out = [];
-  for (var i = rows.length - 1; i >= 0 && out.length < 200; i--) {
-    var r = rows[i];
-    if (want && want.indexOf(r['탭']) < 0) continue;
-    out.push({
-      time: r['시각'], who: r['이름'], tab: r['탭'], target: r['대상ID'], action: r['동작'], summary: r['요약'],
-      before: safeJson_(r['바뀌기 전']), after: safeJson_(r['바뀐 뒤'])
-    });
+  var total = Math.max(0, sheet_('기록').getLastRow() - 1), CHUNK = 5000, MAX = want || q || from || to ? 40000 : CHUNK;
+  var out = [], scanned = 0, done = false;
+  while (!done && out.length < 200 && scanned < total && scanned < MAX) {
+    var rows = tailRows_('기록', CHUNK, scanned);
+    scanned += CHUNK;
+    for (var i = rows.length - 1; i >= 0 && out.length < 200; i--) {
+      var r = rows[i], day = String(r['시각'] || '').slice(0, 10);
+      if (from && day && day < from) { done = true; break; } // 기록은 시각 차례로 쌓이므로 더 앞은 볼 필요가 없다
+      if (to && day > to) continue;
+      if (want && want.indexOf(r['탭']) < 0) continue;
+      if (q && [r['요약'], r['이름'], r['대상ID'], r['동작'], r['바뀌기 전'], r['바뀐 뒤']].join(' ').toLowerCase().indexOf(q) < 0) continue;
+      out.push({
+        time: r['시각'], who: r['이름'], tab: r['탭'], target: r['대상ID'], action: r['동작'], summary: r['요약'],
+        before: safeJson_(r['바뀌기 전']), after: safeJson_(r['바뀐 뒤'])
+      });
+    }
   }
-  return out;
+  return { items: out, scanned: Math.min(scanned, total), total: total, more: !done && out.length < 200 && scanned < total };
 }
 
 function safeJson_(s) {
@@ -343,6 +357,7 @@ function safeJson_(s) {
 function adminChangeCommonPw_(args, actor) {
   if (args.newPw !== args.newPw2) throw userError_('새 비밀번호 두 칸이 서로 달라요.');
   setPassword_('common', args.newPw);
+  PropertiesService.getScriptProperties().setProperty('COMMON_PW_AT', nowText_()); // 마지막으로 바꾼 때(새 학년도 준비 점검, 기록이 많아도 찾게)
   withLock_(function () { writeLog_(actor, '설정', '', '비밀번호 바꿈', '공통 비밀번호를 바꿈(모든 기기 다시 로그인)', null, null); });
   return { done: true };
 }
@@ -490,7 +505,19 @@ function adminCheck_(args) {
   add('교직원', '사용 중인 교직원', staff.length ? 'ok' : 'bad', staff.length + '명', staff.length ? '' : '관리자 › 교직원 표에서 넣거나 "명단 한 번에 넣기"를 써 주세요');
   if (noDept) add('교직원', '부서 없는 분', 'warn', noDept + '명', '교직원 표에서 부서를 골라 주세요(내 담당·조사 대상에 쓰여요)');
 
-  return { build: APP_BUILD_, at: nowText_(), items: items };
+  // 8) 시트 크기(구글 시트 한 파일의 칸 수 한도: 구글 안내 기준 1,000만 칸, 확인 필요) · 기록 탭
+  var sz = sheetSizes_(), pct = Math.round(sz.total / SHEET_CELL_LIMIT_ * 1000) / 10, spare = 0;
+  sz.list.forEach(function (x) { spare += Math.max(0, x.cols - Math.max(x.lastCol, x.head)) * x.rows; });
+  add('시트', '전체 칸 수', pct >= 70 ? 'warn' : 'ok', numKo_(sz.total) + '칸 · 한도 1,000만 칸의 ' + pct + '%' + (spare ? ' · 빈 열 ' + numKo_(spare) + '칸' : ''),
+    pct >= 70 ? "점검 화면 아래 '빈 열 지우기'를 누르고, 그래도 크면 지난 학년도 응답·기록을 다른 시트로 옮겨 주세요(확인 필요)" : '');
+  var lg = sz.list.filter(function (x) { return x.name === '기록'; })[0];
+  if (lg) add('시트', '기록 탭', lg.last > 200000 ? 'warn' : 'ok', numKo_(Math.max(0, lg.last - 1)) + '줄', lg.last > 200000 ? '기록이 아주 많아요. 오래된 기록은 시트 사본에 옮겨 두면 가벼워져요(확인 필요)' : '');
+  // 9) 최근 서버 오류(예상 못 한 오류만, 6시간 안)
+  var errs = [];
+  try { errs = JSON.parse(CacheService.getScriptCache().get('gy:errs') || '[]'); } catch (e) { errs = []; }
+  add('서버 오류', '최근 6시간', errs.length ? 'warn' : 'ok', errs.length ? errs.length + '번 · ' + errs.slice(0, 5).map(function (x) { return x.at.slice(11, 16) + ' ' + x.action + (x.who ? '(' + x.who + ')' : '') + ' ' + x.detail; }).join(' / ') : '없어요',
+    errs.length ? '같은 오류가 되풀이되면 그 줄을 복사해 관리하는 분께 알려 주세요' : '');
+  return { build: APP_BUILD_, at: nowText_(), items: items, errors: errs, spare: spare };
 }
 
 // ---------------------------------------------------------------- 속도 재기 (관리자 › 점검)
@@ -544,6 +571,33 @@ function adminSpeed_(args, actor, ctx) {
 }
 
 /** 관리자 › 점검 '시트 새로 읽기': 서버 기억을 모두 버린다(시트를 손으로 고친 뒤 바로 보이게) */
+var SHEET_CELL_LIMIT_ = 10000000; // 구글 시트 한 파일의 칸 수 한도(구글 안내 기준, 확인 필요)
+function numKo_(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+/** 탭마다 줄·열 수(빈 줄·열 포함)와 글이 있는 끝 */
+function sheetSizes_() {
+  var total = 0, list = [];
+  ss_().getSheets().forEach(function (sh) {
+    var r = sh.getMaxRows(), c = sh.getMaxColumns(), name = sh.getName(), head = (tabs_()[name] || []).length;
+    total += r * c;
+    list.push({ name: name, rows: r, cols: c, last: sh.getLastRow(), lastCol: sh.getLastColumn(), head: head });
+  });
+  return { total: total, list: list };
+}
+/** 빈 열 지우기: 온라인 교무실 탭에서 머리글·글이 없는 오른쪽 열만 지운다(새 탭은 26열로 생겨 기록 탭 등에 빈 열이 많다) */
+function adminSheetTrim_(args, actor) {
+  var cut = 0, tabs = tabs_();
+  withLock_(function () {
+    ss_().getSheets().forEach(function (sh) {
+      var name = sh.getName();
+      if (!tabs[name]) return; // 손으로 만든 탭은 건드리지 않는다
+      var keep = Math.max(sh.getLastColumn(), tabs[name].length, 1), c = sh.getMaxColumns();
+      if (c > keep) { sh.deleteColumns(keep + 1, c - keep); cut += (c - keep) * sh.getMaxRows(); }
+    });
+    writeLog_(actor, '설정', '', '정리', '빈 열 지우기: ' + numKo_(cut) + '칸', null, null);
+  });
+  return { cut: cut };
+}
+
 function adminCacheClear_(args, actor) {
   var ok = memoClearAll_();
   withLock_(function () { writeLog_(actor, '설정', '', '기억 비움', '서버 기억을 비움(시트에서 새로 읽기)', null, null); });

@@ -73,9 +73,9 @@ function fileMark_Code_() { return '2026-10-28a'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-28a', 'Db': '2026-10-28a', 'Auth': '2026-10-21b', 'Admin': '2026-10-22a', 'Schedule': '2026-10-28a',
-    'Survey': '2026-10-21b', 'Library': '2026-10-21b', 'Help': '2026-10-28a', 'Setup': '2026-10-21b', 'Table': '2026-10-21b',
-    'Meeting': '2026-10-28a', 'App': '2026-10-28a', 'Styles': '2026-10-28a', 'Index': '2026-10-21c', 'TableUi': '2026-10-21b'
+    'Code': '2026-10-28a', 'Db': '2026-10-28a', 'Auth': '2026-10-28a', 'Admin': '2026-10-28a', 'Schedule': '2026-10-28a',
+    'Survey': '2026-10-21b', 'Library': '2026-10-28a', 'Help': '2026-10-28a', 'Setup': '2026-10-28a', 'Table': '2026-10-28a',
+    'Meeting': '2026-10-28a', 'App': '2026-10-28a', 'Styles': '2026-10-28a', 'Index': '2026-10-21c', 'TableUi': '2026-10-28a'
   };
 }
 
@@ -204,6 +204,7 @@ function routes_() {
     'admin.check': { need: 'admin', fn: 'adminCheck_' },
     'admin.speed': { need: 'admin', fn: 'adminSpeed_' },
     'admin.cache.clear': { need: 'admin', fn: 'adminCacheClear_' },
+    'admin.sheet.trim': { need: 'admin', fn: 'adminSheetTrim_' }, // 빈 열 지우기(시트 칸 수 줄이기)
     'admin.staff.importCheck': { need: 'admin', fn: 'adminStaffImportCheck_' },
     'admin.staff.import': { need: 'admin', fn: 'adminStaffImport_' }
   };
@@ -231,7 +232,7 @@ var ROUTE_TABS_ = {
   'survey.list': ['조사', '응답', '알림'],
   'survey.get': ['조사', '응답', '알림'],
   'lib.list': ['자료'],
-  'notice.list': ['공지'],
+  'notice.list': ['공지', '자료'],
   'meet.list': ['회의', '회의내용', '학기'],
   'meet.get': ['회의', '회의내용'],
   'help.list': ['도움말'],
@@ -291,7 +292,20 @@ function thenReads_(list, actor, ctx, max) {
  * 화면에서 부르는 하나뿐인 창구. 주고받는 값은 JSON 글자다.
  * req = { action, args, tokens: { login, identity, admin }, then: [[읽기 이름, args], …](없어도 됨) }
  */
+/**
+ * 예상 못 한 서버 오류를 서버 기억 'gy:errs'에 최근 30개 남긴다(시각·요청 이름·고른 이름·원인 한 줄. 요청 내용은 남기지 않음).
+ * 관리자 › 점검 맨 위에 보인다(2026-10-28a). 서버 기억을 못 쓰면 남기지 않는다
+ */
+function errRemember_(action, who, detail) {
+  try {
+    var c = CacheService.getScriptCache(), list = JSON.parse(c.get('gy:errs') || '[]');
+    list.unshift({ at: nowText_(), action: String(action || '').slice(0, 40), who: String(who || '').slice(0, 20), detail: String(detail || '').slice(0, 300) });
+    c.put('gy:errs', JSON.stringify(list.slice(0, 30)), 21600); // 6시간(서버 기억의 가장 긴 시간)
+  } catch (e) { /* 그대로 */ }
+}
+
 function api(reqText) {
+  var errAction = '', errWho = '';
   SETTINGS_CACHE_ = null;
   PROP_MEMO_ = null; // 스크립트 속성(Auth.gs): 요청마다 서버 기억에서 한 번
   DB_SS_ = null;
@@ -309,6 +323,7 @@ function api(reqText) {
     var t = req.tokens || {};
     // 읽기 요청은 읽을 탭을 모두, 그 밖(쓰기 등)은 로그인 확인에 쓰는 탭만 서버 기억에서 한 번에 꺼낸다. 빈 요청(ping)·로그인은 꺼내지 않는다
     var a = req.action;
+    errAction = a;
     preloadTabs_(ROUTE_TABS_[a] || a === 'boot' || a === 'batch' ? routeTabs_(a, req.args, req.then) : (route.need === 'public' ? null : BASE_TABS_));
     var ctx = { login: false, identity: null, admin: false, tokens: t };
     if (route.need !== 'public') {
@@ -324,8 +339,10 @@ function api(reqText) {
     var actor = ctx.identity
       ? { id: ctx.identity['교직원ID'], name: ctx.identity['이름'] }
       : { id: '', name: ctx.admin ? '관리자(본인 확인 전)' : '' };
+    errWho = actor.name;
     var data = fn(req.args || {}, actor, ctx);
     var out = { ok: true, data: data === undefined ? null : data };
+    if (t.admin && route.need !== 'public') { var renew = optional_('renewAdmin_', '')(t.admin); if (renew) out.renewAdmin = renew; }
     if (req.then && ctx.login === true) {
       preloadTabs_(routeTabs_('', null, req.then)); // 쓴 뒤라면 바뀐 판으로 다시 꺼낸다(이미 읽은 탭은 빼고)
       out.then = thenReads_(req.then, actor, ctx);
@@ -336,6 +353,7 @@ function api(reqText) {
     console.error(err && err.stack ? err.stack : err);
     // 원인 한 줄(예: ReferenceError: ○○ is not defined)을 함께 보내 화면에 작게 보여 준다(고칠 곳을 바로 찾게)
     var detail = err && err.name ? err.name + ': ' + err.message : String(err);
+    errRemember_(errAction, errWho, detail);
     return JSON.stringify({ ok: false, error: '잠시 문제가 생겼어요. 잠깐 뒤에 다시 해 주세요. 계속 안 되면 관리자에게 알려 주세요.', code: 'ERROR', detail: detail.slice(0, 300) });
   }
 }

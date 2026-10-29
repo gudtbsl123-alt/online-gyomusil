@@ -239,7 +239,8 @@ function apiSearch_(args, actor, ctx) {
 // - 쓰기: 이름을 고른 교직원 누구나. 고치기·지우기: 쓴 분과 관리. '맨 위 고정'은 관리만
 // - '게시 끝일'이 지나면 홈에서 내려가고, 공지 화면의 '지난 공지'에 남는다
 
-function noticeView_(r, ctx, depts, names, today) {
+function noticeView_(r, ctx, depts, names, today, libs) {
+  var lib = r['자료ID'] && libs ? libs[r['자료ID']] : null;
   return {
     id: r['공지ID'],
     title: r['제목'],
@@ -253,13 +254,23 @@ function noticeView_(r, ctx, depts, names, today) {
     by: names[r['입력자ID']] || '',
     at: r['입력 시각'],
     updated: r['수정 시각'],
-    canEdit: canEditOwned_(r, ctx)
+    canEdit: canEditOwned_(r, ctx),
+    libId: lib ? r['자료ID'] : '', // 붙인 자료실 자료(지워졌으면 빈칸)
+    libTitle: lib ? lib.title : '',
+    libFile: lib ? lib.file : false
   };
 }
 
+/** 공지에 붙인 자료 이름(지운 자료는 빼고) */
+function noticeLibs_() {
+  var m = {};
+  liveRows_('자료').forEach(function (d) { m[d['자료ID']] = { title: d['제목'], file: !!d['파일ID'] }; });
+  return m;
+}
+
 function noticeViews_(ctx) {
-  var depts = categoryNames_('부서'), names = staffNames_(), today = todayYmd_();
-  return liveRows_('공지').map(function (r) { return noticeView_(r, ctx, depts, names, today); }).sort(function (a, b) {
+  var depts = categoryNames_('부서'), names = staffNames_(), today = todayYmd_(), libs = noticeLibs_();
+  return liveRows_('공지').map(function (r) { return noticeView_(r, ctx, depts, names, today, libs); }).sort(function (a, b) {
     return (b.active - a.active) || (b.active && a.active ? b.pinned - a.pinned : 0) || (a.at < b.at ? 1 : a.at > b.at ? -1 : 0);
   });
 }
@@ -295,9 +306,15 @@ function apiNoticeSave_(args, actor, ctx) {
     '내용': cleanText_(f['내용'], 2000, '내용'),
     '링크': cleanUrl_(f['링크'], '링크'),
     '부서ID': checkCat_(f['부서ID'], '부서', '부서'),
-    '게시 끝일': String(f['게시 끝일'] || '').trim()
+    '게시 끝일': String(f['게시 끝일'] || '').trim(),
+    '자료ID': String(f['자료ID'] || '').trim()
   };
   if (rec['게시 끝일'] && !isDate_(rec['게시 끝일'])) throw userError_('게시 끝일을 날짜로 골라 주세요.');
+  if (rec['자료ID']) {
+    var lr = findRow_('자료', rec['자료ID']);
+    if (!lr || lr['삭제 여부']) throw userError_('붙인 자료를 찾지 못했어요. 지워졌을 수 있어요. 다시 골라 주세요.');
+  }
+  ensureCols_('공지'); // '자료ID' 칸이 없는 예전 시트도 그대로
   if (canManage_(ctx) && f.pinned !== undefined) rec['고정'] = f.pinned ? '예' : '';
   var row = null;
   if (args.id) {
@@ -308,7 +325,7 @@ function apiNoticeSave_(args, actor, ctx) {
   var saved = row
     ? updateRow_('공지', row['공지ID'], rec, actor, '공지 고침: ' + rec['제목'])
     : insertRow_('공지', rec, actor, '공지 추가: ' + rec['제목']);
-  return noticeView_(findRow_('공지', saved['공지ID']), ctx, categoryNames_('부서'), staffNames_(), todayYmd_());
+  return noticeView_(findRow_('공지', saved['공지ID']), ctx, categoryNames_('부서'), staffNames_(), todayYmd_(), noticeLibs_());
 }
 
 function apiNoticeDelete_(args, actor, ctx) {

@@ -4832,5 +4832,83 @@ test('일정(2026-10-28a): 대상을 안 고르면 전체 · 다시 올리기에
   assert.deepStrictEqual(plain(call(g, 'sched.history', { id: 'E없음' }, who('홍길동')).data), { list: [] });
 });
 
+test('공지에 자료실 자료 붙이기(2026-10-28a): 붙인 자료 이름이 보이고, 없는 자료는 막고, 자료를 지우면 빈칸 · 자료에 넣은 날(added)', () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const lib = call(g, 'lib.save', { id: '', fields: { '제목': '안전 점검표 양식', mode: 'link', link: 'https://example.com/a' } }, who('심청'));
+  assert.strictEqual(lib.ok, true, lib.error);
+  assert.strictEqual(lib.data.added, g.todayYmd_());
+  const n = call(g, 'notice.save', { id: '', fields: { '제목': '점검표 내 주세요', '자료ID': lib.data.id } }, who('심청'));
+  assert.strictEqual(n.ok, true, n.error);
+  assert.strictEqual(n.data.libId, lib.data.id);
+  assert.strictEqual(n.data.libTitle, '안전 점검표 양식');
+  const list = call(g, 'notice.list', {}, who('홍길동')).data;
+  const it = (list.items || list.notices || list).filter ? (list.items || list.notices || list).filter((x) => x.id === n.data.id)[0] : null;
+  assert.ok(it && it.libTitle === '안전 점검표 양식', JSON.stringify(list).slice(0, 200));
+  assert.match(call(g, 'notice.save', { id: '', fields: { '제목': 'x', '자료ID': 'D없는자료' } }, who('심청')).error, /붙인 자료를 찾지 못했어요/);
+  call(g, 'lib.delete', { id: lib.data.id }, who('심청'));
+  const list2 = call(g, 'notice.list', {}, who('홍길동')).data;
+  const it2 = (list2.items || list2.notices || list2).filter((x) => x.id === n.data.id)[0];
+  assert.strictEqual(it2.libId, '', '지운 자료는 빈칸');
+});
+
+test('관리자·서버(2026-10-28a): 긴 기록도 JSON이 깨지지 않음 · 수정 기록 찾기·날짜·거슬러 찾기 · 관리자 표 늘리기 · 빈 열 지우기 · 서버 오류 기록 · 마지막 백업', () => {
+  const g = freshName();
+  const { t } = adminTokens(g);
+  // 1) 4만 9천 자가 넘는 기록도 JSON 그대로(앞 항목만 남기고 '…'에 남은 수)
+  const big = {};
+  for (let i = 0; i < 400; i++) big['칸' + i] = 'ㄱ'.repeat(200);
+  g.withLock_(() => g.writeLog_({ id: '', name: '시험' }, '함께표', 'K1', '수정', '여러 칸', big, big));
+  let res = call(g, 'admin.log.list', { tab: '취합 시트' }, t).data;
+  const it = res.items.filter((x) => x.target === 'K1')[0];
+  assert.ok(it && it.after && it.after['…'] && /줄였어요/.test(it.after['…']), '바뀐 뒤가 JSON으로 읽힘');
+  // 2) 기록을 6천 줄 넘게 쌓아도 거르면 거슬러 찾는다
+  g.withLock_(() => g.writeLog_({ id: '', name: '시험' }, '설정', '', '수정', '아주 오래된 설정 기록', null, null));
+  const sh = g._ss.sheets.find((x) => x.name === '기록');
+  const filler = sh.data[sh.data.length - 1].slice();
+  filler[3] = '함께표'; filler[6] = '칸 고침';
+  for (let i = 0; i < 6000; i++) sh.data.push(filler.slice());
+  g.dirty_('기록');
+  res = call(g, 'admin.log.list', { q: '아주 오래된' }, t).data;
+  assert.strictEqual(res.items.length, 1, JSON.stringify(res).slice(0, 200));
+  assert.ok(res.scanned > 5000 && res.total > 6000);
+  res = call(g, 'admin.log.list', {}, t).data;
+  assert.strictEqual(res.items.length, 200);
+  assert.strictEqual(res.scanned, 5000, '거르지 않으면 끝 5000줄만 본다');
+  res = call(g, 'admin.log.list', { from: '2001-01-01', to: '2001-12-31' }, t).data;
+  assert.strictEqual(res.items.length, 0);
+  // 3) 관리자 표: 남은 시간이 1시간보다 적으면 새 표
+  let r = JSON.parse(g.api(JSON.stringify({ action: 'admin.check', args: {}, tokens: t })));
+  assert.ok(r.ok && !r.renewAdmin, '방금 받은 표는 늘리지 않음');
+  g.__clock.offset += 90 * 60000;
+  r = JSON.parse(g.api(JSON.stringify({ action: 'admin.check', args: {}, tokens: t })));
+  assert.ok(r.ok && r.renewAdmin, '1시간 30분 뒤에는 새 표');
+  g.__clock.offset += 60 * 60000; // 처음 표는 2시간이 지나 끝남
+  assert.strictEqual(JSON.parse(g.api(JSON.stringify({ action: 'admin.check', args: {}, tokens: t }))).code, 'ADMIN');
+  const t2 = Object.assign({}, t, { admin: r.renewAdmin });
+  assert.strictEqual(JSON.parse(g.api(JSON.stringify({ action: 'admin.check', args: {}, tokens: t2 }))).ok, true, '늘린 표로는 된다');
+  // 4) 점검: 칸 수·기록 탭·서버 오류, 빈 열 지우기
+  const chk = call(g, 'admin.check', {}, t2).data;
+  const by = (l) => chk.items.filter((x) => x.label === l)[0];
+  assert.ok(by('전체 칸 수') && /1,000만 칸/.test(by('전체 칸 수').detail));
+  assert.ok(by('기록 탭') && by('최근 6시간'));
+  assert.ok(chk.spare > 0, '새 탭은 26열이라 빈 열이 있음');
+  const trim = call(g, 'admin.sheet.trim', {}, t2);
+  assert.strictEqual(trim.ok, true, trim.error);
+  assert.ok(trim.data.cut > 0);
+  assert.strictEqual(call(g, 'admin.check', {}, t2).data.spare, 0);
+  assert.ok(g._ss.sheets.find((x) => x.name === '교직원').getMaxColumns() >= g.tabs_()['교직원'].length, '머리글 열은 남김');
+  g.errRemember_('home', '홍길동', 'TypeError: x is not a function');
+  const e2 = call(g, 'admin.check', {}, t2).data;
+  assert.strictEqual(e2.items.filter((x) => x.label === '최근 6시간')[0].state, 'warn');
+  assert.match(e2.errors[0].detail, /TypeError/);
+  // 5) 설정: 마지막 백업
+  const sets = call(g, 'admin.settings.get', {}, t2).data;
+  assert.ok(sets.some((x) => x.key === '마지막 백업'));
+  // 6) 공통 비밀번호를 바꾸면 바꾼 때를 적어 둔다
+  call(g, 'admin.pw.common', { newPw: 'new-common-1', newPw2: 'new-common-1' }, t2);
+  assert.ok(g.PropertiesService.getScriptProperties().getProperty('COMMON_PW_AT'));
+});
+
 console.log(results.join('\n'));
 console.log('\n' + passed + '/' + results.length + ' 통과');

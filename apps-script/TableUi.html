@@ -1745,8 +1745,15 @@ window.__gyTableUi = function (core) {
       }
     }
     if (!list.length) { if (locked) tbLockedToast(lockCol); return; }
-    tbSave(list);
-    if (list.length > 1 || locked) toast(list.length + '칸을 비웠어요' + (locked ? ' (잠긴 칸 ' + locked + '개는 그대로)' : ''));
+    var go = function () {
+      tbSave(list);
+      if (list.length > 1 || locked) toast(list.length + '칸을 비웠어요' + (locked ? ' (잠긴 칸 ' + locked + '개는 그대로)' : '') + ' · 되돌리려면 Ctrl+Z');
+    };
+    if (list.length > 20) { // 많은 칸을 한 번에 비울 때는 묻는다(2026-10-28a)
+      confirmBox(list.length + '칸을 비울까요?', '고른 칸 중 글이 있는 ' + list.length + '칸을 비워요. 바로 뒤에는 Ctrl+Z로 되돌릴 수 있어요.', '비우기', function () { closeModal(); go(); tbFocusEd(); return Promise.resolve(); }, true);
+      return;
+    }
+    go();
   }
 
   // ------------------------------------------------------------ 복사·붙여 넣기(구글 시트와 주고받기: 값·서식·합친 칸·열 너비)

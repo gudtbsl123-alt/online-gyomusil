@@ -4,7 +4,7 @@
  * 메뉴 함수는 시트 안에서만 돌아간다(웹앱에서 부르면 requireSheetUi_()가 막는다).
  */
 
-function fileMark_Setup_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
+function fileMark_Setup_() { return '2026-10-28a'; } // 판 표시(관리자 › 점검)
 
 /**
  * 시트를 손으로 고치면 고친 탭의 서버 기억을 버리게 한다(다음 요청은 그 탭만 시트에서 새로 읽는다).
@@ -24,18 +24,34 @@ function onEdit(e) {
 }
 
 function onOpen() {
-  SpreadsheetApp.getUi().createMenu('온라인 교무실')
+  var menu = SpreadsheetApp.getUi().createMenu('온라인 교무실')
     .addItem('1. 처음 설정 (탭 만들기)', 'menuSetup')
     .addItem('2. 공통 비밀번호 정하기', 'menuCommonPassword')
     .addItem('3. 관리자 비밀번호 정하기', 'menuAdminPassword')
     .addItem('4. 매일 자동 백업 켜기', 'menuEnableBackup')
     .addSeparator()
-    .addItem('지금 백업 한 번 하기', 'menuBackupNow')
-    .addItem('테스트용 가짜 데이터 넣기 (테스트 시트에서만)', 'menuSeedTestData')
-    .addItem('테스트용 가짜 일정 넣기 (테스트 시트에서만)', 'menuSeedTestSchedule')
-    .addItem('테스트용 가짜 조사 넣기 (테스트 시트에서만)', 'menuSeedTestSurveys')
-    .addItem('테스트용 가짜 자료·도움말·공지 넣기 (테스트 시트에서만)', 'menuSeedTestLibrary')
-    .addToUi();
+    .addItem('지금 백업 한 번 하기', 'menuBackupNow');
+  // 가짜 데이터 넣기는 테스트 시트로 표시한 곳에서만 보인다(진짜 전용 시트에서 잘못 누르지 않게, 2026-10-28a)
+  // 표시: Apps Script 편집기 › 프로젝트 설정 › 스크립트 속성에 TEST_SHEET = 예
+  if (testSheet_()) {
+    menu.addSeparator()
+      .addItem('테스트용 가짜 데이터 넣기', 'menuSeedTestData')
+      .addItem('테스트용 가짜 일정 넣기', 'menuSeedTestSchedule')
+      .addItem('테스트용 가짜 조사 넣기', 'menuSeedTestSurveys')
+      .addItem('테스트용 가짜 자료·도움말·공지 넣기', 'menuSeedTestLibrary');
+  }
+  menu.addToUi();
+}
+
+/** 테스트 시트로 표시했는지(스크립트 속성 TEST_SHEET = 예) */
+function testSheet_() {
+  try { return PropertiesService.getScriptProperties().getProperty('TEST_SHEET') === '예'; } catch (e) { return false; }
+}
+/** 가짜 데이터 메뉴: 테스트 시트가 아니면 멈춘다 */
+function requireTestSheet_(ui) {
+  if (testSheet_()) return true;
+  ui.alert('테스트 시트에서만 쓸 수 있어요', '진짜 전용 시트에는 가짜 데이터를 넣지 않아요. 테스트용 사본이라면 Apps Script 편집기 › 프로젝트 설정 › 스크립트 속성에 TEST_SHEET = 예 를 넣고 시트를 다시 열어 주세요.', ui.ButtonSet.OK);
+  return false;
 }
 
 /** 시트 화면에서 부른 것이 아니면 멈춘다 */
@@ -250,6 +266,7 @@ function backupFolder_() {
 
 function menuSeedTestData() {
   var ui = requireSheetUi_();
+  if (!requireTestSheet_(ui)) return;
   var ok = ui.alert('테스트용 가짜 데이터',
     '테스트용 시트에서만 쓰세요. 진짜 전용 시트에는 넣지 마세요.\n가짜 부서·분류와 가짜 교직원 8명(홍길동 등)을 넣어요.\n\n넣을까요?',
     ui.ButtonSet.YES_NO);
@@ -271,6 +288,7 @@ function menuSeedTestData() {
 
 function menuSeedTestSchedule() {
   var ui = requireSheetUi_();
+  if (!requireTestSheet_(ui)) return;
   var ok = ui.alert('테스트용 가짜 일정',
     '테스트용 시트에서만 쓰세요. 이번 주부터 한 달 동안 가짜 일정 16개와 이달 중점지도를 넣어요.\n("테스트 공휴일", "테스트 재량휴업일"도 들어가요.)\n\n넣을까요?',
     ui.ButtonSet.YES_NO);
@@ -281,6 +299,7 @@ function menuSeedTestSchedule() {
 
 function menuSeedTestSurveys() {
   var ui = requireSheetUi_();
+  if (!requireTestSheet_(ui)) return;
   var ok = ui.alert('테스트용 가짜 조사', '테스트용 시트에서만 쓰세요. 가짜 조사 2개(체육대회 참가 신청, 물품 구입 희망)와 가짜 응답 몇 개를 넣어요.\n\n넣을까요?', ui.ButtonSet.YES_NO);
   if (ok !== ui.Button.YES) return;
   seedTestSurveys_();
@@ -289,6 +308,7 @@ function menuSeedTestSurveys() {
 
 function menuSeedTestLibrary() {
   var ui = requireSheetUi_();
+  if (!requireTestSheet_(ui)) return;
   var ok = ui.alert('테스트용 가짜 자료·도움말', '테스트용 시트에서만 쓰세요. 가짜 자료 10개(공통 자료 3개, 파일 3개는 "온라인 교무실 자료" 드라이브 폴더에 만들어요)와 예시 도움말 3개, 가짜 공지 3개를 넣어요.\n\n넣을까요?', ui.ButtonSet.YES_NO);
   if (ok !== ui.Button.YES) return;
   seedTestLibrary_();

@@ -337,6 +337,16 @@ select.input{appearance:auto}
 .month-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .month-title{margin:0 4px;font-size:22px;font-weight:800;letter-spacing:-0.03em}
 .filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-left:auto}
+.more-fields{border:1px solid var(--c-line);border-radius:12px;padding:0 14px}
+.more-fields>summary{min-height:48px;display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;color:var(--c-t1)}
+.more-fields[open]{padding-bottom:14px}
+.more-fields[open]>summary{margin-bottom:8px}
+.more-fields>.field+.field{margin-top:12px}
+.modal .sticky-btns{position:sticky;bottom:-24px;z-index:2;margin:0 -24px -24px;padding:12px 24px 16px;background:var(--c-card);border-top:1px solid var(--c-line)}
+.set-save{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;justify-content:flex-end;gap:12px;margin:0 -8px;padding:12px 8px;background:var(--c-bg);border-top:1px solid var(--c-line)}
+.set-save .faint{color:var(--c-warnFg);font-weight:700}
+.len-note{margin:4px 0 0;font-size:13px;color:var(--c-t3)}
+.len-note.err{color:var(--c-red);font-weight:700}
 .filter-note{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0;padding:10px 14px;border-radius:12px;background:var(--accent-soft);color:var(--c-t1);font-size:14px}
 .filter-note svg{flex:none;color:var(--accent)}
 .ev.cal-extra{display:none}
@@ -696,6 +706,8 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .lib-depts{position:relative}
 .lib-depts .tg{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .lib-depts .tg.zero:not([aria-pressed="true"]){color:var(--c-t3);font-weight:600}
+.lib-tail{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;margin-top:-4px}
+.lib-tail .seg button{min-height:34px;padding:0 12px;font-size:14px}
 .tg-n{font-size:13px;font-weight:700;color:var(--c-t3)}
 .tg[aria-pressed="true"] .tg-n{color:var(--accent)}
 .tg-mine{padding:1px 6px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:700}
@@ -719,6 +731,7 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .d-duty{color:var(--c-t2);font-size:15px;overflow-wrap:anywhere}
 .d-ext{font-variant-numeric:tabular-nums}
 .d-gd{display:none}
+.dir-print-h{display:none}
 .help-card{gap:8px}
 .help-list{display:flex;flex-direction:column}
 .help-item{border-top:1px solid var(--c-line)}
@@ -731,6 +744,7 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .help-item[open] .help-chev{transform:rotate(180deg)}
 .help-body{display:flex;flex-direction:column;gap:12px;padding:4px 2px 20px}
 .help-text{margin:0;white-space:pre-line;overflow-wrap:anywhere;line-height:1.65}
+.help-text a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
 .help-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
 .guide-h{margin:8px 0 0;font-size:22px;font-weight:800}
 .guide-card{gap:12px}
@@ -940,6 +954,17 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
   .lib-card,.dir-row,.guide-card{break-inside:avoid}
   .help-body{display:flex!important}
   .dir-row{padding:6px 10px;font-size:13px}
+  /* 교직원 명단은 A4에서도 한 줄 표로(종이 폭이 휴대폰 모양 기준보다 좁아 카드 모양이 되던 것, 2026-10-28a) */
+  .dir-print-h{display:flex!important;justify-content:space-between;align-items:baseline;margin:0 0 8px;font-size:15pt;font-weight:800;color:#000}
+  .dir-print-h span{font-size:10pt;font-weight:600}
+  #dir-list>.faint{display:none}
+  .dir-row{display:grid!important;grid-template-columns:20% 17% 15% minmax(0,1fr) 11%!important;gap:8px!important;padding:3px 8px!important;font-size:10pt!important;line-height:1.35}
+  .dir-row.head{display:grid!important;font-size:9.5pt!important}
+  .d-group,.d-dept{display:block!important}
+  .d-gd{display:none!important}
+  .d-name,.d-ext,.d-duty{grid-column:auto!important;grid-row:auto!important;text-align:left!important;font-size:inherit!important}
+  .d-ext::before{content:none!important}
+  .d-duty:empty{display:block!important}
 }
 
 /* ---------- 화면 기억(속도): 뒤에서 새 내용을 받는 동안 맨 위의 가는 줄 ---------- */

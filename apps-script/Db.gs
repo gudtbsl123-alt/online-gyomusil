@@ -32,7 +32,7 @@ function tabs_() {
     '자료': ['자료ID', '학년도', '분류ID', '부서ID', '제목', '설명', '링크', '파일ID', '담당', '보관 여부'].concat(A)
       .concat(['파일 이름', '파일 크기', '홈에 보이기', '원본 자료ID', '공통', '공통 순서']),
     '도움말': ['항목ID', '분류ID', '제목', '내용', '링크', '순서'].concat(A).concat(['파일ID', '파일 이름', '파일 크기', '홈에 보이기']), // 홈에 보이기: 홈 '비상 시 이것부터'(2026-10-19a)
-    '공지': ['공지ID', '제목', '내용', '링크', '부서ID', '게시 끝일', '고정'].concat(A),
+    '공지': ['공지ID', '제목', '내용', '링크', '부서ID', '게시 끝일', '고정'].concat(A).concat(['자료ID']), // 자료ID: 자료실 자료 붙이기(2026-10-28a), 저장할 때 저절로 붙는다
     '학생수': ['학생수ID', '학년도', '기준일', '1학년', '2학년', '3학년', '4학년', '5학년', '6학년'].concat(A).concat(['반별']),
     '함께표': ['표ID', '제목', '부서ID', '설명', '마감', '상태', '열', '판'].concat(A) // 취합 시트(Table.gs, 예전 이름 '함께 쓰는 표'), 처음 만들 때 저절로 생긴다
       .concat(['문서ID', '시트 이름', '시트 순서', '보기', '시트 지움', '문서 판']), // 한 줄이 시트 하나(2026-10-18a), 저장할 때 저절로 붙는다
@@ -464,9 +464,10 @@ function headRowOnly_(tab) {
 }
 
 /** 끝에서부터 n줄만 읽어 [{머리글: 값, _row}] (기록 탭처럼 계속 느는 탭을 볼 때) */
-function tailRows_(tab, n) {
+/** 끝에서 n줄(skip: 끝에서 그만큼 건너뛴 앞쪽부터, 기록을 거슬러 찾을 때) */
+function tailRows_(tab, n, skip) {
   var sh = sheet_(tab);
-  var last = sh.getLastRow(), cols = Math.max(1, sh.getLastColumn());
+  var last = sh.getLastRow() - (skip || 0), cols = Math.max(1, sh.getLastColumn());
   if (last < 2) return [];
   var head = sh.getRange(1, 1, 1, cols).getValues()[0].map(cellText_);
   var from = Math.max(2, last - n + 1);
@@ -732,6 +733,27 @@ function auditView_(rec) {
   return o;
 }
 
+/**
+ * 기록 칸에 넣을 JSON. 한 칸(4만 9천 자)에 넘치면 글자 중간에서 자르지 않고(자르면 JSON이 깨져 수정 기록에 안 보였다)
+ * 긴 값은 줄이고, 그래도 넘치면 앞의 항목만 남기고 '…'에 남은 수를 적는다(2026-10-28a)
+ */
+function logJson_(o) {
+  if (!o) return '';
+  var s = JSON.stringify(o);
+  if (s.length <= 48000 || typeof o !== 'object' || Array.isArray(o)) return s.length <= 48000 ? s : JSON.stringify({ '…': '기록이 너무 길어 줄였어요(' + s.length + '자)' });
+  var keys = Object.keys(o), out = {}, len = 2, k = 0;
+  for (; k < keys.length; k++) {
+    var v = o[keys[k]];
+    if (typeof v === 'string' && v.length > 2000) v = v.slice(0, 2000) + '…';
+    var piece = JSON.stringify(keys[k]).length + JSON.stringify(v === undefined ? null : v).length + 2;
+    if (len + piece > 46000) break;
+    out[keys[k]] = v;
+    len += piece;
+  }
+  if (k < keys.length) out['…'] = '그 밖 ' + (keys.length - k) + '개는 기록 칸이 넘쳐 줄였어요';
+  return JSON.stringify(out);
+}
+
 function writeLog_(actor, tab, id, action, summary, before, after) {
   var sh = sheet_('기록');
   sh.appendRow([
@@ -742,8 +764,8 @@ function writeLog_(actor, tab, id, action, summary, before, after) {
     id || '',
     action,
     summary || '',
-    before ? JSON.stringify(before) : '',
-    after ? JSON.stringify(after) : ''
+    logJson_(before),
+    logJson_(after)
   ].map(function (v) { return cellWrite_(String(v).slice(0, 49000)); })); // 시트 한 칸은 5만 자까지
   dirty_('기록');
 }

@@ -12,7 +12,7 @@
  *   ADMIN_PW_HASH, ADMIN_PW_SALT, ADMIN_PW_VER, ADMIN_FAILS, ADMIN_LOCK_UNTIL
  */
 
-function fileMark_Auth_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
+function fileMark_Auth_() { return '2026-10-28a'; } // 판 표시(관리자 › 점검)
 
 var AUTH_LOGIN_HOURS_ = 12;   // '기억하기'를 끈 로그인·본인 확인이 유지되는 시간 (제안)
 var AUTH_ADMIN_HOURS_ = 2;    // 관리자 화면이 열려 있는 시간 (제안)
@@ -213,6 +213,9 @@ function loginFails_() {
 }
 
 function addLoginFail_() {
+  // 읽고 더하는 동안 잠가 둔다(여러 기기에서 한꺼번에 틀려도 덜 세지 않게, 2026-10-28a). 잠금을 못 받으면 잠그지 않고 센다
+  var lock = null;
+  try { lock = LockService.getScriptLock(); if (!lock.tryLock(3000)) lock = null; } catch (e) { lock = null; }
   try {
     var f = loginFails_();
     if (!f.at) f = { n: 0, at: Date.now() };
@@ -221,6 +224,8 @@ function addLoginFail_() {
     return f.n;
   } catch (e) {
     return 0;
+  } finally {
+    if (lock) { try { lock.releaseLock(); } catch (e2) { /* 그대로 */ } }
   }
 }
 
@@ -407,7 +412,7 @@ function checkAdminPwCounted_(password, actor) {
   var res = withLock_(function () {
     var until = Number(p.getProperty('ADMIN_LOCK_UNTIL') || 0);
     if (until > Date.now()) {
-      return { ok: false, code: 'LOCKED', msg: '관리자 비밀번호를 여러 번 틀려서 잠겼어요. ' + Math.ceil((until - Date.now()) / 60000) + '분 뒤에 다시 해 주세요.' };
+      return { ok: false, code: 'LOCKED', msg: '관리자 비밀번호를 여러 번 틀려서 잠겼어요. ' + Math.ceil((until - Date.now()) / 60000) + '분 뒤에 다시 해 주세요. 급하면 전용 시트 메뉴 "3. 관리자 비밀번호 정하기"로 다시 정하면 바로 풀려요.' };
     }
     if (checkPassword_('admin', password)) {
       p.setProperty('ADMIN_FAILS', '0');
@@ -427,6 +432,16 @@ function checkAdminPwCounted_(password, actor) {
     Utilities.sleep(1200);
     throw userError_(res.msg, res.code);
   }
+}
+
+/**
+ * 관리자 표를 쓰는 동안 늘린다: 남은 시간이 1시간보다 적으면 새 표(2시간)를 돌려준다(일하는 중에 끊기지 않게, 2026-10-28a).
+ * 손대지 않고 2시간이 지나면 예전처럼 닫힌다. 관리자 비밀번호를 바꿨으면(판이 다르면) 늘리지 않는다
+ */
+function renewAdmin_(token) {
+  var o = readToken_(token, 'A');
+  if (!o || o.v !== pwVer_('admin') || o.exp - Date.now() > 3600 * 1000) return '';
+  return makeToken_({ k: 'A', v: o.v, exp: Date.now() + AUTH_ADMIN_HOURS_ * 3600 * 1000 });
 }
 
 function checkAdmin_(token) {
