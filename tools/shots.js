@@ -302,13 +302,19 @@ const TEMPLATE_OUT = process.env.TEMPLATE_OUT;
 async function uploadFlow(page, kind) {
   const nav = (id) => page.evaluate((x) => window.__gy.go(x), id);
   // 이름만 방식이라 역할 '관리'라도 관리자 화면을 열어야 학사일정 올리기 단추가 보인다
+  // 휴대폰은 올리기 단추가 일정 '⋯'(더 보기) 창 안에 있다(2026-10-28a)
+  const more = async () => { if (await page.locator('.sched-more').count()) { await page.click('.sched-more'); await page.locator('#modal-root .stack').waitFor(); } };
   await nav('schedule');
+  await more();
   if (await page.locator('[data-go=upload]').count()) problems.push(kind + ': 관리자 화면을 열기 전인데 학사일정 올리기 단추가 보임');
+  if (await page.locator('#modal-root [data-action=close-modal]').count()) await page.locator('#modal-root [data-action=close-modal]').first().click();
+  else await page.keyboard.press('Escape');
   await nav('admin');
   await page.fill('#admin-pw', 'admin1');
   await page.click('#admin-form [type=submit]');
   await page.locator('.srow').nth(3).waitFor();
   await nav('schedule');
+  await more();
   await page.locator('[data-go=upload]').click();
   await page.locator('.up-steps').waitFor();
   await shot(page, kind + '_학사일정올리기', true);
