@@ -4354,6 +4354,58 @@ async function b4Check(browser) {
 }
 
 // 묶음 5 관리자·서버(판 2026-10-28a): 설정 저장 줄·나가기 전에 묻기·마지막 백업, 수정 기록 찾기, 점검의 칸 수·서버 오류·빈 열 지우기
+/** 판 2026-11-03d: 관리자 화면 저장 결과는 가운데 팝업 · 창 안에서 끌다 바깥에서 놓아도 창이 닫히지 않음 */
+async function noticeCheck(browser) {
+  const P = (m) => problems.push('11-03d: ' + m);
+  const ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => P('페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '홍길동');
+  // 1) 창 안에서 누른 채 바깥으로 끌어 놓아도 닫히지 않고, 바깥을 눌렀다 떼면 닫힌다
+  await page.evaluate(() => window.__gy.go('schedule'));
+  await page.locator('.cal .ev').first().waitFor();
+  await page.locator('.cal .ev').first().click();
+  await page.locator('#modal-root .modal').waitFor();
+  const mb = await page.locator('#modal-root .modal').boundingBox();
+  await page.mouse.move(mb.x + 40, mb.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(mb.x - 60, mb.y + 40, { steps: 6 }); // 창 바깥(덮개)으로
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  if (!(await page.locator('#modal-root .modal').count())) P('창 안에서 끌다 바깥에서 놓았더니 창이 닫힘');
+  await page.mouse.click(mb.x - 60, mb.y + 40);
+  await page.waitForTimeout(250);
+  if (await page.locator('#modal-root .modal').count()) P('바깥을 눌렀는데 창이 닫히지 않음');
+  // 2) 설정 저장 성공: 가운데 팝업, 2초 뒤 저절로 닫힘
+  await page.evaluate(() => window.__gy.go('admin'));
+  await page.fill('#admin-pw', 'admin1');
+  await page.click('#admin-form [type=submit]');
+  await page.click('[data-admin-tab=settings]');
+  await page.locator('#set-form').waitFor();
+  await page.click('.set-save [type=submit]');
+  await page.locator('.notice-card', { hasText: '설정을 저장했어요' }).waitFor({ timeout: 6000 }).catch(() => P('설정 저장 성공이 가운데 팝업으로 안 나옴'));
+  const nb = await page.locator('.notice-card').boundingBox().catch(() => null);
+  if (!nb || Math.abs(nb.x + nb.width / 2 - 720) > 4 || Math.abs(nb.y + nb.height / 2 - 450) > 40) P('성공 팝업이 화면 가운데가 아님 ' + JSON.stringify(nb));
+  if (await page.locator('#toast.show', { hasText: '설정을 저장했어요' }).count()) P('가운데 팝업과 함께 아래 작은 알림도 뜸');
+  await shot(page, '1103d_PC_설정저장_가운데팝업');
+  await page.waitForTimeout(2300);
+  if (await page.locator('.notice-card').count()) P('성공 팝업이 2초 뒤에 닫히지 않음');
+  // 3) 설정 저장 오류: 가운데 팝업, 확인을 눌러야 닫힘
+  await page.fill('[data-set="기기 기억 일수"]', '9999');
+  await page.click('.set-save [type=submit]');
+  await page.locator('.notice-back.err .notice-card').waitFor({ timeout: 6000 }).catch(() => P('설정 저장 오류가 가운데 팝업으로 안 나옴'));
+  await shot(page, '1103d_PC_설정오류_가운데팝업');
+  await page.waitForTimeout(2300);
+  if (!(await page.locator('.notice-back.err').count())) P('오류 팝업이 확인을 누르기 전에 닫힘');
+  await page.click('[data-notice-ok]');
+  if (await page.locator('.notice-card').count()) P('확인을 눌렀는데 오류 팝업이 남음');
+  if (!/400|기기 기억/.test(await page.locator('#set-err').innerText())) P('설정 저장 단추 옆 오류 글도 남아야 함');
+  await ctx.close();
+}
+
 async function admin5Check(browser) {
   const P = (m) => problems.push('관리자 보완: ' + m);
   const ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
@@ -5187,6 +5239,14 @@ async function introGapCheck(browser) {
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
   }
+  // ONLY=notice: 가운데 팝업·창 바깥 누르기(판 2026-11-03d)
+  if (process.env.ONLY === 'notice') {
+    await noticeCheck(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
   // ONLY=pc: PC 흐름만(고치는 동안 빨리 돌려 보기)
   if (process.env.ONLY === 'pc') {
     await flow(browser, 'PC', { width: 1440, height: 900 });
@@ -5475,6 +5535,7 @@ async function introGapCheck(browser) {
   await ui6Check(browser);
   await sv11Check(browser);
   await idPickCheck(browser);
+  await noticeCheck(browser);
   await homeSideCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser), await introGapCheck(browser)];

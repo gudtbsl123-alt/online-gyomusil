@@ -64,8 +64,8 @@ function tableUiFileBuild_() {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-11-03c';
-function fileMark_Code_() { return '2026-11-03c'; }
+var APP_BUILD_ = '2026-11-03d';
+function fileMark_Code_() { return '2026-11-03d'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -73,9 +73,9 @@ function fileMark_Code_() { return '2026-11-03c'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-11-03c', 'Db': '2026-11-03a', 'Auth': '2026-10-28a', 'Admin': '2026-10-28a', 'Schedule': '2026-10-28a',
+    'Code': '2026-11-03d', 'Db': '2026-11-03a', 'Auth': '2026-10-28a', 'Admin': '2026-10-28a', 'Schedule': '2026-10-28a',
     'Survey': '2026-11-03a', 'Library': '2026-10-28a', 'Help': '2026-10-28a', 'Setup': '2026-10-28a', 'Table': '2026-10-28a',
-    'Meeting': '2026-10-28a', 'App': '2026-11-03c', 'Styles': '2026-11-03a', 'Index': '2026-10-21c', 'TableUi': '2026-11-03b'
+    'Meeting': '2026-10-28a', 'App': '2026-11-03d', 'Styles': '2026-11-03d', 'Index': '2026-10-21c', 'TableUi': '2026-11-03d'
   };
 }
 

@@ -409,7 +409,7 @@ body.tb-resizing.rows,body.tb-resizing.rows *{cursor:row-resize!important}
  * - 웹앱은 이 파일을 취합 시트를 처음 열 때 받아 붙인다(App.html tableUiLoad, 서버 ui.table). 설정 '처음에 함께'면 예전처럼 처음부터 들어 있다
  * - 화면 코드에 U+2028·U+2029를 그대로 쓰지 않는다(\u2028처럼 적는다)
  */
-window.__gyTableUiBuild = '2026-11-03b';
+window.__gyTableUiBuild = '2026-11-03d';
 window.__gyTableUi = function (core) {
   'use strict';
   var S = core.S, SCREENS = core.SCREENS, $modal = core.$modal;
@@ -3684,8 +3684,11 @@ window.__gyTableUi = function (core) {
     el.className = 'sheet-back';
     el.id = 'sheet';
     el.innerHTML = '<div class="sheet tb-sheet" role="dialog" aria-modal="true" aria-labelledby="' + hid + '"><span class="sheet-grab" aria-hidden="true"></span>' + html + '</div>';
+    var downBack = false; // 바깥 누르기는 누르기를 바깥에서 시작했을 때만(창 안에서 끌다 바깥에서 놓아도 닫히지 않게, 2026-11-03d)
+    el.addEventListener('pointerdown', function (e) { downBack = e.target === el; });
     el.addEventListener('click', function (e) {
-      if (e.target !== el) return;
+      var fromBack = downBack; downBack = false;
+      if (e.target !== el || !fromBack) return;
       if (dirty && dirty()) {
         confirmBox('쓴 내용을 버릴까요?', '저장하지 않은 글은 사라져요. 저장하려면 창 아래 "저장"을 눌러 주세요.', '버리고 닫기', function () {
           closeModal();
