@@ -3995,16 +3995,26 @@ async function sched2Check(browser) {
     const dd = new Date(Date.UTC(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8, 10)));
     while (dd.getUTCDay() === 0 || dd.getUTCDay() === 6) dd.setUTCDate(dd.getUTCDate() + 1);
     const ymd = dd.toISOString().slice(0, 10);
+    // 교육활동(초록) 2개를 먼저 넣어도 칸 아래로 가야 한다(2026-11-03c)
+    for (let i = 0; i < 2; i++) d.events.unshift({ id: 'G' + i, start: ymd, end: ymd, title: '초록 활동 ' + (i + 1), kind: '교육활동', target: '전체' });
     for (let i = 0; i < 5; i++) d.events.push({ id: 'X' + i, start: ymd, end: ymd, title: '많은 행사 ' + (i + 1), kind: '행사', target: '전체' });
     window.__gy.S.sched.view = 'cal';
     window.__gy.go('schedule');
+    window.__manyDay = ymd;
   });
-  await page.locator('.cal-more').first().waitFor({ timeout: 4000 }).catch(() => P("'+n개 더'가 없음"));
-  const hiddenScreen = await page.evaluate(() => [...document.querySelectorAll('.ev.cal-extra')].filter((x) => getComputedStyle(x).display !== 'none').length);
-  if (hiddenScreen) P('화면에서 접힌 행사가 보임');
+  // PC는 '+n개 더' 없이 모두 보이고, 초록(교육활동)은 칸 아래(2026-11-03c)
+  await page.locator('.cal-d .ev', { hasText: '많은 행사 5' }).first().waitFor({ timeout: 4000 }).catch(() => P('많은 날 행사가 안 보임'));
+  if (await page.locator('.cal-more').count()) P("PC 달력에 '+n개 더'가 남아 있음");
+  const order = await page.evaluate(() => {
+    const cell = document.querySelector('.cal-d[data-day="' + window.__manyDay + '"]');
+    const evs = [...cell.querySelectorAll('.ev')];
+    return { n: evs.length, hidden: evs.filter((x) => getComputedStyle(x).display === 'none').length, greens: evs.map((x) => x.classList.contains('ev-act') ? 1 : 0).join('') };
+  });
+  if (order.hidden) P('PC 달력에서 접힌 행사가 있음 ' + JSON.stringify(order));
+  if (!/^0+1+$/.test(order.greens)) P('초록(교육활동)이 칸 아래에 모이지 않음 ' + JSON.stringify(order));
+  await page.locator('.cal-d[data-day="' + (await page.evaluate(() => window.__manyDay)) + '"]').scrollIntoViewIfNeeded();
+  await shot(page, 'PC_달력_모두보이기_초록아래');
   await page.emulateMedia({ media: 'print' });
-  const pr = await page.evaluate(() => ({ all: document.querySelectorAll('.ev.cal-extra').length, shown: [...document.querySelectorAll('.ev.cal-extra')].filter((x) => getComputedStyle(x).display !== 'none').length }));
-  if (!pr.all || pr.shown !== pr.all) P('인쇄에 접힌 행사가 다 찍히지 않음 ' + JSON.stringify(pr));
   await page.pdf({ path: path.join(OUT, '인쇄_달력_많은날.pdf'), format: 'A4', landscape: true });
   await page.emulateMedia({ media: 'screen' });
   // 반복: 격주 + 날짜 빼기

@@ -8,7 +8,7 @@
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-11-03b'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-11-03c'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -1636,7 +1636,11 @@
         var off = list.some(function (x) { return !x.__w && isOff(x); });
         var other = day.slice(0, 7) !== ym;
         var today = day === d.today;
-        var max = 3;
+        // 초록(교육활동, 중요·쉬는 날 아닌 것)은 칸 아래로, 나머지는 위로(같은 묶음 안의 차례는 그대로, 교사 요청 2026-11-03c)
+        var green = function (x) { var e = x.__w ? x.e : x; return e.kind === '교육활동' && !e.important && !isOff(e); };
+        list = list.map(function (x, k) { return { x: x, k: k, g: green(x) ? 1 : 0 }; })
+          .sort(function (a, b) { return a.g - b.g || a.k - b.k; }).map(function (o) { return o.x; });
+        var max = isPhone() ? 3 : Infinity; // PC·태블릿은 모두 보이게, 휴대폰은 칸이 좁아 3개 + '+n개 더'
         out += '<div class="cal-d' + (other ? ' other' : '') + (today ? ' today' : '') + (off ? ' off' : '') + '" role="gridcell" data-day="' + day + '">' +
           '<button type="button" class="cal-num" data-action="day-open" data-day="' + day + '" aria-label="' + mdw(day) + ' 일정 보기">' +
           (today ? '<span class="today-dot">' + dayNum(day) + '</span><span class="today-label">오늘</span>' : (other ? Number(day.slice(5, 7)) + '.' : '') + dayNum(day)) + '</button>' +
