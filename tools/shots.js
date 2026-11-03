@@ -1364,8 +1364,8 @@ function tbKit(browser) {
   const saved = (page, what) => page.waitForFunction(() => !document.querySelector('#tb-wrap td.saving') && !document.querySelector('.tb-rowcard.saving'), null, { timeout: 5000 })
     .then(() => page.waitForTimeout(150), () => problems.push('표: 저장이 끝나지 않음(' + what + ')'));
   const toastHas = (page, re) => page.waitForFunction((src) => {
-    const t = document.querySelector('#toast');
-    return !!t && t.classList.contains('show') && new RegExp(src).test(t.textContent);
+    const t = document.querySelector('#toast'), n = document.querySelector('#notice-root .notice-card'); // 관리자 화면은 가운데 팝업(2026-11-03d)
+    return (!!t && t.classList.contains('show') && new RegExp(src).test(t.textContent)) || (!!n && new RegExp(src).test(n.textContent));
   }, re.source, { timeout: 4000 }).then(() => true, () => false);
   const pollNow = (page) => page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   const rowsN = (page) => page.evaluate(() => window.__gy.S.table.d ? window.__gy.S.table.d.rows.length : -1);
@@ -2809,6 +2809,7 @@ async function svFixCheck(browser) {
     await fileField.fill('25');
     await page.click('#set-form [type=submit]');
     await page.waitForFunction(() => /20MB/.test((document.querySelector('#set-err') || {}).textContent || ''), null, { timeout: 4000 }).catch(() => problems.push('보완 설정: 25MB를 막지 않음'));
+    if (await page.locator('[data-notice-ok]').count()) await page.click('[data-notice-ok]'); // 저장 오류는 가운데 팝업(확인으로 닫힘, 2026-11-03d)
   }
   for (let i = 1; i <= 7; i++) await asAdmin(page, '홍길동', 'lib.save', { fields: { '제목': '보완 홈 자료 ' + i, mode: 'link', link: 'https://example.com/b' + i, home: true } });
   await page.evaluate(() => { window.__gy.memoClear(); window.__gy.S.lib.data = null; window.__gy.S.lib.view = 'now'; window.__gy.go('library'); });
@@ -4451,7 +4452,7 @@ async function admin5Check(browser) {
   else {
     await page.click('[data-action=sheet-trim]');
     await page.click('#cf-ok');
-    await page.locator('#toast.show', { hasText: '빈 열' }).waitFor({ timeout: 6000 }).catch(() => P('빈 열 지우기가 끝나지 않음'));
+    await page.locator('.notice-card, #toast.show', { hasText: '빈 열' }).first().waitFor({ timeout: 6000 }).catch(() => P('빈 열 지우기가 끝나지 않음'));
     await page.locator('.check-sum').waitFor();
     if (await page.locator('[data-action=sheet-trim]').count()) P('빈 열을 지운 뒤에도 단추가 남음');
   }
@@ -4867,8 +4868,8 @@ async function homeSideCheck(browser) {
 async function meetCheck(browser) {
   const P = (m) => problems.push('회의록: ' + m);
   const toastHas = (page, re) => page.waitForFunction((src) => {
-    const t = document.querySelector('#toast');
-    return !!t && t.classList.contains('show') && new RegExp(src).test(t.textContent);
+    const t = document.querySelector('#toast'), n = document.querySelector('#notice-root .notice-card'); // 관리자 화면은 가운데 팝업(2026-11-03d)
+    return (!!t && t.classList.contains('show') && new RegExp(src).test(t.textContent)) || (!!n && new RegExp(src).test(n.textContent));
   }, re.source, { timeout: 4000 }).then(() => true, () => false);
   const as = (page, name, action, args) => page.evaluate(async ([nm, a, ar]) => {
     const login = localStorage.getItem('gy.login') || sessionStorage.getItem('gy.login');
