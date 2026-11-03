@@ -33,7 +33,7 @@
 :root[data-design="paper"]{--c-bg:#F4EEE3;--c-sub:#FFFBF4;--c-card:#FFFDF8;--c-card2:#F4EEE3;--c-pill:#F1E9DB;--c-line:#E6DBC9;--c-line2:#D3C4AD;--c-seg:#F1E9DB;--c-avatar:#E6DBC9;--c-t0:#2A231C;--c-t1:#2A231C;--c-t2:#5A4F42;--c-t3:#6B6052;--c-dot:#B5A792;--c-radio:#B5A792;--c-warnBg:#FCEED6;--c-warnFg:#864809;--c-okBg:#E5F1E1;--c-okFg:#2E6A32;--c-red:#BE321C;--c-onAccent:#FFFFFF;--accent:#A0502A;--accent-soft:rgba(160, 80, 42, 0.1);--accent-ring:rgba(160, 80, 42, 0.35);--accent-glow:rgba(160, 80, 42, 0.22);--hero-a:rgba(214, 140, 70, 0.20);--hero-b:rgba(160, 80, 42, 0.06);--scheme:light;--seg-light-bg:#FFFDF8;--seg-light-fg:#2A231C;--seg-dark-bg:transparent;--seg-dark-fg:#6B6052;--sun-display:none;--moon-display:block;--stage:#E6DBC9}
 :root[data-design="paper"][data-theme="dark"]{--c-bg:#15120E;--c-sub:#1B1712;--c-card:#211C16;--c-card2:#28221B;--c-pill:#2B241C;--c-line:#2F281F;--c-line2:#3C3328;--c-seg:#3C3328;--c-avatar:#3C3328;--c-t0:#FBF6EE;--c-t1:#F3EBDF;--c-t2:#CFC1AF;--c-t3:#A89986;--c-dot:#A89986;--c-radio:#5E5243;--c-warnBg:#2E1F0A;--c-warnFg:#F2B36B;--c-okBg:#162814;--c-okFg:#86D080;--c-red:#FF7A66;--c-onAccent:#15120E;--accent:#E89C64;--accent-soft:rgba(232, 156, 100, 0.14);--accent-ring:rgba(232, 156, 100, 0.32);--accent-glow:rgba(232, 156, 100, 0.18);--hero-a:rgba(232, 156, 100, 0.26);--hero-b:rgba(232, 156, 100, 0.10);--scheme:dark;--seg-light-bg:transparent;--seg-light-fg:#A89986;--seg-dark-bg:#3C3328;--seg-dark-fg:#F3EBDF;--sun-display:block;--moon-display:none;--stage:#0B0907}
 html{background:var(--c-bg)}
-:root{--gy-build:"2026-10-28a"} /* 판 표시(관리자 › 점검) */
+:root{--gy-build:"2026-11-03a"} /* 판 표시(관리자 › 점검) */
 body{margin:0;word-break:keep-all;background:var(--c-bg);color:var(--c-t1);font-family:Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased}
 a{color:inherit}
 input::placeholder,textarea::placeholder{color:currentColor;opacity:.7}
@@ -331,7 +331,7 @@ select.input{appearance:auto}
   .print-root *{color:#191F28!important;background-color:transparent!important;border-color:#D1D6DB!important;box-shadow:none!important}
   .print-root .print-keep{background-color:#606B78!important}
   /* 일정 인쇄(달력·월별 계획·연간 학사일정)의 공휴일·휴업일은 화면처럼 빨강(교사 요청, 판 2026-10-21a). 월별 계획은 토·일 요일도 빨강, 쉬는 날 줄은 연한 빨간 바탕(흑백 인쇄에서도 구분) */
-  .print-root .cal-d.off .cal-num,.print-root .ev-off,.print-root .plan tr.off .c-date,.print-root .plan tr.off .c-dow,.print-root .plan tr.we .c-dow,.print-root .plan-ev.off,.print-root .ylist li.off .yd{color:#D92D20!important}
+  .print-root .cal-d.off .cal-num,.print-root .ev-off,.print-root .plan tr.off .c-date,.print-root .plan tr.off .c-dow,.print-root .plan tr.we .c-dow,.print-root .plan-ev.off,.print-root .ylist li.off .yd,.print-root .ylist .yd.doff{color:#D92D20!important}
   .print-root .plan tr.off td{background-color:#FBEAE9!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .print-root .lg-off{background-color:#D92D20!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .print-hide,.toast,.side,.topbar,.bottom-nav,.glow{display:none!important}
@@ -492,7 +492,8 @@ select.input{appearance:auto}
 .ylist{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
 .ylist li{display:flex;gap:10px;align-items:baseline}
 .yd{flex:none;width:58px;font-size:14px;font-weight:700;color:var(--c-t3);font-variant-numeric:tabular-nums;white-space:nowrap}
-.ylist li.off .yd{color:var(--c-red)}
+.ylist li.off .yd,.ylist .yd.doff{color:var(--c-red)}
+.ylist li.ynew{margin-top:4px;padding-top:6px;border-top:1px solid var(--c-line)} /* 날이 바뀌는 곳(같은 날은 날짜를 첫 줄에만, 2026-11-03a) */
 
 /* 중요 일정 */
 .star{margin-right:3px;color:var(--accent);font-weight:800}
@@ -668,6 +669,21 @@ body.gy-dragging,body.gy-dragging *{cursor:grabbing!important;-webkit-user-selec
 .q-edit-top>b{width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:14px}
 .q-edit-btns{margin-left:auto;display:flex}
 .q-edit-btns .icon-btn{width:40px;height:40px}
+/* 보기 칸: 보기마다 한 칸(2026-11-03a). 앞의 동그라미(하나 고르기)·네모(여러 개 고르기)로 답하는 모양을 미리 보여 준다 */
+.opt-edit{display:flex;flex-direction:column;gap:8px}
+.opt-edit[hidden]{display:none}
+.opt-rows{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.opt-row{display:flex;align-items:center;gap:8px}
+.opt-row .input{flex:1 1 auto;min-width:0}
+.opt-shape{flex:none;width:18px;height:18px;border:2px solid var(--c-radio);border-radius:50%}
+.opt-shape.many{border-radius:5px}
+.opt-row-btns{flex:none;display:flex}
+.opt-row-btns .icon-btn{width:36px;height:36px}
+.opt-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.opt-tools .check{min-height:40px}
+.opt-etc{margin-top:8px}
+.opt-etc[hidden]{display:none}
+@media (max-width:899px){.opt-row-btns [data-omove]{display:none}} /* 휴대폰은 빼기만(칸이 좁아서) */
 .people.pick{max-height:280px}
 @media (max-width:1023px){ .sv-layout{grid-template-columns:minmax(0,1fr)} }
 @media (max-width:899px){
@@ -2245,8 +2261,8 @@ function tableUiFileBuild_() {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-10-28a';
-function fileMark_Code_() { return '2026-10-28a'; }
+var APP_BUILD_ = '2026-11-03a';
+function fileMark_Code_() { return '2026-11-03a'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -2254,9 +2270,9 @@ function fileMark_Code_() { return '2026-10-28a'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-10-28a', 'Db': '2026-10-28a', 'Auth': '2026-10-28a', 'Admin': '2026-10-28a', 'Schedule': '2026-10-28a',
-    'Survey': '2026-10-21b', 'Library': '2026-10-28a', 'Help': '2026-10-28a', 'Setup': '2026-10-28a', 'Table': '2026-10-28a',
-    'Meeting': '2026-10-28a', 'App': '2026-10-28a', 'Styles': '2026-10-28a', 'Index': '2026-10-21c', 'TableUi': '2026-10-28a'
+    'Code': '2026-11-03a', 'Db': '2026-11-03a', 'Auth': '2026-10-28a', 'Admin': '2026-10-28a', 'Schedule': '2026-10-28a',
+    'Survey': '2026-11-03a', 'Library': '2026-10-28a', 'Help': '2026-10-28a', 'Setup': '2026-10-28a', 'Table': '2026-10-28a',
+    'Meeting': '2026-10-28a', 'App': '2026-11-03a', 'Styles': '2026-11-03a', 'Index': '2026-10-21c', 'TableUi': '2026-10-28a'
   };
 }
 
@@ -2627,7 +2643,7 @@ function deptOptions_() {
  * - 시트에 쓸 때는 잠금(LockService)을 걸어 동시에 저장해도 꼬이지 않게 한다.
  */
 
-function fileMark_Db_() { return '2026-10-28a'; } // 판 표시(관리자 › 점검)
+function fileMark_Db_() { return '2026-11-03a'; } // 판 표시(관리자 › 점검)
 
 /** 모든 표(기록·설정 제외)에 붙는 입력·수정·삭제 칸 */
 function auditCols_() {
@@ -2645,7 +2661,7 @@ function tabs_() {
     '일정': ['일정ID', '시작일', '끝일', '시간', '행사명', '대상 학년', '담당 부서ID', '장소', '구분', '메모',
       '올린 묶음ID'].concat(A).concat(['중요', '반복 묶음ID', '회의ID']), // 반복 묶음ID: 반복 일정(2026-10-19a), 회의ID: 회의록에서 넣은 일정(2026-10-28a). 처음 쓸 때 저절로 붙는다
     '월별중점': ['중점ID', '학년도', '월', '중점지도 내용'].concat(A),
-    '조사': ['조사ID', '제목', '부서ID', '대상', '마감 일시', '상태', '질문', '메신저 문구'].concat(A).concat(['설명', '결과 공개']),
+    '조사': ['조사ID', '제목', '부서ID', '대상', '마감 일시', '상태', '질문', '메신저 문구'].concat(A).concat(['설명', '결과 공개', '익명']), // 익명: 2026-11-03a, 저장할 때 저절로 붙는다
     '응답': ['응답ID', '조사ID', '교직원ID', '답', '하고 싶은 말', '낸 시각', '고친 시각'].concat(A),
     '알림': ['알림ID', '조사ID', '대상 교직원ID', '알린 시각'].concat(A),
     '자료': ['자료ID', '학년도', '분류ID', '부서ID', '제목', '설명', '링크', '파일ID', '담당', '보관 여부'].concat(A)
@@ -3157,7 +3173,7 @@ function insertRow_(tab, obj, actor, summary) {
     head.forEach(function (h) { if (obj[h] !== undefined) rec[h] = String(obj[h]); });
     rec[key] = newId_(tab);
     rec['입력자ID'] = actor.id || '';
-    rec['입력 시각'] = nowText_();
+    rec['입력 시각'] = actor.anon ? nowText_().slice(0, 10) : nowText_(); // 익명 응답은 날짜까지만(Survey.gs anonActor_)
     rec['수정자ID'] = '';
     rec['수정 시각'] = '';
     rec['삭제 여부'] = '';
@@ -3234,7 +3250,7 @@ function updateRow_(tab, id, patch, actor, summary, action) {
     });
     if (!changed) return publicRow_(row);
     next['수정자ID'] = actor.id || '';
-    next['수정 시각'] = nowText_();
+    next['수정 시각'] = actor.anon ? nowText_().slice(0, 10) : nowText_();
     sheet_(tab).getRange(row._row, 1, 1, head.length)
       .setValues([head.map(function (h, j) { return h ? cellWrite_(next[h]) : raw[j]; })]);
     dirty_(tab);
@@ -3375,8 +3391,12 @@ function logJson_(o) {
 
 function writeLog_(actor, tab, id, action, summary, before, after) {
   var sh = sheet_('기록');
+  if (actor.anon) { // 익명 조사의 응답: 누가·언제(시각)·무엇을 답했는지 남기지 않는다(2026-11-03a)
+    before = null;
+    after = { '내용': '익명 조사라 답은 기록에 남기지 않았어요' };
+  }
   sh.appendRow([
-    nowText_(),
+    actor.anon ? nowText_().slice(0, 10) : nowText_(),
     actor.id || '',
     actor.name || '',
     tab,
@@ -5873,7 +5893,7 @@ function apiUploadInfo_(args, actor, ctx) {
  * - 결과(누가 뭐라고 답했는지): 만든 사람·관리자, 그리고 '결과 공개'를 켠 조사는 대상 교직원 모두
  */
 
-function fileMark_Survey_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
+function fileMark_Survey_() { return '2026-11-03a'; } // 판 표시(관리자 › 점검)
 
 function qTypes_() {
   return { one: '하나 고르기', many: '여러 개 고르기', short: '짧은 글', long: '긴 글', number: '숫자', date: '날짜' };
@@ -5945,6 +5965,35 @@ function canEditSurvey_(s, ctx) {
   return !!(ctx.identity && s['입력자ID'] && s['입력자ID'] === ctx.identity['교직원ID']);
 }
 
+/** 익명 조사인지(조사 탭 '익명' = 예, 2026-11-03a) */
+function anonSurvey_(s) {
+  return s['익명'] === '예';
+}
+
+/**
+ * 응답 줄의 '교직원ID' 칸에 적는 값. 익명 조사는 이름 대신 조사마다 다른 번호(HMAC)를 적어
+ * 시트·기록을 열어도 누가 어떤 답을 했는지 알 수 없게 한다. 같은 분은 늘 같은 번호라 자기 답을 고치고, 안 낸 분 명단도 만든다
+ */
+var RESP_KEY_MEMO_ = {}; // 한 번 실행하는 동안 같은 번호를 다시 셈하지 않게(목록에서 조사마다 대상 수만큼 부른다)
+function respKey_(s, staffId) {
+  if (!staffId || !anonSurvey_(s)) return staffId || '';
+  var k = s['조사ID'] + ':' + staffId;
+  if (!RESP_KEY_MEMO_[k]) RESP_KEY_MEMO_[k] = 'A' + hex_(Utilities.computeHmacSha256Signature(k, secretProp_('ANON_SECRET'))).slice(0, 24);
+  return RESP_KEY_MEMO_[k];
+}
+
+/** 익명 응답을 남길 때 쓰는 사람: 시트의 입력자·기록 탭에 이름을 남기지 않고, 시각은 날짜까지만(Db.gs가 anon을 본다) */
+function anonActor_() {
+  return { id: '', name: '익명', anon: true };
+}
+
+/** 대상 교직원ID → 응답 줄의 값 */
+function respKeys_(s, staff) {
+  var out = {};
+  staff.forEach(function (r) { out[r['교직원ID']] = respKey_(s, r['교직원ID']); });
+  return out;
+}
+
 function liveResponses_(surveyId) {
   return liveRows_('응답').filter(function (r) { return r['조사ID'] === surveyId; });
 }
@@ -5967,12 +6016,13 @@ function defaultMessenger_(title, deptName, deadline) {
 function surveyCard_(s, ctx, cache) {
   var target = safeParse_(s['대상'], { type: 'all' });
   var tStaff = targetStaff_(target, cache.staff);
-  var tIds = {};
-  tStaff.forEach(function (r) { tIds[r['교직원ID']] = true; });
+  var tIds = {}, tKeys = {};
+  tStaff.forEach(function (r) { tIds[r['교직원ID']] = true; tKeys[respKey_(s, r['교직원ID'])] = true; });
   var resp = cache.resp[s['조사ID']] || [];
-  var done = resp.filter(function (r) { return tIds[r['교직원ID']]; }).length;
+  var done = resp.filter(function (r) { return tKeys[r['교직원ID']]; }).length;
   var me = ctx.identity ? ctx.identity['교직원ID'] : '';
-  var mine = resp.filter(function (r) { return r['교직원ID'] === me; })[0];
+  var meKey = respKey_(s, me);
+  var mine = me ? resp.filter(function (r) { return r['교직원ID'] === meKey; })[0] : null;
   var qs = safeParse_(s['질문'], []);
   var closed = surveyClosed_(s);
   return {
@@ -5995,6 +6045,7 @@ function surveyCard_(s, ctx, cache) {
     createdAt: s['입력 시각'],
     canEdit: canEditSurvey_(s, ctx),
     showResults: s['결과 공개'] === '예',
+    anonymous: anonSurvey_(s),
     reminded: !!(me && cache.remind[s['조사ID'] + '/' + me])
   };
 }
@@ -6062,8 +6113,10 @@ function apiSurveyGet_(args, actor, ctx) {
   var target = safeParse_(s['대상'], { type: 'all' });
   var resp = cache.resp[s['조사ID']] || [];
   var me = ctx.identity ? ctx.identity['교직원ID'] : '';
-  var mine = resp.filter(function (r) { return r['교직원ID'] === me; })[0];
+  var meKey = respKey_(s, me);
+  var mine = me ? resp.filter(function (r) { return r['교직원ID'] === meKey; })[0] : null;
   var owner = card.canEdit;
+  var anon = anonSurvey_(s);
   var out = {
     card: card,
     description: s['설명'],
@@ -6081,14 +6134,19 @@ function apiSurveyGet_(args, actor, ctx) {
     var tStaff = targetStaff_(target, cache.staff);
     var doneIds = {};
     resp.forEach(function (r) { doneIds[r['교직원ID']] = r; });
+    var keys = respKeys_(s, tStaff); // 익명 조사도 누가 냈는지는 안다(무엇을 답했는지는 모름, 교사 결정)
     var person = function (r) { return { id: r['교직원ID'], name: r['이름'], group: r['소속'], position: r['직위'] }; };
-    out.notDone = owner ? sortStaff_(tStaff.filter(function (r) { return !doneIds[r['교직원ID']]; })).map(person) : [];
+    out.notDone = owner ? sortStaff_(tStaff.filter(function (r) { return !doneIds[keys[r['교직원ID']]]; })).map(person) : [];
     var staffById = {};
-    readRows_('교직원').forEach(function (r) { staffById[r['교직원ID']] = r; });
+    if (!anon) readRows_('교직원').forEach(function (r) { staffById[r['교직원ID']] = r; });
     out.responses = resp.map(function (r) {
+      if (anon) return { name: '', group: '', answers: safeParse_(r['답'], {}), note: r['하고 싶은 말'], at: '', edited: false };
       var st = staffById[r['교직원ID']] || {};
       return { name: st['이름'] || '(알 수 없음)', group: st['소속'] || '', answers: safeParse_(r['답'], {}), note: r['하고 싶은 말'], at: r['고친 시각'] || r['낸 시각'], edited: !!r['고친 시각'] };
-    }).sort(function (a, b) { return a.at < b.at ? -1 : 1; });
+    });
+    // 익명은 낸 차례로도 짐작하지 못하게 섞는다(늘 같은 순서가 되도록 답 내용으로 정렬)
+    if (anon) out.responses.sort(function (a, b) { var x = JSON.stringify(a.answers), y = JSON.stringify(b.answers); return x < y ? -1 : x > y ? 1 : 0; });
+    else out.responses.sort(function (a, b) { return a.at < b.at ? -1 : 1; });
     out.summary = summarize_(questions, out.responses);
     var presses = {}; // 알림 줄은 사람마다 하나씩이라, 누른 횟수는 알린 시각으로 센다
     if (owner) liveRows_('알림').forEach(function (r) { if (r['조사ID'] === s['조사ID']) presses[r['알린 시각']] = 1; });
@@ -6106,10 +6164,18 @@ function summarize_(questions, responses) {
     });
     var out = { id: q.id, type: q.type, title: q.title, answered: vals.length };
     if (q.type === 'one' || q.type === 'many') {
-      var counts = {};
+      var counts = {}, others = [];
       (q.options || []).forEach(function (o) { counts[o] = 0; });
-      vals.forEach(function (v) { [].concat(v).forEach(function (o) { counts[o] = (counts[o] || 0) + 1; }); });
+      if (q.other) counts[OTHER_LABEL_] = 0;
+      vals.forEach(function (v) {
+        [].concat(v).forEach(function (o) {
+          var t = otherText_(o);
+          if (t !== null) { others.push(t); o = OTHER_LABEL_; }
+          counts[o] = (counts[o] || 0) + 1;
+        });
+      });
       out.counts = Object.keys(counts).map(function (k) { return { option: k, count: counts[k] }; });
+      if (q.other) out.others = others.slice(0, 300);
     } else if (q.type === 'number') {
       var nums = vals.map(Number).filter(function (n) { return !isNaN(n); });
       var sum = nums.reduce(function (a, b) { return a + b; }, 0);
@@ -6148,9 +6214,38 @@ function cleanQuestions_(list) {
       if (opts.length > 30) throw userError_((i + 1) + '번 질문의 보기는 30개까지 적을 수 있어요.');
       opts.forEach(function (o) { if (o.length > 80) throw userError_((i + 1) + '번 질문의 보기는 80자까지 적을 수 있어요.'); });
       out.options = opts;
+      if (q.other) {
+        // '기타(직접 쓰기)'를 켰으면 같은 이름의 보기는 빼 달라고 한다(답 '기타: 글'과 헷갈리지 않게)
+        if (opts.some(function (o) { return /^기타(\s*[:(（]|$)/.test(o); })) throw userError_((i + 1) + "번 질문은 '기타(직접 쓰기)'를 켰으니 '기타' 보기는 빼 주세요.");
+        if (opts.length >= 30) throw userError_((i + 1) + "번 질문은 '기타'까지 보기를 30개까지 적을 수 있어요.");
+        out.other = true;
+      }
     }
     return out;
   });
+}
+
+// ---------------------------------------------------------------- 기타(직접 쓰기, 2026-11-03a)
+var OTHER_LABEL_ = '기타(직접 쓰기)';
+var OTHER_PREFIX_ = '기타: ';
+
+/** '기타: 글'이면 글, 아니면 null */
+function otherText_(v) {
+  v = String(v);
+  return v.indexOf(OTHER_PREFIX_) === 0 ? v.slice(OTHER_PREFIX_.length) : null;
+}
+
+/** 고르기 답 하나 확인: 보기 중 하나이거나, 기타를 켠 질문의 '기타: 글' */
+function cleanPick_(q, v, n) {
+  v = String(v);
+  var t = otherText_(v);
+  if (t !== null && q.other) {
+    t = cleanText_(t, 200, n + '의 기타');
+    if (!t) throw userError_(n + "의 '기타'에 내용을 적어 주세요.");
+    return OTHER_PREFIX_ + t;
+  }
+  if ((q.options || []).indexOf(v) < 0) throw userError_(n + '의 보기를 다시 골라 주세요.');
+  return v;
 }
 
 function cleanTargetJson_(t) {
@@ -6199,16 +6294,21 @@ function apiSurveySave_(args, actor, ctx) {
     '마감 일시': deadline,
     '질문': JSON.stringify(questions),
     '메신저 문구': messenger,
-    '결과 공개': f.showResults ? '예' : ''
+    '결과 공개': f.showResults ? '예' : '',
+    '익명': f.anonymous ? '예' : ''
   };
   ensureCols_('조사');
+  if (rec['익명']) secretProp_('ANON_SECRET'); // 번호를 만드는 비밀 값은 익명 조사를 만들 때 한 번 만들어 둔다(여럿이 처음 답할 때 서로 다른 값이 생기지 않게)
   if (args.id) {
     var s = findRow_('조사', String(args.id));
     if (!s || s['삭제 여부']) throw userError_('이 조사를 찾지 못했어요.', 'NOTFOUND');
     if (!canEditSurvey_(s, ctx)) throw userError_('만든 분과 관리자만 고칠 수 있어요.', 'FORBIDDEN');
-    if (liveResponses_(s['조사ID']).length && !sameQuestions_(safeParse_(s['질문'], []), questions)) {
+    var hasResp = liveResponses_(s['조사ID']).length > 0;
+    if (hasResp && !sameQuestions_(safeParse_(s['질문'], []), questions)) {
       throw userError_('이미 낸 답이 있어서 질문은 고칠 수 없어요. 제목·마감·대상·안내 문구만 고칠 수 있어요.', 'LOCKED');
     }
+    // 익명은 답이 하나라도 들어오면 바꾸지 않는다(켜면 이름이 남은 답이, 끄면 번호만 남은 답이 섞인다)
+    if (hasResp && (rec['익명'] === '예') !== anonSurvey_(s)) throw userError_('이미 낸 답이 있어서 익명 여부는 바꿀 수 없어요.', 'LOCKED');
     if (plain(messenger) === plain(defaultMessenger_(s['제목'], depts[s['부서ID']] || '', s['마감 일시']))) rec['메신저 문구'] = ''; // 예전 자동 문구 그대로면 자동으로
     // '지금 끝내기'로 끝낸 조사는 마감을 전보다 늦췄을 때만 다시 연다(글만 고쳐 저장하면 끝난 그대로)
     if (s['상태'] === '끝남' && f.reopen && deadline > nowMin_() && deadline > String(s['마감 일시'] || '')) rec['상태'] = '진행 중';
@@ -6223,7 +6323,7 @@ function apiSurveySave_(args, actor, ctx) {
 
 function sameQuestions_(a, b) {
   var key = function (list) {
-    return JSON.stringify(list.map(function (q) { return [q.id, q.type, q.title, q.required, q.options || []]; }));
+    return JSON.stringify(list.map(function (q) { return [q.id, q.type, q.title, q.required, q.options || [], !!q.other]; }));
   };
   return key(a) === key(b);
 }
@@ -6264,12 +6364,12 @@ function cleanAnswers_(questions, answers) {
       return;
     }
     if (q.type === 'one') {
-      if ((q.options || []).indexOf(String(v)) < 0) throw userError_(n + '의 보기를 다시 골라 주세요.');
-      out[q.id] = String(v);
+      out[q.id] = cleanPick_(q, v, n);
     } else if (q.type === 'many') {
-      var list = [].concat(v).map(String);
-      list.forEach(function (o) { if ((q.options || []).indexOf(o) < 0) throw userError_(n + '의 보기를 다시 골라 주세요.'); });
-      out[q.id] = q.options.filter(function (o) { return list.indexOf(o) >= 0; });
+      var list = [].concat(v).map(function (o) { return cleanPick_(q, o, n); });
+      var etc = list.filter(function (o) { return otherText_(o) !== null; });
+      if (etc.length > 1) throw userError_(n + "의 '기타'는 하나만 적어 주세요.");
+      out[q.id] = q.options.filter(function (o) { return list.indexOf(o) >= 0; }).concat(etc);
     } else if (q.type === 'number') {
       var s = String(v).trim().replace(/,/g, '');
       if (!/^-?\d+(\.\d+)?$/.test(s) || s.length > 15) throw userError_(n + '에는 숫자만 적어 주세요.');
@@ -6291,6 +6391,7 @@ function apiSurveyRespond_(args, actor, ctx) {
     if (!s || s['삭제 여부']) throw userError_('이 조사를 찾지 못했어요. 지워졌을 수 있어요.', 'NOTFOUND');
     if (surveyClosed_(s)) throw userError_('마감된 조사예요. 더 이상 내거나 고칠 수 없어요.', 'CLOSED');
     var target = safeParse_(s['대상'], { type: 'all' });
+    var anon = anonSurvey_(s), key = respKey_(s, me), who = anon ? anonActor_() : actor;
     if (!targetStaff_(target).some(function (r) { return r['교직원ID'] === me; })) {
       throw userError_('이 조사의 대상이 아니에요. 만든 분께 여쭤봐 주세요.', 'FORBIDDEN');
     }
@@ -6298,15 +6399,15 @@ function apiSurveyRespond_(args, actor, ctx) {
     // 조사마다 '긴 글' 질문으로 받으므로 화면에는 따로 칸이 없다. 예전 값은 그대로 둔다.
     var noteSent = args.note !== undefined && args.note !== null;
     var note = noteSent ? cleanText_(args.note, 500, '하고 싶은 말') : '';
-    var now = nowText_();
-    var old = liveResponses_(s['조사ID']).filter(function (r) { return r['교직원ID'] === me; })[0];
+    var now = anon ? nowText_().slice(0, 10) : nowText_(); // 익명은 날짜까지만(기록·시각으로 맞춰 보지 못하게)
+    var old = liveResponses_(s['조사ID']).filter(function (r) { return r['교직원ID'] === key; })[0];
     if (old) {
       var patch = { '답': JSON.stringify(answers), '고친 시각': now };
       if (noteSent) patch['하고 싶은 말'] = note;
-      updateRow_('응답', old['응답ID'], patch, actor, s['제목'] + ' 응답 고침');
+      updateRow_('응답', old['응답ID'], patch, who, s['제목'] + (anon ? ' 익명 응답 고침' : ' 응답 고침'));
       return { edited: true, at: now };
     }
-    insertRow_('응답', { '조사ID': s['조사ID'], '교직원ID': me, '답': JSON.stringify(answers), '하고 싶은 말': note, '낸 시각': now }, actor, s['제목'] + ' 응답 냄');
+    insertRow_('응답', { '조사ID': s['조사ID'], '교직원ID': key, '답': JSON.stringify(answers), '하고 싶은 말': note, '낸 시각': now }, who, s['제목'] + (anon ? ' 익명 응답 냄' : ' 응답 냄'));
     return { edited: false, at: now };
   });
 }
@@ -6320,7 +6421,7 @@ function apiSurveyRemind_(args, actor, ctx) {
   if (surveyClosed_(s)) throw userError_('마감된 조사예요. 마감을 늦춘 뒤에 알려 주세요.');
   var done = {};
   liveResponses_(s['조사ID']).forEach(function (r) { done[r['교직원ID']] = true; });
-  var targets = targetStaff_(safeParse_(s['대상'], { type: 'all' })).filter(function (r) { return !done[r['교직원ID']]; });
+  var targets = targetStaff_(safeParse_(s['대상'], { type: 'all' })).filter(function (r) { return !done[respKey_(s, r['교직원ID'])]; });
   if (!targets.length) return { count: 0 };
   var now = nowText_();
   insertRows_('알림', targets.map(function (r) {
@@ -6339,10 +6440,11 @@ function apiSurveyCsv_(args, actor, ctx) {
     return '"' + t.replace(/"/g, '""') + '"';
   };
   var hasNote = d.responses.some(function (r) { return r.note; });
-  var head = ['이름', '소속', '낸 시각'].concat(d.questions.map(function (q, i) { return (i + 1) + '. ' + q.title; })).concat(hasNote ? ['하고 싶은 말'] : []);
+  var anon = d.card.anonymous; // 익명 조사는 이름·소속·낸 시각 없이 차례를 섞어서
+  var head = (anon ? ['번호'] : ['이름', '소속', '낸 시각']).concat(d.questions.map(function (q, i) { return (i + 1) + '. ' + q.title; })).concat(hasNote ? ['하고 싶은 말'] : []);
   var lines = [head.map(cell).join(',')];
-  d.responses.forEach(function (r) {
-    lines.push([r.name, r.group, r.at].concat(d.questions.map(function (q) { return r.answers[q.id]; })).concat(hasNote ? [r.note] : []).map(cell).join(','));
+  d.responses.forEach(function (r, i) {
+    lines.push((anon ? [i + 1] : [r.name, r.group, r.at]).concat(d.questions.map(function (q) { return r.answers[q.id]; })).concat(hasNote ? [r.note] : []).map(cell).join(','));
   });
   return { filename: d.card.title.replace(/[\\\/:*?"<>|]/g, '_') + ' 응답.csv', csv: lines.join('\r\n') };
 }
@@ -10031,7 +10133,7 @@ function seedTestMeetings_() {
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-28a'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-11-03a'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -11911,9 +12013,15 @@ function seedTestMeetings_() {
         var y = m >= 3 ? d.year : d.year + 1;
         var ym = y + '-' + ('0' + m).slice(-2);
         var list = d.events.filter(function (e) { return e.kind !== '근무' && (e.start.slice(0, 7) === ym || (e.start.slice(0, 7) < ym && e.end.slice(0, 7) >= ym)); }); // 관리자 근무는 연간 학사일정에 넣지 않는다
-        return '<section class="card ymonth"><h3>' + m + '월</h3>' + (list.length ? '<ul class="ylist">' + list.map(function (e) {
-          var s = e.start.slice(0, 7) < ym ? ym + '-01' : e.start;
-          return '<li class="' + (isOff(e) ? 'off' : '') + '"><span class="yd">' + dayNum(s) + '일(' + DOW.charAt(wd(s)) + ')</span>' +
+        // 같은 날 행사가 여러 개면 날짜는 첫 줄에만 쓰고, 날이 바뀌는 곳에 옅은 선(교사 요청, 2026-11-03a). 쉬는 날이 하나라도 있으면 그날 날짜는 빨강
+        var rows = list.map(function (e, i) { return { e: e, s: e.start.slice(0, 7) < ym ? ym + '-01' : e.start, i: i }; })
+          .sort(function (a, b) { return a.s < b.s ? -1 : a.s > b.s ? 1 : a.i - b.i; });
+        var offDay = {};
+        rows.forEach(function (r) { if (isOff(r.e)) offDay[r.s] = 1; });
+        return '<section class="card ymonth"><h3>' + m + '월</h3>' + (rows.length ? '<ul class="ylist">' + rows.map(function (r, i) {
+          var e = r.e, s = r.s, first = !i || rows[i - 1].s !== s;
+          var cls = [isOff(e) ? 'off' : '', first ? '' : 'same', first && i ? 'ynew' : ''].filter(Boolean).join(' ');
+          return '<li class="' + cls + '"><span class="yd' + (first && offDay[s] ? ' doff' : '') + '"' + (first ? '' : ' aria-hidden="true"') + '>' + (first ? dayNum(s) + '일(' + DOW.charAt(wd(s)) + ')' : '') + '</span>' +
             '<button type="button" class="plan-ev' + (isOff(e) ? ' off' : '') + (e.important ? ' imp' : '') + '" data-action="ev-open" data-ev="' + esc(e.id) + '">' + (e.important ? starHtml() : '') + esc(e.title) +
             (e.end !== e.start ? ' <span class="faint">~' + esc(md(e.end)) + '</span>' : '') + '</button></li>';
         }).join('') + '</ul>' : '<p class="faint">일정이 없어요</p>') + '</section>';
@@ -12469,7 +12577,7 @@ function seedTestMeetings_() {
   /** '2026-10-15 16:37:05' → '10월 15일 16:37' */
   function atText(at) {
     if (!at) return '';
-    return Number(at.slice(5, 7)) + '월 ' + Number(at.slice(8, 10)) + '일 ' + at.slice(11, 16);
+    return (Number(at.slice(5, 7)) + '월 ' + Number(at.slice(8, 10)) + '일 ' + at.slice(11, 16)).trim(); // 익명 조사는 날짜까지만
   }
 
   function daysLeftChip(c, today) {
@@ -12486,6 +12594,7 @@ function seedTestMeetings_() {
       '<span class="sv-chips">' + (c.closed ? '<span class="chip">끝남</span>' : '<span class="chip chip-ok">진행 중</span>') +
       (c.closed ? '<span class="faint">' + esc(c.deadlineText) + ' 마감</span>' : daysLeftChip(c, today)) +
       (c.dept ? '<span class="faint">' + esc(c.dept) + '</span>' : '') +
+      (c.anonymous ? '<span class="chip">익명</span>' : '') +
       (tab === 'answer' && c.answered ? '<span class="chip chip-ok">냈어요</span>' : '') +
       (tab === 'answer' && !c.answered && c.reminded ? '<span class="chip chip-warn">다시 알림</span>' : '') + '</span>' +
       '<span class="sv-title">' + esc(c.title) + '</span>' +
@@ -12575,11 +12684,14 @@ function seedTestMeetings_() {
     var body;
     if (q.type === 'one' || q.type === 'many') {
       var vals = [].concat(value || []);
-      body = '<div class="opts">' + q.options.map(function (o) {
-        var on = vals.indexOf(o) >= 0;
-        return '<label class="opt' + (q.type === 'many' ? ' many' : '') + (on ? ' on' : '') + '"><input type="' + (q.type === 'one' ? 'radio' : 'checkbox') + '" name="' + name + '" value="' + esc(o) + '"' + (on ? ' checked' : '') + dis + '>' +
-          '<span>' + esc(o) + '</span><span class="opt-mark" aria-hidden="true">' + icon('check', 16, ' stroke-width="2.6"') + '</span></label>';
-      }).join('') + '</div>';
+      var etc = vals.filter(function (v) { return String(v).indexOf(OTHER_PREFIX) === 0; })[0]; // '기타: 글'(2026-11-03a)
+      var optHtml = function (val, label, on) {
+        return '<label class="opt' + (q.type === 'many' ? ' many' : '') + (on ? ' on' : '') + '"><input type="' + (q.type === 'one' ? 'radio' : 'checkbox') + '" name="' + name + '" value="' + esc(val) + '"' + (on ? ' checked' : '') + dis + '>' +
+          '<span>' + esc(label) + '</span><span class="opt-mark" aria-hidden="true">' + icon('check', 16, ' stroke-width="2.6"') + '</span></label>';
+      };
+      body = '<div class="opts">' + q.options.map(function (o) { return optHtml(o, o, vals.indexOf(o) >= 0); }).join('') +
+        (q.other ? optHtml(OTHER_VAL, '기타', !!etc) : '') + '</div>' +
+        (q.other ? '<input class="input opt-etc" name="etc-' + esc(q.id) + '" maxlength="200" placeholder="기타 내용을 적어 주세요" aria-label="' + esc(q.title) + ' 기타 내용" value="' + esc(etc ? etc.slice(OTHER_PREFIX.length) : '') + '"' + (etc ? '' : ' hidden') + dis + '>' : '');
     } else if (q.type === 'long') {
       body = '<textarea class="input" name="' + name + '" rows="4" maxlength="2000"' + dis + '>' + esc(value || '') + '</textarea>';
     } else {
@@ -12598,16 +12710,17 @@ function seedTestMeetings_() {
     var cannot = !c.inTarget;
     return '<section class="card sv-respond">' +
       '<div class="sv-chips">' + (c.dept ? '<span class="chip">' + esc(c.dept) + '</span>' : '') + daysLeftChip(c, l.today || localToday()) +
-      (c.showResults ? '<span class="chip chip-accent">결과 공개</span>' : '') + '</div>' +
+      (c.showResults ? '<span class="chip chip-accent">결과 공개</span>' : '') + (c.anonymous ? '<span class="chip">익명</span>' : '') + '</div>' +
       '<h2 class="sv-h">' + esc(c.title) + '</h2>' +
       '<p class="faint">질문 ' + c.qCount + '개 · ' + esc(c.deadlineText) + '까지' + (c.by ? ' · ' + esc(c.by) + ' 선생님이 만들었어요' : '') + '</p>' +
       (d.description ? '<p class="sv-desc">' + esc(d.description) + '</p>' : '') +
-      (c.showResults && !cannot ? '<p class="hint">' + icon('info', 16) + '<span><b>결과 공개</b> 조사예요. 낸 답(이름 포함)을 대상 선생님 모두 볼 수 있어요.</span></p>' : '') +
+      (c.anonymous ? '<p class="hint">' + icon('info', 16) + '<span><b>익명</b> 조사예요. 만든 분도 누가 어떤 답을 했는지 알 수 없어요(낸 분 명단만 보여요). 글로 쓰는 답에 자기 이야기를 적으면 짐작될 수 있어요.</span></p>' : '') +
+      (c.showResults && !cannot ? '<p class="hint">' + icon('info', 16) + '<span><b>결과 공개</b> 조사예요. 낸 답' + (c.anonymous ? '(이름 없이)' : '(이름 포함)') + '을 대상 선생님 모두 볼 수 있어요.</span></p>' : '') +
       (d.myAnswer ? '<p class="note">' + icon('check', 18) + '<span>' + esc(atText(d.myAnswer.at)) + '에 냈어요. ' + (closed ? '마감돼서 더 고칠 수 없어요.' : '고쳐서 다시 낼 수 있어요.') + '</span></p>' : '') +
       (closed ? '<p class="note warn">' + icon('info', 18) + '<span>마감된 조사예요.</span></p>' : '') +
       (cannot ? '<p class="note warn">' + icon('info', 18) + '<span>이 조사의 대상이 아니에요(' + esc(c.targetText) + ').</span></p>' : '') +
       (S.me ? '<div class="who-card"><span class="avatar" aria-hidden="true">' + esc(S.me.name.charAt(0)) + '</span>' +
-      '<span class="me-lines"><span class="faint">응답하는 사람</span><b>' + esc(S.me.name) + '</b><span class="faint">' + esc(S.me.group || '') + '</span></span>' +
+      '<span class="me-lines"><span class="faint">' + (c.anonymous ? '응답하는 사람(답과 함께 이름은 남지 않아요)' : '응답하는 사람') + '</span><b>' + esc(S.me.name) + '</b><span class="faint">' + esc(S.me.group || '') + '</span></span>' +
       '<button type="button" class="linkish" data-action="switch" style="margin-left:auto">바꾸기</button></div>'
         : '<div class="who-card"><span class="me-lines"><span class="faint">응답하려면 먼저 이름을 골라 주세요</span></span>' +
       '<button type="button" class="linkish" data-action="switch" style="margin-left:auto">이름 고르기</button></div>') +
@@ -12623,12 +12736,19 @@ function seedTestMeetings_() {
       '</section>';
   }
 
+  // 기타(직접 쓰기): 고른 칸의 값은 OTHER_VAL, 낼 때 '기타: 글'로 바꾼다(서버 Survey.gs OTHER_PREFIX_와 같은 글)
+  var OTHER_VAL = '__etc__', OTHER_PREFIX = '기타: ';
   /** 응답 칸에 고른 답(아직 안 냄) */
   function readAnswers(form, d) {
     var answers = {};
+    var pick = function (q, v) {
+      if (v !== OTHER_VAL) return v;
+      var t = qs('[name="etc-' + q.id + '"]', form);
+      return OTHER_PREFIX + (t ? t.value.trim() : '');
+    };
     d.questions.forEach(function (q) {
-      if (q.type === 'one') { var c = qs('input[name="ans-' + q.id + '"]:checked', form); if (c) answers[q.id] = c.value; }
-      else if (q.type === 'many') answers[q.id] = qsa('input[name="ans-' + q.id + '"]:checked', form).map(function (c) { return c.value; });
+      if (q.type === 'one') { var c = qs('input[name="ans-' + q.id + '"]:checked', form); if (c) answers[q.id] = pick(q, c.value); }
+      else if (q.type === 'many') answers[q.id] = qsa('input[name="ans-' + q.id + '"]:checked', form).map(function (c) { return pick(q, c.value); });
       else { var el = qs('[name="ans-' + q.id + '"]', form); if (el && el.value.trim()) answers[q.id] = el.value.trim(); }
     });
     return answers;
@@ -12643,14 +12763,22 @@ function seedTestMeetings_() {
     var form = qs('#sv-form', box);
     if (!form) return;
     form.addEventListener('change', function (e) {
-      if (e.target.closest('.opts')) qsa('.opt', e.target.closest('.opts')).forEach(function (o) { o.classList.toggle('on', o.querySelector('input').checked); });
+      var opts = e.target.closest('.opts');
+      if (!opts) return;
+      qsa('.opt', opts).forEach(function (o) { o.classList.toggle('on', o.querySelector('input').checked); });
+      // '기타'를 고르면 글 칸이 열리고 그리로 간다
+      var etcOn = qs('input[value="' + OTHER_VAL + '"]', opts), etcBox = qs('.opt-etc', opts.parentNode);
+      if (etcBox) { etcBox.hidden = !(etcOn && etcOn.checked); if (e.target === etcOn && etcOn.checked) etcBox.focus(); }
     });
+    form.addEventListener('input', function (e) { if (e.target.classList.contains('opt-etc')) qs('#sv-err', form).textContent = ''; });
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
       var answers = readAnswers(form, d);
       var err = qs('#sv-err', form);
       var miss = d.questions.filter(function (q) { var v = answers[q.id]; return q.required && (!v || (Array.isArray(v) && !v.length)); })[0];
       if (miss) { err.textContent = (d.questions.indexOf(miss) + 1) + '번 질문에 답해 주세요.'; qs('[data-q="' + miss.id + '"]', form).scrollIntoView({ block: 'center' }); return; }
+      var noEtc = d.questions.filter(function (q) { return [].concat(answers[q.id] || []).indexOf(OTHER_PREFIX) >= 0; })[0]; // '기타'를 골랐는데 글이 비었음
+      if (noEtc) { err.textContent = (d.questions.indexOf(noEtc) + 1) + "번 질문의 '기타'에 내용을 적어 주세요."; var eb = qs('[name="etc-' + noEtc.id + '"]', form); if (eb) eb.focus(); return; }
       var btn = form.querySelector('[type=submit]');
       busy(btn, true, '내는 중');
       err.textContent = '';
@@ -12681,7 +12809,7 @@ function seedTestMeetings_() {
     var notDone = d.notDone || [];
     return '<section class="card sv-owner">' +
       '<div class="sv-top"><div style="min-width:0"><div class="sv-chips">' + (c.closed ? '<span class="chip">끝남</span>' : '<span class="chip chip-ok">진행 중</span>') +
-      '<span class="chip chip-warn">마감 ' + esc(c.deadlineText) + '</span>' + (c.showResults ? '<span class="chip chip-accent">결과 공개</span>' : '') + '</div>' +
+      '<span class="chip chip-warn">마감 ' + esc(c.deadlineText) + '</span>' + (c.showResults ? '<span class="chip chip-accent">결과 공개</span>' : '') + (c.anonymous ? '<span class="chip">익명</span>' : '') + '</div>' +
       '<h2 class="sv-h">' + esc(c.title) + '</h2>' +
       '<p class="faint">' + esc([c.dept, c.by ? c.by + ' 선생님이 ' + c.createdAt.slice(5, 10).replace('-', '월 ') + '일에 만들었어요' : '', '대상 ' + c.targetText + ' ' + c.targetCount + '명'].filter(Boolean).join(' · ')) + '</p></div>' +
       '<div class="row-btns print-hide sv-actions">' +
@@ -12714,6 +12842,7 @@ function seedTestMeetings_() {
     var sum = d.summary || [];
     var resp = d.responses || [];
     var hasNote = resp.some(function (r) { return r.note; }); // 예전에 따로 받던 '하고 싶은 말'이 있을 때만 칸을 보인다
+    var anon = d.card && d.card.anonymous; // 익명 조사: 이름·낸 시각 칸 없이
     return '<div class="sv-results"><h3>응답 요약 <span class="faint" style="font-weight:600">' + resp.length + '명이 냈어요</span></h3>' +
       sum.map(function (q, i) {
         var inner;
@@ -12721,7 +12850,9 @@ function seedTestMeetings_() {
           var max = Math.max.apply(null, q.counts.map(function (c) { return c.count; }).concat([1]));
           inner = '<div class="bars">' + q.counts.map(function (c) {
             return '<div class="bar-row"><span class="bar-label">' + esc(c.option) + '</span><span class="progress"><span style="width:' + Math.round(c.count / max * 100) + '%"></span></span><b>' + c.count + '명</b></div>';
-          }).join('') + '</div>';
+          }).join('') + '</div>' +
+            (q.others && q.others.length ? '<p class="faint" style="margin:8px 0 0">기타에 적은 글</p><ul class="texts">' + q.others.slice(0, 30).map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>' +
+              (q.others.length > 30 ? '<p class="faint">나머지 ' + (q.others.length - 30) + '개는 엑셀로 받아 보세요.</p>' : '') : '');
         } else if (q.type === 'number') {
           inner = '<p class="muted">' + q.answered + '명 · 합계 ' + q.sum + (q.avg !== null ? ' · 평균 ' + q.avg : '') + '</p>';
         } else {
@@ -12730,10 +12861,10 @@ function seedTestMeetings_() {
         }
         return '<div class="q-sum"><p class="q-sum-t">' + (i + 1) + '. ' + esc(q.title) + '</p>' + inner + '</div>';
       }).join('') +
-      (resp.length ? '<details class="resp-list"><summary>낸 분들의 답 ' + resp.length + '개 보기</summary><div class="table-wrap"><table class="plan resp"><thead><tr><th>이름</th><th>낸 시각</th>' +
+      (resp.length ? '<details class="resp-list"><summary>낸 분들의 답 ' + resp.length + '개 보기' + (anon ? ' (익명, 차례는 섞었어요)' : '') + '</summary><div class="table-wrap"><table class="plan resp"><thead><tr>' + (anon ? '<th>번호</th>' : '<th>이름</th><th>낸 시각</th>') +
         d.questions.map(function (q, i) { return '<th>' + (i + 1) + '. ' + esc(q.title) + '</th>'; }).join('') + (hasNote ? '<th>하고 싶은 말</th>' : '') + '</tr></thead><tbody>' +
-        resp.map(function (r) {
-          return '<tr><td><b>' + esc(r.name) + '</b><br><span class="faint">' + esc(r.group) + '</span></td><td class="faint">' + esc(atText(r.at)) + (r.edited ? ' (고침)' : '') + '</td>' +
+        resp.map(function (r, k) {
+          return '<tr>' + (anon ? '<td class="faint">' + (k + 1) + '</td>' : '<td><b>' + esc(r.name) + '</b><br><span class="faint">' + esc(r.group) + '</span></td><td class="faint">' + esc(atText(r.at)) + (r.edited ? ' (고침)' : '') + '</td>') +
             d.questions.map(function (q) { var v = r.answers[q.id]; return '<td>' + esc(Array.isArray(v) ? v.join(', ') : v || '') + '</td>'; }).join('') +
             (hasNote ? '<td>' + esc(r.note || '') + '</td>' : '') + '</tr>';
         }).join('') + '</tbody></table></div></details>' : '') +
@@ -12850,6 +12981,9 @@ function seedTestMeetings_() {
       (locked ? '<p class="note warn">' + icon('info', 18) + '<span>이미 낸 답이 있어서 질문은 고칠 수 없어요. 제목·마감·대상·안내 문구는 고칠 수 있어요.</span></p>' : '') +
       '<div id="svf-qs" class="qs-edit"></div>' +
       (locked ? '' : '<button type="button" class="btn btn-sm" id="svf-addq" style="align-self:flex-start">' + icon('plus', 18) + '질문 추가</button>') + '</div>' +
+      '<label class="check"><input type="checkbox" id="svf-anon"' + (c.anonymous ? ' checked' : '') + (locked ? ' disabled' : '') + '>익명으로 받기 <span class="faint">(누가 어떤 답을 했는지 만든 분도 모르게)</span></label>' +
+      '<p class="hint" id="svf-anon-hint"' + (c.anonymous || locked ? '' : ' hidden') + '>' + icon('info', 16) + '<span>' + (locked ? '이미 낸 답이 있어서 익명 여부는 바꿀 수 없어요. ' : '') +
+        (c.anonymous || !locked ? '이름은 시트·기록에도 남지 않아요. 누가 냈는지(안 낸 분 명단)만 보여요. 대상이 몇 명뿐이거나 글로 쓰는 답이 있으면 답으로 짐작될 수 있어요.' : '') + '</span></p>' +
       '<label class="check"><input type="checkbox" id="svf-public"' + (c.showResults ? ' checked' : '') + '>답을 대상 교직원 모두에게 보여 주기 <span class="faint">(참석 여부처럼 함께 봐야 할 때)</span></label>' +
       (edit && d.hasResponses && !c.showResults ? '<div class="note warn pub-ask" id="svf-pub-ask" hidden>' + icon('info', 18) + '<div><p>벌써 낸 답이 ' + ((d.responses || []).length ? d.responses.length + '개 ' : '') + '있어요. 켜면 지금까지 낸 답도 대상 선생님 모두에게 보여요. 낸 분들은 공개될 줄 모르고 냈을 수 있어요.</p>' +
         '<div class="row-btns"><button type="button" class="btn btn-sm" data-pub-ask="0">그만두기</button><button type="button" class="btn btn-sm btn-primary" data-pub-ask="1">그래도 보여 주기</button></div></div></div>' : '') +
@@ -12871,6 +13005,8 @@ function seedTestMeetings_() {
       }, function (e) { from.disabled = false; qs('#svf-err').textContent = e.message; });
     });
     var state = { tt: tg.type, ids: (tg.ids || []).slice(), grades: (tg.grades || []).slice() };
+    var anonBox = qs('#svf-anon');
+    if (!locked) anonBox.addEventListener('change', function () { qs('#svf-anon-hint').hidden = !anonBox.checked; });
     // 답이 있는 조사에서 '결과 공개'를 켤 때 한 번 묻는다(창 위에 창을 띄우지 않고 이 자리에서)
     var pub = qs('#svf-public'), pubAsk = qs('#svf-pub-ask'), pubOk = false;
     if (pubAsk) {
@@ -12912,8 +13048,28 @@ function seedTestMeetings_() {
       }
     }
 
+    // 보기 칸: 보기마다 한 칸(+ 보기 추가·빼기·옮기기), '기타(직접 쓰기)' 켜기(교사 요청, 2026-11-03a)
+    function optRow(v, k, type) {
+      var dis = locked ? ' disabled' : '';
+      return '<li class="opt-row"><span class="opt-shape ' + (type === 'many' ? 'many' : 'one') + '" aria-hidden="true"></span>' +
+        '<input class="input" data-opt maxlength="80" placeholder="보기 ' + (k + 1) + '" aria-label="보기 ' + (k + 1) + '" value="' + esc(v || '') + '"' + dis + '>' +
+        (locked ? '' : '<span class="opt-row-btns"><button type="button" class="icon-btn" data-omove="-1" aria-label="보기 위로">' + icon('up', 16) + '</button>' +
+          '<button type="button" class="icon-btn" data-omove="1" aria-label="보기 아래로">' + icon('chevd', 16) + '</button>' +
+          '<button type="button" class="icon-btn" data-odel aria-label="보기 빼기">' + icon('x', 16) + '</button></span>') + '</li>';
+    }
+    function optBox(q) {
+      var list = (q.options || []).slice();
+      while (list.length < 2) list.push('');
+      var choice = q.type === 'one' || q.type === 'many';
+      return '<div class="opt-edit" data-qf="optbox"' + (choice ? '' : ' hidden') + '><ol class="opt-rows">' + list.map(function (v, k) { return optRow(v, k, q.type); }).join('') + '</ol>' +
+        '<div class="opt-tools">' + (locked ? '' : '<button type="button" class="btn btn-sm" data-oadd>' + icon('plus', 16) + '보기 추가</button>') +
+        '<label class="check"><input type="checkbox" data-qf="other"' + (q.other ? ' checked' : '') + (locked ? ' disabled' : '') + '>\'기타(직접 쓰기)\' 받기 <span class="faint">(답하는 분이 글로 적어요)</span></label></div></div>';
+    }
+    function renumberOpts(box) {
+      qsa('.opt-row', box).forEach(function (li, k) { var inp = qs('[data-opt]', li); inp.placeholder = '보기 ' + (k + 1); inp.setAttribute('aria-label', '보기 ' + (k + 1)); });
+    }
+
     function qCard(q, i) {
-      var opts = (q.options || []).join('\n');
       var dis = locked ? ' disabled' : '';
       return '<div class="q-edit" data-qid="' + esc(q.id || '') + '">' +
         '<div class="q-edit-top"><b>' + (i + 1) + '</b><select class="input input-sm" data-qf="type" aria-label="질문 종류"' + dis + '>' +
@@ -12923,7 +13079,7 @@ function seedTestMeetings_() {
           '<button type="button" class="icon-btn" data-qmove="1" aria-label="아래로">' + icon('chevd', 18) + '</button>' +
           '<button type="button" class="icon-btn" data-qdel aria-label="질문 빼기">' + icon('x', 18) + '</button></span>') + '</div>' +
         '<input class="input" data-qf="title" maxlength="200" placeholder="질문을 적어 주세요" value="' + esc(q.title || '') + '" aria-label="질문"' + dis + '>' +
-        '<textarea class="input" data-qf="opts" rows="3" placeholder="보기를 한 줄에 하나씩 적어 주세요"' + (q.type === 'one' || q.type === 'many' ? '' : ' hidden') + dis + ' aria-label="보기">' + esc(opts) + '</textarea>' +
+        optBox(q) +
         '</div>';
     }
 
@@ -12934,7 +13090,8 @@ function seedTestMeetings_() {
           type: qs('[data-qf=type]', el).value,
           title: qs('[data-qf=title]', el).value,
           required: qs('[data-qf=req]', el).checked,
-          options: qs('[data-qf=opts]', el).value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean)
+          options: qsa('[data-opt]', el).map(function (x) { return x.value.trim(); }).filter(Boolean),
+          other: qs('[data-qf=other]', el).checked
         };
       });
     }
@@ -12968,11 +13125,66 @@ function seedTestMeetings_() {
     });
     qbox.addEventListener('change', function (e) {
       if (e.target.getAttribute('data-qf') === 'type') {
-        var t = e.target.value, ta = qs('[data-qf=opts]', e.target.closest('.q-edit'));
-        ta.hidden = !(t === 'one' || t === 'many');
+        // 종류를 바꿔도 적은 보기는 숨기기만 해서, 다시 고르기로 돌아오면 그대로다
+        var t = e.target.value, box = qs('[data-qf=optbox]', e.target.closest('.q-edit'));
+        box.hidden = !(t === 'one' || t === 'many');
+        qsa('.opt-shape', box).forEach(function (sh) { sh.className = 'opt-shape ' + (t === 'many' ? 'many' : 'one'); });
+        if (!box.hidden && !qsa('[data-opt]', box).some(function (x) { return x.value.trim(); })) qs('[data-opt]', box).focus();
       }
     });
+    function addOpt(box, after, val) {
+      var rows = qsa('.opt-row', box);
+      if (rows.length >= 30) { toast('보기는 30개까지 넣을 수 있어요'); return null; }
+      var type = qs('[data-qf=type]', box.closest('.q-edit')).value;
+      var tmp = document.createElement('ol');
+      tmp.innerHTML = optRow(val || '', rows.length, type);
+      var li = tmp.firstChild, list = qs('.opt-rows', box);
+      if (after && after.nextSibling) list.insertBefore(li, after.nextSibling); else list.appendChild(li);
+      renumberOpts(box);
+      return qs('[data-opt]', li);
+    }
+    // 마지막 보기에서 Enter → 새 보기 칸, 아니면 다음 칸으로(한글 입력 중의 Enter는 그대로)
+    qbox.addEventListener('keydown', function (e) {
+      if (!e.target.hasAttribute('data-opt') || e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+      e.preventDefault();
+      var li = e.target.closest('.opt-row'), box = li.closest('.opt-edit'), next = li.nextElementSibling;
+      var inp = next ? qs('[data-opt]', next) : addOpt(box, li, '');
+      if (inp) inp.focus();
+    });
+    // 여러 줄을 붙여 넣으면(엑셀·메모장) 줄마다 보기 칸으로 나눈다
+    qbox.addEventListener('paste', function (e) {
+      if (!e.target.hasAttribute('data-opt')) return;
+      var text = (e.clipboardData || window.clipboardData).getData('text') || '';
+      var lines = text.split(/\r?\n/).map(function (x) { return x.replace(/\t/g, ' ').trim(); }).filter(Boolean);
+      if (lines.length < 2) return;
+      e.preventDefault();
+      var li = e.target.closest('.opt-row'), box = li.closest('.opt-edit');
+      e.target.value = (e.target.value.trim() ? e.target.value.trim() + ' ' : '') + lines[0];
+      var at = li, last = e.target;
+      for (var k = 1; k < lines.length; k++) {
+        var n = addOpt(box, at, lines[k]);
+        if (!n) break;
+        at = n.closest('.opt-row'); last = n;
+      }
+      last.focus();
+    });
     qbox.addEventListener('click', function (e) {
+      var oadd = e.target.closest('[data-oadd]'), odel = e.target.closest('[data-odel]'), omv = e.target.closest('[data-omove]');
+      if (oadd) { var box0 = oadd.closest('.opt-edit'), rows0 = qsa('.opt-row', box0), n0 = addOpt(box0, rows0[rows0.length - 1], ''); if (n0) n0.focus(); return; }
+      if (odel) {
+        var li = odel.closest('.opt-row'), box1 = li.closest('.opt-edit');
+        if (qsa('.opt-row', box1).length > 2) { var nb = li.previousElementSibling || li.nextElementSibling; li.remove(); renumberOpts(box1); qs('[data-opt]', nb).focus(); }
+        else { qs('[data-opt]', li).value = ''; qs('[data-opt]', li).focus(); } // 보기 칸은 두 개는 남긴다
+        return;
+      }
+      if (omv) {
+        var li2 = omv.closest('.opt-row'), to = Number(omv.getAttribute('data-omove')) < 0 ? li2.previousElementSibling : li2.nextElementSibling;
+        if (!to) return;
+        var a = qs('[data-opt]', li2), b = qs('[data-opt]', to), tv = a.value;
+        a.value = b.value; b.value = tv;
+        qs('[data-omove="' + omv.getAttribute('data-omove') + '"]', to).focus();
+        return;
+      }
       var mv = e.target.closest('[data-qmove]'), del = e.target.closest('[data-qdel]');
       if (!mv && !del) return;
       var list = readQs();
@@ -12985,7 +13197,7 @@ function seedTestMeetings_() {
     if (addq) addq.addEventListener('click', function () {
       var list = readQs();
       if (list.length >= 30) return toast('질문은 30개까지 넣을 수 있어요');
-      list.push({ type: 'one', title: '', required: false, options: [] });
+      list.push({ type: 'one', title: '', required: false, options: [], other: false });
       drawQs(list);
       var last = qsa('.q-edit', qbox).pop();
       qs('[data-qf=title]', last).focus();
@@ -13003,6 +13215,7 @@ function seedTestMeetings_() {
         target: state.tt === 'dept' ? { type: 'dept', ids: state.ids } : state.tt === 'grade' ? { type: 'grade', grades: state.grades } : state.tt === 'people' ? { type: 'people', ids: state.ids } : { type: 'all' },
         questions: locked ? d.questions : readQs().map(function (q) { if (!q.id) delete q.id; return q; }),
         showResults: qs('#svf-public').checked,
+        anonymous: qs('#svf-anon').checked,
         messenger: qs('#svf-msg').value,
         reopen: true
       };

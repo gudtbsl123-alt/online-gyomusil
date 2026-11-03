@@ -4910,5 +4910,117 @@ test('관리자·서버(2026-10-28a): 긴 기록도 JSON이 깨지지 않음 · 
   assert.ok(g.PropertiesService.getScriptProperties().getProperty('COMMON_PW_AT'));
 });
 
+
+test('익명 조사(2026-11-03a): 시트·기록에 이름·답이 남지 않고, 내 답 고치기·안 낸 분 명단·다시 알리기·엑셀은 된다', () => {
+  const g = freshName();
+  const { who, staff } = ids(g);
+  const owner = who('이몽룡');
+  const made = call(g, 'survey.save', { fields: sv(g, { anonymous: true }) }, owner);
+  assert.strictEqual(made.ok, true, made.error);
+  const id = made.data.id;
+  const qs = call(g, 'survey.get', { id }, owner).data.questions;
+  const sim = who('심청'), simId = staff.find((x) => x.name === '심청').id;
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [qs[0].id]: '피구', [qs[2].id]: '비밀 의견' } }, sim).ok, true);
+  assert.strictEqual(call(g, 'survey.respond', { id, answers: { [qs[0].id]: '응원' } }, who('흥부')).ok, true);
+  // 시트의 응답 줄: 교직원ID 칸에 이름·ID 대신 번호, 입력자 없음, 시각은 날짜까지만
+  const rows = g.liveRows_('응답').filter((r) => r['조사ID'] === id);
+  assert.strictEqual(rows.length, 2);
+  rows.forEach((r) => {
+    assert.match(r['교직원ID'], /^A[0-9a-f]{24}$/);
+    assert.ok(!staff.some((x) => x.id === r['교직원ID']));
+    assert.strictEqual(r['입력자ID'], '');
+    assert.match(r['입력 시각'], /^\d{4}-\d{2}-\d{2}$/);
+    assert.match(r['낸 시각'], /^\d{4}-\d{2}-\d{2}$/);
+  });
+  // 기록 탭: 누가·무엇을 답했는지 없음
+  const logs = g.readRows_('기록').filter((r) => r['탭'] === '응답');
+  assert.ok(logs.length >= 2);
+  logs.forEach((r) => {
+    assert.strictEqual(r['교직원ID'], '');
+    assert.strictEqual(r['이름'], '익명');
+    assert.ok(!/비밀 의견|피구|응원/.test(r['바뀐 뒤'] + r['바뀌기 전']));
+    assert.match(r['시각'], /^\d{4}-\d{2}-\d{2}$/);
+  });
+  assert.ok(!JSON.stringify(g.readRows_('기록')).includes(simId + '","이름":"심청","탭":"응답'));
+  // 내 답 고치기(같은 번호라 고치기가 된다)
+  const again = call(g, 'survey.respond', { id, answers: { [qs[0].id]: '배드민턴' } }, sim);
+  assert.strictEqual(again.data.edited, true);
+  assert.strictEqual(g.liveRows_('응답').filter((r) => r['조사ID'] === id).length, 2);
+  assert.strictEqual(call(g, 'survey.get', { id }, sim).data.myAnswer.answers[qs[0].id], '배드민턴');
+  assert.strictEqual(call(g, 'survey.list', {}, sim).data.toAnswer.find((c) => c.id === id).answered, true);
+  // 만든 분 화면: 낸 수·안 낸 분 명단은 그대로, 답에는 이름이 없다
+  const d = call(g, 'survey.get', { id }, owner).data;
+  assert.strictEqual(d.card.anonymous, true);
+  assert.strictEqual(d.card.doneCount, 2);
+  assert.strictEqual(d.notDone.length, d.card.targetCount - 2);
+  assert.ok(!d.notDone.some((x) => x.name === '심청' || x.name === '흥부'));
+  d.responses.forEach((r) => { assert.strictEqual(r.name, ''); assert.strictEqual(r.at, ''); });
+  assert.ok(!JSON.stringify(d.responses).includes('심청'));
+  // 엑셀: 이름·소속·낸 시각 칸 없이
+  const csv = call(g, 'survey.csv', { id }, owner).data.csv;
+  assert.ok(csv.split('\r\n')[0].startsWith('"번호"'));
+  assert.ok(!/심청|흥부/.test(csv));
+  // 다시 알리기: 낸 두 분은 빼고 알린다
+  const rm = call(g, 'survey.remind', { id }, owner);
+  assert.strictEqual(rm.data.count, d.card.targetCount - 2);
+  // 답이 있으면 익명 여부는 바꿀 수 없다
+  const off = call(g, 'survey.save', { id, fields: Object.assign(sv(g, { anonymous: false }), { questions: d.questions }) }, owner);
+  assert.strictEqual(off.code, 'LOCKED');
+  // 같은 분이라도 조사마다 번호가 다르다(조사끼리 맞춰 보지 못하게)
+  const id2 = call(g, 'survey.save', { fields: sv(g, { anonymous: true }) }, owner).data.id;
+  const q2 = call(g, 'survey.get', { id: id2 }, owner).data.questions;
+  call(g, 'survey.respond', { id: id2, answers: { [q2[0].id]: '피구' } }, sim);
+  const k1 = g.liveRows_('응답').filter((r) => r['조사ID'] === id).map((r) => r['교직원ID']);
+  const k2 = g.liveRows_('응답').find((r) => r['조사ID'] === id2)['교직원ID'];
+  assert.ok(k1.indexOf(k2) < 0);
+  // 익명이 아닌 조사는 예전 그대로(이름·시각)
+  const id3 = call(g, 'survey.save', { fields: sv(g) }, owner).data.id;
+  const q3 = call(g, 'survey.get', { id: id3 }, owner).data.questions;
+  call(g, 'survey.respond', { id: id3, answers: { [q3[0].id]: '피구' } }, sim);
+  const r3 = g.liveRows_('응답').find((r) => r['조사ID'] === id3);
+  assert.strictEqual(r3['교직원ID'], simId);
+  assert.match(r3['낸 시각'], /\d{2}:\d{2}/);
+  assert.strictEqual(call(g, 'survey.get', { id: id3 }, owner).data.responses[0].name, '심청');
+});
+
+test("보기 '기타(직접 쓰기)'(2026-11-03a): 저장·답 확인·요약·같은 이름 보기 막기", () => {
+  const g = freshName();
+  const { who } = ids(g);
+  const owner = who('이몽룡');
+  const qs0 = [
+    { type: 'one', title: '종목', required: true, options: ['피구', '배드민턴'], other: true },
+    { type: 'many', title: '도울 일', options: ['사진', '정리'], other: true },
+    { type: 'short', title: '한마디', other: true }
+  ];
+  const bad = call(g, 'survey.save', { fields: sv(g, { questions: [{ type: 'one', title: '종목', options: ['피구', '기타'], other: true }] }) }, owner);
+  assert.ok(bad.error && bad.error.includes("'기타' 보기는 빼"), bad.error);
+  const made = call(g, 'survey.save', { fields: sv(g, { questions: qs0 }) }, owner);
+  assert.strictEqual(made.ok, true, made.error);
+  const id = made.data.id;
+  const qs = call(g, 'survey.get', { id }, owner).data.questions;
+  assert.strictEqual(qs[0].other, true);
+  assert.strictEqual(qs[1].other, true);
+  assert.strictEqual(qs[2].other, undefined, '글 질문에는 기타가 없다');
+  const me = who('심청');
+  assert.ok(call(g, 'survey.respond', { id, answers: { [qs[0].id]: '기타: ' } }, me).error.includes("'기타'에 내용"));
+  assert.ok(call(g, 'survey.respond', { id, answers: { [qs[0].id]: '피구', [qs[1].id]: ['기타: 가', '기타: 나'] } }, me).error.includes('하나만'));
+  const ok = call(g, 'survey.respond', { id, answers: { [qs[0].id]: '기타: 줄넘기', [qs[1].id]: ['정리', '기타: 음료 준비'] } }, me);
+  assert.strictEqual(ok.ok, true, ok.error);
+  call(g, 'survey.respond', { id, answers: { [qs[0].id]: '피구' } }, who('흥부'));
+  const d = call(g, 'survey.get', { id }, owner).data;
+  const s0 = d.summary[0];
+  assert.deepStrictEqual(plain(s0.counts.map((c) => [c.option, c.count])), [['피구', 1], ['배드민턴', 0], ['기타(직접 쓰기)', 1]]);
+  assert.deepStrictEqual(plain(s0.others), ['줄넘기']);
+  assert.deepStrictEqual(plain(d.summary[1].others), ['음료 준비']);
+  assert.deepStrictEqual(plain(call(g, 'survey.get', { id }, me).data.myAnswer.answers[qs[1].id]), ['정리', '기타: 음료 준비']);
+  // 기타를 켜지 않은 질문에 '기타: 글'을 보내면 막는다
+  const id2 = call(g, 'survey.save', { fields: sv(g) }, owner).data.id;
+  const q2 = call(g, 'survey.get', { id: id2 }, owner).data.questions;
+  assert.strictEqual(call(g, 'survey.respond', { id: id2, answers: { [q2[0].id]: '기타: 몰래' } }, me).ok, false);
+  // 답이 있으면 기타를 켜고 끄는 것도 질문 고치기라 막힌다
+  const lock = call(g, 'survey.save', { id, fields: sv(g, { questions: d.questions.map((q) => Object.assign({}, q, { other: false })) }) }, owner);
+  assert.strictEqual(lock.code, 'LOCKED');
+});
+
 console.log(results.join('\n'));
 console.log('\n' + passed + '/' + results.length + ' 통과');

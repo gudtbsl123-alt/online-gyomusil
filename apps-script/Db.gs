@@ -8,7 +8,7 @@
  * - 시트에 쓸 때는 잠금(LockService)을 걸어 동시에 저장해도 꼬이지 않게 한다.
  */
 
-function fileMark_Db_() { return '2026-10-28a'; } // 판 표시(관리자 › 점검)
+function fileMark_Db_() { return '2026-11-03a'; } // 판 표시(관리자 › 점검)
 
 /** 모든 표(기록·설정 제외)에 붙는 입력·수정·삭제 칸 */
 function auditCols_() {
@@ -26,7 +26,7 @@ function tabs_() {
     '일정': ['일정ID', '시작일', '끝일', '시간', '행사명', '대상 학년', '담당 부서ID', '장소', '구분', '메모',
       '올린 묶음ID'].concat(A).concat(['중요', '반복 묶음ID', '회의ID']), // 반복 묶음ID: 반복 일정(2026-10-19a), 회의ID: 회의록에서 넣은 일정(2026-10-28a). 처음 쓸 때 저절로 붙는다
     '월별중점': ['중점ID', '학년도', '월', '중점지도 내용'].concat(A),
-    '조사': ['조사ID', '제목', '부서ID', '대상', '마감 일시', '상태', '질문', '메신저 문구'].concat(A).concat(['설명', '결과 공개']),
+    '조사': ['조사ID', '제목', '부서ID', '대상', '마감 일시', '상태', '질문', '메신저 문구'].concat(A).concat(['설명', '결과 공개', '익명']), // 익명: 2026-11-03a, 저장할 때 저절로 붙는다
     '응답': ['응답ID', '조사ID', '교직원ID', '답', '하고 싶은 말', '낸 시각', '고친 시각'].concat(A),
     '알림': ['알림ID', '조사ID', '대상 교직원ID', '알린 시각'].concat(A),
     '자료': ['자료ID', '학년도', '분류ID', '부서ID', '제목', '설명', '링크', '파일ID', '담당', '보관 여부'].concat(A)
@@ -538,7 +538,7 @@ function insertRow_(tab, obj, actor, summary) {
     head.forEach(function (h) { if (obj[h] !== undefined) rec[h] = String(obj[h]); });
     rec[key] = newId_(tab);
     rec['입력자ID'] = actor.id || '';
-    rec['입력 시각'] = nowText_();
+    rec['입력 시각'] = actor.anon ? nowText_().slice(0, 10) : nowText_(); // 익명 응답은 날짜까지만(Survey.gs anonActor_)
     rec['수정자ID'] = '';
     rec['수정 시각'] = '';
     rec['삭제 여부'] = '';
@@ -615,7 +615,7 @@ function updateRow_(tab, id, patch, actor, summary, action) {
     });
     if (!changed) return publicRow_(row);
     next['수정자ID'] = actor.id || '';
-    next['수정 시각'] = nowText_();
+    next['수정 시각'] = actor.anon ? nowText_().slice(0, 10) : nowText_();
     sheet_(tab).getRange(row._row, 1, 1, head.length)
       .setValues([head.map(function (h, j) { return h ? cellWrite_(next[h]) : raw[j]; })]);
     dirty_(tab);
@@ -756,8 +756,12 @@ function logJson_(o) {
 
 function writeLog_(actor, tab, id, action, summary, before, after) {
   var sh = sheet_('기록');
+  if (actor.anon) { // 익명 조사의 응답: 누가·언제(시각)·무엇을 답했는지 남기지 않는다(2026-11-03a)
+    before = null;
+    after = { '내용': '익명 조사라 답은 기록에 남기지 않았어요' };
+  }
   sh.appendRow([
-    nowText_(),
+    actor.anon ? nowText_().slice(0, 10) : nowText_(),
     actor.id || '',
     actor.name || '',
     tab,

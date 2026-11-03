@@ -9,7 +9,7 @@
  * - 결과(누가 뭐라고 답했는지): 만든 사람·관리자, 그리고 '결과 공개'를 켠 조사는 대상 교직원 모두
  */
 
-function fileMark_Survey_() { return '2026-10-21b'; } // 판 표시(관리자 › 점검)
+function fileMark_Survey_() { return '2026-11-03a'; } // 판 표시(관리자 › 점검)
 
 function qTypes_() {
   return { one: '하나 고르기', many: '여러 개 고르기', short: '짧은 글', long: '긴 글', number: '숫자', date: '날짜' };
@@ -81,6 +81,35 @@ function canEditSurvey_(s, ctx) {
   return !!(ctx.identity && s['입력자ID'] && s['입력자ID'] === ctx.identity['교직원ID']);
 }
 
+/** 익명 조사인지(조사 탭 '익명' = 예, 2026-11-03a) */
+function anonSurvey_(s) {
+  return s['익명'] === '예';
+}
+
+/**
+ * 응답 줄의 '교직원ID' 칸에 적는 값. 익명 조사는 이름 대신 조사마다 다른 번호(HMAC)를 적어
+ * 시트·기록을 열어도 누가 어떤 답을 했는지 알 수 없게 한다. 같은 분은 늘 같은 번호라 자기 답을 고치고, 안 낸 분 명단도 만든다
+ */
+var RESP_KEY_MEMO_ = {}; // 한 번 실행하는 동안 같은 번호를 다시 셈하지 않게(목록에서 조사마다 대상 수만큼 부른다)
+function respKey_(s, staffId) {
+  if (!staffId || !anonSurvey_(s)) return staffId || '';
+  var k = s['조사ID'] + ':' + staffId;
+  if (!RESP_KEY_MEMO_[k]) RESP_KEY_MEMO_[k] = 'A' + hex_(Utilities.computeHmacSha256Signature(k, secretProp_('ANON_SECRET'))).slice(0, 24);
+  return RESP_KEY_MEMO_[k];
+}
+
+/** 익명 응답을 남길 때 쓰는 사람: 시트의 입력자·기록 탭에 이름을 남기지 않고, 시각은 날짜까지만(Db.gs가 anon을 본다) */
+function anonActor_() {
+  return { id: '', name: '익명', anon: true };
+}
+
+/** 대상 교직원ID → 응답 줄의 값 */
+function respKeys_(s, staff) {
+  var out = {};
+  staff.forEach(function (r) { out[r['교직원ID']] = respKey_(s, r['교직원ID']); });
+  return out;
+}
+
 function liveResponses_(surveyId) {
   return liveRows_('응답').filter(function (r) { return r['조사ID'] === surveyId; });
 }
@@ -103,12 +132,13 @@ function defaultMessenger_(title, deptName, deadline) {
 function surveyCard_(s, ctx, cache) {
   var target = safeParse_(s['대상'], { type: 'all' });
   var tStaff = targetStaff_(target, cache.staff);
-  var tIds = {};
-  tStaff.forEach(function (r) { tIds[r['교직원ID']] = true; });
+  var tIds = {}, tKeys = {};
+  tStaff.forEach(function (r) { tIds[r['교직원ID']] = true; tKeys[respKey_(s, r['교직원ID'])] = true; });
   var resp = cache.resp[s['조사ID']] || [];
-  var done = resp.filter(function (r) { return tIds[r['교직원ID']]; }).length;
+  var done = resp.filter(function (r) { return tKeys[r['교직원ID']]; }).length;
   var me = ctx.identity ? ctx.identity['교직원ID'] : '';
-  var mine = resp.filter(function (r) { return r['교직원ID'] === me; })[0];
+  var meKey = respKey_(s, me);
+  var mine = me ? resp.filter(function (r) { return r['교직원ID'] === meKey; })[0] : null;
   var qs = safeParse_(s['질문'], []);
   var closed = surveyClosed_(s);
   return {
@@ -131,6 +161,7 @@ function surveyCard_(s, ctx, cache) {
     createdAt: s['입력 시각'],
     canEdit: canEditSurvey_(s, ctx),
     showResults: s['결과 공개'] === '예',
+    anonymous: anonSurvey_(s),
     reminded: !!(me && cache.remind[s['조사ID'] + '/' + me])
   };
 }
@@ -198,8 +229,10 @@ function apiSurveyGet_(args, actor, ctx) {
   var target = safeParse_(s['대상'], { type: 'all' });
   var resp = cache.resp[s['조사ID']] || [];
   var me = ctx.identity ? ctx.identity['교직원ID'] : '';
-  var mine = resp.filter(function (r) { return r['교직원ID'] === me; })[0];
+  var meKey = respKey_(s, me);
+  var mine = me ? resp.filter(function (r) { return r['교직원ID'] === meKey; })[0] : null;
   var owner = card.canEdit;
+  var anon = anonSurvey_(s);
   var out = {
     card: card,
     description: s['설명'],
@@ -217,14 +250,19 @@ function apiSurveyGet_(args, actor, ctx) {
     var tStaff = targetStaff_(target, cache.staff);
     var doneIds = {};
     resp.forEach(function (r) { doneIds[r['교직원ID']] = r; });
+    var keys = respKeys_(s, tStaff); // 익명 조사도 누가 냈는지는 안다(무엇을 답했는지는 모름, 교사 결정)
     var person = function (r) { return { id: r['교직원ID'], name: r['이름'], group: r['소속'], position: r['직위'] }; };
-    out.notDone = owner ? sortStaff_(tStaff.filter(function (r) { return !doneIds[r['교직원ID']]; })).map(person) : [];
+    out.notDone = owner ? sortStaff_(tStaff.filter(function (r) { return !doneIds[keys[r['교직원ID']]]; })).map(person) : [];
     var staffById = {};
-    readRows_('교직원').forEach(function (r) { staffById[r['교직원ID']] = r; });
+    if (!anon) readRows_('교직원').forEach(function (r) { staffById[r['교직원ID']] = r; });
     out.responses = resp.map(function (r) {
+      if (anon) return { name: '', group: '', answers: safeParse_(r['답'], {}), note: r['하고 싶은 말'], at: '', edited: false };
       var st = staffById[r['교직원ID']] || {};
       return { name: st['이름'] || '(알 수 없음)', group: st['소속'] || '', answers: safeParse_(r['답'], {}), note: r['하고 싶은 말'], at: r['고친 시각'] || r['낸 시각'], edited: !!r['고친 시각'] };
-    }).sort(function (a, b) { return a.at < b.at ? -1 : 1; });
+    });
+    // 익명은 낸 차례로도 짐작하지 못하게 섞는다(늘 같은 순서가 되도록 답 내용으로 정렬)
+    if (anon) out.responses.sort(function (a, b) { var x = JSON.stringify(a.answers), y = JSON.stringify(b.answers); return x < y ? -1 : x > y ? 1 : 0; });
+    else out.responses.sort(function (a, b) { return a.at < b.at ? -1 : 1; });
     out.summary = summarize_(questions, out.responses);
     var presses = {}; // 알림 줄은 사람마다 하나씩이라, 누른 횟수는 알린 시각으로 센다
     if (owner) liveRows_('알림').forEach(function (r) { if (r['조사ID'] === s['조사ID']) presses[r['알린 시각']] = 1; });
@@ -242,10 +280,18 @@ function summarize_(questions, responses) {
     });
     var out = { id: q.id, type: q.type, title: q.title, answered: vals.length };
     if (q.type === 'one' || q.type === 'many') {
-      var counts = {};
+      var counts = {}, others = [];
       (q.options || []).forEach(function (o) { counts[o] = 0; });
-      vals.forEach(function (v) { [].concat(v).forEach(function (o) { counts[o] = (counts[o] || 0) + 1; }); });
+      if (q.other) counts[OTHER_LABEL_] = 0;
+      vals.forEach(function (v) {
+        [].concat(v).forEach(function (o) {
+          var t = otherText_(o);
+          if (t !== null) { others.push(t); o = OTHER_LABEL_; }
+          counts[o] = (counts[o] || 0) + 1;
+        });
+      });
       out.counts = Object.keys(counts).map(function (k) { return { option: k, count: counts[k] }; });
+      if (q.other) out.others = others.slice(0, 300);
     } else if (q.type === 'number') {
       var nums = vals.map(Number).filter(function (n) { return !isNaN(n); });
       var sum = nums.reduce(function (a, b) { return a + b; }, 0);
@@ -284,9 +330,38 @@ function cleanQuestions_(list) {
       if (opts.length > 30) throw userError_((i + 1) + '번 질문의 보기는 30개까지 적을 수 있어요.');
       opts.forEach(function (o) { if (o.length > 80) throw userError_((i + 1) + '번 질문의 보기는 80자까지 적을 수 있어요.'); });
       out.options = opts;
+      if (q.other) {
+        // '기타(직접 쓰기)'를 켰으면 같은 이름의 보기는 빼 달라고 한다(답 '기타: 글'과 헷갈리지 않게)
+        if (opts.some(function (o) { return /^기타(\s*[:(（]|$)/.test(o); })) throw userError_((i + 1) + "번 질문은 '기타(직접 쓰기)'를 켰으니 '기타' 보기는 빼 주세요.");
+        if (opts.length >= 30) throw userError_((i + 1) + "번 질문은 '기타'까지 보기를 30개까지 적을 수 있어요.");
+        out.other = true;
+      }
     }
     return out;
   });
+}
+
+// ---------------------------------------------------------------- 기타(직접 쓰기, 2026-11-03a)
+var OTHER_LABEL_ = '기타(직접 쓰기)';
+var OTHER_PREFIX_ = '기타: ';
+
+/** '기타: 글'이면 글, 아니면 null */
+function otherText_(v) {
+  v = String(v);
+  return v.indexOf(OTHER_PREFIX_) === 0 ? v.slice(OTHER_PREFIX_.length) : null;
+}
+
+/** 고르기 답 하나 확인: 보기 중 하나이거나, 기타를 켠 질문의 '기타: 글' */
+function cleanPick_(q, v, n) {
+  v = String(v);
+  var t = otherText_(v);
+  if (t !== null && q.other) {
+    t = cleanText_(t, 200, n + '의 기타');
+    if (!t) throw userError_(n + "의 '기타'에 내용을 적어 주세요.");
+    return OTHER_PREFIX_ + t;
+  }
+  if ((q.options || []).indexOf(v) < 0) throw userError_(n + '의 보기를 다시 골라 주세요.');
+  return v;
 }
 
 function cleanTargetJson_(t) {
@@ -335,16 +410,21 @@ function apiSurveySave_(args, actor, ctx) {
     '마감 일시': deadline,
     '질문': JSON.stringify(questions),
     '메신저 문구': messenger,
-    '결과 공개': f.showResults ? '예' : ''
+    '결과 공개': f.showResults ? '예' : '',
+    '익명': f.anonymous ? '예' : ''
   };
   ensureCols_('조사');
+  if (rec['익명']) secretProp_('ANON_SECRET'); // 번호를 만드는 비밀 값은 익명 조사를 만들 때 한 번 만들어 둔다(여럿이 처음 답할 때 서로 다른 값이 생기지 않게)
   if (args.id) {
     var s = findRow_('조사', String(args.id));
     if (!s || s['삭제 여부']) throw userError_('이 조사를 찾지 못했어요.', 'NOTFOUND');
     if (!canEditSurvey_(s, ctx)) throw userError_('만든 분과 관리자만 고칠 수 있어요.', 'FORBIDDEN');
-    if (liveResponses_(s['조사ID']).length && !sameQuestions_(safeParse_(s['질문'], []), questions)) {
+    var hasResp = liveResponses_(s['조사ID']).length > 0;
+    if (hasResp && !sameQuestions_(safeParse_(s['질문'], []), questions)) {
       throw userError_('이미 낸 답이 있어서 질문은 고칠 수 없어요. 제목·마감·대상·안내 문구만 고칠 수 있어요.', 'LOCKED');
     }
+    // 익명은 답이 하나라도 들어오면 바꾸지 않는다(켜면 이름이 남은 답이, 끄면 번호만 남은 답이 섞인다)
+    if (hasResp && (rec['익명'] === '예') !== anonSurvey_(s)) throw userError_('이미 낸 답이 있어서 익명 여부는 바꿀 수 없어요.', 'LOCKED');
     if (plain(messenger) === plain(defaultMessenger_(s['제목'], depts[s['부서ID']] || '', s['마감 일시']))) rec['메신저 문구'] = ''; // 예전 자동 문구 그대로면 자동으로
     // '지금 끝내기'로 끝낸 조사는 마감을 전보다 늦췄을 때만 다시 연다(글만 고쳐 저장하면 끝난 그대로)
     if (s['상태'] === '끝남' && f.reopen && deadline > nowMin_() && deadline > String(s['마감 일시'] || '')) rec['상태'] = '진행 중';
@@ -359,7 +439,7 @@ function apiSurveySave_(args, actor, ctx) {
 
 function sameQuestions_(a, b) {
   var key = function (list) {
-    return JSON.stringify(list.map(function (q) { return [q.id, q.type, q.title, q.required, q.options || []]; }));
+    return JSON.stringify(list.map(function (q) { return [q.id, q.type, q.title, q.required, q.options || [], !!q.other]; }));
   };
   return key(a) === key(b);
 }
@@ -400,12 +480,12 @@ function cleanAnswers_(questions, answers) {
       return;
     }
     if (q.type === 'one') {
-      if ((q.options || []).indexOf(String(v)) < 0) throw userError_(n + '의 보기를 다시 골라 주세요.');
-      out[q.id] = String(v);
+      out[q.id] = cleanPick_(q, v, n);
     } else if (q.type === 'many') {
-      var list = [].concat(v).map(String);
-      list.forEach(function (o) { if ((q.options || []).indexOf(o) < 0) throw userError_(n + '의 보기를 다시 골라 주세요.'); });
-      out[q.id] = q.options.filter(function (o) { return list.indexOf(o) >= 0; });
+      var list = [].concat(v).map(function (o) { return cleanPick_(q, o, n); });
+      var etc = list.filter(function (o) { return otherText_(o) !== null; });
+      if (etc.length > 1) throw userError_(n + "의 '기타'는 하나만 적어 주세요.");
+      out[q.id] = q.options.filter(function (o) { return list.indexOf(o) >= 0; }).concat(etc);
     } else if (q.type === 'number') {
       var s = String(v).trim().replace(/,/g, '');
       if (!/^-?\d+(\.\d+)?$/.test(s) || s.length > 15) throw userError_(n + '에는 숫자만 적어 주세요.');
@@ -427,6 +507,7 @@ function apiSurveyRespond_(args, actor, ctx) {
     if (!s || s['삭제 여부']) throw userError_('이 조사를 찾지 못했어요. 지워졌을 수 있어요.', 'NOTFOUND');
     if (surveyClosed_(s)) throw userError_('마감된 조사예요. 더 이상 내거나 고칠 수 없어요.', 'CLOSED');
     var target = safeParse_(s['대상'], { type: 'all' });
+    var anon = anonSurvey_(s), key = respKey_(s, me), who = anon ? anonActor_() : actor;
     if (!targetStaff_(target).some(function (r) { return r['교직원ID'] === me; })) {
       throw userError_('이 조사의 대상이 아니에요. 만든 분께 여쭤봐 주세요.', 'FORBIDDEN');
     }
@@ -434,15 +515,15 @@ function apiSurveyRespond_(args, actor, ctx) {
     // 조사마다 '긴 글' 질문으로 받으므로 화면에는 따로 칸이 없다. 예전 값은 그대로 둔다.
     var noteSent = args.note !== undefined && args.note !== null;
     var note = noteSent ? cleanText_(args.note, 500, '하고 싶은 말') : '';
-    var now = nowText_();
-    var old = liveResponses_(s['조사ID']).filter(function (r) { return r['교직원ID'] === me; })[0];
+    var now = anon ? nowText_().slice(0, 10) : nowText_(); // 익명은 날짜까지만(기록·시각으로 맞춰 보지 못하게)
+    var old = liveResponses_(s['조사ID']).filter(function (r) { return r['교직원ID'] === key; })[0];
     if (old) {
       var patch = { '답': JSON.stringify(answers), '고친 시각': now };
       if (noteSent) patch['하고 싶은 말'] = note;
-      updateRow_('응답', old['응답ID'], patch, actor, s['제목'] + ' 응답 고침');
+      updateRow_('응답', old['응답ID'], patch, who, s['제목'] + (anon ? ' 익명 응답 고침' : ' 응답 고침'));
       return { edited: true, at: now };
     }
-    insertRow_('응답', { '조사ID': s['조사ID'], '교직원ID': me, '답': JSON.stringify(answers), '하고 싶은 말': note, '낸 시각': now }, actor, s['제목'] + ' 응답 냄');
+    insertRow_('응답', { '조사ID': s['조사ID'], '교직원ID': key, '답': JSON.stringify(answers), '하고 싶은 말': note, '낸 시각': now }, who, s['제목'] + (anon ? ' 익명 응답 냄' : ' 응답 냄'));
     return { edited: false, at: now };
   });
 }
@@ -456,7 +537,7 @@ function apiSurveyRemind_(args, actor, ctx) {
   if (surveyClosed_(s)) throw userError_('마감된 조사예요. 마감을 늦춘 뒤에 알려 주세요.');
   var done = {};
   liveResponses_(s['조사ID']).forEach(function (r) { done[r['교직원ID']] = true; });
-  var targets = targetStaff_(safeParse_(s['대상'], { type: 'all' })).filter(function (r) { return !done[r['교직원ID']]; });
+  var targets = targetStaff_(safeParse_(s['대상'], { type: 'all' })).filter(function (r) { return !done[respKey_(s, r['교직원ID'])]; });
   if (!targets.length) return { count: 0 };
   var now = nowText_();
   insertRows_('알림', targets.map(function (r) {
@@ -475,10 +556,11 @@ function apiSurveyCsv_(args, actor, ctx) {
     return '"' + t.replace(/"/g, '""') + '"';
   };
   var hasNote = d.responses.some(function (r) { return r.note; });
-  var head = ['이름', '소속', '낸 시각'].concat(d.questions.map(function (q, i) { return (i + 1) + '. ' + q.title; })).concat(hasNote ? ['하고 싶은 말'] : []);
+  var anon = d.card.anonymous; // 익명 조사는 이름·소속·낸 시각 없이 차례를 섞어서
+  var head = (anon ? ['번호'] : ['이름', '소속', '낸 시각']).concat(d.questions.map(function (q, i) { return (i + 1) + '. ' + q.title; })).concat(hasNote ? ['하고 싶은 말'] : []);
   var lines = [head.map(cell).join(',')];
-  d.responses.forEach(function (r) {
-    lines.push([r.name, r.group, r.at].concat(d.questions.map(function (q) { return r.answers[q.id]; })).concat(hasNote ? [r.note] : []).map(cell).join(','));
+  d.responses.forEach(function (r, i) {
+    lines.push((anon ? [i + 1] : [r.name, r.group, r.at]).concat(d.questions.map(function (q) { return r.answers[q.id]; })).concat(hasNote ? [r.note] : []).map(cell).join(','));
   });
   return { filename: d.card.title.replace(/[\\\/:*?"<>|]/g, '_') + ' 응답.csv', csv: lines.join('\r\n') };
 }

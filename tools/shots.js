@@ -182,7 +182,8 @@ async function surveyFlow(page, kind) {
   await page.waitForFunction(() => document.activeElement && document.activeElement.id === 'svf-title');
   await page.fill('#svf-title', '학년 협의회 참석 여부');
   await page.fill('.q-edit [data-qf=title]', '참석할 수 있나요?');
-  await page.fill('.q-edit [data-qf=opts]', '참석\n불참');
+  await page.locator('.q-edit [data-opt]').nth(0).fill('참석'); // 보기마다 한 칸(2026-11-03a)
+  await page.locator('.q-edit [data-opt]').nth(1).fill('불참');
   await page.check('.q-edit [data-qf=req]');
   await page.click('#svf-addq');
   await page.locator('.q-edit').nth(1).locator('[data-qf=type]').selectOption('long');
@@ -4386,6 +4387,136 @@ async function admin5Check(browser) {
 }
 
 // 묶음 6 화면 공통(판 2026-10-28a): 휴대폰 위쪽(첫 내용이 내려가 있던 것), 노트북 메뉴 아래 '화면 설정' 접기, 포커스 테두리
+/** 판 2026-11-03a: 연간 학사일정 같은 날은 날짜 한 번만 · 조사 보기 칸(한 칸씩·기타) · 익명 조사 */
+async function sv11Check(browser) {
+  const P = (m) => problems.push('11-03: ' + m);
+  // 1) 연간 학사일정(PC·휴대폰): 같은 날 둘째 줄부터는 날짜가 비고, 날이 바뀌는 곳에 선
+  for (const [kind, vp] of [['PC', { width: 1440, height: 900 }], ['휴대폰', { width: 390, height: 844 }]]) {
+    const ctx = await newCtx(browser, Object.assign({ viewport: vp, deviceScaleFactor: 1 }, kind === '휴대폰' ? { isMobile: true, hasTouch: true } : {}));
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => P(kind + ' 페이지 오류: ' + e.message));
+    await page.goto(FILE);
+    await waitText(page, '어서 오세요');
+    await login(page);
+    await verify(page, '심청');
+    await page.evaluate(() => { window.__gy.S.sched.view = 'year'; window.__gy.go('schedule'); });
+    await page.locator('.ylist .yd').first().waitFor();
+    const info = await page.evaluate(() => {
+      let bad = 0, groups = 0, sameRows = 0;
+      document.querySelectorAll('.ylist').forEach((ul) => {
+        let prev = null;
+        ul.querySelectorAll('li').forEach((li) => {
+          const t = li.querySelector('.yd').textContent.trim();
+          if (li.classList.contains('same')) { sameRows++; if (t) bad++; } else { if (!t) bad++; if (t === prev) bad++; prev = t; groups++; }
+        });
+      });
+      const mar = [...document.querySelectorAll('.ymonth')].find((m) => /^3월/.test(m.querySelector('h3').textContent));
+      return { bad, groups, sameRows, line: !!document.querySelector('.ylist li.ynew') && getComputedStyle(document.querySelector('.ylist li.ynew')).borderTopStyle };
+    });
+    if (info.bad) P(kind + ' 연간 학사일정: 같은 날 날짜가 여러 번이거나 빠진 줄 ' + info.bad);
+    if (!info.sameRows) P(kind + ' 연간 학사일정: 같은 날 행사가 여러 개인 날이 미리보기에 없어 묶기를 못 봄');
+    if (info.line !== 'solid') P(kind + ' 연간 학사일정: 날이 바뀌는 곳에 선이 없음');
+    await page.locator('.ylist li.same').first().scrollIntoViewIfNeeded();
+    await shot(page, '1103_' + kind + '_연간학사일정_날짜묶기');
+    await ctx.close();
+  }
+  // 2) 새 조사 만들기(PC): 보기 칸·Enter·붙여 넣기·빼기·옮기기·종류 바꾸기·기타·익명
+  const ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => P('페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '이몽룡');
+  await page.evaluate(() => window.__gy.go('survey'));
+  await page.locator('.sv-card').first().waitFor();
+  await page.click('[data-action=sv-new]');
+  await page.locator('#svf').waitFor();
+  await page.waitForFunction(() => document.activeElement && document.activeElement.id === 'svf-title');
+  await page.fill('#svf-title', '학년 협의회 장소 정하기(익명)');
+  const q = page.locator('.q-edit').first();
+  await q.locator('[data-qf=title]').fill('어디에서 모일까요?');
+  const opts = () => q.locator('[data-opt]');
+  if ((await opts().count()) !== 2) P('새 질문의 보기 칸이 2개가 아님 ' + (await opts().count()));
+  if (await q.locator('textarea[data-qf=opts]').count()) P('예전 보기 글상자가 남아 있음');
+  await opts().nth(0).fill('3층 협의실');
+  await opts().nth(0).press('Enter');
+  if ((await page.evaluate(() => document.activeElement.getAttribute('aria-label'))) !== '보기 2') P('Enter를 누르면 다음 보기 칸으로 가야 함');
+  await page.keyboard.type('도서관');
+  await page.keyboard.press('Enter');
+  if ((await opts().count()) !== 3) P('마지막 보기에서 Enter를 누르면 새 칸이 생겨야 함');
+  // 여러 줄 붙여 넣기 → 칸마다
+  await page.evaluate(() => {
+    const el = document.activeElement, dt = new DataTransfer();
+    dt.setData('text/plain', '과학실\n음악실\n교실');
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  });
+  const vals = async () => (await opts().evaluateAll((l) => l.map((x) => x.value)));
+  let v = await vals();
+  if (v.join('|') !== '3층 협의실|도서관|과학실|음악실|교실') P('여러 줄 붙여 넣기가 칸마다 안 나뉨 ' + v.join('|'));
+  // 빼기·옮기기
+  await q.locator('.opt-row').nth(4).locator('[data-odel]').click();
+  await q.locator('.opt-row').nth(3).locator('[data-omove="-1"]').click();
+  v = await vals();
+  if (v.join('|') !== '3층 협의실|도서관|음악실|과학실') P('빼기·옮기기 결과가 다름 ' + v.join('|'));
+  const ph = await opts().evaluateAll((l) => l.map((x) => x.placeholder));
+  if (ph.join('|') !== '보기 1|보기 2|보기 3|보기 4') P('보기 번호가 다시 매겨지지 않음 ' + ph.join('|'));
+  // 종류: 여러 개 고르기 → 네모, 짧은 글 → 숨김, 다시 고르기 → 그대로
+  await q.locator('[data-qf=type]').selectOption('many');
+  if (!(await q.locator('.opt-shape.many').count())) P('여러 개 고르기인데 보기 앞 모양이 네모가 아님');
+  await q.locator('[data-qf=type]').selectOption('short');
+  if (await q.locator('.opt-edit').isVisible()) P('짧은 글인데 보기 칸이 보임');
+  await q.locator('[data-qf=type]').selectOption('one');
+  v = await vals();
+  if (v.length !== 4 || !(await q.locator('.opt-edit').isVisible())) P('하나 고르기로 돌아오면 적은 보기가 그대로 보여야 함');
+  await q.locator('[data-qf=other]').check();
+  await page.check('.q-edit [data-qf=req]');
+  await page.check('#svf-anon');
+  if (!(await page.locator('#svf-anon-hint').isVisible())) P('익명을 켜면 안내가 보여야 함');
+  await q.locator('[data-opt]').nth(3).focus();
+  await shot(page, '1103_PC_조사만들기_보기칸_익명');
+  await page.click('#svf [type=submit]');
+  await waitText(page, '조사를 만들었어요');
+  await page.locator('.sv-owner').waitFor();
+  const id = await page.evaluate(() => window.__gy.S.survey.sel);
+  if (!(await page.locator('.sv-owner .chip', { hasText: '익명' }).count())) P('만든 분 화면에 익명 표시가 없음');
+  // 3) 답하기(휴대폰 폭으로, 미리보기 자료는 창마다 따로라 같은 창에서 사람만 바꾼다): 익명 안내·기타 칸
+  await page.click('.side [data-action=switch]');
+  await verify(page, '심청');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate((x) => { window.__gy.S.survey.sel = x; window.__gy.S.survey.tab = 'answer'; window.__gy.go('survey'); }, id);
+  await page.locator('#sv-form').waitFor();
+  if (!(await page.locator('.sv-respond .hint', { hasText: '익명' }).count())) P('답하는 화면에 익명 안내가 없음');
+  if (await page.locator('.opt-etc').isVisible()) P("'기타'를 고르기 전에 기타 칸이 보임");
+  await page.locator('#sv-form .opt', { hasText: '기타' }).click();
+  if (!(await page.locator('.opt-etc').isVisible())) P("'기타'를 고르면 기타 칸이 보여야 함");
+  await page.click('#sv-form [type=submit]');
+  if (!/기타.*내용/.test(await page.locator('#sv-err').innerText())) P("'기타' 글이 비었는데 막지 않음");
+  await page.fill('.opt-etc', '운동장 등나무 아래');
+  await page.locator('.opt-etc').scrollIntoViewIfNeeded();
+  await shot(page, '1103_휴대폰_익명조사_기타');
+  await page.click('#sv-form [type=submit]');
+  await waitText(page, '냈어요');
+  // 4) 만든 분 결과(PC): 이름 없이·기타 글
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.click('.side [data-action=switch]');
+  await verify(page, '이몽룡');
+  await page.evaluate((x) => { window.__gy.S.survey.sel = x; window.__gy.S.survey.tab = 'mine'; window.__gy.go('survey'); }, id);
+  await page.locator('.sv-owner').waitFor();
+  await page.locator('.sv-owner .sv-results').waitFor();
+  await page.locator('.resp-list summary').click();
+  const head = await page.locator('.resp-list thead').innerText();
+  if (/이름|낸 시각/.test(head) || !/번호/.test(head)) P('익명 조사 답 표에 이름·낸 시각 칸이 있음 ' + head);
+  if (await page.locator('.sv-results', { hasText: '심청' }).count()) P('익명 조사 결과에 이름이 보임');
+  if (!(await page.locator('.sv-results', { hasText: '운동장 등나무 아래' }).count())) P('기타에 적은 글이 요약에 없음');
+  if (!(await page.locator('.bar-label', { hasText: '기타(직접 쓰기)' }).count())) P("요약 막대에 '기타(직접 쓰기)'가 없음");
+  if (!(await page.locator('.sv-owner .people-chips', { hasText: '흥부' }).count()) || (await page.locator('.sv-owner .people-chips', { hasText: '심청' }).count())) P('익명 조사도 안 낸 분 명단은 보여야 함(낸 분은 빠짐)');
+  await page.locator('.sv-results').scrollIntoViewIfNeeded();
+  await shot(page, '1103_PC_익명조사_결과', true);
+  await ctx.close();
+}
+
 async function ui6Check(browser) {
   const P = (m) => problems.push('화면 공통: ' + m);
   // 1) 휴대폰: 일정·자료실·취합 시트 첫 내용의 높이
@@ -4979,6 +5110,14 @@ async function introGapCheck(browser) {
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
   }
+  // ONLY=sv11: 연간 학사일정 날짜 묶기·조사 보기 칸·익명(판 2026-11-03a)
+  if (process.env.ONLY === 'sv11') {
+    await sv11Check(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
   // ONLY=pc: PC 흐름만(고치는 동안 빨리 돌려 보기)
   if (process.env.ONLY === 'pc') {
     await flow(browser, 'PC', { width: 1440, height: 900 });
@@ -5265,6 +5404,7 @@ async function introGapCheck(browser) {
   await b4Check(browser);
   await admin5Check(browser);
   await ui6Check(browser);
+  await sv11Check(browser);
   await homeSideCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser), await introGapCheck(browser)];

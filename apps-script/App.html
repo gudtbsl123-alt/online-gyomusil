@@ -8,7 +8,7 @@
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-10-28a'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-11-03a'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -1888,9 +1888,15 @@
         var y = m >= 3 ? d.year : d.year + 1;
         var ym = y + '-' + ('0' + m).slice(-2);
         var list = d.events.filter(function (e) { return e.kind !== '근무' && (e.start.slice(0, 7) === ym || (e.start.slice(0, 7) < ym && e.end.slice(0, 7) >= ym)); }); // 관리자 근무는 연간 학사일정에 넣지 않는다
-        return '<section class="card ymonth"><h3>' + m + '월</h3>' + (list.length ? '<ul class="ylist">' + list.map(function (e) {
-          var s = e.start.slice(0, 7) < ym ? ym + '-01' : e.start;
-          return '<li class="' + (isOff(e) ? 'off' : '') + '"><span class="yd">' + dayNum(s) + '일(' + DOW.charAt(wd(s)) + ')</span>' +
+        // 같은 날 행사가 여러 개면 날짜는 첫 줄에만 쓰고, 날이 바뀌는 곳에 옅은 선(교사 요청, 2026-11-03a). 쉬는 날이 하나라도 있으면 그날 날짜는 빨강
+        var rows = list.map(function (e, i) { return { e: e, s: e.start.slice(0, 7) < ym ? ym + '-01' : e.start, i: i }; })
+          .sort(function (a, b) { return a.s < b.s ? -1 : a.s > b.s ? 1 : a.i - b.i; });
+        var offDay = {};
+        rows.forEach(function (r) { if (isOff(r.e)) offDay[r.s] = 1; });
+        return '<section class="card ymonth"><h3>' + m + '월</h3>' + (rows.length ? '<ul class="ylist">' + rows.map(function (r, i) {
+          var e = r.e, s = r.s, first = !i || rows[i - 1].s !== s;
+          var cls = [isOff(e) ? 'off' : '', first ? '' : 'same', first && i ? 'ynew' : ''].filter(Boolean).join(' ');
+          return '<li class="' + cls + '"><span class="yd' + (first && offDay[s] ? ' doff' : '') + '"' + (first ? '' : ' aria-hidden="true"') + '>' + (first ? dayNum(s) + '일(' + DOW.charAt(wd(s)) + ')' : '') + '</span>' +
             '<button type="button" class="plan-ev' + (isOff(e) ? ' off' : '') + (e.important ? ' imp' : '') + '" data-action="ev-open" data-ev="' + esc(e.id) + '">' + (e.important ? starHtml() : '') + esc(e.title) +
             (e.end !== e.start ? ' <span class="faint">~' + esc(md(e.end)) + '</span>' : '') + '</button></li>';
         }).join('') + '</ul>' : '<p class="faint">일정이 없어요</p>') + '</section>';
@@ -2446,7 +2452,7 @@
   /** '2026-10-15 16:37:05' → '10월 15일 16:37' */
   function atText(at) {
     if (!at) return '';
-    return Number(at.slice(5, 7)) + '월 ' + Number(at.slice(8, 10)) + '일 ' + at.slice(11, 16);
+    return (Number(at.slice(5, 7)) + '월 ' + Number(at.slice(8, 10)) + '일 ' + at.slice(11, 16)).trim(); // 익명 조사는 날짜까지만
   }
 
   function daysLeftChip(c, today) {
@@ -2463,6 +2469,7 @@
       '<span class="sv-chips">' + (c.closed ? '<span class="chip">끝남</span>' : '<span class="chip chip-ok">진행 중</span>') +
       (c.closed ? '<span class="faint">' + esc(c.deadlineText) + ' 마감</span>' : daysLeftChip(c, today)) +
       (c.dept ? '<span class="faint">' + esc(c.dept) + '</span>' : '') +
+      (c.anonymous ? '<span class="chip">익명</span>' : '') +
       (tab === 'answer' && c.answered ? '<span class="chip chip-ok">냈어요</span>' : '') +
       (tab === 'answer' && !c.answered && c.reminded ? '<span class="chip chip-warn">다시 알림</span>' : '') + '</span>' +
       '<span class="sv-title">' + esc(c.title) + '</span>' +
@@ -2552,11 +2559,14 @@
     var body;
     if (q.type === 'one' || q.type === 'many') {
       var vals = [].concat(value || []);
-      body = '<div class="opts">' + q.options.map(function (o) {
-        var on = vals.indexOf(o) >= 0;
-        return '<label class="opt' + (q.type === 'many' ? ' many' : '') + (on ? ' on' : '') + '"><input type="' + (q.type === 'one' ? 'radio' : 'checkbox') + '" name="' + name + '" value="' + esc(o) + '"' + (on ? ' checked' : '') + dis + '>' +
-          '<span>' + esc(o) + '</span><span class="opt-mark" aria-hidden="true">' + icon('check', 16, ' stroke-width="2.6"') + '</span></label>';
-      }).join('') + '</div>';
+      var etc = vals.filter(function (v) { return String(v).indexOf(OTHER_PREFIX) === 0; })[0]; // '기타: 글'(2026-11-03a)
+      var optHtml = function (val, label, on) {
+        return '<label class="opt' + (q.type === 'many' ? ' many' : '') + (on ? ' on' : '') + '"><input type="' + (q.type === 'one' ? 'radio' : 'checkbox') + '" name="' + name + '" value="' + esc(val) + '"' + (on ? ' checked' : '') + dis + '>' +
+          '<span>' + esc(label) + '</span><span class="opt-mark" aria-hidden="true">' + icon('check', 16, ' stroke-width="2.6"') + '</span></label>';
+      };
+      body = '<div class="opts">' + q.options.map(function (o) { return optHtml(o, o, vals.indexOf(o) >= 0); }).join('') +
+        (q.other ? optHtml(OTHER_VAL, '기타', !!etc) : '') + '</div>' +
+        (q.other ? '<input class="input opt-etc" name="etc-' + esc(q.id) + '" maxlength="200" placeholder="기타 내용을 적어 주세요" aria-label="' + esc(q.title) + ' 기타 내용" value="' + esc(etc ? etc.slice(OTHER_PREFIX.length) : '') + '"' + (etc ? '' : ' hidden') + dis + '>' : '');
     } else if (q.type === 'long') {
       body = '<textarea class="input" name="' + name + '" rows="4" maxlength="2000"' + dis + '>' + esc(value || '') + '</textarea>';
     } else {
@@ -2575,16 +2585,17 @@
     var cannot = !c.inTarget;
     return '<section class="card sv-respond">' +
       '<div class="sv-chips">' + (c.dept ? '<span class="chip">' + esc(c.dept) + '</span>' : '') + daysLeftChip(c, l.today || localToday()) +
-      (c.showResults ? '<span class="chip chip-accent">결과 공개</span>' : '') + '</div>' +
+      (c.showResults ? '<span class="chip chip-accent">결과 공개</span>' : '') + (c.anonymous ? '<span class="chip">익명</span>' : '') + '</div>' +
       '<h2 class="sv-h">' + esc(c.title) + '</h2>' +
       '<p class="faint">질문 ' + c.qCount + '개 · ' + esc(c.deadlineText) + '까지' + (c.by ? ' · ' + esc(c.by) + ' 선생님이 만들었어요' : '') + '</p>' +
       (d.description ? '<p class="sv-desc">' + esc(d.description) + '</p>' : '') +
-      (c.showResults && !cannot ? '<p class="hint">' + icon('info', 16) + '<span><b>결과 공개</b> 조사예요. 낸 답(이름 포함)을 대상 선생님 모두 볼 수 있어요.</span></p>' : '') +
+      (c.anonymous ? '<p class="hint">' + icon('info', 16) + '<span><b>익명</b> 조사예요. 만든 분도 누가 어떤 답을 했는지 알 수 없어요(낸 분 명단만 보여요). 글로 쓰는 답에 자기 이야기를 적으면 짐작될 수 있어요.</span></p>' : '') +
+      (c.showResults && !cannot ? '<p class="hint">' + icon('info', 16) + '<span><b>결과 공개</b> 조사예요. 낸 답' + (c.anonymous ? '(이름 없이)' : '(이름 포함)') + '을 대상 선생님 모두 볼 수 있어요.</span></p>' : '') +
       (d.myAnswer ? '<p class="note">' + icon('check', 18) + '<span>' + esc(atText(d.myAnswer.at)) + '에 냈어요. ' + (closed ? '마감돼서 더 고칠 수 없어요.' : '고쳐서 다시 낼 수 있어요.') + '</span></p>' : '') +
       (closed ? '<p class="note warn">' + icon('info', 18) + '<span>마감된 조사예요.</span></p>' : '') +
       (cannot ? '<p class="note warn">' + icon('info', 18) + '<span>이 조사의 대상이 아니에요(' + esc(c.targetText) + ').</span></p>' : '') +
       (S.me ? '<div class="who-card"><span class="avatar" aria-hidden="true">' + esc(S.me.name.charAt(0)) + '</span>' +
-      '<span class="me-lines"><span class="faint">응답하는 사람</span><b>' + esc(S.me.name) + '</b><span class="faint">' + esc(S.me.group || '') + '</span></span>' +
+      '<span class="me-lines"><span class="faint">' + (c.anonymous ? '응답하는 사람(답과 함께 이름은 남지 않아요)' : '응답하는 사람') + '</span><b>' + esc(S.me.name) + '</b><span class="faint">' + esc(S.me.group || '') + '</span></span>' +
       '<button type="button" class="linkish" data-action="switch" style="margin-left:auto">바꾸기</button></div>'
         : '<div class="who-card"><span class="me-lines"><span class="faint">응답하려면 먼저 이름을 골라 주세요</span></span>' +
       '<button type="button" class="linkish" data-action="switch" style="margin-left:auto">이름 고르기</button></div>') +
@@ -2600,12 +2611,19 @@
       '</section>';
   }
 
+  // 기타(직접 쓰기): 고른 칸의 값은 OTHER_VAL, 낼 때 '기타: 글'로 바꾼다(서버 Survey.gs OTHER_PREFIX_와 같은 글)
+  var OTHER_VAL = '__etc__', OTHER_PREFIX = '기타: ';
   /** 응답 칸에 고른 답(아직 안 냄) */
   function readAnswers(form, d) {
     var answers = {};
+    var pick = function (q, v) {
+      if (v !== OTHER_VAL) return v;
+      var t = qs('[name="etc-' + q.id + '"]', form);
+      return OTHER_PREFIX + (t ? t.value.trim() : '');
+    };
     d.questions.forEach(function (q) {
-      if (q.type === 'one') { var c = qs('input[name="ans-' + q.id + '"]:checked', form); if (c) answers[q.id] = c.value; }
-      else if (q.type === 'many') answers[q.id] = qsa('input[name="ans-' + q.id + '"]:checked', form).map(function (c) { return c.value; });
+      if (q.type === 'one') { var c = qs('input[name="ans-' + q.id + '"]:checked', form); if (c) answers[q.id] = pick(q, c.value); }
+      else if (q.type === 'many') answers[q.id] = qsa('input[name="ans-' + q.id + '"]:checked', form).map(function (c) { return pick(q, c.value); });
       else { var el = qs('[name="ans-' + q.id + '"]', form); if (el && el.value.trim()) answers[q.id] = el.value.trim(); }
     });
     return answers;
@@ -2620,14 +2638,22 @@
     var form = qs('#sv-form', box);
     if (!form) return;
     form.addEventListener('change', function (e) {
-      if (e.target.closest('.opts')) qsa('.opt', e.target.closest('.opts')).forEach(function (o) { o.classList.toggle('on', o.querySelector('input').checked); });
+      var opts = e.target.closest('.opts');
+      if (!opts) return;
+      qsa('.opt', opts).forEach(function (o) { o.classList.toggle('on', o.querySelector('input').checked); });
+      // '기타'를 고르면 글 칸이 열리고 그리로 간다
+      var etcOn = qs('input[value="' + OTHER_VAL + '"]', opts), etcBox = qs('.opt-etc', opts.parentNode);
+      if (etcBox) { etcBox.hidden = !(etcOn && etcOn.checked); if (e.target === etcOn && etcOn.checked) etcBox.focus(); }
     });
+    form.addEventListener('input', function (e) { if (e.target.classList.contains('opt-etc')) qs('#sv-err', form).textContent = ''; });
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
       var answers = readAnswers(form, d);
       var err = qs('#sv-err', form);
       var miss = d.questions.filter(function (q) { var v = answers[q.id]; return q.required && (!v || (Array.isArray(v) && !v.length)); })[0];
       if (miss) { err.textContent = (d.questions.indexOf(miss) + 1) + '번 질문에 답해 주세요.'; qs('[data-q="' + miss.id + '"]', form).scrollIntoView({ block: 'center' }); return; }
+      var noEtc = d.questions.filter(function (q) { return [].concat(answers[q.id] || []).indexOf(OTHER_PREFIX) >= 0; })[0]; // '기타'를 골랐는데 글이 비었음
+      if (noEtc) { err.textContent = (d.questions.indexOf(noEtc) + 1) + "번 질문의 '기타'에 내용을 적어 주세요."; var eb = qs('[name="etc-' + noEtc.id + '"]', form); if (eb) eb.focus(); return; }
       var btn = form.querySelector('[type=submit]');
       busy(btn, true, '내는 중');
       err.textContent = '';
@@ -2658,7 +2684,7 @@
     var notDone = d.notDone || [];
     return '<section class="card sv-owner">' +
       '<div class="sv-top"><div style="min-width:0"><div class="sv-chips">' + (c.closed ? '<span class="chip">끝남</span>' : '<span class="chip chip-ok">진행 중</span>') +
-      '<span class="chip chip-warn">마감 ' + esc(c.deadlineText) + '</span>' + (c.showResults ? '<span class="chip chip-accent">결과 공개</span>' : '') + '</div>' +
+      '<span class="chip chip-warn">마감 ' + esc(c.deadlineText) + '</span>' + (c.showResults ? '<span class="chip chip-accent">결과 공개</span>' : '') + (c.anonymous ? '<span class="chip">익명</span>' : '') + '</div>' +
       '<h2 class="sv-h">' + esc(c.title) + '</h2>' +
       '<p class="faint">' + esc([c.dept, c.by ? c.by + ' 선생님이 ' + c.createdAt.slice(5, 10).replace('-', '월 ') + '일에 만들었어요' : '', '대상 ' + c.targetText + ' ' + c.targetCount + '명'].filter(Boolean).join(' · ')) + '</p></div>' +
       '<div class="row-btns print-hide sv-actions">' +
@@ -2691,6 +2717,7 @@
     var sum = d.summary || [];
     var resp = d.responses || [];
     var hasNote = resp.some(function (r) { return r.note; }); // 예전에 따로 받던 '하고 싶은 말'이 있을 때만 칸을 보인다
+    var anon = d.card && d.card.anonymous; // 익명 조사: 이름·낸 시각 칸 없이
     return '<div class="sv-results"><h3>응답 요약 <span class="faint" style="font-weight:600">' + resp.length + '명이 냈어요</span></h3>' +
       sum.map(function (q, i) {
         var inner;
@@ -2698,7 +2725,9 @@
           var max = Math.max.apply(null, q.counts.map(function (c) { return c.count; }).concat([1]));
           inner = '<div class="bars">' + q.counts.map(function (c) {
             return '<div class="bar-row"><span class="bar-label">' + esc(c.option) + '</span><span class="progress"><span style="width:' + Math.round(c.count / max * 100) + '%"></span></span><b>' + c.count + '명</b></div>';
-          }).join('') + '</div>';
+          }).join('') + '</div>' +
+            (q.others && q.others.length ? '<p class="faint" style="margin:8px 0 0">기타에 적은 글</p><ul class="texts">' + q.others.slice(0, 30).map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>' +
+              (q.others.length > 30 ? '<p class="faint">나머지 ' + (q.others.length - 30) + '개는 엑셀로 받아 보세요.</p>' : '') : '');
         } else if (q.type === 'number') {
           inner = '<p class="muted">' + q.answered + '명 · 합계 ' + q.sum + (q.avg !== null ? ' · 평균 ' + q.avg : '') + '</p>';
         } else {
@@ -2707,10 +2736,10 @@
         }
         return '<div class="q-sum"><p class="q-sum-t">' + (i + 1) + '. ' + esc(q.title) + '</p>' + inner + '</div>';
       }).join('') +
-      (resp.length ? '<details class="resp-list"><summary>낸 분들의 답 ' + resp.length + '개 보기</summary><div class="table-wrap"><table class="plan resp"><thead><tr><th>이름</th><th>낸 시각</th>' +
+      (resp.length ? '<details class="resp-list"><summary>낸 분들의 답 ' + resp.length + '개 보기' + (anon ? ' (익명, 차례는 섞었어요)' : '') + '</summary><div class="table-wrap"><table class="plan resp"><thead><tr>' + (anon ? '<th>번호</th>' : '<th>이름</th><th>낸 시각</th>') +
         d.questions.map(function (q, i) { return '<th>' + (i + 1) + '. ' + esc(q.title) + '</th>'; }).join('') + (hasNote ? '<th>하고 싶은 말</th>' : '') + '</tr></thead><tbody>' +
-        resp.map(function (r) {
-          return '<tr><td><b>' + esc(r.name) + '</b><br><span class="faint">' + esc(r.group) + '</span></td><td class="faint">' + esc(atText(r.at)) + (r.edited ? ' (고침)' : '') + '</td>' +
+        resp.map(function (r, k) {
+          return '<tr>' + (anon ? '<td class="faint">' + (k + 1) + '</td>' : '<td><b>' + esc(r.name) + '</b><br><span class="faint">' + esc(r.group) + '</span></td><td class="faint">' + esc(atText(r.at)) + (r.edited ? ' (고침)' : '') + '</td>') +
             d.questions.map(function (q) { var v = r.answers[q.id]; return '<td>' + esc(Array.isArray(v) ? v.join(', ') : v || '') + '</td>'; }).join('') +
             (hasNote ? '<td>' + esc(r.note || '') + '</td>' : '') + '</tr>';
         }).join('') + '</tbody></table></div></details>' : '') +
@@ -2827,6 +2856,9 @@
       (locked ? '<p class="note warn">' + icon('info', 18) + '<span>이미 낸 답이 있어서 질문은 고칠 수 없어요. 제목·마감·대상·안내 문구는 고칠 수 있어요.</span></p>' : '') +
       '<div id="svf-qs" class="qs-edit"></div>' +
       (locked ? '' : '<button type="button" class="btn btn-sm" id="svf-addq" style="align-self:flex-start">' + icon('plus', 18) + '질문 추가</button>') + '</div>' +
+      '<label class="check"><input type="checkbox" id="svf-anon"' + (c.anonymous ? ' checked' : '') + (locked ? ' disabled' : '') + '>익명으로 받기 <span class="faint">(누가 어떤 답을 했는지 만든 분도 모르게)</span></label>' +
+      '<p class="hint" id="svf-anon-hint"' + (c.anonymous || locked ? '' : ' hidden') + '>' + icon('info', 16) + '<span>' + (locked ? '이미 낸 답이 있어서 익명 여부는 바꿀 수 없어요. ' : '') +
+        (c.anonymous || !locked ? '이름은 시트·기록에도 남지 않아요. 누가 냈는지(안 낸 분 명단)만 보여요. 대상이 몇 명뿐이거나 글로 쓰는 답이 있으면 답으로 짐작될 수 있어요.' : '') + '</span></p>' +
       '<label class="check"><input type="checkbox" id="svf-public"' + (c.showResults ? ' checked' : '') + '>답을 대상 교직원 모두에게 보여 주기 <span class="faint">(참석 여부처럼 함께 봐야 할 때)</span></label>' +
       (edit && d.hasResponses && !c.showResults ? '<div class="note warn pub-ask" id="svf-pub-ask" hidden>' + icon('info', 18) + '<div><p>벌써 낸 답이 ' + ((d.responses || []).length ? d.responses.length + '개 ' : '') + '있어요. 켜면 지금까지 낸 답도 대상 선생님 모두에게 보여요. 낸 분들은 공개될 줄 모르고 냈을 수 있어요.</p>' +
         '<div class="row-btns"><button type="button" class="btn btn-sm" data-pub-ask="0">그만두기</button><button type="button" class="btn btn-sm btn-primary" data-pub-ask="1">그래도 보여 주기</button></div></div></div>' : '') +
@@ -2848,6 +2880,8 @@
       }, function (e) { from.disabled = false; qs('#svf-err').textContent = e.message; });
     });
     var state = { tt: tg.type, ids: (tg.ids || []).slice(), grades: (tg.grades || []).slice() };
+    var anonBox = qs('#svf-anon');
+    if (!locked) anonBox.addEventListener('change', function () { qs('#svf-anon-hint').hidden = !anonBox.checked; });
     // 답이 있는 조사에서 '결과 공개'를 켤 때 한 번 묻는다(창 위에 창을 띄우지 않고 이 자리에서)
     var pub = qs('#svf-public'), pubAsk = qs('#svf-pub-ask'), pubOk = false;
     if (pubAsk) {
@@ -2889,8 +2923,28 @@
       }
     }
 
+    // 보기 칸: 보기마다 한 칸(+ 보기 추가·빼기·옮기기), '기타(직접 쓰기)' 켜기(교사 요청, 2026-11-03a)
+    function optRow(v, k, type) {
+      var dis = locked ? ' disabled' : '';
+      return '<li class="opt-row"><span class="opt-shape ' + (type === 'many' ? 'many' : 'one') + '" aria-hidden="true"></span>' +
+        '<input class="input" data-opt maxlength="80" placeholder="보기 ' + (k + 1) + '" aria-label="보기 ' + (k + 1) + '" value="' + esc(v || '') + '"' + dis + '>' +
+        (locked ? '' : '<span class="opt-row-btns"><button type="button" class="icon-btn" data-omove="-1" aria-label="보기 위로">' + icon('up', 16) + '</button>' +
+          '<button type="button" class="icon-btn" data-omove="1" aria-label="보기 아래로">' + icon('chevd', 16) + '</button>' +
+          '<button type="button" class="icon-btn" data-odel aria-label="보기 빼기">' + icon('x', 16) + '</button></span>') + '</li>';
+    }
+    function optBox(q) {
+      var list = (q.options || []).slice();
+      while (list.length < 2) list.push('');
+      var choice = q.type === 'one' || q.type === 'many';
+      return '<div class="opt-edit" data-qf="optbox"' + (choice ? '' : ' hidden') + '><ol class="opt-rows">' + list.map(function (v, k) { return optRow(v, k, q.type); }).join('') + '</ol>' +
+        '<div class="opt-tools">' + (locked ? '' : '<button type="button" class="btn btn-sm" data-oadd>' + icon('plus', 16) + '보기 추가</button>') +
+        '<label class="check"><input type="checkbox" data-qf="other"' + (q.other ? ' checked' : '') + (locked ? ' disabled' : '') + '>\'기타(직접 쓰기)\' 받기 <span class="faint">(답하는 분이 글로 적어요)</span></label></div></div>';
+    }
+    function renumberOpts(box) {
+      qsa('.opt-row', box).forEach(function (li, k) { var inp = qs('[data-opt]', li); inp.placeholder = '보기 ' + (k + 1); inp.setAttribute('aria-label', '보기 ' + (k + 1)); });
+    }
+
     function qCard(q, i) {
-      var opts = (q.options || []).join('\n');
       var dis = locked ? ' disabled' : '';
       return '<div class="q-edit" data-qid="' + esc(q.id || '') + '">' +
         '<div class="q-edit-top"><b>' + (i + 1) + '</b><select class="input input-sm" data-qf="type" aria-label="질문 종류"' + dis + '>' +
@@ -2900,7 +2954,7 @@
           '<button type="button" class="icon-btn" data-qmove="1" aria-label="아래로">' + icon('chevd', 18) + '</button>' +
           '<button type="button" class="icon-btn" data-qdel aria-label="질문 빼기">' + icon('x', 18) + '</button></span>') + '</div>' +
         '<input class="input" data-qf="title" maxlength="200" placeholder="질문을 적어 주세요" value="' + esc(q.title || '') + '" aria-label="질문"' + dis + '>' +
-        '<textarea class="input" data-qf="opts" rows="3" placeholder="보기를 한 줄에 하나씩 적어 주세요"' + (q.type === 'one' || q.type === 'many' ? '' : ' hidden') + dis + ' aria-label="보기">' + esc(opts) + '</textarea>' +
+        optBox(q) +
         '</div>';
     }
 
@@ -2911,7 +2965,8 @@
           type: qs('[data-qf=type]', el).value,
           title: qs('[data-qf=title]', el).value,
           required: qs('[data-qf=req]', el).checked,
-          options: qs('[data-qf=opts]', el).value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean)
+          options: qsa('[data-opt]', el).map(function (x) { return x.value.trim(); }).filter(Boolean),
+          other: qs('[data-qf=other]', el).checked
         };
       });
     }
@@ -2945,11 +3000,66 @@
     });
     qbox.addEventListener('change', function (e) {
       if (e.target.getAttribute('data-qf') === 'type') {
-        var t = e.target.value, ta = qs('[data-qf=opts]', e.target.closest('.q-edit'));
-        ta.hidden = !(t === 'one' || t === 'many');
+        // 종류를 바꿔도 적은 보기는 숨기기만 해서, 다시 고르기로 돌아오면 그대로다
+        var t = e.target.value, box = qs('[data-qf=optbox]', e.target.closest('.q-edit'));
+        box.hidden = !(t === 'one' || t === 'many');
+        qsa('.opt-shape', box).forEach(function (sh) { sh.className = 'opt-shape ' + (t === 'many' ? 'many' : 'one'); });
+        if (!box.hidden && !qsa('[data-opt]', box).some(function (x) { return x.value.trim(); })) qs('[data-opt]', box).focus();
       }
     });
+    function addOpt(box, after, val) {
+      var rows = qsa('.opt-row', box);
+      if (rows.length >= 30) { toast('보기는 30개까지 넣을 수 있어요'); return null; }
+      var type = qs('[data-qf=type]', box.closest('.q-edit')).value;
+      var tmp = document.createElement('ol');
+      tmp.innerHTML = optRow(val || '', rows.length, type);
+      var li = tmp.firstChild, list = qs('.opt-rows', box);
+      if (after && after.nextSibling) list.insertBefore(li, after.nextSibling); else list.appendChild(li);
+      renumberOpts(box);
+      return qs('[data-opt]', li);
+    }
+    // 마지막 보기에서 Enter → 새 보기 칸, 아니면 다음 칸으로(한글 입력 중의 Enter는 그대로)
+    qbox.addEventListener('keydown', function (e) {
+      if (!e.target.hasAttribute('data-opt') || e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+      e.preventDefault();
+      var li = e.target.closest('.opt-row'), box = li.closest('.opt-edit'), next = li.nextElementSibling;
+      var inp = next ? qs('[data-opt]', next) : addOpt(box, li, '');
+      if (inp) inp.focus();
+    });
+    // 여러 줄을 붙여 넣으면(엑셀·메모장) 줄마다 보기 칸으로 나눈다
+    qbox.addEventListener('paste', function (e) {
+      if (!e.target.hasAttribute('data-opt')) return;
+      var text = (e.clipboardData || window.clipboardData).getData('text') || '';
+      var lines = text.split(/\r?\n/).map(function (x) { return x.replace(/\t/g, ' ').trim(); }).filter(Boolean);
+      if (lines.length < 2) return;
+      e.preventDefault();
+      var li = e.target.closest('.opt-row'), box = li.closest('.opt-edit');
+      e.target.value = (e.target.value.trim() ? e.target.value.trim() + ' ' : '') + lines[0];
+      var at = li, last = e.target;
+      for (var k = 1; k < lines.length; k++) {
+        var n = addOpt(box, at, lines[k]);
+        if (!n) break;
+        at = n.closest('.opt-row'); last = n;
+      }
+      last.focus();
+    });
     qbox.addEventListener('click', function (e) {
+      var oadd = e.target.closest('[data-oadd]'), odel = e.target.closest('[data-odel]'), omv = e.target.closest('[data-omove]');
+      if (oadd) { var box0 = oadd.closest('.opt-edit'), rows0 = qsa('.opt-row', box0), n0 = addOpt(box0, rows0[rows0.length - 1], ''); if (n0) n0.focus(); return; }
+      if (odel) {
+        var li = odel.closest('.opt-row'), box1 = li.closest('.opt-edit');
+        if (qsa('.opt-row', box1).length > 2) { var nb = li.previousElementSibling || li.nextElementSibling; li.remove(); renumberOpts(box1); qs('[data-opt]', nb).focus(); }
+        else { qs('[data-opt]', li).value = ''; qs('[data-opt]', li).focus(); } // 보기 칸은 두 개는 남긴다
+        return;
+      }
+      if (omv) {
+        var li2 = omv.closest('.opt-row'), to = Number(omv.getAttribute('data-omove')) < 0 ? li2.previousElementSibling : li2.nextElementSibling;
+        if (!to) return;
+        var a = qs('[data-opt]', li2), b = qs('[data-opt]', to), tv = a.value;
+        a.value = b.value; b.value = tv;
+        qs('[data-omove="' + omv.getAttribute('data-omove') + '"]', to).focus();
+        return;
+      }
       var mv = e.target.closest('[data-qmove]'), del = e.target.closest('[data-qdel]');
       if (!mv && !del) return;
       var list = readQs();
@@ -2962,7 +3072,7 @@
     if (addq) addq.addEventListener('click', function () {
       var list = readQs();
       if (list.length >= 30) return toast('질문은 30개까지 넣을 수 있어요');
-      list.push({ type: 'one', title: '', required: false, options: [] });
+      list.push({ type: 'one', title: '', required: false, options: [], other: false });
       drawQs(list);
       var last = qsa('.q-edit', qbox).pop();
       qs('[data-qf=title]', last).focus();
@@ -2980,6 +3090,7 @@
         target: state.tt === 'dept' ? { type: 'dept', ids: state.ids } : state.tt === 'grade' ? { type: 'grade', grades: state.grades } : state.tt === 'people' ? { type: 'people', ids: state.ids } : { type: 'all' },
         questions: locked ? d.questions : readQs().map(function (q) { if (!q.id) delete q.id; return q; }),
         showResults: qs('#svf-public').checked,
+        anonymous: qs('#svf-anon').checked,
         messenger: qs('#svf-msg').value,
         reopen: true
       };
