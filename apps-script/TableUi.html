@@ -409,7 +409,7 @@ body.tb-resizing.rows,body.tb-resizing.rows *{cursor:row-resize!important}
  * - 웹앱은 이 파일을 취합 시트를 처음 열 때 받아 붙인다(App.html tableUiLoad, 서버 ui.table). 설정 '처음에 함께'면 예전처럼 처음부터 들어 있다
  * - 화면 코드에 U+2028·U+2029를 그대로 쓰지 않는다(\u2028처럼 적는다)
  */
-window.__gyTableUiBuild = '2026-10-28a';
+window.__gyTableUiBuild = '2026-11-03b';
 window.__gyTableUi = function (core) {
   'use strict';
   var S = core.S, SCREENS = core.SCREENS, $modal = core.$modal;
@@ -471,9 +471,12 @@ window.__gyTableUi = function (core) {
   }
 
   // ------------------------------------------------------------ 상태
+  // 휴대폰은 '표로 보기'가 처음(교사 요청, 2026-11-03b). '줄 목록'을 고르면 이 기기에서 기억한다(gy.tbPhoneView)
+  var tbPhoneViewGet = function () { try { return localStorage.getItem('gy.tbPhoneView') !== 'rows'; } catch (e) { return true; } };
+  var tbPhoneViewSet = function (grid) { try { if (grid) localStorage.removeItem('gy.tbPhoneView'); else localStorage.setItem('gy.tbPhoneView', 'rows'); } catch (e) { /* 저장을 못 하면 이 창에서만 */ } };
   S.table = {
     tab: 'open', list: null, sel: '', sheet: '', d: null, cur: null, anchor: null, edit: null, drag: null, flash: {}, live: 'ok',
-    phoneGrid: false, make: null, menu: null, polling: false, vrows: [], loc: {}, find: null, last: {}, loading: false,
+    phoneGrid: tbPhoneViewGet(), make: null, menu: null, polling: false, vrows: [], loc: {}, find: null, last: {}, loading: false,
     lq: '', ldept: '', rf: { id: '', q: '', mine: false } // 목록 찾기·부서(이 창에서만), 휴대폰 줄 찾기·내 이름이 있는 줄(시트마다)
   };
   var TB_POLL_MS = 10000, TB_FLASH_MS = 8000, TB_RN_W = 44, TB_WHO_W = 128;
@@ -933,6 +936,7 @@ window.__gyTableUi = function (core) {
     var mineRow = function (r) { return !tbRowDone(d.table.cols, r) && tbTodoNames(tbEff(r, col.id)).indexOf(me) >= 0; };
     if (isPhone()) {
       if (!d.rows.some(mineRow)) return;
+      T.phoneGrid = false; // 내 줄만 골라 보는 것은 줄 목록에서(이 기기의 처음 보기는 그대로)
       T.rf = { id: d.table.id, q: '', mine: true };
       tbDrawMain();
       return;
@@ -4519,7 +4523,7 @@ window.__gyTableUi = function (core) {
       case 'tb-row-add': tbRowAdd(''); break;
       case 'tb-rowmenu': tbToggleMenu(t, function () { tbRowMenu(t, t.getAttribute('data-row')); }); break;
       case 'tb-rowedit': tbRowEditor(t.getAttribute('data-row')); break;
-      case 'tb-view': T.phoneGrid = t.getAttribute('data-v') === 'grid'; tbDrawMain(); break;
+      case 'tb-view': T.phoneGrid = t.getAttribute('data-v') === 'grid'; tbPhoneViewSet(T.phoneGrid); tbDrawMain(); break;
       case 'tb-tool': tbToggleMenu(t, function () { tbTool(t.getAttribute('data-k'), t); }); break;
       case 'tb-head': tbToggleMenu(t, function () { tbHeadMenu(t, +t.getAttribute('data-j')); }); break;
       case 'tb-selall': tbSelectAll(); tbFocusEd(); break;
@@ -4615,9 +4619,9 @@ window.__gyTableUi = function (core) {
   return {
     build: window.__gyTableUiBuild,
     /** 메뉴에서 '취합 시트'를 누르면 목록부터 */
-    reset: function () { S.table.sel = ''; S.table.sheet = ''; S.table.d = null; S.table.find = null; S.table.lq = ''; S.table.ldept = ''; },
+    reset: function () { S.table.sel = ''; S.table.sheet = ''; S.table.d = null; S.table.find = null; S.table.lq = ''; S.table.ldept = ''; S.table.phoneGrid = tbPhoneViewGet(); },
     /** 홈(내가 할 일·검색)에서 표를 바로 연다. sheet: 시트ID(없으면 이 창에서 마지막에 본 시트) */
-    open: function (doc, sheet, mine) { S.table.sel = doc; S.table.sheet = sheet || S.table.last[doc] || ''; S.table.d = null; S.table.find = null; S.table.goMine = !!mine; },
+    open: function (doc, sheet, mine) { S.table.phoneGrid = tbPhoneViewGet(); S.table.sel = doc; S.table.sheet = sheet || S.table.last[doc] || ''; S.table.d = null; S.table.find = null; S.table.goMine = !!mine; },
     /** 누구로 보는지가 바뀌면 들고 있던 표를 버린다 */
     forget: function () {
       S.table.list = null; S.table.d = null; S.table.edit = null; S.table.find = null; S.table.loc = {}; S.table.last = {};

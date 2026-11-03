@@ -1706,7 +1706,13 @@ async function tableCheck(browser) {
   // ---------- 4) 휴대폰(390): 줄 목록 → 줄 고치기, 표로 보기
   ({ ctx, page } = await open({ width: 390, height: 844 }, '장화', true));
   await openTable(page, '2026 폐기');
+  // 휴대폰은 '표로 보기'가 처음(2026-11-03b) → '줄 목록'을 고르면 이 기기에서 기억
+  await page.locator('#tb-wrap').waitFor({ timeout: 6000 }).catch(() => problems.push('표: 휴대폰에서 처음 보기가 표로 보기가 아님'));
+  if ((await page.getAttribute('[data-action=tb-view][data-v=grid]', 'aria-pressed')) !== 'true') problems.push('표: 휴대폰 처음 보기 단추가 표로 보기가 아님');
+  await shot(page, '표_휴대폰_처음_표로보기');
+  await page.click('[data-action=tb-view][data-v=rows]');
   await page.locator('.tb-rowcard').first().waitFor();
+  if ((await page.evaluate(() => { try { return localStorage.getItem('gy.tbPhoneView'); } catch (e) { return ''; } })) !== 'rows') problems.push('표: 휴대폰 줄 목록 고른 것을 기기에 기억하지 않음');
   await shot(page, '표_휴대폰_줄목록');
   await page.locator('.tb-rowcard', { hasText: '컴퓨터실' }).click();
   await page.locator('#sheet .tb-seg').waitFor();
@@ -1718,6 +1724,7 @@ async function tableCheck(browser) {
     .catch(() => problems.push('표: 휴대폰 줄 고치기 저장이 안 됨'));
   await page.click('[data-action=tb-view][data-v=grid]');
   await page.locator('#tb-wrap').waitFor();
+  if ((await page.evaluate(() => { try { return localStorage.getItem('gy.tbPhoneView'); } catch (e) { return 'x'; } })) !== null) problems.push('표: 다시 표로 보기를 골랐는데 줄 목록 기억이 남음');
   await shot(page, '표_휴대폰_표로보기');
   await ctx.close();
   tableInfo = '함께 쓰는 표: 다른 분·만든 분·새 표·휴대폰 점검, 인쇄 ' + size;
@@ -2089,6 +2096,7 @@ async function table2Check(browser) {
   ({ ctx, page } = await open({ width: 390, height: 844 }, '장화', true));
   await openTable(page, '업무 협의');
   await page.locator('.tb-msheets').waitFor();
+  await page.click('[data-action=tb-view][data-v=rows]'); // 휴대폰 처음 보기는 표로 보기(2026-11-03b)
   const pills = (await page.locator('.tb-msheets [data-action=tb-sheet]').allInnerTexts()).map((x) => x.trim());
   if (pills.join('|') !== '폐기 물품|특별실 시간표|상담 주간') P('휴대폰 시트 단추가 ' + JSON.stringify(pills));
   await shot(page, '표2_휴대폰_시트');
@@ -2342,7 +2350,7 @@ async function tplCheck(browser) {
   const wide = await page.evaluate(() => document.querySelector('.modal').scrollWidth - document.querySelector('.modal').clientWidth);
   if (wide > 1) P('휴대폰 만들기 창이 옆으로 넘침 ' + wide);
   await page.click('#tbm-go');
-  await page.locator('.tb-rowcard').first().waitFor({ timeout: 6000 }).catch(() => P('휴대폰에서 양식으로 만든 표가 열리지 않음'));
+  await page.locator('#tb-wrap, .tb-rowcard').first().waitFor({ timeout: 6000 }).catch(() => P('휴대폰에서 양식으로 만든 표가 열리지 않음'));
   const ph = await page.evaluate(() => { const d = window.__gy.S.table.d; return d ? d.rows.map((r) => r.cells.c1).join(',') + ' ' + d.table.cols.length + '열' : ''; });
   if (ph !== '1교시,2교시,3교시,4교시,5교시,6교시 6열') P('휴대폰 양식 표가 ' + ph);
   await shot(page, '양식_휴대폰_만든표');
@@ -3211,6 +3219,7 @@ async function b5TableCheck(browser) {
   if (!mk.ok) P('휴대폰 점검용 표를 만들지 못함 ' + mk.error);
   await toList(page);
   await page.locator('.tb-card', { hasText: '대피 훈련 인원 확인' }).first().click();
+  await page.click('[data-action=tb-view][data-v=rows]'); // 휴대폰 처음 보기는 표로 보기(2026-11-03b)
   await page.locator('.tb-rowcard').first().waitFor();
   await page.fill('#tb-rq', '4학년');
   await page.waitForTimeout(200);
@@ -4200,6 +4209,8 @@ async function table3Check(browser) {
   // 8) 휴대폰: 줄 고치기 창 바깥을 누르면 버릴지 묻는다
   ({ ctx, page } = await open({ width: 390, height: 844 }, '심청', true));
   await openTable(page, '2026 폐기').catch(() => P('휴대폰에서 표가 열리지 않음'));
+  await page.click('[data-action=tb-view][data-v=rows]').catch(() => {}); // 휴대폰 처음 보기는 표로 보기(2026-11-03b)
+  await page.locator('.tb-rowcard').first().waitFor({ timeout: 6000 }).catch(() => {});
   const card = page.locator('.tb-rowcard').first();
   if (await card.count()) {
     await card.click();
@@ -4387,6 +4398,53 @@ async function admin5Check(browser) {
 }
 
 // 묶음 6 화면 공통(판 2026-10-28a): 휴대폰 위쪽(첫 내용이 내려가 있던 것), 노트북 메뉴 아래 '화면 설정' 접기, 포커스 테두리
+/** 판 2026-11-03b: '이 기기에서 기억하기'로 고른 이름을 다음에 미리 골라 둔다 */
+async function idPickCheck(browser) {
+  const P = (m) => problems.push('11-03b 이름 미리 고르기: ' + m);
+  const ctx = await newCtx(browser, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => P('페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  if (await page.locator('.id-last').count()) P('처음인데 지난번 이름 안내가 보임');
+  await verify(page, '흥부'); // 기억하기는 처음부터 켜져 있다(이름만 방식)
+  // 본인 확인이 끝난 뒤(기억이 사라진 경우처럼) 다시 열면 흥부가 골라져 있다
+  const back = async () => {
+    // 미리보기는 다시 열면(reload) 가짜 서버도 새로 만들어져 로그인이 풀리므로, 같은 창에서 이름 고르기 화면을 다시 연다('다시 하기' 단추와 같은 길)
+    await page.evaluate(() => { const b = document.createElement('button'); b.setAttribute('data-action', 'identity'); document.body.appendChild(b); b.click(); b.remove(); });
+    await page.locator('#id-form').waitFor();
+  };
+  await back();
+  const picked = await page.evaluate(() => { const c = document.querySelector('input[name=who]:checked'); return c ? c.closest('.person').querySelector('.person-name').textContent : ''; });
+  if (picked !== '흥부') P('다시 열었을 때 골라진 이름이 ' + JSON.stringify(picked));
+  if (!(await page.locator('.id-last', { hasText: '흥부' }).count())) P('지난번에 고른 이름 안내가 없음');
+  const vis = await page.evaluate(() => { const r = document.querySelector('.person.on').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; });
+  if (!vis) P('미리 고른 이름이 화면에 보이지 않음');
+  await shot(page, '1103b_휴대폰_이름_미리고름');
+  await page.click('#id-form [type=submit]');
+  await page.locator('.main').waitFor();
+  if ((await page.evaluate(() => window.__gy.S.me && window.__gy.S.me.name)) !== '흥부') P('확인 한 번으로 들어가지 않음');
+  // 다른 선생님으로 바꾸기 → 미리 고르지 않는다
+  await page.evaluate(() => window.__gy.go('all')).catch(() => {});
+  await page.evaluate(() => { const b = document.querySelector('[data-action=switch]'); if (b) b.click(); });
+  await page.locator('#id-form').waitFor();
+  if (await page.locator('input[name=who]:checked').count()) P('다른 선생님으로 바꾸기인데 이름이 골라져 있음');
+  // 기억하기를 끄고 고르면(함께 쓰는 PC) 다음에 미리 고르지 않는다
+  await page.locator('.person', { hasText: '심청' }).first().click();
+  await page.uncheck('#id-remember');
+  await page.click('#id-form [type=submit]');
+  await page.locator('.main').waitFor();
+  await back();
+  if (await page.locator('input[name=who]:checked').count()) P('기억하기를 끄고 골랐는데 다음에 이름이 골라져 있음');
+  // 나가기는 지운다
+  await verify(page, '놀부');
+  await page.evaluate(() => { const b = document.querySelector('[data-action=logout]'); if (b) b.click(); });
+  await page.locator('#login-pw').waitFor();
+  if (await page.evaluate(() => { try { return localStorage.getItem('gy.lastMe'); } catch (e) { return null; } })) P('나가기를 눌렀는데 고른 이름 기억이 남음');
+  await ctx.close();
+}
+
 /** 판 2026-11-03a: 연간 학사일정 같은 날은 날짜 한 번만 · 조사 보기 칸(한 칸씩·기타) · 익명 조사 */
 async function sv11Check(browser) {
   const P = (m) => problems.push('11-03: ' + m);
@@ -5113,6 +5171,7 @@ async function introGapCheck(browser) {
   // ONLY=sv11: 연간 학사일정 날짜 묶기·조사 보기 칸·익명(판 2026-11-03a)
   if (process.env.ONLY === 'sv11') {
     await sv11Check(browser);
+    await idPickCheck(browser);
     await browser.close();
     console.log('사진 ' + n + '장 → ' + OUT);
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
@@ -5405,6 +5464,7 @@ async function introGapCheck(browser) {
   await admin5Check(browser);
   await ui6Check(browser);
   await sv11Check(browser);
+  await idPickCheck(browser);
   await homeSideCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser), await introGapCheck(browser)];

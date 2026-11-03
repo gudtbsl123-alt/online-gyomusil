@@ -8,7 +8,7 @@
   'use strict';
 
   // ============================================================ 기본 도구
-  var APP_FILE_BUILD = '2026-11-03a'; // 판 표시(관리자 › 점검)
+  var APP_FILE_BUILD = '2026-11-03b'; // 판 표시(관리자 › 점검)
   var $app = document.getElementById('app');
   var $modal = document.getElementById('modal-root');
   var $toast = document.getElementById('toast');
@@ -647,6 +647,9 @@
     var days = (S.start && S.start.rememberDays) || 365;
     var dayText = days % 365 === 0 ? (days / 365) + '년' : days + '일';
     var pin = !!(S.start && S.start.pinMode);
+    // '이 기기에서 기억하기'를 켜고 골랐던 이름은 다음에 미리 골라 둔다(교사 요청, 2026-11-03b). 나가기·다른 선생님으로 바꾸기면 지운다
+    var lastId = stGet('gy.lastMe') || '';
+    var last = list.filter(function (p) { return p.id === lastId; })[0] || null;
     $app.innerHTML = gateWrap(
       '<form class="gate-card" id="id-form" novalidate><span class="glow" aria-hidden="true"></span>' +
       '<div><p class="kicker">본인 확인</p><h1>누구신가요?</h1>' +
@@ -656,6 +659,7 @@
       (list.length
         ? '<div class="field"><label class="search" for="id-find">' + icon('search', 20) +
           '<span class="sr-only">이름으로 찾기</span><input id="id-find" type="search" placeholder="이름으로 찾기" autocomplete="off"></label></div>' +
+          (last ? '<p class="note id-last">' + icon('check', 18) + '<span>지난번에 고른 이름(<b>' + esc(last.name) + '</b>)이에요. 맞으면 아래 확인을 눌러 주세요.</span></p>' : '') +
           '<div class="people" id="id-people" role="radiogroup" aria-label="교직원 명단"></div>'
         : '<div class="box muted">아직 교직원 명단이 비어 있어요. 관리자가 관리자 화면에서 명단을 넣으면 고를 수 있어요.</div>') +
       (pin ? '<div class="field"><label class="label" for="id-pin">개인 번호 4자리</label>' +
@@ -676,7 +680,8 @@
       var shown = list.filter(function (p) {
         return !q || (p.name + ' ' + p.group + ' ' + p.dept + ' ' + p.position).indexOf(q) >= 0;
       });
-      var checked = (qs('input[name=who]:checked') || {}).value;
+      var checked = (qs('input[name=who]:checked') || {}).value || (drawPeople.first ? '' : (last ? last.id : ''));
+      drawPeople.first = true;
       $people.innerHTML = shown.length ? shown.map(function (p) {
         return '<label class="person' + (checked === p.id ? ' on' : '') + '"><input type="radio" name="who" value="' + esc(p.id) + '"' + (checked === p.id ? ' checked' : '') + '>' +
           '<span class="avatar" aria-hidden="true">' + esc(p.name.charAt(0)) + '</span>' +
@@ -702,6 +707,12 @@
       if (pin && p && p.hasPin) pinBox.focus();
       else if (!pin) showOk();
     });
+    if (last && $people) { // 미리 고른 이름이 목록에서 보이게, 확인 단추도 보이게
+      var on = qs('.person.on', $people);
+      try { if (on) on.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+      if (pin && pinBox && last.hasPin) pinBox.focus();
+      else setTimeout(showOk, 50);
+    }
 
     qs('#id-form').addEventListener('submit', function (ev) {
       ev.preventDefault();
@@ -715,6 +726,7 @@
       err.textContent = '';
       server('verify', { staffId: who, pin: pin ? pinBox.value : '', remember: remember }).then(function (r) {
         stSet('gy.identity', r.identity, remember);
+        if (remember) stSet('gy.lastMe', who, true); else stDel('gy.lastMe'); // 기억하기를 끄면(함께 쓰는 PC) 미리 고르지 않는다
         if (r.login) stSet('gy.login', r.login, true);
         stDel('gy.skipIdentity');
         S.me = r.me;
@@ -6397,7 +6409,7 @@
       case 'switch':
         if (TB && TB.leaving && !TB.leaving(function () { t.click(); })) break; // 취합 시트에 저장하지 못한 칸이 있으면 먼저 묻는다
         closeSheet();
-        stDel('gy.identity');
+        stDel('gy.identity'); stDel('gy.lastMe'); // 다른 선생님으로 바꿀 때는 미리 고르지 않는다
         S.me = null;
         forgetScreens();
         showIdentity();
@@ -6410,7 +6422,7 @@
       case 'logout':
         if (TB && TB.leaving && !TB.leaving(function () { t.click(); })) break;
         closeSheet();
-        stDel('gy.login'); stDel('gy.identity'); stDel('gy.admin'); stDel('gy.skipIdentity');
+        stDel('gy.login'); stDel('gy.identity'); stDel('gy.admin'); stDel('gy.skipIdentity'); stDel('gy.lastMe');
         S.me = null; S.admin = false;
         forgetScreens();
         showLogin();
