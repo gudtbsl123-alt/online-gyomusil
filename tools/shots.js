@@ -5282,7 +5282,7 @@ async function meetCheck(browser) {
   await page.locator('section.card h2', { hasText: '지운 회의록' }).waitFor({ timeout: 8000 }).catch(() => P("관리자 › 휴지통에 '지운 회의록'이 없음"));
   const sec = page.locator('section.card', { has: page.locator('h2', { hasText: '지운 회의록' }) });
   if (!(await sec.innerText().catch(() => '')).includes(title)) P('휴지통에 지운 회의가 없음');
-  if (!/회의록은/.test(await page.locator('#admin-panel').innerText())) P('휴지통 안내 글에 회의록이 없음');
+  if (!/회의록·보결은/.test(await page.locator('#admin-panel').innerText())) P('휴지통 안내 글에 회의록이 없음');
   await shot(page, 'PC_관리자_휴지통_회의록', true);
   await sec.locator('[data-action=trash-restore-mt]').first().click();
   if (!(await toastHas(page, /회의록을 되살렸어요/))) P('되살리기 알림이 없음');
