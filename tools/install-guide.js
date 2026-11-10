@@ -15,6 +15,7 @@ const FILES = [
   ['Survey.gs', '스크립트', '이미 있음 → 내용 바꾸기'], ['Library.gs', '스크립트', '이미 있음 → 내용 바꾸기'], ['Help.gs', '스크립트', '이미 있음 → 내용 바꾸기'],
   ['Setup.gs', '스크립트', '이미 있음 → 내용 바꾸기'], ['Table.gs', '스크립트', '이미 있음 → 내용 바꾸기'],
   ['Meeting.gs', '스크립트', '22a를 넣으셨으면 내용 바꾸기, 아니면 **새로 만들기**(+ → 스크립트, 이름 Meeting)'],
+  ['Substitute.gs', '스크립트', '**새로 만들기**(+ → 스크립트, 이름 Substitute)'],
   ['Index.html', 'HTML', '이미 있음 → 내용 바꾸기'], ['Styles.html', 'HTML', '이미 있음 → 내용 바꾸기'],
   ['TableUi.html', 'HTML', '18a를 넣으셨으면 내용 바꾸기, 아니면 **새로 만들기**(+ → HTML, 이름 TableUi)'], ['App.html', 'HTML', '이미 있음 → 내용 바꾸기']
 ];

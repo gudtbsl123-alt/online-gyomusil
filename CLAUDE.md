@@ -459,6 +459,21 @@
 - 바뀐 파일 App·Styles·TableUi·Code(판 표시)
 - 자동 점검: shots.js noticeCheck(`ONLY=notice`, 전체에도): 창 안에서 끌어 바깥에서 놓아도 안 닫힘·바깥 누르면 닫힘, 설정 저장 성공 가운데 팝업·2초 뒤 닫힘, 저장 오류 가운데 팝업·확인으로만 닫힘. 사진 docs/스크린샷_가운데팝업
 
+## 확정된 결정 (2026-11-10 교사 요청: 보결, 판 2026-11-10a)
+- 교사 요청: 비는 교실의 그날 수업 보결 자료를 올리면 보결 들어가는 선생님과 교감 선생님이 볼 수 있게. 자료실 탭 대신 **새 메뉴 '보결'**(추천안, 시안 docs 밖 scratchpad 사진 7장으로 확인받음)
+- 교사 선택: 들어갈 선생님은 **올린 분이 정함**, 보기는 **모든 선생님**, **일정·달력과 잇지 않음**(보결 화면 안에서만), 교감 선생님은 **교직원 표 '직위'**로 알아봄(직위에 '교감'이 있으면)
+- 서버 Substitute.gs(새 파일), 탭 '보결'(보결ID B…: 학년도·날짜·학급·담임·공통 안내·교시(JSON)·판, 처음 올릴 때 저절로 생김). 교시 JSON = [{p 1~6, s 과목, t 할 일, w 들어갈 교직원ID, f [{x 파일 번호, id 드라이브ID, n, z}], l [{u https, n}]}]
+  - 보기(sub.list): 로그인한 누구나(지난 학년도부터, 학급 후보는 교직원 소속 'n학년 n반'에서·담임은 그 소속인 분, 짐작해 만들지 않음). 올리기: 이름을 고른 교직원 누구나. 고치기·지우기·들어갈 선생님: 올린 분과 관리(canEditOwned_)
+  - 같은 날·같은 학급은 하나만(DUP). 같은 보결을 두 분이 고치면 '판'으로 알아채고 묻는다(CONFLICT → 창에 쓰던 내용 그대로 '그래도 저장'). 교시는 1~6교시, 교시마다 파일 5개·링크 3개, 할 일 1000자, 공통 안내 1000자
+  - 파일: 자료실과 같은 드라이브 폴더(saveUpload_, 크기 한도 같음). 창에서 고르면 하나씩 먼저 올리고(sub.upload, QUIET) 받은 표(token, 서버 기억 'gy:up:' 6시간, 올린 분만)로 저장할 때 붙인다. 파일ID는 화면에 보내지 않고 내려받기는 sub.file {id, x}
+  - 홈 '내가 할 일': 들어갈 선생님은 오늘~7일 안의 내 교시(subTodos, '자료 보기' → 그 보결), 교감 선생님은 오늘 학급·시간·안 정한 교시와 7일 안 요약(subVice, '보결 보기' → 날짜별 표). 홈 요청이 '보결' 탭도 읽는다
+  - 지운 보결은 관리자 › 휴지통 '지운 보결'(admin.trash.subs·restoreSub, 같은 날·학급이 다시 올라와 있으면 되살리지 않음). 수정 기록 거르기 '보결'. 기록 요약 '보결 올림·고침·지움·되살림: 11월 10일 4학년 1반 (1·3교시)'
+- 화면(App.html S.sub·SCREENS.sub·subAction, 'sub-…' 누르기는 한 함수로): [다가오는 보결 | 지난 보결] 탭, [모두 | 내가 들어갈 보결 | 내가 올린 보결], [목록 | 날짜별 표](교감 선생님은 날짜별 표부터, 평일만 앞뒤로, 날짜 고르기·오늘). 보결 하나 보기(내 교시 파랗게, 안내 문구 복사·인쇄), 올리기 창(교시 단추 → 줄, 교시마다 끌어다 놓기·파일 고르기·링크, 같은 시간 다른 보결 알림, 바깥 눌러 닫지 않음)
+  - 창의 끌어다 놓기 상자가 여럿이면 손가락 밑 상자로(dropTarget(e), 자료 창은 예전처럼). 보결 저장은 보결·홈 화면 기억만 잊는다
+  - 운영 안내서 3번 '일정·보결'에 한 줄
+- 확인 필요: 실제 교직원 표 '직위'에 '교감'이 적혀 있는지, 실제 소속이 'n학년 n반' 꼴인지(아니면 학급은 직접 쓰기), 한글 파일 이름 내려받기, 0교시·방과후가 필요한지(지금은 1~6교시), 날짜별 표 인쇄가 A4 한 장인지
+- 자동 점검: test.js 보결 3개(모두 231개), shots.js subCheck(`ONLY=sub`, 전체에도: 홈 할 일·보기·내려받기·목록·지난 보결·올리기·담임 채우기·같은 시간 알림·같은 학급 막기·날짜별 표·인쇄 모양·올린 분 고치기·지우기·휴지통·교감 홈과 표·어둡게·휴대폰). 사진 docs/스크린샷_보결
+
 ## 진행 방식 (2026-10-15 교사 결정)
 - 단계마다 웹앱에 붙여 넣지 않는다. 단계별 확인은 미리보기 파일·화면 사진으로 하고, **마지막 단계를 마친 뒤 최종 코드를 한 번에** 넣는다
 - 그때 실제 환경에서만 확인되는 것(복사·내려받기·인쇄·기억하기)을 모아서 점검한다
@@ -468,7 +483,7 @@
 - 웹앱 코드를 바꾸면 '배포 관리 → 새 버전'을 해야 반영된다
 
 ## 코드 구조
-- `apps-script/` : 웹앱에 그대로 붙여 넣는 파일(Code·Db·Auth·Admin·Schedule·Survey·Library·Help·Setup·Table·Meeting.gs, Index·Styles·TableUi·App.html, appsscript.json)
+- `apps-script/` : 웹앱에 그대로 붙여 넣는 파일(Code·Db·Auth·Admin·Schedule·Survey·Library·Help·Setup·Table·Meeting·Substitute.gs, Index·Styles·TableUi·App.html, appsscript.json)
 - 취합 시트(예전 이름 함께 쓰는 표) 화면은 TableUi.html(`window.__gyTableUi(core)`, 모양 CSS도 그 안에). App.html tableUiAttach가 화면 도구(core: S·SCREENS·server·memoGet/Put/Forget·loadMemo·openModal 등)를 넘겨 부르면 SCREENS.table과 그 화면의 누르기·키·창 크기 처리를 스스로 붙이고 {reset, open, forget, leaving, listDirty, busy}를 돌려준다. App.html에는 표 코드를 두지 않는다(새 도구가 필요하면 App.html의 core 묶음에 더한다)
   - 판 2026-10-19a부터 TableUi는 그 화면을 처음 열 때 받는다(Index.html `tableUiTag_()` → `window.__gyTableUiLazy`, App.html tableUiLoad → 서버 `ui.table`). TB가 없는 동안 App.html은 `if (TB)`로 건너뛰고, 홈에서 연 표는 tableUiPending에 두었다가 받은 뒤 TB.open. 설정 '처음에 함께'(스크립트 속성 TABLE_UI_INLINE)면 예전처럼 처음부터 들어 있다
   - 미리보기(build-preview.js)는 웹앱처럼 열 때 받기로 묶고 가짜 HtmlService가 TableUi 내용을 돌려준다(`PREVIEW_INLINE=1`이면 처음에 함께, `PREVIEW_OUT`으로 다른 곳에 만들기, 창에 `window.__previewNoTableUi`면 파일이 없는 경우)
@@ -483,4 +498,4 @@
 - 요청 처리 함수는 routes_()에 이름(글자)으로 적고 부를 때 찾는다(globalFn_). 파일 하나가 빠져도 그 기능만 멈추고, 예상 못 한 오류는 원인 한 줄(detail)을 화면에 보여 준다
 - 한 요청 안에서 탭마다 시트를 한 번만 읽는다(Db.gs DB_CACHE_). 시트에 직접 쓰는 코드를 더하면 반드시 dirty_(탭)을 부른다
 - 화면 코드(.html의 스크립트)에 U+2028·U+2029 같은 글자를 그대로 넣지 않는다(정규식이 깨져 화면이 멈춤). `\u2028`처럼 적는다(test.js가 문법과 함께 확인)
-- `tools/` : 가짜 Apps Script(gas-mock.js)로 서버 코드를 그대로 돌려 시험·미리보기. 고친 뒤 `node tools/test.js`, `node tools/build-preview.js`, `node tools/shots.js`를 돌리고 사진을 직접 본다. 글꼴 주소(jsdelivr)가 막힌 곳에서는 npm `pretendard@1.3.9` 패키지를 풀어 `PRETENDARD_DIR`로 주고 찍는다(대신 글꼴로 찍으면 월별 계획 인쇄 한 장 점검이 2쪽으로 틀릴 수 있음, 2026-10-18 확인). `ONLY=table|phone|pc|print|intro|lib|meet|home|sv11|notice`로 그 점검만 돌린다. shots.js는 미리보기를 작은 로컬 http 서버로 연다(file://로 열면 다시 열기 직전에 쓴 기기 저장이 가끔 사라져 화면 크기·디자인 기억 점검이 틀렸음, 예전 판도 같음)
+- `tools/` : 가짜 Apps Script(gas-mock.js)로 서버 코드를 그대로 돌려 시험·미리보기. 고친 뒤 `node tools/test.js`, `node tools/build-preview.js`, `node tools/shots.js`를 돌리고 사진을 직접 본다. 글꼴 주소(jsdelivr)가 막힌 곳에서는 npm `pretendard@1.3.9` 패키지를 풀어 `PRETENDARD_DIR`로 주고 찍는다(대신 글꼴로 찍으면 월별 계획 인쇄 한 장 점검이 2쪽으로 틀릴 수 있음, 2026-10-18 확인). `ONLY=table|phone|pc|print|intro|lib|meet|home|sv11|notice|sub`로 그 점검만 돌린다. shots.js는 미리보기를 작은 로컬 http 서버로 연다(file://로 열면 다시 열기 직전에 쓴 기기 저장이 가끔 사라져 화면 크기·디자인 기억 점검이 틀렸음, 예전 판도 같음)

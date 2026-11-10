@@ -2,7 +2,7 @@
  * Admin.gs — 설정·분류·교직원 표·수정 기록 (관리자 화면)
  */
 
-function fileMark_Admin_() { return '2026-10-28a'; } // 판 표시(관리자 › 점검)
+function fileMark_Admin_() { return '2026-11-10a'; } // 판 표시(관리자 › 점검)
 
 // ---------------------------------------------------------------- 설정
 
@@ -388,11 +388,12 @@ function adminCheck_(args) {
   var want = function (f) { return builds[f] || APP_BUILD_; };
   // 판 표시가 없어도 이 파일의 함수가 있으면 판 표시를 넣기 전(2026-10-15)의 예전 파일이다
   var probe = { 'Code': 'api', 'Db': 'sheetValues_', 'Auth': 'checkLogin_', 'Admin': 'adminCheck_', 'Schedule': 'apiSchedMonth_',
-    'Survey': 'apiSurveyList_', 'Library': 'apiLibList_', 'Help': 'apiHelpList_', 'Setup': 'setupAll_', 'Table': 'apiTableList_', 'Meeting': 'apiMeetList_' };
-  ['Code', 'Db', 'Auth', 'Admin', 'Schedule', 'Survey', 'Library', 'Help', 'Setup', 'Table', 'Meeting'].forEach(function (f) {
+    'Survey': 'apiSurveyList_', 'Library': 'apiLibList_', 'Help': 'apiHelpList_', 'Setup': 'setupAll_', 'Table': 'apiTableList_', 'Meeting': 'apiMeetList_', 'Substitute': 'apiSubList_' };
+  ['Code', 'Db', 'Auth', 'Admin', 'Schedule', 'Survey', 'Library', 'Help', 'Setup', 'Table', 'Meeting', 'Substitute'].forEach(function (f) {
     var mark = globalFn_('fileMark_' + f + '_');
     if (!mark && globalFn_(probe[f])) add('코드 파일', f + '.gs', 'warn', '판 표시가 없는 예전 파일이에요(기능은 돌아가요)', paste(f));
     else if (!mark && f === 'Meeting') add('코드 파일', 'Meeting.gs', 'bad', '파일이 없어요(회의록)', "Apps Script 편집기에서 + → 스크립트로 'Meeting' 파일을 새로 만들고, 설치안내 표의 'Meeting' 파일을 Copy raw file로 붙여 넣어 주세요");
+    else if (!mark && f === 'Substitute') add('코드 파일', 'Substitute.gs', 'bad', '파일이 없어요(보결)', "Apps Script 편집기에서 + → 스크립트로 'Substitute' 파일을 새로 만들고, 설치안내 표의 'Substitute' 파일을 Copy raw file로 붙여 넣어 주세요");
     else if (!mark) add('코드 파일', f + '.gs', 'bad', '파일이 없거나 내용이 비어 있어요', paste(f));
     else if (f === 'Code' && !buildsFn) add('코드 파일', 'Code.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
     else if (mark() !== want(f)) add('코드 파일', f + '.gs', 'warn', '예전 판이에요(' + mark() + ')', paste(f));
@@ -425,7 +426,7 @@ function adminCheck_(args) {
   var tabs = tabs_(), bad = 0;
   var autoTabs = { '학생수': '학생 수를 처음 넣을 때 저절로 생겨요', '함께표': '취합 시트를 처음 만들 때 저절로 생겨요', '함께표줄': '취합 시트를 처음 만들 때 저절로 생겨요',
     '시트양식': '취합 시트의 양식을 처음 저장할 때 저절로 생겨요', '학기': '학기 기간을 처음 넣을 때 저절로 생겨요(그 전에는 예전 설정 값을 써요)',
-    '회의': '회의록을 처음 만들 때 저절로 생겨요', '회의내용': '회의록을 처음 만들 때 저절로 생겨요' }, notYet = 0;
+    '회의': '회의록을 처음 만들 때 저절로 생겨요', '회의내용': '회의록을 처음 만들 때 저절로 생겨요', '보결': '보결을 처음 올릴 때 저절로 생겨요' }, notYet = 0;
   var autoCols = { // 저장할 때 ensureCols_가 붙이는 칸
     '학생수': { cols: ['반별'], when: '학생 수를 저장할 때' },
     '일정': { cols: ['중요'], when: '일정을 저장할 때' },

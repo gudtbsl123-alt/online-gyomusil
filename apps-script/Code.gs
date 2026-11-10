@@ -64,8 +64,8 @@ function tableUiFileBuild_() {
 }
 
 /** 이 코드 묶음의 판(버전). 가장 최근에 고친 판이다 */
-var APP_BUILD_ = '2026-11-03d';
-function fileMark_Code_() { return '2026-11-03d'; }
+var APP_BUILD_ = '2026-11-10a';
+function fileMark_Code_() { return '2026-11-10a'; }
 
 /**
  * 파일마다 있어야 할 판. 관리자 › 점검이 각 파일의 판 표시(fileMark_○○_, App·Styles·Index의 판)와 견준다.
@@ -73,9 +73,10 @@ function fileMark_Code_() { return '2026-11-03d'; }
  */
 function fileBuilds_() {
   return {
-    'Code': '2026-11-03d', 'Db': '2026-11-03a', 'Auth': '2026-10-28a', 'Admin': '2026-10-28a', 'Schedule': '2026-10-28a',
+    'Code': '2026-11-10a', 'Db': '2026-11-10a', 'Auth': '2026-10-28a', 'Admin': '2026-11-10a', 'Schedule': '2026-11-10a',
     'Survey': '2026-11-03a', 'Library': '2026-10-28a', 'Help': '2026-10-28a', 'Setup': '2026-10-28a', 'Table': '2026-10-28a',
-    'Meeting': '2026-10-28a', 'App': '2026-11-03d', 'Styles': '2026-11-03d', 'Index': '2026-10-21c', 'TableUi': '2026-11-03d'
+    'Meeting': '2026-10-28a', 'App': '2026-11-10a', 'Styles': '2026-11-10a', 'Index': '2026-10-21c', 'TableUi': '2026-11-03d',
+    'Substitute': '2026-11-10a'
   };
 }
 
@@ -146,6 +147,11 @@ function routes_() {
     'meet.etc.add': { need: 'identity', fn: 'apiMeetEtcAdd_' },
     'meet.etc.save': { need: 'identity', fn: 'apiMeetEtcSave_' },
     'meet.etc.delete': { need: 'identity', fn: 'apiMeetEtcDelete_' },
+    'sub.list': { need: 'login', fn: 'apiSubList_' }, // 보결(Substitute.gs, 2026-11-10a)
+    'sub.file': { need: 'login', fn: 'apiSubFile_' },
+    'sub.upload': { need: 'identity', fn: 'apiSubUpload_' },
+    'sub.save': { need: 'identity', fn: 'apiSubSave_' },
+    'sub.delete': { need: 'identity', fn: 'apiSubDelete_' },
 
     'table.list': { need: 'login', fn: 'apiTableList_' },
     'table.get': { need: 'login', fn: 'apiTableGet_' },
@@ -196,6 +202,8 @@ function routes_() {
     'admin.trash.restoreTable': { need: 'admin', fn: 'adminTableRestore_' },
     'admin.trash.meetings': { need: 'admin', fn: 'adminMeetTrash_' },
     'admin.trash.restoreMeeting': { need: 'admin', fn: 'adminMeetRestore_' },
+    'admin.trash.subs': { need: 'admin', fn: 'adminSubTrash_' },
+    'admin.trash.restoreSub': { need: 'admin', fn: 'adminSubRestore_' },
     'admin.year.preview': { need: 'admin', fn: function () { return adminYearPreview_(); } },
     'admin.year.check': { need: 'admin', fn: 'adminYearCheck_' },
     'admin.year.start': { need: 'admin', fn: 'adminYearStart_' },
@@ -214,7 +222,7 @@ function routes_() {
  * 쓰기 뒤 같은 요청 안에서 이어 읽을 수 있는 화면(로그인만 있으면 되는 읽기만).
  * 저장한 다음 목록을 다시 부르느라 서버를 한 번 더 다녀오지 않게 한다(속도).
  */
-var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'sched.range': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'meet.list': 1, 'meet.get': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1, 'table.list': 1, 'table.get': 1, 'table.tpl.list': 1 };
+var THEN_READS_ = { 'home': 1, 'session': 1, 'sched.month': 1, 'sched.year': 1, 'sched.range': 1, 'survey.list': 1, 'survey.get': 1, 'notice.list': 1, 'meet.list': 1, 'meet.get': 1, 'sub.list': 1, 'help.list': 1, 'lib.list': 1, 'staff.list': 1, 'table.list': 1, 'table.get': 1, 'table.tpl.list': 1 };
 
 /**
  * 요청마다 읽는 탭(서버 기억에서 한 번에 꺼내 두기, 속도). 로그인·본인 확인에서 늘 설정·교직원·분류를 읽는다.
@@ -224,7 +232,7 @@ var BASE_TABS_ = ['설정', '교직원', '분류'];
 var ROUTE_TABS_ = {
   'start': [], 'staffPicker': [], 'staff.list': [],
   'session': ['응답', '알림', '조사', '공지'],
-  'home': ['일정', '월별중점', '학생수', '응답', '알림', '조사', '자료', '공지', '도움말', '회의', '회의내용', '@gy:tbtodo'], // '@키': 탭이 아닌 서버 기억(취합 시트 할 일 목록, Table.gs)
+  'home': ['일정', '월별중점', '학생수', '응답', '알림', '조사', '자료', '공지', '도움말', '회의', '회의내용', '보결', '@gy:tbtodo'], // '@키': 탭이 아닌 서버 기억(취합 시트 할 일 목록, Table.gs)
   'sched.month': ['일정', '월별중점', '학기'],
   'sched.year': ['일정', '학기'],
   'sched.range': ['일정'],
@@ -235,6 +243,8 @@ var ROUTE_TABS_ = {
   'notice.list': ['공지', '자료'],
   'meet.list': ['회의', '회의내용', '학기'],
   'meet.get': ['회의', '회의내용'],
+  'sub.list': ['보결'],
+  'sub.file': ['보결'],
   'help.list': ['도움말'],
   'table.list': ['함께표', '함께표줄'],
   'table.get': ['함께표', '함께표줄'],

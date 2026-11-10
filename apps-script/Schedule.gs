@@ -8,7 +8,7 @@
  * 고치기·지우기: 처음 넣은 사람, 역할이 '관리'인 분, 관리자 화면을 연 분만.
  */
 
-function fileMark_Schedule_() { return '2026-10-28a'; } // 판 표시(관리자 › 점검)
+function fileMark_Schedule_() { return '2026-11-10a'; } // 판 표시(관리자 › 점검)
 
 function schedKinds_() {
   return ['행사', '교육활동', '회의', '휴업일', '공휴일', '근무']; // 회의·근무는 2026-10-19a(교사 요청·검토 55번)
@@ -285,6 +285,8 @@ function apiHome_(args, actor, ctx) {
     todos: optional_('todoList_', [])(ctx),
     tableTodos: optional_('tbTodosFor_', [])(ctx), // 취합 시트 할 일 열에 내 이름이 있는 끝나지 않은 줄(서버 기억 10분)
     meetTodos: optional_('meetTodosFor_', [])(ctx), // 7일 안의 회의록에서 내 부서 칸이 아직 빈 것(Meeting.gs, 2026-10-28a)
+    subTodos: optional_('subTodosFor_', [])(ctx), // 7일 안에 내가 들어갈 보결(Substitute.gs, 2026-11-10a)
+    subVice: optional_('subViceFor_', null)(ctx), // 교감 선생님: 오늘·다가오는 보결 요약
     library: homeLib.slice(0, 6), // 홈에는 6개까지
     libraryTotal: homeLib.length,
     notices: optional_('homeNotices_', { items: [], total: 0 })(ctx),

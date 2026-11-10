@@ -77,10 +77,10 @@ test('SHA-256·HMAC 가짜 구현이 Node crypto와 같다', () => {
   }
 });
 
-test('처음 설정: 탭 19개와 머리글, 설정 기본값을 만든다', () => {
+test('처음 설정: 탭 20개와 머리글, 설정 기본값을 만든다', () => {
   const g = loadGas();
   const r = g.setupAll_();
-  assert.strictEqual(r.created.length, 19); // 회의·회의내용(2026-10-22a)
+  assert.strictEqual(r.created.length, 20); // 회의·회의내용(2026-10-22a), 보결(2026-11-10a)
   const names = g._ss.sheets.map((s) => s.name);
   for (const t of Object.keys(g.tabs_())) assert.ok(names.includes(t), t);
   assert.deepStrictEqual(plain(g.headOf_('교직원')), plain(g.tabs_()['교직원']));
@@ -1921,7 +1921,7 @@ test('속도 재기(관리자): 화면마다 서버 처리·시트 열기·탭 �
     assert.strictEqual(x.memo.reads, 0, x.label + ' 기억에서 잴 때는 시트를 읽지 않음');
     assert.strictEqual(x.memo.hits, x.sheet.reads, x.label + ' 같은 탭을 기억에서');
   }
-  assert.strictEqual(r.data.items[0].sheet.reads, 13, '홈은 탭 13개(비상 시 이것부터의 도움말 탭, 회의록 할 일의 회의 탭 포함. 7일 안에 내 부서 칸이 있는 회의가 있을 때만 회의내용도, 2026-10-28a)');
+  assert.strictEqual(r.data.items[0].sheet.reads, 14, '홈은 탭 14개(보결 할 일의 보결 탭 2026-11-10a, 비상 시 이것부터의 도움말 탭, 회의록 할 일의 회의 탭 포함. 7일 안에 내 부서 칸이 있는 회의가 있을 때만 회의내용도, 2026-10-28a)');
   assert.strictEqual(r.data.memoOn, true);
 });
 
@@ -4761,6 +4761,149 @@ test('회의록: 점검(Meeting.gs 판·탭이 아직 없어도 괜찮음)·예�
   assert.ok(by.length >= 3 && by.every((n) => ['홍길동', '성춘향', '이몽룡', '심청', '흥부', '놀부', '장화', '홍련'].includes(n)), by.join(','));
 });
 
+// ---------------------------------------------------------------- 보결(Substitute.gs, 판 2026-11-10a)
+
+function subPeriods(staff, list) {
+  const id = (n) => (n ? staff.find((x) => x.name === n).id : '');
+  return list.map(([p, s, w, files]) => ({ p, s, t: s + ' 할 일', w: id(w), files: files || [], links: [] }));
+}
+
+test('보결(2026-11-10a): 탭이 없던 시트에서 열리고, 올리면 탭이 생기며, 모든 선생님이 보고, 고치기·지우기는 올린 분과 관리만', () => {
+  const g = freshName();
+  const { L, staff, who, boss } = ids(g);
+  g._ss.sheets = g._ss.sheets.filter((x) => x.name !== '보결'); // 이 기능 전에 설치한 시트
+  const ls = call(g, 'sub.list', {}, { login: L });
+  assert.ok(ls.ok, ls.error);
+  assert.deepStrictEqual(plain(ls.data.items), []);
+  assert.strictEqual(ls.data.canWrite, false, '이름을 고르기 전에는 보기만');
+  // 학급은 교직원 소속에서(학년·반 순), 담임은 그 소속인 분
+  assert.deepStrictEqual(plain(ls.data.classes.map((c) => c.name)), ['1학년 1반', '2학년 1반', '3학년 1반', '3학년 2반', '4학년 1반', '5학년 1반', '6학년 2반']);
+  assert.strictEqual(ls.data.classes.find((c) => c.name === '4학년 1반').teacher, '이몽룡');
+  const t = g.todayYmd_();
+  const req = { date: t, cls: '4학년 1반', teacher: '이몽룡', note: '급식 지도 부탁해요', periods: subPeriods(ls.data.staff, [[1, '국어', '홍길동'], [3, '과학', '']]) };
+  assert.strictEqual(call(g, 'sub.save', req, { login: L }).code, 'IDENTITY');
+  const r = call(g, 'sub.save', req, who('이몽룡'));
+  assert.ok(r.ok, r.error);
+  assert.ok(g._ss.getSheetByName('보결'), '탭이 저절로 생김');
+  assert.ok(/^B/.test(r.data.id));
+  // 로그인만 해도 보인다
+  const it = call(g, 'sub.list', {}, { login: L }).data.items[0];
+  assert.strictEqual(it.cls, '4학년 1반');
+  assert.deepStrictEqual(plain(it.periods.map((x) => [x.p, x.s, x.wName])), [[1, '국어', '홍길동'], [3, '과학', '']]);
+  assert.strictEqual(it.unassigned, 1);
+  assert.strictEqual(it.canEdit, false);
+  assert.strictEqual(call(g, 'sub.list', {}, who('홍길동')).data.items[0].mine, true);
+  // 같은 날·같은 학급은 하나만
+  assert.strictEqual(call(g, 'sub.save', req, who('심청')).code, 'DUP');
+  // 다른 분은 못 고침, 관리는 됨. 판이 다르면 묻는다(CONFLICT), force면 저장
+  const edit = Object.assign({}, req, { id: r.data.id, base: 1, periods: subPeriods(ls.data.staff, [[1, '국어', '홍길동'], [3, '과학', '심청']]) });
+  assert.strictEqual(call(g, 'sub.save', edit, who('심청')).code, 'FORBIDDEN');
+  assert.ok(call(g, 'sub.save', edit, who('이몽룡')).ok);
+  const stale = call(g, 'sub.save', Object.assign({}, edit, { note: '다른 글' }), boss('성춘향'));
+  assert.strictEqual(stale.code, 'CONFLICT', '본 판(1)이 지금 판(2)과 다름');
+  assert.match(stale.error, /이몽룡 선생님이/);
+  assert.ok(call(g, 'sub.save', Object.assign({}, edit, { note: '다른 글', force: true }), boss('성춘향')).ok);
+  const it2 = call(g, 'sub.list', {}, { login: L }).data.items[0];
+  assert.strictEqual(it2.ver, 3);
+  assert.strictEqual(it2.unassigned, 0);
+  assert.strictEqual(it2.note, '다른 글');
+  // 값 확인: 교시 범위·두 번·없는 선생님·링크
+  const bad = (periods, msg) => { const x = call(g, 'sub.save', Object.assign({}, req, { cls: '5학년 1반', periods }), who('심청')); assert.ok(!x.ok && msg.test(x.error), x.error); };
+  bad([], /하나 이상/);
+  bad([{ p: 7, s: '국어' }], /1~6교시/);
+  bad([{ p: 1 }, { p: 1 }], /두 번/);
+  bad([{ p: 2, w: 'T9999' }], /다시 골라/);
+  bad([{ p: 2, links: [{ u: 'http://a.b' }] }], /https/);
+  // 지우기: 다른 분 못 함 → 올린 분 → 휴지통에서 되살림
+  assert.strictEqual(call(g, 'sub.delete', { id: r.data.id }, who('심청')).code, 'FORBIDDEN');
+  assert.ok(call(g, 'sub.delete', { id: r.data.id }, who('이몽룡')).ok);
+  assert.strictEqual(call(g, 'sub.list', {}, { login: L }).data.items.length, 0);
+  const { t: at } = adminTokens(g);
+  const tr = call(g, 'admin.trash.subs', {}, at);
+  assert.ok(tr.ok, tr.error);
+  assert.match(tr.data.items[0].title, /4학년 1반 보결/);
+  assert.ok(call(g, 'admin.trash.restoreSub', { id: r.data.id }, at).ok);
+  assert.strictEqual(call(g, 'sub.list', {}, { login: L }).data.items.length, 1);
+  // 기록 탭: 보결 올림·고침·지움·되살림
+  const logs = g.readRows_('기록').filter((x) => x['탭'] === '보결').map((x) => x['요약']);
+  assert.ok(logs.some((x) => /보결 올림/.test(x)) && logs.some((x) => /보결 고침/.test(x)) && logs.some((x) => /보결 지움/.test(x)) && logs.some((x) => /보결 되살림/.test(x)), logs.join(' / '));
+});
+
+test('보결(2026-11-10a): 파일은 먼저 올려 받은 표로 붙이고(올린 분만), 파일ID는 화면에 안 가며, 내려받기는 로그인한 누구나 · 고칠 때 있던 파일은 그대로', () => {
+  const g = freshName();
+  const { L, staff, who } = ids(g);
+  const b64 = (s) => Buffer.from(s).toString('base64');
+  const up = call(g, 'sub.upload', { file: { name: '활동지.hwp', type: 'application/x-hwp', data: b64('활동지 내용') } }, who('이몽룡'));
+  assert.ok(up.ok, up.error);
+  assert.ok(up.data.token && up.data.name === '활동지.hwp');
+  assert.strictEqual(call(g, 'sub.upload', { file: { name: 'a', data: b64('x') } }, { login: L }).code, 'IDENTITY');
+  const ls = call(g, 'sub.list', {}, { login: L }).data;
+  const periods = subPeriods(ls.staff, [[2, '수학', '성춘향', [{ token: up.data.token }]]]);
+  // 다른 분의 표로는 붙일 수 없다
+  const other = call(g, 'sub.save', { date: g.todayYmd_(), cls: '4학년 1반', periods }, who('심청'));
+  assert.ok(!other.ok && /올린 파일을 찾지 못했어요/.test(other.error), other.error);
+  const r = call(g, 'sub.save', { date: g.todayYmd_(), cls: '4학년 1반', periods }, who('이몽룡'));
+  assert.ok(r.ok, r.error);
+  const listed = call(g, 'sub.list', {}, { login: L });
+  const f = listed.data.items[0].periods[0].files[0];
+  assert.deepStrictEqual(plain(f), { x: 'f1', n: '활동지.hwp', z: Buffer.from('활동지 내용').length });
+  const row = g.findRow_('보결', r.data.id);
+  const driveId = JSON.parse(row['교시'])[0].f[0].id;
+  assert.ok(driveId && !JSON.stringify(listed.data).includes(driveId), '파일ID는 화면에 보내지 않는다');
+  const dl = call(g, 'sub.file', { id: r.data.id, x: 'f1' }, { login: L });
+  assert.ok(dl.ok, dl.error);
+  assert.strictEqual(Buffer.from(dl.data.data, 'base64').toString(), '활동지 내용');
+  assert.strictEqual(call(g, 'sub.file', { id: r.data.id, x: 'f9' }, { login: L }).code, 'NOTFOUND');
+  // 고치기: 있던 파일은 번호로 그대로 + 새 파일 → f2. 없는 번호는 막는다
+  const up2 = call(g, 'sub.upload', { file: { name: '답.pdf', type: 'application/pdf', data: b64('답') } }, who('이몽룡')).data;
+  const p2 = subPeriods(ls.staff, [[2, '수학', '성춘향', [{ x: 'f1' }, { token: up2.token }]], [4, '사회', '']]);
+  const e = call(g, 'sub.save', { id: r.data.id, base: 1, date: g.todayYmd_(), cls: '4학년 1반', periods: p2 }, who('이몽룡'));
+  assert.ok(e.ok, e.error);
+  const it = call(g, 'sub.list', {}, { login: L }).data.items[0];
+  assert.deepStrictEqual(plain(it.periods[0].files.map((x) => x.x + ':' + x.n)), ['f1:활동지.hwp', 'f2:답.pdf']);
+  const badX = call(g, 'sub.save', { id: r.data.id, base: 2, date: g.todayYmd_(), cls: '4학년 1반', periods: subPeriods(ls.staff, [[2, '수학', '', [{ x: 'f7' }]]]) }, who('이몽룡'));
+  assert.ok(!badX.ok && /붙여 둔 파일/.test(badX.error), badX.error);
+  // 파일 수 한도(교시마다 5개)
+  const many = subPeriods(ls.staff, [[1, '국어', '', Array.from({ length: 6 }, () => ({ x: 'f1' }))]]);
+  const m = call(g, 'sub.save', { date: g.todayYmd_(), cls: '5학년 1반', periods: many }, who('이몽룡'));
+  assert.ok(!m.ok && /5개까지/.test(m.error), m.error);
+});
+
+test('보결(2026-11-10a): 홈 \'내가 할 일\'(들어갈 선생님, 오늘~7일) · 교감 선생님(직위)은 요약과 isVice · 점검·예시 데이터', () => {
+  const g = freshName();
+  const { L, staff, who } = ids(g);
+  const ls = call(g, 'sub.list', {}, { login: L }).data;
+  const t = g.todayYmd_();
+  const mk = (date, cls, ps) => { const r = call(g, 'sub.save', { date, cls, periods: subPeriods(ls.staff, ps) }, who('이몽룡')); assert.ok(r.ok, r.error); };
+  mk(t, '4학년 1반', [[2, '수학', '성춘향'], [3, '과학', '']]);
+  mk(g.addDays_(t, 1), '5학년 1반', [[5, '미술', '성춘향']]);
+  mk(g.addDays_(t, 9), '6학년 2반', [[1, '영어', '성춘향']]); // 7일 밖
+  mk(g.addDays_(t, -1), '2학년 1반', [[1, '통합', '성춘향']]); // 지난 날
+  const h = call(g, 'home', {}, who('성춘향'));
+  assert.ok(h.ok, h.error);
+  assert.deepStrictEqual(plain(h.data.subTodos.map((x) => [x.date, x.p, x.cls, x.s])), [[t, 2, '4학년 1반', '수학'], [g.addDays_(t, 1), 5, '5학년 1반', '미술']]);
+  assert.strictEqual(h.data.subVice, null, '교감이 아니면 요약 없음');
+  assert.deepStrictEqual(plain(call(g, 'home', {}, who('홍길동')).data.subTodos), []);
+  // 교감 선생님: 교직원 표 직위에 '교감'
+  const nb = g.liveRows_('교직원').find((r) => r['이름'] === '놀부');
+  g.updateRow_('교직원', nb['교직원ID'], { '직위': '교감' }, { id: '', name: '시험' }, '시험');
+  const v = call(g, 'home', {}, who('놀부')).data.subVice;
+  assert.deepStrictEqual(plain(v && [v.classes, v.hours, v.unassigned, v.soonClasses, v.soonUnassigned]), [1, 2, 1, 1, 0]);
+  assert.strictEqual(call(g, 'sub.list', {}, who('놀부')).data.isVice, true);
+  assert.strictEqual(call(g, 'sub.list', {}, who('심청')).data.isVice, false);
+  // 점검: Substitute.gs 판 확인, 탭이 없어도 bad 아님
+  const g2 = freshName();
+  g2._ss.sheets = g2._ss.sheets.filter((x) => x.name !== '보결');
+  const ck = call(g2, 'admin.check', {}, adminTokens(g2).t).data;
+  assert.ok(ck.items.some((x) => x.label === 'Substitute.gs' && x.state === 'ok'), 'Substitute.gs 판 확인');
+  assert.ok(!ck.items.some((x) => x.state === 'bad' && (x.group === '시트' || /Substitute/.test(x.label))), JSON.stringify(ck.items.filter((x) => x.state === 'bad')));
+  // 예시: 3개, 가짜 교직원 이름만
+  assert.strictEqual(g2.seedTestSubs_(), 3);
+  assert.throws(() => g2.seedTestSubs_(), /이미 보결이/);
+  const names = call(g2, 'sub.list', {}, ids(g2).who('홍길동')).data.items.flatMap((x) => [x.by, x.teacher].concat(x.periods.map((p) => p.wName))).filter(Boolean);
+  assert.ok(names.every((n) => ['홍길동', '성춘향', '이몽룡', '심청', '흥부', '놀부', '장화', '홍련'].includes(n)), names.join(','));
+});
+
 test('화면 READS(읽기 목록)가 서버의 읽기 요청과 같다(빠지면 읽기를 저장으로 보고 화면 기억을 모두 지움, 2026-10-28a)', () => {
   const app = fs.readFileSync(path.join(GAS_DIR, 'App.html'), 'utf8');
   const m = /var READS = \{([\s\S]*?)\};/.exec(app);
@@ -4769,7 +4912,7 @@ test('화면 READS(읽기 목록)가 서버의 읽기 요청과 같다(빠지면
   const g = freshName();
   const routes = Object.keys(plain(Object.fromEntries(Object.keys(g.routes_()).map((k) => [k, 1]))));
   const TOP = new Set(['start', 'ping', 'boot', 'batch', 'session', 'staffPicker', 'home', 'search']);
-  const LAST = new Set(['list', 'get', 'poll', 'find', 'csv', 'check', 'preview', 'info', 'range', 'month', 'year', 'url', 'table', 'speed', 'importCheck', 'surveys', 'library', 'tables', 'meetings', 'history']);
+  const LAST = new Set(['list', 'get', 'poll', 'find', 'csv', 'check', 'preview', 'info', 'range', 'month', 'year', 'url', 'table', 'speed', 'importCheck', 'surveys', 'library', 'tables', 'meetings', 'history', 'subs', 'file']);
   const isRead = (k) => TOP.has(k) || (k.indexOf('.') > 0 && LAST.has(k.split('.').pop()));
   for (const k of routes) {
     if (isRead(k)) assert.ok(reads.has(k), '읽기인데 READS에 없음: ' + k);

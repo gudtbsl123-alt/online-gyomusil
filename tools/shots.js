@@ -4407,6 +4407,175 @@ async function noticeCheck(browser) {
   await ctx.close();
 }
 
+/** 보결(판 2026-11-10a): 홈 할 일 → 보기·내려받기 → 목록·지난 보결 → 올리기(학급·담임 채우기·교시·파일·링크·같은 시간 알림·같은 학급 막기) → 날짜별 표 → 올린 분 고치기·지우기 → 휴지통 → 교감 선생님 → 휴대폰 */
+async function subCheck(browser) {
+  const P = (m) => problems.push('보결: ' + m);
+  const ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => P('페이지 오류: ' + e.message));
+  await page.goto(FILE);
+  await waitText(page, '어서 오세요');
+  await login(page);
+  await verify(page, '성춘향');
+  // 1) 홈 '내가 할 일': 내가 들어갈 보결 2개(오늘 2교시·내일 5교시)
+  await page.locator('.todo-card').waitFor();
+  const rows = await page.locator('.todo-card .todo-row', { hasText: '보결' }).allInnerTexts();
+  if (rows.length !== 2 || !/4학년 1반 수학 보결/.test(rows[0]) || !/2교시/.test(rows[0]) || !/5학년 1반 미술 보결/.test(rows[1] || '')) P('홈 할 일의 보결 줄이 다름 ' + JSON.stringify(rows));
+  if ((await page.locator('.side .nav [data-go="sub"]').innerText()).trim() !== '보결') P('메뉴에 보결이 없음');
+  await page.locator('.todo-card').scrollIntoViewIfNeeded();
+  await shot(page, '1110a_PC_홈_내가할일_보결');
+  // 2) 자료 보기 → 그 보결이 열리고, 내 교시는 파랗게. 올린 분이 아니면 고치기·지우기 없음
+  await page.locator('.todo-card [data-action=sub-goto]').first().click();
+  await page.locator('.sub-doc').waitFor();
+  if (!/4학년 1반 보결/.test(await page.locator('.sub-h').innerText())) P('홈에서 누른 보결이 아님');
+  if (!/성춘향/.test(await page.locator('.sub-row.me').innerText().catch(() => ''))) P('내 교시 줄이 파랗지 않음');
+  if (await page.locator('[data-action=sub-edit]').count()) P('올린 분이 아닌데 고치기가 보임');
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 8000 }).catch(() => null), page.locator('.sub-row.me [data-action=sub-file]').first().click()]);
+  if (!dl || dl.suggestedFilename() !== '수학_익힘책_답(예시).txt') P('보결 자료 내려받기 이름이 다름 ' + (dl && dl.suggestedFilename()));
+  await shot(page, '1110a_PC_보결_보기');
+  // 3) 목록: 오늘·내일, 내 보결 2, 지난 보결
+  await page.click('[data-action=sub-back]');
+  await page.locator('.sub-card').first().waitFor();
+  if (await page.locator('.sub-day').count() !== 2 || await page.locator('.sub-card.mine').count() !== 2) P('다가오는 보결 목록이 다름');
+  await shot(page, '1110a_PC_보결_목록');
+  await page.click('[data-action=sub-seg][data-v=by]');
+  if (!(await page.locator('.sub-list').count() === 0 && /내가 올린 보결이 없어요/.test(await page.locator('#sub-body').innerText()))) P("'내가 올린 보결' 거르기");
+  await page.click('[data-action=sub-seg][data-v=all]');
+  await page.click('[data-action=sub-tab][data-v=past]');
+  if (!/2학년 1반/.test(await page.locator('#sub-body').innerText())) P('지난 보결에 지난주 보결이 없음');
+  await page.click('[data-action=sub-tab][data-v=up]');
+  // 4) 올리기: 학급을 고르면 담임, 교시 단추 → 줄, 같은 시간 알림, 파일·링크
+  await page.click('[data-action=sub-new]');
+  await page.locator('#sub-form').waitFor();
+  await modalSettled(page);
+  await page.selectOption('#sf-cls', '3학년 1반');
+  if (await page.inputValue('#sf-teacher') !== '홍길동') P('학급을 골라도 담임이 안 채워짐');
+  if (await page.locator('.sub-pe:not([hidden])').count()) P('교시를 고르기 전에 줄이 보임');
+  await page.click('[data-sf-p="2"]'); await page.click('[data-sf-p="4"]');
+  await page.fill('#sf-s2', '국어'); await page.fill('#sf-t2', '받아쓰기 연습(교과서 30쪽)');
+  await page.fill('#sf-s4', '수학');
+  const opt = async (pg, sel, name) => pg.selectOption(sel, await pg.locator(sel + ' option', { hasText: name }).first().getAttribute('value'));
+  await opt(page, '#sf-w2', '흥부');
+  await opt(page, '#sf-w4', '심청'); // 심청은 오늘 4교시에 4학년 1반 보결이 있다
+  if (!/심청 선생님은 이 시간에 다른 보결\(4학년 1반 4교시\)/.test(await page.locator('#sf-warn4').innerText().catch(() => ''))) P('같은 시간 다른 보결 알림이 없음');
+  await page.setInputFiles('#sf-file2', { name: '받아쓰기.txt', mimeType: 'text/plain', buffer: Buffer.from('받아쓰기 문장') });
+  await page.click('[data-sf-link="4"]');
+  await page.fill('[data-sf-lu="4:0"]', 'https://example.com/math');
+  await page.fill('[data-sf-ln="4:0"]', '수학 영상');
+  await page.waitForFunction(() => !document.querySelector('.sub-chipfile .spin'), null, { timeout: 8000 }).catch(() => P('파일 올리기가 끝나지 않음'));
+  await shot(page, '1110a_PC_보결_올리기_창');
+  await page.click('#sf-save');
+  await page.locator('.sub-doc').waitFor();
+  const doc = await page.locator('.sub-doc').innerText();
+  if (!/3학년 1반 보결/.test(doc) || !/받아쓰기\.txt/.test(doc) || !/수학 영상/.test(doc) || !/흥부 선생님/.test(doc)) P('올린 보결 내용이 다름 ' + doc.slice(0, 200));
+  if (!(await page.locator('[data-action=sub-edit]').count())) P('올린 분인데 고치기가 없음');
+  // 같은 날·같은 학급은 막는다(쓰던 글은 창에 그대로)
+  await page.click('[data-action=sub-back]');
+  await page.click('[data-action=sub-new]');
+  await modalSettled(page);
+  await page.selectOption('#sf-cls', '3학년 1반');
+  await page.click('[data-sf-p="1"]');
+  await page.fill('#sf-s1', '체육');
+  await page.click('#sf-save');
+  await page.locator('#sf-err', { hasText: '이미 있어요' }).waitFor({ timeout: 6000 }).catch(() => P('같은 학급 보결을 막지 않음'));
+  if (await page.inputValue('#sf-s1') !== '체육') P('막힌 뒤 쓰던 글이 지워짐');
+  await page.click('#modal-root [data-action=close-modal]');
+  // 5) 날짜별 표
+  await page.click('[data-action=sub-view][data-v=grid]');
+  await page.locator('.sub-grid').waitFor();
+  const g = await page.evaluate(() => ({ rows: document.querySelectorAll('.sub-grid tbody tr').length, none: document.querySelectorAll('.sub-grid td.none').length, me: document.querySelectorAll('.sub-grid td.me').length }));
+  if (g.rows !== 2 || g.none !== 1 || g.me !== 1) P('날짜별 표 칸이 다름 ' + JSON.stringify(g));
+  await shot(page, '1110a_PC_보결_날짜별표');
+  await page.emulateMedia({ media: 'print' });
+  if (await page.locator('.sub-print-h').isHidden()) P('인쇄에 날짜 제목이 없음');
+  n++; await page.screenshot({ path: path.join(OUT, String(n).padStart(2, '0') + '_1110a_인쇄모양_날짜별표.png') });
+  await page.emulateMedia({ media: 'screen' });
+  await page.click('[data-action=sub-day][data-v="1"]');
+  if (await page.locator('.sub-grid tbody tr').count() !== 1) P('다음 날 표가 다름');
+  await page.click('[data-action=sub-day][data-v="0"]');
+  // 6) 올린 분(이몽룡): 3교시 들어갈 선생님 정하기 → 모두 정함, 지우기 → 휴지통에서 되살리기
+  await page.click('.side [data-action=switch]');
+  await verify(page, '이몽룡');
+  await page.evaluate(() => window.__gy.go('sub'));
+  await page.locator('#sub-body .sub-tools').waitFor();
+  if (await page.locator('[data-action=sub-view][data-v=list]').count()) await page.click('[data-action=sub-view][data-v=list]');
+  await page.locator('.sub-card', { hasText: '4학년 1반' }).click();
+  await page.click('[data-action=sub-edit]');
+  await page.locator('#sub-form').waitFor();
+  await modalSettled(page);
+  if (await page.locator('.sub-pe:not([hidden])').count() !== 4) P('고치기 창의 교시 줄 수가 다름');
+  if (!/국어_활동지/.test(await page.locator('#sf-f1').innerText())) P('고치기 창에 있던 파일이 안 보임');
+  await opt(page, '#sf-w3', '홍련');
+  await page.click('#sf-save');
+  await page.locator('.sub-doc .chip-ok', { hasText: '모두 정함' }).waitFor({ timeout: 6000 }).catch(() => P('들어갈 선생님을 정해도 모두 정함이 안 됨'));
+  if (!/국어_활동지/.test(await page.locator('.sub-doc').innerText())) P('고친 뒤 있던 파일이 사라짐');
+  await page.click('[data-action=sub-del]');
+  await page.click('#cf-ok');
+  await page.locator('.sub-card').first().waitFor();
+  if (await page.locator('.sub-card', { hasText: '4학년 1반' }).count()) P('지운 보결이 목록에 남음');
+  await page.evaluate(() => window.__gy.go('admin'));
+  await page.fill('#admin-pw', 'admin1');
+  await page.click('#admin-form [type=submit]');
+  await page.click('[data-admin-tab=trash]');
+  await page.locator('[data-action=trash-restore-subx]').first().waitFor({ timeout: 8000 }).catch(() => P('휴지통에 지운 보결이 없음'));
+  await page.locator('[data-action=trash-restore-subx]').first().click();
+  await page.waitForTimeout(800);
+  // 7) 교감 선생님: 직위 '교감'(관리자 화면에서 바꿈) → 홈 요약, 보결은 날짜별 표부터
+  const vErr = await page.evaluate(async () => {
+    try {
+      const list = await window.__gy.server('admin.staff.list');
+      const r = (list.staff || list.items || list).find((x) => x['이름'] === '놀부');
+      await window.__gy.server('admin.staff.save', { id: r['교직원ID'], fields: Object.assign({}, r, { '직위': '교감' }) });
+      return '';
+    } catch (e) { return String(e && e.message || e); }
+  });
+  if (vErr) P('교감 직위 바꾸기 실패 ' + vErr);
+  await page.click('.side [data-action=switch]');
+  await verify(page, '놀부');
+  await page.evaluate(() => window.__gy.go('home'));
+  await page.locator('.todo-card [data-action=sub-goto-grid]').waitFor({ timeout: 8000 }).catch(() => P('교감 선생님 홈에 보결 요약이 없음'));
+  if (!/오늘 보결 2학급/.test(await page.locator('.todo-card').innerText())) P('교감 홈 요약 글이 다름 ' + (await page.locator('.todo-card').innerText()).slice(0, 200));
+  await page.locator('.todo-card').scrollIntoViewIfNeeded();
+  await shot(page, '1110a_PC_교감_홈');
+  await page.click('.todo-card [data-action=sub-goto-grid]');
+  await page.locator('.sub-grid').waitFor({ timeout: 6000 }).catch(() => P('교감 선생님 보결 화면이 날짜별 표로 열리지 않음'));
+  await shot(page, '1110a_PC_교감_날짜별표');
+  await page.click('[data-theme-btn=dark]').catch(() => {});
+  await page.click('[data-action=sub-view][data-v=list]');
+  await shot(page, '1110a_PC_보결_목록_어둡게');
+  await page.click('[data-theme-btn=light]').catch(() => {});
+  await ctx.close();
+  // 8) 휴대폰
+  const pc = await newCtx(browser, { viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  const ph = await pc.newPage();
+  ph.on('pageerror', (e) => P('휴대폰 페이지 오류: ' + e.message));
+  await ph.goto(FILE);
+  await waitText(ph, '어서 오세요');
+  await login(ph);
+  await verify(ph, '이몽룡');
+  await ph.click('.bottom-nav [data-action=sheet]');
+  await ph.click('#sheet [data-go="sub"]');
+  await ph.locator('.sub-card').first().waitFor();
+  const over = await ph.evaluate(() => document.scrollingElement.scrollWidth - innerWidth);
+  if (over > 1) P('휴대폰 보결 목록이 옆으로 넘침 ' + over);
+  if (!(await ph.locator('.bottom-nav [data-action=sheet][aria-current=page]').count())) P("휴대폰 '전체'가 보결에서 켜지지 않음");
+  await shot(ph, '1110a_휴대폰_보결목록', true);
+  await ph.locator('.sub-card', { hasText: '4학년 1반' }).click();
+  await ph.locator('.sub-doc').waitFor();
+  await shot(ph, '1110a_휴대폰_보결보기', true);
+  await ph.click('[data-action=sub-edit]');
+  await ph.locator('#sub-form').waitFor();
+  const over2 = await ph.evaluate(() => { // 아래 단추 줄(sticky-btns)은 원래 창 끝까지 붙는 모양이라 빼고 본다
+    const m = document.querySelector('.modal'), mr = m.getBoundingClientRect();
+    let o = 0;
+    m.querySelectorAll('#sub-form *').forEach((el) => { const r = el.getBoundingClientRect(); if (r.width) o = Math.max(o, r.right - mr.right); });
+    return Math.round(o);
+  });
+  if (over2 > 1) P('휴대폰 보결 창이 옆으로 넘침 ' + over2);
+  await shot(ph, '1110a_휴대폰_보결고치기');
+  await pc.close();
+}
+
 async function admin5Check(browser) {
   const P = (m) => problems.push('관리자 보완: ' + m);
   const ctx = await newCtx(browser, { viewport: { width: 1440, height: 900 } });
@@ -5240,6 +5409,14 @@ async function introGapCheck(browser) {
     if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
     return;
   }
+  // ONLY=sub: 보결(판 2026-11-10a)
+  if (process.env.ONLY === 'sub') {
+    await subCheck(browser);
+    await browser.close();
+    console.log('사진 ' + n + '장 → ' + OUT);
+    if (problems.length) { console.log('문제:\n  ' + problems.join('\n  ')); process.exitCode = 1; } else console.log('넘침·오류 없음');
+    return;
+  }
   // ONLY=notice: 가운데 팝업·창 바깥 누르기(판 2026-11-03d)
   if (process.env.ONLY === 'notice') {
     await noticeCheck(browser);
@@ -5537,6 +5714,7 @@ async function introGapCheck(browser) {
   await sv11Check(browser);
   await idPickCheck(browser);
   await noticeCheck(browser);
+  await subCheck(browser);
   await homeSideCheck(browser);
   await tableMissingCheck(browser);
   const intro = [await introFlow(browser, 'PC', { width: 1440, height: 900 }), await introFlow(browser, '휴대폰', { width: 390, height: 844 }), await introLateCheck(browser), await introReducedMotionCheck(browser), await introGapCheck(browser)];
